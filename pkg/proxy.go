@@ -100,14 +100,3 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		proxy.ServeHTTP(w, r)
 	}
 }
-
-func isAllowed(cors []string, r *http.Request) bool {
-	for _, origin := range cors {
-		if origin == r.Header.Get("Origin") {
-			return true
-		}
-		continue
-	}
-	return false
-
-}

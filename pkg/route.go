@@ -16,9 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
-	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/pkg/middleware"
 	"github.com/jkaninda/goma-gateway/util"
@@ -133,13 +131,4 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	}
 	return r
 
-}
-
-func printRoute(routes []Route) {
-	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Name", "Route", "Rewrite", "Destination"})
-	for _, route := range routes {
-		t.AppendRow(table.Row{route.Name, route.Path, route.Rewrite, route.Destination})
-	}
-	fmt.Println(t.Render())
 }
