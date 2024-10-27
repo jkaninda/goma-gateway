@@ -18,7 +18,7 @@ ARG user="goma"
 ENV VERSION=${appVersion}
 LABEL author="Jonas Kaninda"
 LABEL version=${appVersion}
-LABEL github="github.com/jkaninda/goma"
+LABEL github="github.com/jkaninda/goma-gateway"
 
 
 RUN apk --update add --no-cache tzdata ca-certificates curl
