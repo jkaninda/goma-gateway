@@ -4,27 +4,6 @@ on:
     tags:
       - v0.**
 jobs:
-  releases-matrix:
-    name: Release Go Binary
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64, arm64]
-        exclude:
-          - goarch: arm64
-            goos: windows
-    steps:
-      - uses: actions/checkout@v4
-      - uses: wangyoucao577/go-release-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          goversion: "https://dl.google.com/go/go1.22.6.linux-amd64.tar.gz"
-          project_path: "./"
-          binary_name: "goma"
-          extra_files: LICENSE README.md
   docker:
     runs-on: ubuntu-latest
     permissions:
