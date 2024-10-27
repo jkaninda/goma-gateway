@@ -1,0 +1,13 @@
+/.history
+data
+compose.yaml
+.env
+test.md
+.DS_Store
+goma-gateway
+goma
+/.idea
+bin
+Makefile
+NOTES.md
+tests
