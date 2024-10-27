@@ -20,5 +20,5 @@ func Intro() {
 	nameFigure.Print()
 	fmt.Printf("Version: %s\n", util.FullVersion())
 	fmt.Println("Copyright (c) 2024 Jonas Kaninda")
-	fmt.Println("Starting Goma server...")
+	fmt.Println("Starting Goma Gateway server...")
 }

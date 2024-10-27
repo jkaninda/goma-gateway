@@ -179,7 +179,7 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
 		if err != nil {
-			return nil, fmt.Errorf("in file %q: %w", configFile, err)
+			return nil, fmt.Errorf("error parsing yaml %q: %w", configFile, err)
 		}
 		return &GatewayServer{
 			ctx:         nil,
@@ -338,11 +338,15 @@ func ToJWTRuler(input interface{}) (JWTRuler, error) {
 	var bytes []byte
 	bytes, err := yaml.Marshal(input)
 	if err != nil {
-		return JWTRuler{}, fmt.Errorf("error marshalling yaml: %v", err)
+		return JWTRuler{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	err = yaml.Unmarshal(bytes, jWTRuler)
 	if err != nil {
-		return JWTRuler{}, fmt.Errorf("error unmarshalling yaml: %v", err)
+		return JWTRuler{}, fmt.Errorf("error parsing yaml: %v", err)
+	}
+	if jWTRuler.URL == "" {
+		return JWTRuler{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middleware")
+
 	}
 	return *jWTRuler, nil
 }
@@ -352,11 +356,15 @@ func ToBasicAuth(input interface{}) (BasicRule, error) {
 	var bytes []byte
 	bytes, err := yaml.Marshal(input)
 	if err != nil {
-		return BasicRule{}, fmt.Errorf("error marshalling yaml: %v", err)
+		return BasicRule{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	err = yaml.Unmarshal(bytes, basicAuth)
 	if err != nil {
-		return BasicRule{}, fmt.Errorf("error unmarshalling yaml: %v", err)
+		return BasicRule{}, fmt.Errorf("error parsing yaml: %v", err)
+	}
+	if basicAuth.Username == "" || basicAuth.Password == "" {
+		return BasicRule{}, fmt.Errorf("error parsing yaml: empty username/password in basic auth middleware")
+
 	}
 	return *basicAuth, nil
 }

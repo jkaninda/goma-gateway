@@ -11,7 +11,7 @@
 ```
 Goma Gateway is a lightweight API Gateway and Reverse Proxy.
 
-[![Build](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml/badge.svg)](https://github.com/jkaninda/goma/actions/workflows/release.yml)
+[![Build](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml/badge.svg)](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml)
 [![Go Report](https://goreportcard.com/badge/github.com/jkaninda/goma-gateway)](https://goreportcard.com/report/github.com/jkaninda/goma-gateway)
 [![Go Reference](https://pkg.go.dev/badge/github.com/jkaninda/goma-gateway.svg)](https://pkg.go.dev/github.com/jkaninda/goma-gateway)
 ![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/jkaninda/goma-gateway?style=flat-square)
@@ -65,7 +65,12 @@ docker run --rm --name goma-gateway \
 ```
 ### 4. Healthcheck
 
+- Goma Gateway readiness: `/readyz`
+- Routes health check: `/healthz`
+
 [http://localhost/healthz](http://localhost/healthz)
+
+[http://localhost/readyz](http://localhost/readyz)
 
 > Healthcheck response body
 
