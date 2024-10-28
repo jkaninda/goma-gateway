@@ -103,6 +103,8 @@ type RouteMiddleware struct {
 type Route struct {
 	// Name defines route name
 	Name string `yaml:"name"`
+	//Host Domain/host based request routing
+	Host string `yaml:"host"`
 	// Path defines route path
 	Path string `yaml:"path"`
 	// Rewrite rewrites route path to desired path
@@ -247,6 +249,7 @@ func initConfig(configFile string) {
 			Routes: []Route{
 				{
 					Name:        "HealthCheck",
+					Host:        "localhost",
 					Path:        "/public",
 					Destination: "http://localhost:80",
 					Rewrite:     "/healthz",

@@ -120,10 +120,14 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				disableXForward: route.DisableHeaderXForward,
 				cors:            route.Cors,
 			}
-
 			router := r.PathPrefix(route.Path).Subrouter()
 			router.Use(CORSHandler(route.Cors))
-			router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
+			//Domain/host based request routing
+			if route.Host != "" {
+				router.Host(route.Host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
+			} else {
+				router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
+			}
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Info("Route path ignored: %s", route.Path)
