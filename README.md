@@ -126,12 +126,11 @@ gateway:
   disableDisplayRouteOnStart: false
   # Proxy Global HTTP Cors
   cors:
-    # Cors origins are global for all routes
+    # Global routes cors for all routes
     origins:
       - https://example.com
-      - https://dev.example.com
-      - http://localhost:80
-    # Allowed headers are global for all routes
+      - https://auth.example.com
+    # Global routes cors headers for all routes
     headers:
       Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
       Access-Control-Allow-Credentials: 'true'
@@ -141,7 +140,7 @@ gateway:
     # Example of a route | 1
     - name: Store
       # host Domain/host based request routing
-      host: localhost
+      host: dev.example.com
       path: /store
       ## Rewrite a request path
       # e.g rewrite: /store to /
@@ -153,8 +152,13 @@ gateway:
       disableHeaderXForward: false
       # Internal health check
       healthCheck: /internal/health/ready
-      # Proxy route HTTP Cors
+      # Route Cors, global cors will be overridden by route
       cors:
+        # Route Origins Cors, global cors will be overridden by route
+        origins:
+          - https://dev.example.com
+          - http://localhost:3000
+        # Route Cors headers, global cors will be overridden by route
         headers:
           Access-Control-Allow-Methods: 'GET'
           Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
