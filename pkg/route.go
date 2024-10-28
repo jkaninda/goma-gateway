@@ -63,7 +63,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 					}
 					rMiddleware, err := searchMiddleware(mid.Rules, middlewares)
 					if err != nil {
-						logger.Error("Middleware name not found")
+						logger.Error("Error: %v", err.Error())
 					} else {
 						//Check Authentication middleware
 						switch rMiddleware.Type {
