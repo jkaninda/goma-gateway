@@ -34,8 +34,6 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	// Define the health check route
 	r.HandleFunc("/healthz", heath.HealthCheckHandler).Methods("GET")
 	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
-	// Apply global Cors middlewares
-	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middleware
 	if gateway.RateLimiter != 0 {
 		//rateLimiter := middleware.NewRateLimiter(gateway.RateLimiter, time.Minute)
 		limiter := middleware.NewRateLimiterWindow(gateway.RateLimiter, time.Minute) //  requests per minute
@@ -48,8 +46,6 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				Path: route.Path,
 				List: route.Blocklist,
 			}
-			// Add block access middleware to all route, if defined
-			r.Use(blM.BlocklistMiddleware)
 			// Apply route middleware
 			for _, mid := range route.Middlewares {
 				if mid.Path != "" {
@@ -121,7 +117,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				cors:            route.Cors,
 			}
 			router := r.PathPrefix(route.Path).Subrouter()
+			// Apply route Cors
 			router.Use(CORSHandler(route.Cors))
+			// Add block access middleware to route, if defined
+			router.Use(blM.BlocklistMiddleware)
 			//Domain/host based request routing
 			if route.Host != "" {
 				router.Host(route.Host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
@@ -133,6 +132,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			logger.Info("Route path ignored: %s", route.Path)
 		}
 	}
+	// Apply global Cors middlewares
+	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middleware
 	return r
 
 }
