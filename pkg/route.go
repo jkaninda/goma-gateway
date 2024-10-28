@@ -123,7 +123,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 
 			router := r.PathPrefix(route.Path).Subrouter()
 			router.Use(CORSHandler(route.Cors))
-			router.PathPrefix("/").Handler(proxyRoute.ProxyHandler())
+			router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Info("Route path ignored: %s", route.Path)
