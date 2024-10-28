@@ -88,7 +88,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 				continue
 			}
 		} else {
-			logger.Error("Route %s's healthCheck is undefined", route.Name)
+			logger.Warn("Route %s's healthCheck is undefined", route.Name)
 			routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "undefined", Error: ""})
 			continue
 
