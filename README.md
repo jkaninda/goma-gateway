@@ -140,6 +140,8 @@ gateway:
   routes:
     # Example of a route | 1
     - name: Store
+      # host Domain/host based request routing
+      host: localhost
       path: /store
       ## Rewrite a request path
       # e.g rewrite: /store to /

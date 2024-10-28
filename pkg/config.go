@@ -105,6 +105,8 @@ type Route struct {
 	Name string `yaml:"name"`
 	// Path defines route path
 	Path string `yaml:"path"`
+	//Host Domain/host based request routing
+	Host string `yaml:"host"`
 	// Rewrite rewrites route path to desired path
 	//
 	// E.g. /cart to / => It will rewrite /cart path to /
@@ -247,6 +249,7 @@ func initConfig(configFile string) {
 			Routes: []Route{
 				{
 					Name:        "HealthCheck",
+					Host:        "localhost",
 					Path:        "/public",
 					Destination: "http://localhost:80",
 					Rewrite:     "/healthz",
