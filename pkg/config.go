@@ -103,10 +103,10 @@ type RouteMiddleware struct {
 type Route struct {
 	// Name defines route name
 	Name string `yaml:"name"`
-	// Path defines route path
-	Path string `yaml:"path"`
 	//Host Domain/host based request routing
 	Host string `yaml:"host"`
+	// Path defines route path
+	Path string `yaml:"path"`
 	// Rewrite rewrites route path to desired path
 	//
 	// E.g. /cart to / => It will rewrite /cart path to /
