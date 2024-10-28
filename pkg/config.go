@@ -262,7 +262,14 @@ func initConfig(configFile string) {
 					Rewrite:     "/",
 					HealthCheck: "",
 					Blocklist:   []string{},
-					Cors:        Cors{},
+					Cors: Cors{
+						Origins: []string{"http://localhost:3000", "https://dev.example.com"},
+						Headers: map[string]string{
+							"Access-Control-Allow-Headers":     "Origin, Authorization",
+							"Access-Control-Allow-Credentials": "true",
+							"Access-Control-Max-Age":           "1728000",
+						},
+					},
 					Middlewares: []RouteMiddleware{
 						{
 							Path:  "/user",
