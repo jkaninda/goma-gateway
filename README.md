@@ -241,7 +241,7 @@ middlewares:
         userCountryId: X-Auth-UserCountryId
       # In case you want to get headers from the Authentication service and inject them to the next request's params
       params:
-        auth_userCountryId: countryId
+        userCountryId: countryId
 ```
 
 ## Requirement
