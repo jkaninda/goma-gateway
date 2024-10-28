@@ -11,18 +11,10 @@ You may get a copy of the License at
 */
 import (
 	"fmt"
-	"github.com/common-nighthawk/go-figure"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/jkaninda/goma-gateway/util"
+	"net/http"
 )
 
-func Intro() {
-	nameFigure := figure.NewFigure("Goma", "", true)
-	nameFigure.Print()
-	fmt.Printf("Version: %s\n", util.FullVersion())
-	fmt.Println("Copyright (c) 2024 Jonas Kaninda")
-	fmt.Println("Starting Goma Gateway server...")
-}
 func printRoute(routes []Route) {
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"Name", "Route", "Rewrite", "Destination"})
@@ -30,4 +22,13 @@ func printRoute(routes []Route) {
 		t.AppendRow(table.Row{route.Name, route.Path, route.Rewrite, route.Destination})
 	}
 	fmt.Println(t.Render())
+}
+func getRealIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return ip
+	}
+	return r.RemoteAddr
 }
