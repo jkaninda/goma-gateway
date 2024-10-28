@@ -18,7 +18,6 @@ limitations under the License.
 import (
 	"encoding/json"
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"net/http"
 	"time"
 )
@@ -52,11 +51,7 @@ func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			//TODO:
-			clientID := r.RemoteAddr
-			logger.Info(clientID)
-
+			clientID := getRealIP(r)
 			rl.mu.Lock()
 			client, exists := rl.ClientMap[clientID]
 			if !exists || time.Now().After(client.ExpiresAt) {
@@ -82,9 +77,17 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 				}
 				return
 			}
-
 			// Proceed to the next handler if rate limit is not exceeded
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+func getRealIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return ip
+	}
+	return r.RemoteAddr
 }

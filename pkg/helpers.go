@@ -14,6 +14,7 @@ import (
 	"github.com/common-nighthawk/go-figure"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jkaninda/goma-gateway/util"
+	"net/http"
 )
 
 func Intro() {
@@ -30,4 +31,13 @@ func printRoute(routes []Route) {
 		t.AppendRow(table.Row{route.Name, route.Path, route.Rewrite, route.Destination})
 	}
 	fmt.Println(t.Render())
+}
+func getRealIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return ip
+	}
+	return r.RemoteAddr
 }
