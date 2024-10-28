@@ -247,30 +247,23 @@ func initConfig(configFile string) {
 			Routes: []Route{
 				{
 					Name:        "HealthCheck",
-					Path:        "/healthy",
-					Destination: "http://localhost:8080",
-					Rewrite:     "/health",
+					Path:        "/public",
+					Destination: "http://localhost:80",
+					Rewrite:     "/healthz",
 					HealthCheck: "",
-					Cors: Cors{
-						Headers: map[string]string{
-							"Access-Control-Allow-Headers":     "Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id",
-							"Access-Control-Allow-Credentials": "true",
-							"Access-Control-Max-Age":           "1728000",
-						},
-					},
 				},
 				{
 					Name:        "Basic auth",
-					Path:        "/basic",
-					Destination: "http://localhost:8080",
-					Rewrite:     "/health",
+					Path:        "/protected",
+					Destination: "https://example.com",
+					Rewrite:     "/",
 					HealthCheck: "",
 					Blocklist:   []string{},
 					Cors:        Cors{},
 					Middlewares: []RouteMiddleware{
 						{
-							Path:  "/basic/auth",
-							Rules: []string{"basic-auth", "google-jwt"},
+							Path:  "/user",
+							Rules: []string{"basic-auth"},
 						},
 					},
 				},
@@ -285,10 +278,13 @@ func initConfig(configFile string) {
 					Password: "goma",
 				},
 			}, {
-				Name: "google-jwt",
+				Name: "jwt",
 				Type: "jwt",
 				Rule: JWTRuler{
-					URL:     "https://www.googleapis.com/auth/userinfo.email",
+					URL: "https://www.googleapis.com/auth/userinfo.email",
+					RequiredHeaders: []string{
+						"Authorization",
+					},
 					Headers: map[string]string{},
 					Params:  map[string]string{},
 				},

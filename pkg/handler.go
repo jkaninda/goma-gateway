@@ -107,6 +107,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 }
 func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *http.Request) {
 	response := HealthCheckRouteResponse{
+		Name:   "Goma Gateway",
 		Status: "healthy",
 		Error:  "",
 	}
