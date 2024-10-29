@@ -153,6 +153,7 @@ type Gateway struct {
 	//Disable dispelling routes on start
 	DisableDisplayRouteOnStart bool  `yaml:"disableDisplayRouteOnStart"`
 	InterceptErrors            []int `yaml:"interceptErrors"`
+	EnableKeepAlive            bool  `yaml:"enableKeepAlive"`
 	// Cors contains the proxy global cors
 	Cors Cors `yaml:"cors"`
 	// Routes defines the proxy routes
