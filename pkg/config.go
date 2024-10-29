@@ -296,14 +296,14 @@ func initConfig(configFile string) {
 		Middlewares: []Middleware{
 			{
 				Name: "basic-auth",
-				Type: basicAuth,
+				Type: "basic",
 				Rule: BasicRule{
 					Username: "goma",
 					Password: "goma",
 				},
 			}, {
 				Name: "jwt",
-				Type: jwtAuth,
+				Type: "jwt",
 				Rule: JWTRuler{
 					URL: "https://www.googleapis.com/auth/userinfo.email",
 					RequiredHeaders: []string{
