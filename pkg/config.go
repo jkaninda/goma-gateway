@@ -243,6 +243,7 @@ func initConfig(configFile string) {
 			DisableRouteHealthCheckError: false,
 			DisableDisplayRouteOnStart:   false,
 			RateLimiter:                  0,
+			InterceptErrors:              []int{405, 500},
 			Cors: Cors{
 				Origins: []string{"http://localhost:8080", "https://example.com"},
 				Headers: map[string]string{
@@ -253,8 +254,7 @@ func initConfig(configFile string) {
 			},
 			Routes: []Route{
 				{
-					Name:        "HealthCheck",
-					Host:        "localhost",
+					Name:        "Public",
 					Path:        "/public",
 					Destination: "http://localhost:80",
 					Rewrite:     "/healthz",
@@ -282,19 +282,27 @@ func initConfig(configFile string) {
 						},
 					},
 				},
+				{
+					Name:        "Hostname example",
+					Host:        "example.com",
+					Path:        "/",
+					Destination: "https://example.com",
+					Rewrite:     "/",
+					HealthCheck: "",
+				},
 			},
 		},
 		Middlewares: []Middleware{
 			{
 				Name: "basic-auth",
-				Type: "basic",
+				Type: basicAuth,
 				Rule: BasicRule{
 					Username: "goma",
 					Password: "goma",
 				},
 			}, {
 				Name: "jwt",
-				Type: "jwt",
+				Type: jwtAuth,
 				Rule: JWTRuler{
 					URL: "https://www.googleapis.com/auth/userinfo.email",
 					RequiredHeaders: []string{

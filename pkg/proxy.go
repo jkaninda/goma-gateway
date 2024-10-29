@@ -38,6 +38,8 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		realIP := getRealIP(r)
 		logger.Info("%s %s %s %s", r.Method, realIP, r.URL, r.UserAgent())
+		//Set Server name
+		w.Header().Set("Server", serverName)
 		// Set CORS headers from the cors config
 		//Update Cors Headers
 		for k, v := range proxyRoute.cors.Headers {
