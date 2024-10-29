@@ -43,19 +43,17 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		for k, v := range proxyRoute.cors.Headers {
 			w.Header().Set(k, v)
 		}
-
-		//Update Origin Cors Headers
-		for _, origin := range proxyRoute.cors.Origins {
-			if origin == r.Header.Get("Origin") {
-				w.Header().Set(accessControlAllowOrigin, origin)
-
+		if allowedOrigin(proxyRoute.cors.Origins, r.Header.Get("Origin")) {
+			// Handle preflight requests (OPTIONS)
+			if r.Method == "OPTIONS" {
+				w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
+				w.WriteHeader(http.StatusNoContent)
+				return
+			} else {
+				w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
 			}
 		}
-		// Handle preflight requests (OPTIONS)
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+
 		// Parse the target backend URL
 		targetURL, err := url.Parse(proxyRoute.destination)
 		if err != nil {

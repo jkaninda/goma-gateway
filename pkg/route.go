@@ -40,8 +40,6 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		// Add rate limit middleware to all routes, if defined
 		r.Use(limiter.RateLimitMiddleware())
 	}
-	// Add the errorInterceptor middleware
-	//r.Use(middleware.ErrorInterceptor)
 	for _, route := range gateway.Routes {
 		if route.Path != "" {
 			blM := middleware.BlockListMiddleware{

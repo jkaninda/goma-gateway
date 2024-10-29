@@ -34,16 +34,15 @@ func CORSHandler(cors Cors) mux.MiddlewareFunc {
 				w.Header().Set(k, v)
 			}
 			//Update Origin Cors Headers
-			for _, origin := range cors.Origins {
-				if origin == r.Header.Get("Origin") {
-					w.Header().Set("Access-Control-Allow-Origin", origin)
-
+			if allowedOrigin(cors.Origins, r.Header.Get("Origin")) {
+				// Handle preflight requests (OPTIONS)
+				if r.Method == "OPTIONS" {
+					w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
+					w.WriteHeader(http.StatusNoContent)
+					return
+				} else {
+					w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
 				}
-			}
-			// Handle preflight requests (OPTIONS)
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusNoContent)
-				return
 			}
 			// Pass the request to the next handler
 			next.ServeHTTP(w, r)
@@ -117,4 +116,14 @@ func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *
 	if err != nil {
 		return
 	}
+}
+func allowedOrigin(origins []string, origin string) bool {
+	for _, o := range origins {
+		if o == origin {
+			return true
+		}
+		continue
+	}
+	return false
+
 }
