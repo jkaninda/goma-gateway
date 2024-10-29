@@ -189,22 +189,22 @@ gateway:
         - path: /user
           # Rules defines which specific middleware applies to a route path
           rules:
-            - basic-auth
+            - basic-auth #Middleware name
         # path to protect
         - path: /path-example
           # Rules defines which specific middleware applies to a route path
           rules:
-            - jwtAuth
+            - jwt #Middleware name
         # path to protect
         - path: /admin
           # Rules defines which specific middleware applies to a route path
           rules:
-            - basic-auth
+            - basic-auth #Middleware name
         # path to protect
         - path: /path-example
           # Rules defines which specific middleware applies to a route path
           rules:
-            - jwtAuth
+            - jwt # Middleware name
         - path: /history
           http:
             url: http://security-service:8080/security/authUser
@@ -236,14 +236,14 @@ gateway:
 #Defines proxy middlewares
 middlewares:
   # Enable Basic auth authorization based
-  - name: local-auth-basic
+  - name:  basic-auth
     # Authentication types | jwtAuth, basicAuth, auth0
     type: basicAuth
     rule:
       username: admin
       password: admin
   #Enables JWT authorization based on the result of a request and continues the request.
-  - name: google-auth
+  - name: jwt
     # Authentication types | jwtAuth, basicAuth, OAuth
     # jwt authorization based on the result of backend's response and continue the request when the client is authorized
     type: jwtAuth
