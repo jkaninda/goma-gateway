@@ -39,6 +39,8 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
 		printRoute(gatewayServer.gateway.Routes)
 	}
+	// Set KeepAlive
+	srv.SetKeepAlivesEnabled(gatewayServer.gateway.EnableKeepAlive)
 	go func() {
 
 		logger.Info("Started Goma Gateway server on %v", gatewayServer.gateway.ListenAddr)

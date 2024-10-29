@@ -57,6 +57,8 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := newResponseRecorder(w)
 		next.ServeHTTP(rec, r)
+		//Set Server name
+		w.Header().Set("Server", "Goma")
 		if canIntercept(rec.statusCode, intercept.Errors) {
 			logger.Debug("Backend error intercepted")
 			logger.Debug("An error occurred in the backend, %d", rec.statusCode)
