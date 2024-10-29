@@ -40,6 +40,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		// Add rate limit middleware to all routes, if defined
 		r.Use(limiter.RateLimitMiddleware())
 	}
+	// Add the errorInterceptor middleware
+	//r.Use(middleware.ErrorInterceptor)
 	for _, route := range gateway.Routes {
 		if route.Path != "" {
 			blM := middleware.BlockListMiddleware{
@@ -63,7 +65,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 					} else {
 						//Check Authentication middleware
 						switch rMiddleware.Type {
-						case "basic":
+						case basicAuth, "basic":
 							basicAuth, err := ToBasicAuth(rMiddleware.Rule)
 							if err != nil {
 								logger.Error("Error: %s", err.Error())
@@ -80,7 +82,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
 								secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
 							}
-						case "jwt":
+						case jwtAuth, "jwt":
 							jwt, err := ToJWTRuler(rMiddleware.Rule)
 							if err != nil {
 								logger.Error("Error: %s", err.Error())
@@ -98,6 +100,9 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
 
 							}
+						case OAuth, "auth0":
+							logger.Error("OAuth is not yet implemented")
+							logger.Info("Auth middleware ignored")
 						default:
 							logger.Error("Unknown middleware type %s", rMiddleware.Type)
 
@@ -129,11 +134,16 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			}
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
-			logger.Info("Route path ignored: %s", route.Path)
+			logger.Debug("Route path ignored: %s", route.Path)
 		}
 	}
 	// Apply global Cors middlewares
 	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middleware
+	// Apply errorInterceptor middleware
+	interceptErrors := middleware.InterceptErrors{
+		Errors: gateway.InterceptErrors,
+	}
+	r.Use(interceptErrors.ErrorInterceptor)
 	return r
 
 }
