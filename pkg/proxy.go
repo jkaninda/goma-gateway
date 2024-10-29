@@ -47,7 +47,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		//Update Origin Cors Headers
 		for _, origin := range proxyRoute.cors.Origins {
 			if origin == r.Header.Get("Origin") {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set(accessControlAllowOrigin, origin)
 
 			}
 		}
@@ -89,12 +89,6 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			if strings.HasPrefix(r.URL.Path, fmt.Sprintf("%s/", proxyRoute.path)) {
 				r.URL.Path = strings.Replace(r.URL.Path, fmt.Sprintf("%s/", proxyRoute.path), proxyRoute.rewrite, 1)
 			}
-		}
-		proxy.ModifyResponse = func(response *http.Response) error {
-			if response.StatusCode < 200 || response.StatusCode >= 300 {
-				//TODO || Add override backend errors | user can enable or disable it
-			}
-			return nil
 		}
 		// Custom error handler for proxy errors
 		proxy.ErrorHandler = ProxyErrorHandler

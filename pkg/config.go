@@ -125,6 +125,10 @@ type Route struct {
 	HealthCheck string `yaml:"healthCheck"`
 	// Blocklist Defines route blacklist
 	Blocklist []string `yaml:"blocklist"`
+	// InterceptErrors intercepts backend errors based on the status codes
+	//
+	// Eg: [ 403, 405, 500 ]
+	InterceptErrors []int `yaml:"interceptErrors"`
 	// Middlewares Defines route middleware from Middleware names
 	Middlewares []RouteMiddleware `yaml:"middlewares"`
 }
@@ -147,7 +151,8 @@ type Gateway struct {
 	ErrorLog                     string `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
 	DisableRouteHealthCheckError bool   `yaml:"disableRouteHealthCheckError"`
 	//Disable dispelling routes on start
-	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart"`
+	DisableDisplayRouteOnStart bool  `yaml:"disableDisplayRouteOnStart"`
+	InterceptErrors            []int `yaml:"interceptErrors"`
 	// Cors contains the proxy global cors
 	Cors Cors `yaml:"cors"`
 	// Routes defines the proxy routes
@@ -351,7 +356,7 @@ func ToJWTRuler(input interface{}) (JWTRuler, error) {
 		return JWTRuler{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if jWTRuler.URL == "" {
-		return JWTRuler{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middleware")
+		return JWTRuler{}, fmt.Errorf("error parsing yaml: empty url in %s auth middleware", jwtAuth)
 
 	}
 	return *jWTRuler, nil
@@ -369,7 +374,7 @@ func ToBasicAuth(input interface{}) (BasicRule, error) {
 		return BasicRule{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if basicAuth.Username == "" || basicAuth.Password == "" {
-		return BasicRule{}, fmt.Errorf("error parsing yaml: empty username/password in basic auth middleware")
+		return BasicRule{}, fmt.Errorf("error parsing yaml: empty username/password in %s middleware", basicAuth)
 
 	}
 	return *basicAuth, nil

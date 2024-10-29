@@ -18,6 +18,11 @@ gateway:
   disableRouteHealthCheckError: false
   # Disable display routes on start
   disableDisplayRouteOnStart: false
+  # interceptErrors intercepts backend errors based on defined the status codes
+  interceptErrors:
+  # - 405
+  # - 500
+  # - 400
   # Proxy Global HTTP Cors
   cors:
     # Global routes cors for all routes
@@ -112,15 +117,16 @@ gateway:
 middlewares:
   # Enable Basic auth authorization based
   - name: local-auth-basic
-    # Authentication types | jwt, basic, auth0
-    type: basic
+    # Authentication types | jwtAuth, basicAuth, auth0
+    type: basicAuth
     rule:
       username: admin
       password: admin
   #Enables JWT authorization based on the result of a request and continues the request.
   - name: google-auth
-    # Authentication types | jwt, basic, auth0
-    type: jwt
+    # Authentication types | jwtAuth, basicAuth, OAuth
+    # jwt authorization based on the result of backend's response and continue the request when the client is authorized
+    type: jwtAuth
     rule:
       url: https://www.googleapis.com/auth/userinfo.email
       # Required headers, if not present in the request, the proxy will return 403

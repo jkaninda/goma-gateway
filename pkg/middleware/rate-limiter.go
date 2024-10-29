@@ -66,7 +66,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			rl.mu.Unlock()
 
 			if client.RequestCount > rl.Requests {
-				logger.Warn("Too many request from IP: %s %s %s", clientID, r.URL, r.UserAgent())
+				logger.Debug("Too many request from IP: %s %s %s", clientID, r.URL, r.UserAgent())
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 				err := json.NewEncoder(w).Encode(ProxyResponseError{

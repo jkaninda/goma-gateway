@@ -11,8 +11,10 @@
 ```
 Goma Gateway is a lightweight API Gateway and Reverse Proxy.
 
+Simple, easy to use, and configure.
+
 [![Build](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml/badge.svg)](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml)
-[![Go Report](https://goreportcard.com/badge/github.com/jkaninda/goma-gateway)](https://goreportcard.com/report/github.com/jkaninda/goma-gateway)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jkaninda/goma-gateway)](https://goreportcard.com/report/github.com/jkaninda/goma-gateway)
 [![Go Reference](https://pkg.go.dev/badge/github.com/jkaninda/goma-gateway.svg)](https://pkg.go.dev/github.com/jkaninda/goma-gateway)
 ![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/jkaninda/goma-gateway?style=flat-square)
 
@@ -25,18 +27,20 @@ Goma Gateway is a lightweight API Gateway and Reverse Proxy.
 
 - [x] Reverse proxy
 - [x] API Gateway
+- [x] Domain/host based request routing
+- [x] Multi domain request routing
 - [x] Cors
-- [ ] Add Load balancing feature
 - [ ] Support TLS
+- [x] Backend errors interceptor
 - [x] Authentication middleware
   - [x] JWT `HTTP Bearer Token`
   - [x] Basic-Auth
-  - [ ] OAuth2
+  - [ ] OAuth
 - [x] Implement rate limiting
   - [x] In-Memory Token Bucket based
   - [x] In-Memory client IP based
   - [ ] Distributed Rate Limiting for Token based across multiple instances using Redis
-  - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances  using Redis
+  - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
 
 ## Usage
 
@@ -124,6 +128,11 @@ gateway:
   disableRouteHealthCheckError: false
   # Disable display routes on start
   disableDisplayRouteOnStart: false
+  # interceptErrors intercepts backend errors based on defined the status codes
+  interceptErrors:
+  # - 405
+  # - 500
+  # - 400
   # Proxy Global HTTP Cors
   cors:
     # Global routes cors for all routes
@@ -218,15 +227,16 @@ gateway:
 middlewares:
   # Enable Basic auth authorization based
   - name: local-auth-basic
-    # Authentication types | jwt, basic, auth0
-    type: basic
+    # Authentication types | jwtAuth, basicAuth, OAuth
+    type: basicAuth
     rule:
       username: admin
       password: admin
   #Enables JWT authorization based on the result of a request and continues the request.
   - name: google-auth
-    # Authentication types | jwt, basic, auth0
-    type: jwt
+    # Authentication types | jwtAuth, basicAuth, auth0
+    # jwt authorization based on the result of backend's response and continue the request when the client is authorized
+    type: jwtAuth
     rule:
       url: https://www.googleapis.com/auth/userinfo.email
       # Required headers, if not present in the request, the proxy will return 403

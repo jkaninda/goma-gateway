@@ -94,7 +94,9 @@ type AuthBasic struct {
 	Params   map[string]string
 }
 
-// AuthMiddleware function, which will be called for each request
+// AuthMiddleware authenticate the client using JWT
+//
+//	authorization based on the result of backend's response and continue the request when the client is authorized
 func (amw AuthJWT) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for _, header := range amw.RequiredHeaders {
