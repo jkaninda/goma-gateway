@@ -130,15 +130,15 @@ gateway:
   disableDisplayRouteOnStart: false
   # interceptErrors intercepts backend errors based on defined the status codes
   interceptErrors:
-  # - 405
-  # - 500
+    - 405
+    - 500
   # - 400
   # Proxy Global HTTP Cors
   cors:
     # Global routes cors for all routes
     origins:
+      - http://localhost:8080
       - https://example.com
-      - https://auth.example.com
     # Global routes cors headers for all routes
     headers:
       Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
@@ -147,26 +147,27 @@ gateway:
   ##### Define routes
   routes:
     # Example of a route | 1
-    - name: Store
+    - name: Public
       # host Domain/host based request routing
-      host: dev.example.com
-      path: /store
+      host: ""
+      path: /public
       ## Rewrite a request path
       # e.g rewrite: /store to /
-      rewrite: /
-      destination: 'http://store-service:8080'
+      rewrite: /healthz
+      destination:  https://example.com
       #DisableHeaderXForward Disable X-forwarded header.
       # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
       # It will not match the backend route, by default, it's disabled
       disableHeaderXForward: false
       # Internal health check
-      healthCheck: /internal/health/ready
+      healthCheck: '' #/internal/health/ready
       # Route Cors, global cors will be overridden by route
       cors:
         # Route Origins Cors, global cors will be overridden by route
         origins:
           - https://dev.example.com
           - http://localhost:3000
+          - https://example.com
         # Route Cors headers, global cors will be overridden by route
         headers:
           Access-Control-Allow-Methods: 'GET'
@@ -185,16 +186,25 @@ gateway:
       ## List of middleware name
       middlewares:
         # path to protect
-        - path: /user/account
+        - path: /user
           # Rules defines which specific middleware applies to a route path
           rules:
-            - auth
+            - basic-auth
         # path to protect
-        - path: /cart
+        - path: /path-example
           # Rules defines which specific middleware applies to a route path
           rules:
-            - google-auth
-            - auth
+            - jwtAuth
+        # path to protect
+        - path: /admin
+          # Rules defines which specific middleware applies to a route path
+          rules:
+            - basic-auth
+        # path to protect
+        - path: /path-example
+          # Rules defines which specific middleware applies to a route path
+          rules:
+            - jwtAuth
         - path: /history
           http:
             url: http://security-service:8080/security/authUser
@@ -214,8 +224,8 @@ gateway:
       blocklist: []
       middlewares: []
     # Example of a route | 3
-    - name: Notification
-      path: /notification
+    - name: Basic auth
+      path: /protected
       rewrite: /
       destination: 'http://notification-service:8080'
       healthCheck:
@@ -227,17 +237,18 @@ gateway:
 middlewares:
   # Enable Basic auth authorization based
   - name: local-auth-basic
-    # Authentication types | jwtAuth, basicAuth, OAuth
+    # Authentication types | jwtAuth, basicAuth, auth0
     type: basicAuth
     rule:
       username: admin
       password: admin
   #Enables JWT authorization based on the result of a request and continues the request.
   - name: google-auth
-    # Authentication types | jwtAuth, basicAuth, auth0
+    # Authentication types | jwtAuth, basicAuth, OAuth
     # jwt authorization based on the result of backend's response and continue the request when the client is authorized
     type: jwtAuth
     rule:
+      # This is an example URL
       url: https://www.googleapis.com/auth/userinfo.email
       # Required headers, if not present in the request, the proxy will return 403
       requiredHeaders:
