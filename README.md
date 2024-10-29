@@ -168,7 +168,7 @@ gateway:
           - https://dev.example.com
           - http://localhost:3000
           - https://example.com
-        # Route Cors headers, global cors will be overridden by route
+        # Route Cors headers, route will override global cors
         headers:
           Access-Control-Allow-Methods: 'GET'
           Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
@@ -189,22 +189,22 @@ gateway:
         - path: /user
           # Rules defines which specific middleware applies to a route path
           rules:
-            - basic-auth #Middleware name
+            - basic-auth
         # path to protect
         - path: /path-example
           # Rules defines which specific middleware applies to a route path
           rules:
-            - jwt #Middleware name
+            - jwtAuth
         # path to protect
         - path: /admin
           # Rules defines which specific middleware applies to a route path
           rules:
-            - basic-auth #Middleware name
+            - basic-auth
         # path to protect
         - path: /path-example
           # Rules defines which specific middleware applies to a route path
           rules:
-            - jwt # Middleware name
+            - jwtAuth
         - path: /history
           http:
             url: http://security-service:8080/security/authUser
@@ -236,17 +236,17 @@ gateway:
 #Defines proxy middlewares
 middlewares:
   # Enable Basic auth authorization based
-  - name:  basic-auth
+  - name: local-auth-basic
     # Authentication types | jwtAuth, basicAuth, auth0
-    type: basicAuth
+    type: basic
     rule:
       username: admin
       password: admin
   #Enables JWT authorization based on the result of a request and continues the request.
-  - name: jwt
+  - name: google-auth
     # Authentication types | jwtAuth, basicAuth, OAuth
     # jwt authorization based on the result of backend's response and continue the request when the client is authorized
-    type: jwtAuth
+    type: jwt
     rule:
       # This is an example URL
       url: https://www.googleapis.com/auth/userinfo.email

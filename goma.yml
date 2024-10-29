@@ -58,7 +58,7 @@ gateway:
           - https://dev.example.com
           - http://localhost:3000
           - https://example.com
-        # Route Cors headers, global cors will be overridden by route
+        # Route Cors headers, route will override global cors
         headers:
           Access-Control-Allow-Methods: 'GET'
           Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
@@ -127,16 +127,16 @@ gateway:
 middlewares:
   # Enable Basic auth authorization based
   - name: local-auth-basic
-    # Authentication types | jwtAuth, basicAuth, auth0
-    type: basicAuth
+    # Authentication types | jwt, basic, OAuth
+    type: basic
     rule:
       username: admin
       password: admin
   #Enables JWT authorization based on the result of a request and continues the request.
   - name: google-auth
-    # Authentication types | jwtAuth, basicAuth, OAuth
+    # Authentication types | jwt, basic, OAuth
     # jwt authorization based on the result of backend's response and continue the request when the client is authorized
-    type: jwtAuth
+    type: jwt
     rule:
       # This is an example URL
       url: https://www.googleapis.com/auth/userinfo.email
