@@ -120,7 +120,7 @@ gateway:
     # Example of a route | 1
     - name: Public
       # host Domain/host based request routing
-      host: ""
+      host: "" # Host is optional
       path: /public
       ## Rewrite a request path
       # e.g rewrite: /store to /
