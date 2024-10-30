@@ -106,7 +106,7 @@ docker run --rm --name goma-gateway \
 Create a config file in this format
 ## Customize configuration file
 
-Example of configuration file
+Example of a configuration file
 ```yaml
 ## Goma - simple lightweight API Gateway and Reverse Proxy.
 # Goma Gateway configurations
@@ -119,7 +119,7 @@ gateway:
   readTimeout: 15
   # Proxy idle timeout
   idleTimeout: 60
-  # Proxy rate limit, it's In-Memory Token Bucket
+  # Proxy rate limit, it's In-Memory IP based
   # Distributed Rate Limiting for Token based across multiple instances is not yet integrated
   rateLimiter: 0
   accessLog:    "/dev/Stdout"
@@ -128,6 +128,8 @@ gateway:
   disableRouteHealthCheckError: false
   # Disable display routes on start
   disableDisplayRouteOnStart: false
+  # disableKeepAlive allows enabling and disabling KeepALive server
+  disableKeepAlive: false
   # interceptErrors intercepts backend errors based on defined the status codes
   interceptErrors:
     - 405
@@ -194,7 +196,7 @@ gateway:
         - path: /path-example
           # Rules defines which specific middleware applies to a route path
           rules:
-            - jwtAuth
+            - jwt
         # path to protect
         - path: /admin
           # Rules defines which specific middleware applies to a route path
@@ -204,7 +206,7 @@ gateway:
         - path: /path-example
           # Rules defines which specific middleware applies to a route path
           rules:
-            - jwtAuth
+            - jwt
         - path: /history
           http:
             url: http://security-service:8080/security/authUser
@@ -236,15 +238,15 @@ gateway:
 #Defines proxy middlewares
 middlewares:
   # Enable Basic auth authorization based
-  - name: local-auth-basic
-    # Authentication types | jwtAuth, basicAuth, auth0
+  - name: basic-auth
+    # Authentication types | jwt, basic, OAuth
     type: basic
     rule:
       username: admin
       password: admin
   #Enables JWT authorization based on the result of a request and continues the request.
   - name: google-auth
-    # Authentication types | jwtAuth, basicAuth, OAuth
+    # Authentication types | jwt, basic, OAuth
     # jwt authorization based on the result of backend's response and continue the request when the client is authorized
     type: jwt
     rule:

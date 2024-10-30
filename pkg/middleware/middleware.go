@@ -65,8 +65,8 @@ type ProxyResponseError struct {
 	Message string `json:"message"`
 }
 
-// AuthJWT  Define struct
-type AuthJWT struct {
+// JwtAuth  Define struct
+type JwtAuth struct {
 	AuthURL         string
 	RequiredHeaders []string
 	Headers         map[string]string
@@ -97,9 +97,9 @@ type AuthBasic struct {
 // AuthMiddleware authenticate the client using JWT
 //
 //	authorization based on the result of backend's response and continue the request when the client is authorized
-func (amw AuthJWT) AuthMiddleware(next http.Handler) http.Handler {
+func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for _, header := range amw.RequiredHeaders {
+		for _, header := range jwtAuth.RequiredHeaders {
 			if r.Header.Get(header) == "" {
 				logger.Error("Proxy error, missing %s header", header)
 				w.Header().Set("Content-Type", "application/json")
@@ -116,7 +116,7 @@ func (amw AuthJWT) AuthMiddleware(next http.Handler) http.Handler {
 			}
 		}
 		//token := r.Header.Get("Authorization")
-		authURL, err := url.Parse(amw.AuthURL)
+		authURL, err := url.Parse(jwtAuth.AuthURL)
 		if err != nil {
 			logger.Error("Error parsing auth URL: %v", err)
 			w.Header().Set("Content-Type", "application/json")
@@ -162,7 +162,7 @@ func (amw AuthJWT) AuthMiddleware(next http.Handler) http.Handler {
 		authResp, err := client.Do(authReq)
 		if err != nil || authResp.StatusCode != http.StatusOK {
 			logger.Info("%s %s %s %s", r.Method, r.RemoteAddr, r.URL, r.UserAgent())
-			logger.Error("Proxy authentication error")
+			logger.Warn("Proxy authentication error")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			err = json.NewEncoder(w).Encode(ProxyResponseError{
@@ -183,15 +183,15 @@ func (amw AuthJWT) AuthMiddleware(next http.Handler) http.Handler {
 		}(authResp.Body)
 		// Inject specific header tp the current request's header
 		// Add header to the next request from AuthRequest header, depending on your requirements
-		if amw.Headers != nil {
-			for k, v := range amw.Headers {
+		if jwtAuth.Headers != nil {
+			for k, v := range jwtAuth.Headers {
 				r.Header.Set(v, authResp.Header.Get(k))
 			}
 		}
 		query := r.URL.Query()
 		// Add query parameters to the next request from AuthRequest header, depending on your requirements
-		if amw.Params != nil {
-			for k, v := range amw.Params {
+		if jwtAuth.Params != nil {
+			for k, v := range jwtAuth.Params {
 				query.Set(v, authResp.Header.Get(k))
 			}
 		}
@@ -214,7 +214,7 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 			err := json.NewEncoder(w).Encode(ProxyResponseError{
 				Success: false,
 				Code:    http.StatusUnauthorized,
-				Message: "Unauthorized",
+				Message: http.StatusText(http.StatusUnauthorized),
 			})
 			if err != nil {
 				return
@@ -229,7 +229,7 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 			err := json.NewEncoder(w).Encode(ProxyResponseError{
 				Success: false,
 				Code:    http.StatusUnauthorized,
-				Message: "Unauthorized",
+				Message: http.StatusText(http.StatusUnauthorized),
 			})
 			if err != nil {
 				return
@@ -246,7 +246,7 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 			err := json.NewEncoder(w).Encode(ProxyResponseError{
 				Success: false,
 				Code:    http.StatusUnauthorized,
-				Message: "Unauthorized",
+				Message: http.StatusText(http.StatusUnauthorized),
 			})
 			if err != nil {
 				return
@@ -263,7 +263,7 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 			err := json.NewEncoder(w).Encode(ProxyResponseError{
 				Success: false,
 				Code:    http.StatusUnauthorized,
-				Message: "Unauthorized",
+				Message: http.StatusText(http.StatusUnauthorized),
 			})
 			if err != nil {
 				return
