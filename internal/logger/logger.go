@@ -77,9 +77,9 @@ func Debug(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
 	formattedMessage := fmt.Sprintf(msg, args...)
 	if len(args) == 0 {
-		log.Printf("DUBUG: %s\n", msg)
+		log.Printf("DEBUG: %s\n", msg)
 	} else {
-		log.Printf("DUBUG: %s\n", formattedMessage)
+		log.Printf("DEBUG: %s\n", formattedMessage)
 	}
 }
 func getStd(out string) *os.File {

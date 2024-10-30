@@ -162,7 +162,7 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 		client := &http.Client{}
 		authResp, err := client.Do(authReq)
 		if err != nil || authResp.StatusCode != http.StatusOK {
-			logger.Info("%s %s %s %s", r.Method, r.RemoteAddr, r.URL, r.UserAgent())
+			logger.Info("%s %s %s %s", r.Method, getRealIP(r), r.URL, r.UserAgent())
 			logger.Warn("Proxy authentication error")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

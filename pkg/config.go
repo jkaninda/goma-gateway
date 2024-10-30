@@ -103,12 +103,6 @@ type Middleware struct {
 type MiddlewareName struct {
 	name string `yaml:"name"`
 }
-type RouteMiddleware struct {
-	//Path contains the path to protect
-	Path string `yaml:"path"`
-	//Rules defines which specific middleware applies to a route path
-	Rules []string `yaml:"rules"`
-}
 
 // Route defines gateway route
 type Route struct {
