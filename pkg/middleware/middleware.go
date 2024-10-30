@@ -50,6 +50,7 @@ func NewRateLimiterWindow(requests int, window time.Duration) *RateLimiter {
 	}
 }
 
+// TokenRateLimiter stores tokenRate limit
 type TokenRateLimiter struct {
 	tokens     int
 	maxTokens  int
@@ -65,7 +66,7 @@ type ProxyResponseError struct {
 	Message string `json:"message"`
 }
 
-// JwtAuth  Define struct
+// JwtAuth  stores JWT configuration
 type JwtAuth struct {
 	AuthURL         string
 	RequiredHeaders []string
@@ -73,20 +74,20 @@ type JwtAuth struct {
 	Params          map[string]string
 }
 
-// AuthenticationMiddleware  Define struct
+// AuthenticationMiddleware Define struct
 type AuthenticationMiddleware struct {
 	AuthURL         string
 	RequiredHeaders []string
 	Headers         map[string]string
 	Params          map[string]string
 }
-type BlockListMiddleware struct {
+type AccessListMiddleware struct {
 	Path        string
 	Destination string
 	List        []string
 }
 
-// AuthBasic  Define Basic auth
+// AuthBasic contains Basic auth configuration
 type AuthBasic struct {
 	Username string
 	Password string
@@ -161,7 +162,7 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 		client := &http.Client{}
 		authResp, err := client.Do(authReq)
 		if err != nil || authResp.StatusCode != http.StatusOK {
-			logger.Info("%s %s %s %s", r.Method, r.RemoteAddr, r.URL, r.UserAgent())
+			logger.Info("%s %s %s %s", r.Method, getRealIP(r), r.URL, r.UserAgent())
 			logger.Warn("Proxy authentication error")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)

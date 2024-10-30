@@ -145,46 +145,12 @@ gateway:
           Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
           Access-Control-Allow-Credentials: 'true'
           Access-Control-Max-Age: 1728000
-      #### Define route blocklist paths
-      blocklist:
-        - /swagger-ui/*
-        - /v2/swagger-ui/*
-        - /api-docs/*
-        - /internal/*
-        - /actuator/*
       ##### Define route middlewares from middlewares names
       ## The name must be unique
       ## List of middleware name
       middlewares:
-        # path to protect
-        - path: /user
-          # Rules defines which specific middleware applies to a route path
-          rules:
-            - basic-auth
-        # path to protect
-        - path: /path-example
-          # Rules defines which specific middleware applies to a route path
-          rules:
-            - jwt
-        # path to protect
-        - path: /admin
-          # Rules defines which specific middleware applies to a route path
-          rules:
-            - basic-auth
-        # path to protect
-        - path: /path-example
-          # Rules defines which specific middleware applies to a route path
-          rules:
-            - jwt
-        - path: /history
-          http:
-            url: http://security-service:8080/security/authUser
-            headers:
-              #Key from backend authentication header, and inject to the request with custom key name
-              userId: X-Auth-UserId
-              userCountryId: X-Auth-UserCountryId
-            params:
-              userCountryId: X-countryId
+        - api-forbidden-paths
+        - basic-auth
     # Example of a route | 2
     - name: Authentication service
       path: /auth
@@ -192,8 +158,8 @@ gateway:
       destination: 'http://security-service:8080'
       healthCheck: /internal/health/ready
       cors: {}
-      blocklist: []
-      middlewares: []
+      middlewares:
+        - api-forbidden-paths
     # Example of a route | 3
     - name: Basic auth
       path: /protected
@@ -201,7 +167,6 @@ gateway:
       destination: 'http://notification-service:8080'
       healthCheck:
       cors: {}
-      blocklist: []
       middlewares: []
 
 #Defines proxy middlewares
@@ -210,6 +175,10 @@ middlewares:
   - name: basic-auth
     # Authentication types | jwt, basic, OAuth
     type: basic
+    paths:
+      - /user
+      - /admin
+      - /account
     rule:
       username: admin
       password: admin
@@ -218,6 +187,10 @@ middlewares:
     # Authentication types | jwt, basic, OAuth
     # jwt authorization based on the result of backend's response and continue the request when the client is authorized
     type: jwt
+    # Paths to protect
+    paths:
+      - /protected-access
+      - /example-of-jwt
     rule:
       # This is an example URL
       url: https://www.googleapis.com/auth/userinfo.email
@@ -234,12 +207,22 @@ middlewares:
       # Add header to the next request from AuthRequest header, depending on your requirements
       # Key is AuthRequest's response header Key, and value is Request's header Key
       # In case you want to get headers from the Authentication service and inject them into the next request's headers
-      headers:
-        userId: X-Auth-UserId
-        userCountryId: X-Auth-UserCountryId
+    headers:
+      userId: X-Auth-UserId
+      userCountryId: X-Auth-UserCountryId
       # In case you want to get headers from the Authentication service and inject them to the next request's params
-      params:
-        userCountryId: countryId
+    params:
+      userCountryId: countryId
+  # The server will return 404
+  - name: api-forbidden-paths
+    type: access
+    ## Forbidden paths
+    paths:
+      - /swagger-ui/*
+      - /v2/swagger-ui/*
+      - /api-docs/*
+      - /internal/*
+      - /actuator/*
 ```
 
 ## Requirement

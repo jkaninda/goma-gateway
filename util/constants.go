@@ -30,6 +30,6 @@ func FullVersion() string {
 	return ver
 }
 
-const MainExample = "Initialize config: init config --output config.yml\n" +
+const MainExample = "Initialize config: config init --output config.yml\n" +
 	"Start server: server \n" +
 	"Start server with custom config file: server --config config.yml"

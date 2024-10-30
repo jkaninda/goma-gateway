@@ -42,67 +42,87 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	}
 	for _, route := range gateway.Routes {
 		if route.Path != "" {
-			blM := middleware.BlockListMiddleware{
-				Path: route.Path,
-				List: route.Blocklist,
-			}
-			// Apply route middlewares
+
+			// Apply middlewares to route
 			for _, mid := range route.Middlewares {
-				if mid.Path != "" {
-					secureRouter := r.PathPrefix(util.ParseURLPath(route.Path + mid.Path)).Subrouter()
-					proxyRoute := ProxyRoute{
-						path:            route.Path,
-						rewrite:         route.Rewrite,
-						destination:     route.Destination,
-						disableXForward: route.DisableHeaderXForward,
-						cors:            route.Cors,
-					}
-					rMiddleware, err := searchMiddleware(mid.Rules, middlewares)
+				if mid != "" {
+					// Get Access middleware if it does exist
+					accessMiddleware, err := getMiddleware([]string{mid}, middlewares)
 					if err != nil {
 						logger.Error("Error: %v", err.Error())
 					} else {
-						//Check Authentication middleware
-						switch rMiddleware.Type {
-						case "basic":
-							basicAuth, err := ToBasicAuth(rMiddleware.Rule)
-							if err != nil {
-								logger.Error("Error: %s", err.Error())
-							} else {
-								amw := middleware.AuthBasic{
-									Username: basicAuth.Username,
-									Password: basicAuth.Password,
-									Headers:  nil,
-									Params:   nil,
-								}
-								// Apply JWT authentication middleware
-								secureRouter.Use(amw.AuthMiddleware)
-								secureRouter.Use(CORSHandler(route.Cors))
-								secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
-								secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
+						// Apply access middleware
+						if accessMiddleware.Type == AccessMiddleware {
+							blM := middleware.AccessListMiddleware{
+								Path: route.Path,
+								List: accessMiddleware.Paths,
 							}
-						case "jwt":
-							jwt, err := ToJWTRuler(rMiddleware.Rule)
-							if err != nil {
-								logger.Error("Error: %s", err.Error())
-							} else {
-								amw := middleware.JwtAuth{
-									AuthURL:         jwt.URL,
-									RequiredHeaders: jwt.RequiredHeaders,
-									Headers:         jwt.Headers,
-									Params:          jwt.Params,
+							r.Use(blM.AccessMiddleware)
+
+						}
+
+					}
+					// Get route authentication middleware if it does exist
+					rMiddleware, err := getMiddleware([]string{mid}, middlewares)
+					if err != nil {
+						//Error: middleware not found
+						logger.Error("Error: %v", err.Error())
+					} else {
+						for _, midPath := range rMiddleware.Paths {
+							proxyRoute := ProxyRoute{
+								path:            route.Path,
+								rewrite:         route.Rewrite,
+								destination:     route.Destination,
+								disableXForward: route.DisableHeaderXForward,
+								cors:            route.Cors,
+							}
+							secureRouter := r.PathPrefix(util.ParseURLPath(route.Path + midPath)).Subrouter()
+							//Check Authentication middleware
+							switch rMiddleware.Type {
+							case BasicAuth:
+								basicAuth, err := getBasicAuthMiddleware(rMiddleware.Rule)
+								if err != nil {
+									logger.Error("Error: %s", err.Error())
+								} else {
+									amw := middleware.AuthBasic{
+										Username: basicAuth.Username,
+										Password: basicAuth.Password,
+										Headers:  nil,
+										Params:   nil,
+									}
+									// Apply JWT authentication middleware
+									secureRouter.Use(amw.AuthMiddleware)
+									secureRouter.Use(CORSHandler(route.Cors))
+									secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
+									secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
 								}
-								// Apply JWT authentication middleware
-								secureRouter.Use(amw.AuthMiddleware)
-								secureRouter.Use(CORSHandler(route.Cors))
-								secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
-								secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
+							case JWTAuth:
+								jwt, err := getJWTMiddleware(rMiddleware.Rule)
+								if err != nil {
+									logger.Error("Error: %s", err.Error())
+								} else {
+									amw := middleware.JwtAuth{
+										AuthURL:         jwt.URL,
+										RequiredHeaders: jwt.RequiredHeaders,
+										Headers:         jwt.Headers,
+										Params:          jwt.Params,
+									}
+									// Apply JWT authentication middleware
+									secureRouter.Use(amw.AuthMiddleware)
+									secureRouter.Use(CORSHandler(route.Cors))
+									secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
+									secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
+
+								}
+							case "OAuth":
+								logger.Error("OAuth is not yet implemented")
+								logger.Info("Auth middleware ignored")
+							default:
+								if !doesExist(rMiddleware.Type) {
+									logger.Error("Unknown middleware type %s", rMiddleware.Type)
+								}
 
 							}
-						case "OAuth":
-							logger.Error("OAuth is not yet implemented")
-							logger.Info("Auth middleware ignored")
-						default:
-							logger.Error("Unknown middleware type %s", rMiddleware.Type)
 
 						}
 
@@ -122,9 +142,6 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			router := r.PathPrefix(route.Path).Subrouter()
 			// Apply route Cors
 			router.Use(CORSHandler(route.Cors))
-			// Add block access middleware to route, if defined
-			router.Use(blM.BlocklistMiddleware)
-			//Domain/host based request routing
 			if route.Host != "" {
 				router.Host(route.Host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
 			} else {
