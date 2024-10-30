@@ -156,11 +156,11 @@ type Gateway struct {
 	AccessLog   string `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
 	ErrorLog    string `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
 	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors
-	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError" default:"false"`
+	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError"`
 	//Disable allows enabling and disabling displaying routes on start
-	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart" default:"false"`
+	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart"`
 	// DisableKeepAlive allows enabling and disabling KeepALive server
-	DisableKeepAlive bool `yaml:"disableKeepAlive" default:"false"`
+	DisableKeepAlive bool `yaml:"disableKeepAlive"`
 	// InterceptErrors holds the status codes to intercept the error from backend
 	InterceptErrors []int `yaml:"interceptErrors"`
 	// Cors holds proxy global cors
