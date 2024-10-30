@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func searchMiddleware(rules []string, middlewares []Middleware) (Middleware, error) {
+func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error) {
 	for _, m := range middlewares {
 		if slices.Contains(rules, m.Name) {
 			return m, nil
@@ -17,17 +17,6 @@ func searchMiddleware(rules []string, middlewares []Middleware) (Middleware, err
 
 	return Middleware{}, errors.New("middleware not found with name:  [" + strings.Join(rules, ";") + "]")
 }
-func getMiddleware(rule string, middlewares []Middleware) (Middleware, error) {
-	for _, m := range middlewares {
-		if strings.Contains(rule, m.Name) {
-
-			return m, nil
-		}
-		continue
-	}
-
-	return Middleware{}, errors.New("no middleware found with name " + rule)
-}
 
 type RoutePath struct {
 	route       Route
@@ -35,4 +24,13 @@ type RoutePath struct {
 	rules       []string
 	middlewares []Middleware
 	router      *mux.Router
+}
+
+func doesExist(tyName string) bool {
+	middlewareList := []string{BasicAuth, JWTAuth, AccessMiddleware}
+	if slices.Contains(middlewareList, tyName) {
+		return true
+
+	}
+	return false
 }

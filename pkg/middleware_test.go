@@ -31,16 +31,29 @@ func TestMiddleware(t *testing.T) {
 	TestInit(t)
 	middlewares := []Middleware{
 		{
-			Name: "basic-auth",
-			Type: "basic",
-			Rule: BasicRule{
+			Name:  "basic-auth",
+			Type:  "basic",
+			Paths: []string{"/", "/admin"},
+			Rule: BasicRuleMiddleware{
 				Username: "goma",
 				Password: "goma",
 			},
-		}, {
-			Name: MidName,
-			Type: "jwt",
-			Rule: JWTRuler{
+		},
+		{
+			Name:  "forbidden path acces",
+			Type:  "access",
+			Paths: []string{"/", "/admin"},
+			Rule: BasicRuleMiddleware{
+				Username: "goma",
+				Password: "goma",
+			},
+		},
+
+		{
+			Name:  "jwt",
+			Type:  "jwt",
+			Paths: []string{"/", "/admin"},
+			Rule: JWTRuleMiddleware{
 				URL:     "https://www.googleapis.com/auth/userinfo.email",
 				Headers: map[string]string{},
 				Params:  map[string]string{},
@@ -61,21 +74,21 @@ func TestMiddleware(t *testing.T) {
 func TestReadMiddleware(t *testing.T) {
 	TestMiddleware(t)
 	middlewares := getMiddlewares(t)
-	middleware, err := searchMiddleware(rules, middlewares)
+	middleware, err := getMiddleware(rules, middlewares)
 	if err != nil {
 		t.Fatalf("Error searching middleware %s", err.Error())
 	}
 	switch middleware.Type {
 	case "basic":
 		log.Println("Basic auth")
-		basicAuth, err := ToBasicAuth(middleware.Rule)
+		basicAuth, err := getBasicAuthMiddleware(middleware.Rule)
 		if err != nil {
 			log.Fatalln("error:", err)
 		}
 		log.Printf("Username: %s and password: %s\n", basicAuth.Username, basicAuth.Password)
 	case "jwt":
 		log.Println("JWT auth")
-		jwt, err := ToJWTRuler(middleware.Rule)
+		jwt, err := getJWTMiddleware(middleware.Rule)
 		if err != nil {
 			log.Fatalln("error:", err)
 		}
@@ -89,7 +102,7 @@ func TestReadMiddleware(t *testing.T) {
 
 func TestFoundMiddleware(t *testing.T) {
 	middlewares := getMiddlewares(t)
-	middleware, err := searchMiddleware(rules, middlewares)
+	middleware, err := getAuthMiddleware("jwt", middlewares)
 	if err != nil {
 		t.Errorf("Error getting middleware %v", err)
 	}

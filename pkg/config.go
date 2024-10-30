@@ -30,7 +30,7 @@ var cfg *Gateway
 type Config struct {
 	file string
 }
-type BasicRule struct {
+type BasicRuleMiddleware struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 }
@@ -54,10 +54,10 @@ type Cors struct {
 	Headers map[string]string `yaml:"headers"`
 }
 
-// JWTRuler authentication using HTTP GET method
+// JWTRuleMiddleware authentication using HTTP GET method
 //
-// JWTRuler contains the authentication details
-type JWTRuler struct {
+// JWTRuleMiddleware contains the authentication details
+type JWTRuleMiddleware struct {
 	// URL contains the authentication URL, it supports HTTP GET method only.
 	URL string `yaml:"url"`
 	// RequiredHeaders , contains required before sending request to the backend.
@@ -84,16 +84,21 @@ type RateLimiter struct {
 	Rule int     `yaml:"rule"`
 }
 
+type AccessRuleMiddleware struct {
+	ResponseCode int `yaml:"responseCode"` // HTTP Response code
+}
+
 // Middleware defined the route middleware
 type Middleware struct {
 	//Path contains the name of middleware and must be unique
 	Name string `yaml:"name"`
 	// Type contains authentication types
 	//
-	// basic, jwt, auth0, rateLimit
-	Type string `yaml:"type"`
+	// basic, jwt, auth0, rateLimit, access
+	Type  string   `yaml:"type"`  // Middleware type [basic, jwt, auth0, rateLimit, access]
+	Paths []string `yaml:"paths"` // Protected paths
 	// Rule contains rule type of
-	Rule interface{} `yaml:"rule"`
+	Rule interface{} `yaml:"rule"` // Middleware rule
 }
 type MiddlewareName struct {
 	name string `yaml:"name"`
@@ -136,7 +141,7 @@ type Route struct {
 	// Eg: [ 403, 405, 500 ]
 	InterceptErrors []int `yaml:"interceptErrors"`
 	// Middlewares Defines route middleware from Middleware names
-	Middlewares []RouteMiddleware `yaml:"middlewares"`
+	Middlewares []string `yaml:"middlewares"`
 }
 
 // Gateway contains Goma Proxy Gateway's configs
@@ -287,12 +292,7 @@ func initConfig(configFile string) {
 							"Access-Control-Max-Age":           "1728000",
 						},
 					},
-					Middlewares: []RouteMiddleware{
-						{
-							Path:  "/user",
-							Rules: []string{"basic-auth"},
-						},
-					},
+					Middlewares: []string{"basic-auth"},
 				},
 				{
 					Name:        "Hostname example",
@@ -308,14 +308,14 @@ func initConfig(configFile string) {
 			{
 				Name: "basic-auth",
 				Type: "basic",
-				Rule: BasicRule{
+				Rule: BasicRuleMiddleware{
 					Username: "goma",
 					Password: "goma",
 				},
 			}, {
 				Name: "jwt",
 				Type: "jwt",
-				Rule: JWTRuler{
+				Rule: JWTRuleMiddleware{
 					URL: "https://www.googleapis.com/auth/userinfo.email",
 					RequiredHeaders: []string{
 						"Authorization",
@@ -361,40 +361,40 @@ func (Gateway) Setup(conf string) *Gateway {
 	return &Gateway{}
 
 }
-func (middleware Middleware) name() {
 
-}
-func ToJWTRuler(input interface{}) (JWTRuler, error) {
-	jWTRuler := new(JWTRuler)
+// getJWTMiddleware returns JWTRuleMiddleware,error
+func getJWTMiddleware(input interface{}) (JWTRuleMiddleware, error) {
+	jWTRuler := new(JWTRuleMiddleware)
 	var bytes []byte
 	bytes, err := yaml.Marshal(input)
 	if err != nil {
-		return JWTRuler{}, fmt.Errorf("error parsing yaml: %v", err)
+		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	err = yaml.Unmarshal(bytes, jWTRuler)
 	if err != nil {
-		return JWTRuler{}, fmt.Errorf("error parsing yaml: %v", err)
+		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if jWTRuler.URL == "" {
-		return JWTRuler{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middleware")
+		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middleware")
 
 	}
 	return *jWTRuler, nil
 }
 
-func ToBasicAuth(input interface{}) (BasicRule, error) {
-	basicAuth := new(BasicRule)
+// getBasicAuthMiddleware returns BasicRuleMiddleware,error
+func getBasicAuthMiddleware(input interface{}) (BasicRuleMiddleware, error) {
+	basicAuth := new(BasicRuleMiddleware)
 	var bytes []byte
 	bytes, err := yaml.Marshal(input)
 	if err != nil {
-		return BasicRule{}, fmt.Errorf("error parsing yaml: %v", err)
+		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	err = yaml.Unmarshal(bytes, basicAuth)
 	if err != nil {
-		return BasicRule{}, fmt.Errorf("error parsing yaml: %v", err)
+		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if basicAuth.Username == "" || basicAuth.Password == "" {
-		return BasicRule{}, fmt.Errorf("error parsing yaml: empty username/password in %s middleware", basicAuth)
+		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty username/password in %s middleware", basicAuth)
 
 	}
 	return *basicAuth, nil
