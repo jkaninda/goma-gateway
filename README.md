@@ -106,7 +106,7 @@ docker run --rm --name goma-gateway \
 Create a config file in this format
 ## Customize configuration file
 
-Example of configuration file
+Example of a configuration file
 ```yaml
 ## Goma - simple lightweight API Gateway and Reverse Proxy.
 # Goma Gateway configurations
@@ -128,6 +128,7 @@ gateway:
   disableRouteHealthCheckError: false
   # Disable display routes on start
   disableDisplayRouteOnStart: false
+  # disableKeepAlive allows enabling and disabling KeepALive server
   disableKeepAlive: false
   # interceptErrors intercepts backend errors based on defined the status codes
   interceptErrors:
@@ -195,7 +196,7 @@ gateway:
         - path: /path-example
           # Rules defines which specific middleware applies to a route path
           rules:
-            - jwtAuth
+            - jwt
         # path to protect
         - path: /admin
           # Rules defines which specific middleware applies to a route path
@@ -205,7 +206,7 @@ gateway:
         - path: /path-example
           # Rules defines which specific middleware applies to a route path
           rules:
-            - jwtAuth
+            - jwt
         - path: /history
           http:
             url: http://security-service:8080/security/authUser
@@ -237,7 +238,7 @@ gateway:
 #Defines proxy middlewares
 middlewares:
   # Enable Basic auth authorization based
-  - name: local-auth-basic
+  - name: basic-auth
     # Authentication types | jwt, basic, OAuth
     type: basic
     rule:

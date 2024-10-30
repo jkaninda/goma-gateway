@@ -18,6 +18,7 @@ gateway:
   disableRouteHealthCheckError: false
   # Disable display routes on start
   disableDisplayRouteOnStart: false
+  # disableKeepAlive allows enabling and disabling KeepALive server
   disableKeepAlive: false
   # interceptErrors intercepts backend errors based on defined the status codes
   interceptErrors:
