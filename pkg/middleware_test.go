@@ -102,7 +102,7 @@ func TestReadMiddleware(t *testing.T) {
 
 func TestFoundMiddleware(t *testing.T) {
 	middlewares := getMiddlewares(t)
-	middleware, err := getAuthMiddleware("jwt", middlewares)
+	middleware, err := GetMiddleware("jwt", middlewares)
 	if err != nil {
 		t.Errorf("Error getting middleware %v", err)
 	}

@@ -34,3 +34,14 @@ func doesExist(tyName string) bool {
 	}
 	return false
 }
+func GetMiddleware(rule string, middlewares []Middleware) (Middleware, error) {
+	for _, m := range middlewares {
+		if strings.Contains(rule, m.Name) {
+
+			return m, nil
+		}
+		continue
+	}
+
+	return Middleware{}, errors.New("no middleware found with name " + rule)
+}
