@@ -134,8 +134,6 @@ type Route struct {
 	DisableHeaderXForward bool `yaml:"disableHeaderXForward"`
 	// HealthCheck Defines the backend is health check PATH
 	HealthCheck string `yaml:"healthCheck"`
-	// Blocklist Defines route blacklist
-	Blocklist []string `yaml:"blocklist"`
 	// InterceptErrors intercepts backend errors based on the status codes
 	//
 	// Eg: [ 403, 405, 500 ]
@@ -283,7 +281,6 @@ func initConfig(configFile string) {
 					Destination: "https://example.com",
 					Rewrite:     "/",
 					HealthCheck: "",
-					Blocklist:   []string{},
 					Cors: Cors{
 						Origins: []string{"http://localhost:3000", "https://dev.example.com"},
 						Headers: map[string]string{
@@ -292,7 +289,7 @@ func initConfig(configFile string) {
 							"Access-Control-Max-Age":           "1728000",
 						},
 					},
-					Middlewares: []string{"basic-auth"},
+					Middlewares: []string{"basic-auth", "api-forbidden-paths"},
 				},
 				{
 					Name:        "Hostname example",
@@ -307,14 +304,23 @@ func initConfig(configFile string) {
 		Middlewares: []Middleware{
 			{
 				Name: "basic-auth",
-				Type: "basic",
+				Type: BasicAuth,
+				Paths: []string{
+					"/user",
+					"/admin",
+					"/account",
+				},
 				Rule: BasicRuleMiddleware{
 					Username: "goma",
 					Password: "goma",
 				},
 			}, {
 				Name: "jwt",
-				Type: "jwt",
+				Type: JWTAuth,
+				Paths: []string{
+					"/protected-access",
+					"/example-of-jwt",
+				},
 				Rule: JWTRuleMiddleware{
 					URL: "https://www.googleapis.com/auth/userinfo.email",
 					RequiredHeaders: []string{
@@ -322,6 +328,17 @@ func initConfig(configFile string) {
 					},
 					Headers: map[string]string{},
 					Params:  map[string]string{},
+				},
+			},
+			{
+				Name: "api-forbidden-paths",
+				Type: AccessMiddleware,
+				Paths: []string{
+					"/swagger-ui/*",
+					"/v2/swagger-ui/*",
+					"/api-docs/*",
+					"/internal/*",
+					"/actuator/*",
 				},
 			},
 		},
