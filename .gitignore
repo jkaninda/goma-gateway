@@ -1,6 +1,5 @@
 /.history
 data
-compose.yaml
 .env
 test.md
 .DS_Store
@@ -12,3 +11,4 @@ Makefile
 NOTES.md
 tests
 configs
+/config
