@@ -25,8 +25,8 @@ import (
 	"time"
 )
 
-// BlocklistMiddleware checks if the request path is forbidden and returns 403 Forbidden
-func (blockList BlockListMiddleware) BlocklistMiddleware(next http.Handler) http.Handler {
+// AccessMiddleware checks if the request path is forbidden and returns 403 Forbidden
+func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for _, block := range blockList.List {
 			if isPathBlocked(r.URL.Path, util.ParseURLPath(blockList.Path+block)) {

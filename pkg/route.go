@@ -53,11 +53,11 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 					} else {
 						// Apply access middleware
 						if accessMiddleware.Type == AccessMiddleware {
-							blM := middleware.BlockListMiddleware{
+							blM := middleware.AccessListMiddleware{
 								Path: route.Path,
 								List: accessMiddleware.Paths,
 							}
-							r.Use(blM.BlocklistMiddleware)
+							r.Use(blM.AccessMiddleware)
 
 						}
 
