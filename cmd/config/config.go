@@ -23,7 +23,7 @@ import (
 
 var Cmd = &cobra.Command{
 	Use:   "config",
-	Short: "Goma configuration",
+	Short: "Goma Gateway configuration management",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			return
