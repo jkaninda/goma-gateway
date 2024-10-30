@@ -72,37 +72,6 @@ docker run --rm --name goma-gateway \
 - Goma Gateway readiness: `/readyz`
 - Routes health check: `/healthz`
 
-[http://localhost/healthz](http://localhost/healthz)
-
-[http://localhost/readyz](http://localhost/readyz)
-
-> Healthcheck response body
-
-```json
-{
-	"status": "healthy",
-	"routes": [
-		{
-			"name": "Store",
-			"status": "healthy",
-			"error": ""
-		},
-		{
-			"name": "Authentication service",
-			"status": "unhealthy",
-          "error": "error performing HealthCheck request: Get \"http://authentication-service:8080/internal/health/ready\": dial tcp: lookup authentication-service on 127.0.0.11:53: no such host "
-          
-		},
-		{
-			"name": "Notification",
-			"status": "undefined",
-			"error": ""
-		}
-	]
-}
-```
-
-
 Create a config file in this format
 ## Customize configuration file
 
