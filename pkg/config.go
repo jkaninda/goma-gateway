@@ -77,6 +77,12 @@ type JWTRuler struct {
 	//e.g: Header X-Auth-UserId to query userId
 	Params map[string]string `yaml:"params"`
 }
+type RateLimiter struct {
+	// ipBased, tokenBased
+	Type string  `yaml:"type"`
+	Rate float64 `yaml:"rate"`
+	Rule int     `yaml:"rule"`
+}
 
 // Middleware defined the route middleware
 type Middleware struct {
@@ -146,22 +152,27 @@ type Gateway struct {
 	// IdleTimeout defines proxy idle timeout
 	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
 	// RateLimiter Defines number of request peer minute
-	RateLimiter                  int    `yaml:"rateLimiter" env:"GOMA_RATE_LIMITER, overwrite"`
-	AccessLog                    string `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
-	ErrorLog                     string `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
-	DisableRouteHealthCheckError bool   `yaml:"disableRouteHealthCheckError"`
-	//Disable dispelling routes on start
-	DisableDisplayRouteOnStart bool  `yaml:"disableDisplayRouteOnStart"`
-	InterceptErrors            []int `yaml:"interceptErrors"`
-	EnableKeepAlive            bool  `yaml:"enableKeepAlive"`
-	// Cors contains the proxy global cors
+	RateLimiter int    `yaml:"rateLimiter" env:"GOMA_RATE_LIMITER, overwrite"`
+	AccessLog   string `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
+	ErrorLog    string `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
+	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors
+	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError" default:"false"`
+	//Disable allows enabling and disabling displaying routes on start
+	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart" default:"false"`
+	// DisableKeepAlive allows enabling and disabling KeepALive server
+	DisableKeepAlive bool `yaml:"disableKeepAlive" default:"false"`
+	// InterceptErrors holds the status codes to intercept the error from backend
+	InterceptErrors []int `yaml:"interceptErrors"`
+	// Cors holds proxy global cors
 	Cors Cors `yaml:"cors"`
-	// Routes defines the proxy routes
+	// Routes holds proxy routes
 	Routes []Route `yaml:"routes"`
 }
 type GatewayConfig struct {
-	GatewayConfig Gateway      `yaml:"gateway"`
-	Middlewares   []Middleware `yaml:"middlewares"`
+	// GatewayConfig holds Gateway config
+	GatewayConfig Gateway `yaml:"gateway"`
+	// Middlewares holds proxy middlewares
+	Middlewares []Middleware `yaml:"middlewares"`
 }
 
 // ErrorResponse represents the structure of the JSON error response
@@ -365,7 +376,7 @@ func ToJWTRuler(input interface{}) (JWTRuler, error) {
 		return JWTRuler{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if jWTRuler.URL == "" {
-		return JWTRuler{}, fmt.Errorf("error parsing yaml: empty url in %s auth middleware", jwtAuth)
+		return JWTRuler{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middleware")
 
 	}
 	return *jWTRuler, nil

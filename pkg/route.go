@@ -46,7 +46,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				Path: route.Path,
 				List: route.Blocklist,
 			}
-			// Apply route middleware
+			// Apply route middlewares
 			for _, mid := range route.Middlewares {
 				if mid.Path != "" {
 					secureRouter := r.PathPrefix(util.ParseURLPath(route.Path + mid.Path)).Subrouter()
@@ -63,7 +63,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 					} else {
 						//Check Authentication middleware
 						switch rMiddleware.Type {
-						case basicAuth, "basic":
+						case "basic":
 							basicAuth, err := ToBasicAuth(rMiddleware.Rule)
 							if err != nil {
 								logger.Error("Error: %s", err.Error())
@@ -80,12 +80,12 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
 								secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
 							}
-						case jwtAuth, "jwt":
+						case "jwt":
 							jwt, err := ToJWTRuler(rMiddleware.Rule)
 							if err != nil {
 								logger.Error("Error: %s", err.Error())
 							} else {
-								amw := middleware.AuthJWT{
+								amw := middleware.JwtAuth{
 									AuthURL:         jwt.URL,
 									RequiredHeaders: jwt.RequiredHeaders,
 									Headers:         jwt.Headers,
@@ -98,7 +98,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
 
 							}
-						case OAuth, "auth0":
+						case "OAuth":
 							logger.Error("OAuth is not yet implemented")
 							logger.Info("Auth middleware ignored")
 						default:
