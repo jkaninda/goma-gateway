@@ -20,6 +20,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/logger"
 	"net/http"
+	"sync"
 )
 
 // CORSHandler handles CORS headers for incoming requests
@@ -69,33 +70,34 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 // HealthCheckHandler handles health check of routes
 func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Info("%s %s %s %s", r.Method, r.RemoteAddr, r.URL, r.UserAgent())
+	wg := sync.WaitGroup{}
+	wg.Add(len(heathRoute.Routes))
 	var routes []HealthCheckRouteResponse
 	for _, route := range heathRoute.Routes {
-		if route.HealthCheck != "" {
-			err := HealthCheck(route.Destination + route.HealthCheck)
-			if err != nil {
-				logger.Error("Route %s: %v", route.Name, err)
-				if heathRoute.DisableRouteHealthCheckError {
-					routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "unhealthy", Error: "Route healthcheck errors disabled"})
-					continue
+		go func() {
+			if route.HealthCheck != "" {
+				err := HealthCheck(route.Destination + route.HealthCheck)
+				if err != nil {
+					if heathRoute.DisableRouteHealthCheckError {
+						routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "unhealthy", Error: "Route healthcheck errors disabled"})
+					}
+					routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "unhealthy", Error: "Error: " + err.Error()})
+				} else {
+					logger.Info("Route %s is healthy", route.Name)
+					routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "healthy", Error: ""})
 				}
-				routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "unhealthy", Error: err.Error()})
-				continue
 			} else {
-				logger.Info("Route %s is healthy", route.Name)
-				routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "healthy", Error: ""})
-				continue
+				logger.Warn("Route %s's healthCheck is undefined", route.Name)
+				routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "undefined", Error: ""})
 			}
-		} else {
-			logger.Warn("Route %s's healthCheck is undefined", route.Name)
-			routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "undefined", Error: ""})
-			continue
+			defer wg.Done()
+		}()
 
-		}
 	}
+	wg.Wait() // Wait for all requests to complete
 	response := HealthCheckResponse{
-		Status: "healthy",
-		Routes: routes,
+		Status: "healthy", //Goma proxy
+		Routes: routes,    // Routes health check
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

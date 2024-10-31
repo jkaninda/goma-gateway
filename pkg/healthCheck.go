@@ -17,6 +17,7 @@ limitations under the License.
 */
 import (
 	"fmt"
+	"github.com/jkaninda/goma-gateway/internal/logger"
 	"io"
 	"net/http"
 	"net/url"
@@ -52,6 +53,7 @@ func HealthCheck(healthURL string) error {
 	client := &http.Client{}
 	healthResp, err := client.Do(healthReq)
 	if err != nil {
+		logger.Error("Error performing HealthCheck request: %v ", err)
 		return fmt.Errorf("error performing HealthCheck request: %v ", err)
 	}
 	defer func(Body io.ReadCloser) {
@@ -61,6 +63,7 @@ func HealthCheck(healthURL string) error {
 	}(healthResp.Body)
 
 	if healthResp.StatusCode >= 400 {
+		logger.Debug("Error performing HealthCheck request: %v ", err)
 		return fmt.Errorf("health check failed with status code %v", healthResp.StatusCode)
 	}
 	return nil

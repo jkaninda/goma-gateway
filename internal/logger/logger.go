@@ -52,7 +52,7 @@ func Warn(msg string, args ...interface{}) {
 
 // Error error message
 func Error(msg string, args ...interface{}) {
-	log.SetOutput(getStd(util.GetStringEnv("GOMA_ERROR_LOG", "/dev/stdout")))
+	log.SetOutput(getStd(util.GetStringEnv("GOMA_ERROR_LOG", "/dev/stderr")))
 	formattedMessage := fmt.Sprintf(msg, args...)
 	if len(args) == 0 {
 		log.Printf("ERROR: %s\n", msg)
