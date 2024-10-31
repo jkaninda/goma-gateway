@@ -170,6 +170,7 @@ gateway:
       middlewares: []
 
 #Defines proxy middlewares
+# middleware name must be unique
 middlewares:
   # Enable Basic auth authorization based
   - name: basic-auth
@@ -191,6 +192,7 @@ middlewares:
     paths:
       - /protected-access
       - /example-of-jwt
+      #- /* or wildcard path
     rule:
       # This is an example URL
       url: https://www.googleapis.com/auth/userinfo.email
