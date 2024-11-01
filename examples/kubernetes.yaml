@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goma-gateway
+spec:
+  selector:
+    matchLabels:
+      app: goma-gateway
+  template:
+    metadata:
+      labels:
+        app: goma-gateway
+    spec:
+      containers:
+        - name: goma-gateway
+          image: jkaninda/goma-gateway
+          command: ["goma","server"]
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 40
+            timeoutSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /config2/
+      volumes:
+        - name: config
+          configMap:
+            name: goma-config
