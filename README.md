@@ -11,8 +11,6 @@
 ```
 Goma Gateway is a lightweight API Gateway.
 
-Simple, easy to use, and configure.
-
 [![Build](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml/badge.svg)](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jkaninda/goma-gateway)](https://goreportcard.com/report/github.com/jkaninda/goma-gateway)
 [![Go Reference](https://pkg.go.dev/badge/github.com/jkaninda/goma-gateway.svg)](https://pkg.go.dev/github.com/jkaninda/goma-gateway)
@@ -20,13 +18,19 @@ Simple, easy to use, and configure.
 
 <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Goma logo">
 
+
+
+Architecture:
+
+<img src="./goma-gateway.png" width="912" alt="Goma archi">
+
+
 ## Links:
 
 - [Docker Hub](https://hub.docker.com/r/jkaninda/goma-gateway)
 - [Github](https://github.com/jkaninda/goma-gateway)
 
 ### Documentation is found at <https://jkaninda.github.io/goma-gateway>
-
 
 ### Features
 
@@ -157,24 +161,16 @@ gateway:
       ## List of middleware name
       middlewares:
         - api-forbidden-paths
-        - basic-auth
-    # Example of a route | 2
-    - name: Authentication service
-      path: /auth
-      rewrite: /
-      destination: https://example.com
-      healthCheck: /
-      cors: {}
-      middlewares:
-        - api-forbidden-paths
     # Example of a route | 3
     - name: Basic auth
       path: /protected
       rewrite: /
-      destination: 'http://notification-service:8080'
+      destination:  https://example.com
       healthCheck:
       cors: {}
-      middlewares: []
+      middlewares:
+        - api-forbidden-paths
+        - basic-auth
 
 #Defines proxy middlewares
 # middleware name must be unique
