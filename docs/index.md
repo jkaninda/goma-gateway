@@ -6,12 +6,12 @@ nav_order: 1
 
 # About Goma Gateway
 {:.no_toc}
-Goma Gateway is a lightweight API Gateway and Reverse Proxy.
+Goma Gateway is a lightweight API Gateway.
 
 It comes with a lot of integrated features, such as:
 
 - Reverse proxy
-- RESTfull API Gateway management
+- RESTFull API Gateway management
 - Domain/host based request routing
 - Multi domain request routing
 - Cross-Origin Resource Sharing (CORS)

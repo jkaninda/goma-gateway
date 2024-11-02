@@ -1,4 +1,4 @@
-# Goma Gateway - simple lightweight API Gateway and Reverse Proxy.
+# Goma Gateway - simple lightweight API Gateway.
 
 ```
    _____                       
@@ -9,7 +9,7 @@
   \_____|\___/|_| |_| |_|\__,_|
                                
 ```
-Goma Gateway is a lightweight API Gateway and Reverse Proxy.
+Goma Gateway is a lightweight API Gateway.
 
 Simple, easy to use, and configure.
 
@@ -23,24 +23,25 @@ Simple, easy to use, and configure.
 - [Docker Hub](https://hub.docker.com/r/jkaninda/goma-gateway)
 - [Github](https://github.com/jkaninda/goma-gateway)
 
-## Documentation is found at <https://jkaninda.github.io/goma-gateway>
 
-### Feature
+### Features
 
-- [x] Reverse proxy
-- [x] API Gateway
-- [x] Domain/host based request routing
-- [x] Multi domain request routing
-- [x] Cross-Origin Resource Sharing (CORS)
-- [ ] Support TLS
-- [x] Backend errors interceptor
-- [x] Authentication middleware
-  - [x] JWT ` client authorization based on the result of a request`
-  - [x] Basic-Auth
-  - [ ] OAuth
-- [x] Implement rate limiting
-  - [x] In-Memory Token Bucket based
-  - [x] In-Memory client IP based
+It comes with a lot of integrated features, such as:
+
+- Reverse proxy
+- RESTFull API Gateway management
+- Domain/host based request routing
+- Multi domain request routing
+- Cross-Origin Resource Sharing (CORS)
+- Backend errors interceptor
+- Authentication middleware
+  - JWT `client authorization based on the result of a request`
+  - Basic-Auth
+- Rate limiting
+  - In-Memory Token Bucket based
+  - In-Memory client IP based
+
+### Todo:
   - [ ] Distributed Rate Limiting for Token based across multiple instances using Redis
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
 
