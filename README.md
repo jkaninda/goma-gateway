@@ -22,7 +22,7 @@ Goma Gateway is a lightweight API Gateway.
 
 Architecture:
 
-<img src="./goma-gateway.png" width="912" alt="Goma archi">
+<img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/goma-gateway.png" width="912" alt="Goma archi">
 
 
 ## Links:
