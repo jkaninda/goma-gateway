@@ -1,0 +1,70 @@
+# Welcome to Jekyll!
+#
+# This config file is meant for settings that affect your whole blog, values
+# which you are expected to set up once and rarely edit after that. If you find
+# yourself editing this file very often, consider using Jekyll's data files
+# feature for the data you need to update frequently.
+#
+# For technical reasons, this file is *NOT* reloaded automatically when you use
+# 'bundle exec jekyll serve'. If you change this file, please restart the server process.
+
+# Site settings
+# These are used to personalize your new site. If you look in the HTML files,
+# you will see them accessed via {{ site.title }}, {{ site.email }}, and so on.
+# You can create any custom variable you would like, and they will be accessible
+# in the templates via {{ site.myvariable }}.
+title: Goma Gateway
+email: hi@jonaskaninda.com
+description: >- # this means to ignore newlines until "baseurl:"
+  Goma Gateway is a lightweight API Gateway and Reverse Proxy.
+
+baseurl: "/" # the subpath of your site, e.g. /blog
+url: "jkaninda.github.io/goma-gateway" # the base hostname & protocol for your site, e.g. http://example.com
+twitter_username: jonaskaninda
+github_username:  jkaninda
+
+callouts_level: quiet
+callouts:
+  highlight:
+    color: yellow
+  important:
+    title: Important
+    color: blue
+  new:
+    title: New
+    color: green
+  note:
+    title: Note
+    color: purple
+  warning:
+    title: Warning
+    color: red
+# Build settings
+markdown: kramdown
+theme: just-the-docs
+plugins:
+  - jekyll-feed
+aux_links:
+  'GitHub Repository':
+    - https://github.com/jkaninda/goma-gateway
+
+nav_external_links:
+  - title: GitHub Repository
+    url: https://github.com/jkaninda/goma-gateway
+
+footer_content: >-
+  Copyright &copy; 2024 <a target="_blank" href="https://www.jonaskaninda.com">Jonas Kaninda</a>.
+  Distributed under the <a href="https://github.com/jkaninda/pg-bkup/tree/main/LICENSE">MIT License.</a><br>
+  Something missing, unclear or not working? Open <a href="https://github.com/jkaninda/pg-bkup/issues">an issue</a>.
+
+# Exclude from processing.
+# The following items will not be processed, by default. Create a custom list
+# to override the default setting.
+# exclude:
+#   - Gemfile
+#   - Gemfile2.lock
+#   - node_modules
+#   - vendor/bundle/
+#   - vendor/cache/
+#   - vendor/gems/
+#   - vendor/ruby/
