@@ -265,9 +265,10 @@ func initConfig(configFile string) {
 				{
 					Name:        "Public",
 					Path:        "/public",
-					Destination: "http://localhost:80",
-					Rewrite:     "/healthz",
+					Destination: "https://example.com",
+					Rewrite:     "/",
 					HealthCheck: "",
+					Middlewares: []string{"api-forbidden-paths"},
 				},
 				{
 					Name:        "Basic auth",
@@ -287,7 +288,6 @@ func initConfig(configFile string) {
 				},
 				{
 					Name:        "Hostname example",
-					Host:        "example.com",
 					Path:        "/",
 					Destination: "https://example.com",
 					Rewrite:     "/",
@@ -300,13 +300,11 @@ func initConfig(configFile string) {
 				Name: "basic-auth",
 				Type: BasicAuth,
 				Paths: []string{
-					"/user",
-					"/admin",
-					"/account",
+					"/*",
 				},
 				Rule: BasicRuleMiddleware{
-					Username: "goma",
-					Password: "goma",
+					Username: "admin",
+					Password: "admin",
 				},
 			}, {
 				Name: "jwt",
