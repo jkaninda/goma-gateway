@@ -17,7 +17,7 @@ With Goma you can create your middleware based on the type you want and apply it
 Goma Gateway supports :
 
 - Authentication middleware
-    - JWT `HTTP Bearer Token`
+    - JWT `client authorization based on the result of a request`
     - Basic-Auth
 - Rate limiting middleware
     - In-Memory Token Bucket based
