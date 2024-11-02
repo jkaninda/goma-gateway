@@ -18,7 +18,7 @@ Simple, easy to use, and configure.
 [![Go Reference](https://pkg.go.dev/badge/github.com/jkaninda/goma-gateway.svg)](https://pkg.go.dev/github.com/jkaninda/goma-gateway)
 ![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/jkaninda/goma-gateway?style=flat-square)
 
-<img src="https://github.com/jkaninda/goma-gateway/raw/main/logo/logo.png" width="100" alt="Goma logo">
+<img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="100" alt="Goma logo">
 
 ## Links:
 
