@@ -71,24 +71,16 @@ gateway:
       ## List of middleware name
       middlewares:
         - api-forbidden-paths
-        - basic-auth
-    # Example of a route | 2
-    - name: Authentication service
-      path: /auth
-      rewrite: /
-      destination: https://example.com
-      healthCheck: /
-      cors: {}
-      middlewares:
-        - api-forbidden-paths
     # Example of a route | 3
     - name: Basic auth
       path: /protected
       rewrite: /
-      destination: 'http://notification-service:8080'
+      destination:  https://example.com
       healthCheck:
       cors: {}
-      middlewares: []
+      middlewares:
+        - api-forbidden-paths
+        - basic-auth
 
 #Defines proxy middlewares
 # middleware name must be unique
