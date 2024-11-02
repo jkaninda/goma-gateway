@@ -23,17 +23,19 @@ Simple, easy to use, and configure.
 - [Docker Hub](https://hub.docker.com/r/jkaninda/goma-gateway)
 - [Github](https://github.com/jkaninda/goma-gateway)
 
+## Documentation is found at <https://jkaninda.github.io/goma-gateway>
+
 ### Feature
 
 - [x] Reverse proxy
 - [x] API Gateway
 - [x] Domain/host based request routing
 - [x] Multi domain request routing
-- [x] Cors
+- [x] Cross-Origin Resource Sharing (CORS)
 - [ ] Support TLS
 - [x] Backend errors interceptor
 - [x] Authentication middleware
-  - [x] JWT `HTTP Bearer Token`
+  - [x] JWT ` client authorization based on the result of a request`
   - [x] Basic-Auth
   - [ ] OAuth
 - [x] Implement rate limiting
@@ -124,7 +126,7 @@ gateway:
       path: /public
       ## Rewrite a request path
       # e.g rewrite: /store to /
-      rewrite: /healthz
+      rewrite: /
       destination:  https://example.com
       #DisableHeaderXForward Disable X-forwarded header.
       # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
@@ -155,8 +157,8 @@ gateway:
     - name: Authentication service
       path: /auth
       rewrite: /
-      destination: 'http://security-service:8080'
-      healthCheck: /internal/health/ready
+      destination: https://example.com
+      healthCheck: /
       cors: {}
       middlewares:
         - api-forbidden-paths
@@ -208,17 +210,17 @@ middlewares:
       #
       # Add header to the next request from AuthRequest header, depending on your requirements
       # Key is AuthRequest's response header Key, and value is Request's header Key
-      # In case you want to get headers from the Authentication service and inject them into the next request's headers
+    # In case you want to get headers from the authentication service and inject them into the next request headers.
     headers:
       userId: X-Auth-UserId
       userCountryId: X-Auth-UserCountryId
-      # In case you want to get headers from the Authentication service and inject them to the next request's params
+      # In case you want to get headers from the Authentication service and inject them to the next request params.
     params:
       userCountryId: countryId
-  # The server will return 404
+  # The server will return 403
   - name: api-forbidden-paths
     type: access
-    ## Forbidden paths
+    ## prevents access paths
     paths:
       - /swagger-ui/*
       - /v2/swagger-ui/*
