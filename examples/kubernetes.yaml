@@ -37,7 +37,7 @@ spec:
             timeoutSeconds: 10
           volumeMounts:
             - name: config
-              mountPath: /config2/
+              mountPath: /config/
       volumes:
         - name: config
           configMap:
