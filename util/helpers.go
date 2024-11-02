@@ -82,3 +82,17 @@ func ParseURLPath(urlPath string) string {
 	}
 	return urlPath
 }
+
+func ParseRoutePath(path, blockedPath string) string {
+	basePath := ParseURLPath(path)
+	switch {
+	case blockedPath == "":
+		return basePath
+	case strings.HasSuffix(blockedPath, "/*"):
+		return basePath + blockedPath[:len(blockedPath)-2]
+	case strings.HasSuffix(blockedPath, "*"):
+		return basePath + blockedPath[:len(blockedPath)-1]
+	default:
+		return basePath + blockedPath
+	}
+}

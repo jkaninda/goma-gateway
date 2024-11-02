@@ -30,13 +30,13 @@ func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.H
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for _, block := range blockList.List {
 			if isPathBlocked(r.URL.Path, util.ParseURLPath(blockList.Path+block)) {
-				logger.Debug("%s: %s access forbidden", getRealIP(r), r.URL.Path)
+				logger.Error("%s: %s access forbidden", getRealIP(r), r.URL.Path)
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusNotFound)
+				w.WriteHeader(http.StatusForbidden)
 				err := json.NewEncoder(w).Encode(ProxyResponseError{
 					Success: false,
-					Code:    http.StatusNotFound,
-					Message: fmt.Sprintf("Not found: %s", r.URL.Path),
+					Code:    http.StatusForbidden,
+					Message: fmt.Sprintf("You do not have permission to access this resource"),
 				})
 				if err != nil {
 					return

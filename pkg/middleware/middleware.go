@@ -104,10 +104,10 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			if r.Header.Get(header) == "" {
 				logger.Error("Proxy error, missing %s header", header)
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusForbidden)
+				w.WriteHeader(http.StatusUnauthorized)
 				err := json.NewEncoder(w).Encode(ProxyResponseError{
-					Message: "Missing Authorization header",
-					Code:    http.StatusForbidden,
+					Message: http.StatusText(http.StatusUnauthorized),
+					Code:    http.StatusUnauthorized,
 					Success: false,
 				})
 				if err != nil {

@@ -76,7 +76,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								disableXForward: route.DisableHeaderXForward,
 								cors:            route.Cors,
 							}
-							secureRouter := r.PathPrefix(util.ParseURLPath(route.Path + midPath)).Subrouter()
+							secureRouter := r.PathPrefix(util.ParseRoutePath(route.Path, midPath)).Subrouter()
 							//Check Authentication middleware
 							switch rMiddleware.Type {
 							case BasicAuth:

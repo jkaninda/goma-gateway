@@ -113,6 +113,7 @@ middlewares:
     paths:
       - /protected-access
       - /example-of-jwt
+      #- /* or wildcard path
     rule:
       # This is an example URL
       url: https://www.googleapis.com/auth/userinfo.email
