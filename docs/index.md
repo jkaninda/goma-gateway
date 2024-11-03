@@ -8,6 +8,8 @@ nav_order: 1
 {:.no_toc}
 Goma Gateway is a lightweight API Gateway.
 
+<img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Goma logo">
+
 It comes with a lot of integrated features, such as:
 
 - Reverse proxy
@@ -24,6 +26,9 @@ It comes with a lot of integrated features, such as:
     - In-Memory client IP based
 
 Declare your routes and middlewares as code.
+
+Architecture:
+<img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/goma-gateway.png" width="912" alt="Goma archi">
 
 We are open to receiving stars, PRs, and issues!
 

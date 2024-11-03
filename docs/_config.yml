@@ -54,8 +54,8 @@ nav_external_links:
 
 footer_content: >-
   Copyright &copy; 2024 <a target="_blank" href="https://www.jonaskaninda.com">Jonas Kaninda</a>.
-  Distributed under the <a href="https://github.com/jkaninda/pg-bkup/tree/main/LICENSE">MIT License.</a><br>
-  Something missing, unclear or not working? Open <a href="https://github.com/jkaninda/pg-bkup/issues">an issue</a>.
+  Distributed under the <a href="https://github.com/jkaninda/goma-gateway/tree/main/LICENSE">Apache-2.0 License.</a><br>
+  Something missing, unclear or not working? Open <a href="https://github.com/jkaninda/goma-gateway/issues">an issue</a>.
 
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
