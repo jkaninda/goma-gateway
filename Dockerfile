@@ -7,7 +7,7 @@ COPY . .
 RUN go mod download
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'util.Version=${appVersion}'" -o /app/goma
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/jkaninda/goma-gateway/util.Version=${appVersion}'" -o /app/goma
 
 FROM alpine:3.20.3
 ENV TZ=UTC
