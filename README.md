@@ -50,8 +50,12 @@ It comes with a lot of integrated features, such as:
   - In-Memory client IP based
 
 ### Todo:
+
+  - [ ] Support TLS
+  - [ ] OAuth authentication middleware — Optional
   - [ ] Distributed Rate Limiting for Token based across multiple instances using Redis
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
+
 
 ## Usage
 
