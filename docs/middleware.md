@@ -1,8 +1,7 @@
 ---
 title: Middleware
 layout: default
-parent: Quickstart
-nav_order: 5
+nav_order: 4
 ---
 
 
