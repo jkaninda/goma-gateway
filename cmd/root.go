@@ -43,5 +43,6 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(ServerCmd)
 	rootCmd.AddCommand(config.Cmd)
+	rootCmd.AddCommand(VersionCmd)
 
 }
