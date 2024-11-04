@@ -23,22 +23,6 @@ import (
 	"net/url"
 )
 
-type HealthCheckRoute struct {
-	DisableRouteHealthCheckError bool
-	Routes                       []Route
-}
-
-// HealthCheckResponse represents the health check response structure
-type HealthCheckResponse struct {
-	Status string                     `json:"status"`
-	Routes []HealthCheckRouteResponse `json:"routes"`
-}
-type HealthCheckRouteResponse struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	Error  string `json:"error"`
-}
-
 func HealthCheck(healthURL string) error {
 	healthCheckURL, err := url.Parse(healthURL)
 	if err != nil {

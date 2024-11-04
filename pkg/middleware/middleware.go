@@ -23,77 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
-	"time"
 )
-
-// RateLimiter defines rate limit properties.
-type RateLimiter struct {
-	Requests  int
-	Window    time.Duration
-	ClientMap map[string]*Client
-	mu        sync.Mutex
-}
-
-// Client stores request count and window expiration for each client.
-type Client struct {
-	RequestCount int
-	ExpiresAt    time.Time
-}
-
-// NewRateLimiterWindow creates a new RateLimiter.
-func NewRateLimiterWindow(requests int, window time.Duration) *RateLimiter {
-	return &RateLimiter{
-		Requests:  requests,
-		Window:    window,
-		ClientMap: make(map[string]*Client),
-	}
-}
-
-// TokenRateLimiter stores tokenRate limit
-type TokenRateLimiter struct {
-	tokens     int
-	maxTokens  int
-	refillRate time.Duration
-	lastRefill time.Time
-	mu         sync.Mutex
-}
-
-// ProxyResponseError represents the structure of the JSON error response
-type ProxyResponseError struct {
-	Success bool   `json:"success"`
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-// JwtAuth  stores JWT configuration
-type JwtAuth struct {
-	AuthURL         string
-	RequiredHeaders []string
-	Headers         map[string]string
-	Params          map[string]string
-}
-
-// AuthenticationMiddleware Define struct
-type AuthenticationMiddleware struct {
-	AuthURL         string
-	RequiredHeaders []string
-	Headers         map[string]string
-	Params          map[string]string
-}
-type AccessListMiddleware struct {
-	Path        string
-	Destination string
-	List        []string
-}
-
-// AuthBasic contains Basic auth configuration
-type AuthBasic struct {
-	Username string
-	Password string
-	Headers  map[string]string
-	Params   map[string]string
-}
 
 // AuthMiddleware authenticate the client using JWT
 //
