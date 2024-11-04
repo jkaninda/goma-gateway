@@ -18,7 +18,7 @@ limitations under the License.
 import (
 	"context"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"os"
 	"sync"
