@@ -9,6 +9,8 @@ nav_order: 2
 
 ### 1. Initialize configuration
 
+You can generate the configuration file using `config init` command.
+
 ```shell
 docker run --rm  --name goma-gateway \
  -v "${PWD}/config:/config" \
