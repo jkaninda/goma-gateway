@@ -40,7 +40,7 @@ func TestMiddleware(t *testing.T) {
 			},
 		},
 		{
-			Name:  "forbidden path acces",
+			Name:  "forbidden path access",
 			Type:  "access",
 			Paths: []string{"/", "/admin"},
 			Rule: BasicRuleMiddleware{
