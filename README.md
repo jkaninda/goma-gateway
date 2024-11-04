@@ -1,4 +1,4 @@
-# Goma Gateway - simple lightweight API Gateway.
+# Goma Gateway - simple lightweight API Gateway Management.
 
 ```
    _____                       
@@ -9,7 +9,7 @@
   \_____|\___/|_| |_| |_|\__,_|
                                
 ```
-Goma Gateway is a lightweight API Gateway.
+Goma Gateway is a lightweight API Gateway Management.
 
 [![Build](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml/badge.svg)](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jkaninda/goma-gateway)](https://goreportcard.com/report/github.com/jkaninda/goma-gateway)
@@ -18,7 +18,7 @@ Goma Gateway is a lightweight API Gateway.
 
 <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Goma logo">
 
-
+----
 
 Architecture:
 
@@ -39,8 +39,8 @@ It comes with a lot of integrated features, such as:
 - RESTFull API Gateway management
 - Domain/host based request routing
 - Multi domain request routing
-- Reverse proxy
-- Websocket proxy
+- Reverse Proxy
+- Websocket Proxy
 - Cross-Origin Resource Sharing (CORS)
 - Custom Headers
 - Backend Errors interceptor
@@ -59,6 +59,7 @@ It comes with a lot of integrated features, such as:
   - [ ] Distributed Rate Limiting for Token based across multiple instances using Redis
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
 
+----
 
 ## Usage
 
@@ -89,6 +90,25 @@ docker run --rm --name goma-gateway \
 
 - Goma Gateway readiness: `/readyz`
 - Routes health check: `/healthz`
+
+### 5. Simple deployment in docker compose file
+
+```yaml
+services:
+  goma-gateway:
+    image: jkaninda/goma-gateway
+    command: server
+    healthcheck:
+      test: curl -f http://localhost/readyz || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    ports:
+      - "80:80"
+    volumes:
+      - ./config:/config/
+```
 
 Create a config file in this format
 ## Customize configuration file
