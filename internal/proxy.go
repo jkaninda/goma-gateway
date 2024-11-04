@@ -18,7 +18,7 @@ limitations under the License.
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"net/http/httputil"
 	"net/url"

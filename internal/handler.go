@@ -18,7 +18,7 @@ limitations under the License.
 import (
 	"encoding/json"
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/logger"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"sync"
 )

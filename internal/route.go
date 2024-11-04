@@ -17,8 +17,8 @@ limitations under the License.
 */
 import (
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/logger"
-	"github.com/jkaninda/goma-gateway/pkg/middleware"
+	"github.com/jkaninda/goma-gateway/internal/middleware"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"time"
 )

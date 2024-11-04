@@ -19,7 +19,7 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/jkaninda/goma-gateway/internal/logger"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"
 )

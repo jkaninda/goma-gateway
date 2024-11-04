@@ -17,7 +17,7 @@ limitations under the License.
 */
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"
 	"net/url"

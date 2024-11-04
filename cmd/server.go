@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/common-nighthawk/go-figure"
-	"github.com/jkaninda/goma-gateway/internal/logger"
-	"github.com/jkaninda/goma-gateway/pkg"
+	"github.com/jkaninda/goma-gateway/internal"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
 )
