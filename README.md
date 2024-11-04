@@ -65,6 +65,10 @@ It comes with a lot of integrated features, such as:
 
 ### 1. Initialize configuration
 
+You can generate the configuration file using `config init --output /config/config.yml` command.
+
+The default configuration is automatically generated if any configuration file is not provided, and is available at `/config/goma.yml`
+
 ```shell
 docker run --rm  --name goma-gateway \
  -v "${PWD}/config:/config" \
@@ -262,3 +266,22 @@ middlewares:
 ## Requirement
 
 - Docker
+
+## Contributing
+
+The Goma Gateway project welcomes all contributors. We appreciate your help!
+
+
+## Give a Star! ⭐
+
+If you like or are using Goma Gateway, please give it a star. Thanks!
+
+
+## License
+
+This project is licensed under the Apache 2.0 License. See the LICENSE file for details.
+
+
+## Copyright
+
+Copyright (c) 2024 Jonas Kaninda

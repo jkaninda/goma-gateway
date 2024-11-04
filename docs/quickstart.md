@@ -9,6 +9,10 @@ nav_order: 2
 
 ### 1. Initialize configuration
 
+You can generate the configuration file using `config init --output /config/config.yml` command.
+
+The default configuration is automatically generated if any configuration file is not provided, and is available at `/config/goma.yml`
+
 ```shell
 docker run --rm  --name goma-gateway \
  -v "${PWD}/config:/config" \
