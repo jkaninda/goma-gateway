@@ -27,6 +27,25 @@ docker run --rm --name goma-gateway \
 - Goma Gateway readiness: `/readyz`
 - Routes health check: `/healthz`
 
+### 5. Simple deployment in docker compose file
+
+```yaml
+services:
+  goma-gateway:
+    image: jkaninda/goma-gateway
+    command: server
+    healthcheck:
+      test: curl -f http://localhost/readyz || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    ports:
+      - "80:80"
+    volumes:
+      - ./config:/config/
+```
+
 ## Customize configuration file
 
 Example of a configuration file

@@ -4,9 +4,9 @@ layout: home
 nav_order: 1
 ---
 
-# About Goma Gateway
+# Goma Gateway
 {:.no_toc}
-Goma Gateway is a lightweight API Gateway.
+Goma Gateway is a lightweight API Gateway Management.
 
 <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Goma logo">
 
@@ -29,6 +29,7 @@ It comes with a lot of integrated features, such as:
 
 Declare your routes and middlewares as code.
 
+----
 Architecture:
 <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/goma-gateway.png" width="912" alt="Goma archi">
 
@@ -64,7 +65,7 @@ While it may work against different implementations, there are no guarantees abo
 
 ## References
 
-We decided to publish this image as a simpler and more lightweight alternative because of the following requirements:
+We decided to publish this image as a simpler and more lightweight because of the following requirements:
 
 - The original image is based on `Alpine` and requires additional tools, making it heavy.
 - This image is written in Go.
