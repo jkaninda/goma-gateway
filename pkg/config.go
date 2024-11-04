@@ -152,6 +152,8 @@ type Gateway struct {
 	RateLimiter int    `yaml:"rateLimiter" env:"GOMA_RATE_LIMITER, overwrite"`
 	AccessLog   string `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
 	ErrorLog    string `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
+	// DisableHealthCheckStatus enable and disable routes health check
+	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus"`
 	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors
 	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError"`
 	//Disable allows enabling and disabling displaying routes on start
@@ -288,6 +290,7 @@ func initConfig(configFile string) {
 				},
 				{
 					Name:        "Hostname example",
+					Host:        "http://example.localhost",
 					Path:        "/",
 					Destination: "https://example.com",
 					Rewrite:     "/",

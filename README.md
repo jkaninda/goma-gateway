@@ -131,6 +131,8 @@ gateway:
   rateLimiter: 0
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"
+  ## Enable and disable routes healthc check
+  disableHealthCheckStatus: false
   ## Returns backend route healthcheck errors
   disableRouteHealthCheckError: false
   # Disable display routes on start

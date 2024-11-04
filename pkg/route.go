@@ -23,6 +23,7 @@ import (
 	"time"
 )
 
+// Initialize the routes
 func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	gateway := gatewayServer.gateway
 	middlewares := gatewayServer.middlewares
@@ -31,9 +32,13 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,
 		Routes:                       gateway.Routes,
 	}
-	// Define the health check route
-	r.HandleFunc("/healthz", heath.HealthCheckHandler).Methods("GET")
+	// Routes health check
+	if !gateway.DisableHealthCheckStatus {
+		r.HandleFunc("/healthz", heath.HealthCheckHandler).Methods("GET")
+	}
+	// Readiness
 	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
+
 	if gateway.RateLimiter != 0 {
 		//rateLimiter := middleware.NewRateLimiter(gateway.RateLimiter, time.Minute)
 		limiter := middleware.NewRateLimiterWindow(gateway.RateLimiter, time.Minute) //  requests per minute

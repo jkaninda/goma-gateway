@@ -66,6 +66,8 @@ gateway:
   rateLimiter: 0
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"
+  ## Enable and disable routes healthc check
+  disableHealthCheckStatus: false
   ## Returns backend route healthcheck errors
   disableRouteHealthCheckError: false
   # Disable display routes on start
@@ -97,7 +99,7 @@ gateway:
       path: /public
       ## Rewrite a request path
       # e.g rewrite: /store to /
-      rewrite: /healthz
+      rewrite: /
       destination:  https://example.com
       #DisableHeaderXForward Disable X-forwarded header.
       # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
@@ -123,24 +125,16 @@ gateway:
       ## List of middleware name
       middlewares:
         - api-forbidden-paths
-        - basic-auth
-    # Example of a route | 2
-    - name: Authentication service
-      path: /auth
-      rewrite: /
-      destination: 'http://security-service:8080'
-      healthCheck: /internal/health/ready
-      cors: {}
-      middlewares:
-        - api-forbidden-paths
     # Example of a route | 3
     - name: Basic auth
       path: /protected
       rewrite: /
-      destination: 'http://notification-service:8080'
+      destination:  https://example.com
       healthCheck:
       cors: {}
-      middlewares: []
+      middlewares:
+        - api-forbidden-paths
+        - basic-auth
 
 #Defines proxy middlewares
 # middleware name must be unique
@@ -181,17 +175,17 @@ middlewares:
       #
       # Add header to the next request from AuthRequest header, depending on your requirements
       # Key is AuthRequest's response header Key, and value is Request's header Key
-      # In case you want to get headers from the Authentication service and inject them into the next request's headers
+    # In case you want to get headers from the authentication service and inject them into the next request headers.
     headers:
       userId: X-Auth-UserId
       userCountryId: X-Auth-UserCountryId
-      # In case you want to get headers from the Authentication service and inject them to the next request's params
+      # In case you want to get headers from the Authentication service and inject them to the next request params.
     params:
       userCountryId: countryId
-  # The server will return 404
+  # The server will return 403
   - name: api-forbidden-paths
     type: access
-    ## Forbidden paths
+    ## prevents access paths
     paths:
       - /swagger-ui/*
       - /v2/swagger-ui/*
