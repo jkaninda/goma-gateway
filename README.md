@@ -36,12 +36,14 @@ Architecture:
 
 It comes with a lot of integrated features, such as:
 
-- Reverse proxy
 - RESTFull API Gateway management
 - Domain/host based request routing
 - Multi domain request routing
+- Reverse proxy
+- Websocket proxy
 - Cross-Origin Resource Sharing (CORS)
-- Backend errors interceptor
+- Custom Headers
+- Backend Errors interceptor
 - Authentication middleware
   - JWT `client authorization based on the result of a request`
   - Basic-Auth
@@ -52,6 +54,7 @@ It comes with a lot of integrated features, such as:
 ### Todo:
 
   - [ ] Support TLS
+  - [ ] Blocklist IP address middleware
   - [ ] OAuth authentication middleware — Optional
   - [ ] Distributed Rate Limiting for Token based across multiple instances using Redis
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
