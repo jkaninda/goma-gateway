@@ -15,8 +15,8 @@ It comes with a lot of integrated features, such as:
 - RESTFull API Gateway management
 - Domain/host based request routing
 - Multi domain request routing
-- Reverse proxy
-- Websocket proxy
+- Reverse Proxy
+- Websocket Proxy
 - Cross-Origin Resource Sharing (CORS)
 - Custom Headers
 - Backend Errors interceptor
