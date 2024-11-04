@@ -12,12 +12,14 @@ Goma Gateway is a lightweight API Gateway.
 
 It comes with a lot of integrated features, such as:
 
-- Reverse proxy
 - RESTFull API Gateway management
 - Domain/host based request routing
 - Multi domain request routing
+- Reverse proxy
+- Websocket proxy
 - Cross-Origin Resource Sharing (CORS)
-- Backend errors interceptor
+- Custom Headers
+- Backend Errors interceptor
 - Authentication middleware
     - JWT `client authorization based on the result of a request`
     - Basic-Auth
