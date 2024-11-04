@@ -24,18 +24,6 @@ import (
 	"net/http"
 )
 
-// InterceptErrors contains backend status code errors to intercept
-type InterceptErrors struct {
-	Errors []int
-}
-
-// responseRecorder intercepts the response body and status code
-type responseRecorder struct {
-	http.ResponseWriter
-	statusCode int
-	body       *bytes.Buffer
-}
-
 func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
 	return &responseRecorder{
 		ResponseWriter: w,
@@ -59,7 +47,7 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		next.ServeHTTP(rec, r)
 		if canIntercept(rec.statusCode, intercept.Errors) {
 			logger.Error("Backend error")
-			logger.Error("An error occurred in the backend, %d", rec.statusCode)
+			logger.Error("An error occurred from the backend with the status code: %d", rec.statusCode)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(rec.statusCode)
 			err := json.NewEncoder(w).Encode(ProxyResponseError{

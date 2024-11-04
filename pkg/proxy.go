@@ -25,19 +25,10 @@ import (
 	"strings"
 )
 
-type ProxyRoute struct {
-	path            string
-	rewrite         string
-	destination     string
-	cors            Cors
-	disableXForward bool
-}
-
 // ProxyHandler proxies requests to the backend
 func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		realIP := getRealIP(r)
-		logger.Info("%s %s %s %s", r.Method, realIP, r.URL, r.UserAgent())
+		logger.Info("%s %s %s %s", r.Method, getRealIP(r), r.URL, r.UserAgent())
 		// Set CORS headers from the cors config
 		//Update Cors Headers
 		for k, v := range proxyRoute.cors.Headers {
@@ -75,8 +66,8 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			r.URL.Host = targetURL.Host
 			r.URL.Scheme = targetURL.Scheme
 			r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
-			r.Header.Set("X-Forwarded-For", realIP)
-			r.Header.Set("X-Real-IP", realIP)
+			r.Header.Set("X-Forwarded-For", getRealIP(r))
+			r.Header.Set("X-Real-IP", getRealIP(r))
 			r.Host = targetURL.Host
 		}
 		// Create proxy

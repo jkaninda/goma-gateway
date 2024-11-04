@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"errors"
-	"github.com/gorilla/mux"
 	"slices"
 	"strings"
 )
@@ -16,14 +15,6 @@ func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error)
 	}
 
 	return Middleware{}, errors.New("middleware not found with name:  [" + strings.Join(rules, ";") + "]")
-}
-
-type RoutePath struct {
-	route       Route
-	path        string
-	rules       []string
-	middlewares []Middleware
-	router      *mux.Router
 }
 
 func doesExist(tyName string) bool {

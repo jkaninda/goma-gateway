@@ -34,7 +34,7 @@ func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 				err := json.NewEncoder(w).Encode(ProxyResponseError{
 					Success: false,
 					Code:    http.StatusTooManyRequests,
-					Message: "Too many requests. Please try again later.",
+					Message: "Too many requests, API rate limit exceeded. Please try again later.",
 				})
 				if err != nil {
 					return
@@ -66,13 +66,13 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			rl.mu.Unlock()
 
 			if client.RequestCount > rl.Requests {
-				logger.Error("Too many request from IP: %s %s %s", clientID, r.URL, r.UserAgent())
+				logger.Error("Too many requests from IP: %s %s %s", clientID, r.URL, r.UserAgent())
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 				err := json.NewEncoder(w).Encode(ProxyResponseError{
 					Success: false,
 					Code:    http.StatusTooManyRequests,
-					Message: "Too many requests. Please try again later.",
+					Message: "Too many requests, API rate limit exceeded. Please try again later.",
 				})
 				if err != nil {
 					return
