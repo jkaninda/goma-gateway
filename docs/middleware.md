@@ -117,7 +117,7 @@ middlewares:
        # Required headers, if not present in the request, the proxy will return 403
        requiredHeaders:
          - Authorization
-       #Sets the request variable to the given value after the authorization request completes.
+       #Set the request variable to the given value after the authorization request completes.
        #
        # Add header to the next request from AuthRequest header, depending on your requirements
        # Key is AuthRequest's response header Key, and value is Request's header Key
