@@ -44,6 +44,7 @@ It comes with a lot of integrated features, such as:
 - Cross-Origin Resource Sharing (CORS)
 - Custom Headers
 - Backend Errors interceptor
+-  Support TLS
 - Authentication middleware
   - JWT `client authorization based on the result of a request`
   - Basic-Auth
@@ -53,11 +54,10 @@ It comes with a lot of integrated features, such as:
 
 ### Todo:
 
-  - [ ] Support TLS
-  - [ ] Blocklist IP address middleware
   - [ ] OAuth authentication middleware — Optional
-  - [ ] Distributed Rate Limiting for Token based across multiple instances using Redis
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
+  - [ ] Blocklist IP address middleware
+
 
 ----
 
@@ -122,13 +122,17 @@ Example of a configuration file
 # Goma Gateway configurations
 gateway:
   ########## Global settings
-  listenAddr: 0.0.0.0:80
+  listenAddr: :80 #:443 SSL
   # Proxy write timeout
   writeTimeout: 15
   # Proxy read timeout
   readTimeout: 15
   # Proxy idle timeout
   idleTimeout: 60
+  ## SSL Certificate file
+  sslCertFile: '' #cert.pem
+  ## SSL Private Key file
+  sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
   # Distributed Rate Limiting for Token based across multiple instances is not yet integrated
   rateLimiter: 0
