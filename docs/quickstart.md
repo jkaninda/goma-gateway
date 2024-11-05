@@ -57,13 +57,17 @@ Example of a configuration file
 # Goma Gateway configurations
 gateway:
   ########## Global settings
-  listenAddr: 0.0.0.0:80
+  listenAddr: :80 #:443 SSL
   # Proxy write timeout
   writeTimeout: 15
   # Proxy read timeout
   readTimeout: 15
   # Proxy idle timeout
   idleTimeout: 60
+  ## SSL Certificate file
+  sslCertFile: '' #cert.pem
+  ## SSL Private Key file
+  sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
   # Distributed Rate Limiting for Token based across multiple instances is not yet integrated
   rateLimiter: 0
