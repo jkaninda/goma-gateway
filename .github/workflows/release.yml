@@ -30,7 +30,6 @@ jobs:
           TAG_NAME="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG_NAME#v}"
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "BUILD_TIME=${(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
       -
         name: Build and push
         uses: docker/build-push-action@v3
