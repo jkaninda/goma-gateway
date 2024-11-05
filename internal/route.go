@@ -35,13 +35,15 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	// Routes health check
 	if !gateway.DisableHealthCheckStatus {
 		r.HandleFunc("/healthz", heath.HealthCheckHandler).Methods("GET")
+		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET")
 	}
-	// Readiness
+	// Health check
+	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET")
 	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
 
 	if gateway.RateLimiter != 0 {
 		//rateLimiter := middleware.NewRateLimiter(gateway.RateLimiter, time.Minute)
-		limiter := middleware.NewRateLimiterWindow(gateway.RateLimiter, time.Minute) //  requests per minute
+		limiter := middleware.NewRateLimiterWindow(gateway.RateLimiter, time.Minute, gateway.Cors.Origins) //  requests per minute
 		// Add rate limit middleware to all routes, if defined
 		r.Use(limiter.RateLimitMiddleware())
 	}
@@ -111,6 +113,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 										RequiredHeaders: jwt.RequiredHeaders,
 										Headers:         jwt.Headers,
 										Params:          jwt.Params,
+										Origins:         gateway.Cors.Origins,
 									}
 									// Apply JWT authentication middleware
 									secureRouter.Use(amw.AuthMiddleware)
@@ -161,7 +164,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middleware
 	// Apply errorInterceptor middleware
 	interceptErrors := middleware.InterceptErrors{
-		Errors: gateway.InterceptErrors,
+		Errors:  gateway.InterceptErrors,
+		Origins: gateway.Cors.Origins,
 	}
 	r.Use(interceptErrors.ErrorInterceptor)
 	return r

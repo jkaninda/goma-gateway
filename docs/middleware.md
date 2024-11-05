@@ -19,7 +19,6 @@ Goma Gateway supports :
     - JWT `client authorization based on the result of a request`
     - Basic-Auth
 - Rate limiting middleware
-    - In-Memory Token Bucket based
     - In-Memory client IP based
 - Access middleware 
 

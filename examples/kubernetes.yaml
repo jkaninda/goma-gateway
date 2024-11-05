@@ -23,14 +23,14 @@ spec:
             - containerPort: 80
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /health/live
               port: 80
             initialDelaySeconds: 15
             periodSeconds: 30
             timeoutSeconds: 10
           readinessProbe:
             httpGet:
-              path: /readyz
+              path: /health/live
               port: 80
             initialDelaySeconds: 15
             periodSeconds: 40

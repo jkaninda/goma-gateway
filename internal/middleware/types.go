@@ -30,6 +30,7 @@ type RateLimiter struct {
 	Window    time.Duration
 	ClientMap map[string]*Client
 	mu        sync.Mutex
+	Origins   []string
 }
 
 // Client stores request count and window expiration for each client.
@@ -39,11 +40,12 @@ type Client struct {
 }
 
 // NewRateLimiterWindow creates a new RateLimiter.
-func NewRateLimiterWindow(requests int, window time.Duration) *RateLimiter {
+func NewRateLimiterWindow(requests int, window time.Duration, origin []string) *RateLimiter {
 	return &RateLimiter{
 		Requests:  requests,
 		Window:    window,
 		ClientMap: make(map[string]*Client),
+		Origins:   origin,
 	}
 }
 
@@ -69,6 +71,7 @@ type JwtAuth struct {
 	RequiredHeaders []string
 	Headers         map[string]string
 	Params          map[string]string
+	Origins         []string
 }
 
 // AuthenticationMiddleware Define struct
@@ -94,7 +97,8 @@ type AuthBasic struct {
 
 // InterceptErrors contains backend status code errors to intercept
 type InterceptErrors struct {
-	Errors []int
+	Errors  []int
+	Origins []string
 }
 
 // responseRecorder intercepts the response body and status code

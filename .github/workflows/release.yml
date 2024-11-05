@@ -2,7 +2,6 @@ name: CI
 on:
   push:
     tags:
-      - 0.**
       - v0.**
 jobs:
   docker:
@@ -26,7 +25,12 @@ jobs:
       -
         name: Get the tag name
         id: get_tag_name
-        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: |
+          # Extract tag name and remove "v" if present
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_NAME#v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "BUILD_TIME=${(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
       -
         name: Build and push
         uses: docker/build-push-action@v3
@@ -35,8 +39,8 @@ jobs:
           file: "./Dockerfile"
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           build-args: |
-            appVersion=${{ env.TAG_NAME }}
+            appVersion=${{ env.VERSION }}
           tags: |
-            "${{vars.BUILDKIT_IMAGE}}:${{ env.TAG_NAME }}"
+            "${{vars.BUILDKIT_IMAGE}}:${{ env.VERSION }}"
             "${{vars.BUILDKIT_IMAGE}}:latest"
 

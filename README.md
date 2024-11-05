@@ -92,8 +92,8 @@ docker run --rm --name goma-gateway \
 ```
 ### 4. Healthcheck
 
-- Goma Gateway readiness: `/readyz`
-- Routes health check: `/healthz`
+- Goma Gateway health check: `/health/live`
+- Routes health check: `health/routes`
 
 ### 5. Simple deployment in docker compose file
 
@@ -103,7 +103,7 @@ services:
     image: jkaninda/goma-gateway
     command: server
     healthcheck:
-      test: curl -f http://localhost/readyz || exit 1
+      test: curl -f http://localhost/heath/live || exit 1
       interval: 30s
       retries: 5
       start_period: 20s
@@ -119,10 +119,8 @@ Create a config file in this format
 
 Example of a configuration file
 ```yaml
-# Goma Gateway configurations
+## Goma Gateway configurations
 gateway:
-  ########## Global settings
-  listenAddr: :80 #:443 SSL
   # Proxy write timeout
   writeTimeout: 15
   # Proxy read timeout
@@ -134,7 +132,6 @@ gateway:
   ## SSL Private Key file
   sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
-  # Distributed Rate Limiting for Token based across multiple instances is not yet integrated
   rateLimiter: 0
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"

@@ -29,6 +29,7 @@ import (
 func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	logger.Info("Initializing routes...")
 	route := gatewayServer.Initialize()
+	logger.Debug("Routes count=%d Middlewares count=%d", len(gatewayServer.gateway.Routes), len(gatewayServer.middlewares))
 	logger.Info("Initializing routes...done")
 	tlsConfig := &tls.Config{}
 	var listenWithTLS = false
@@ -41,8 +42,17 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 		listenWithTLS = true
 
 	}
-	srv := &http.Server{
-		Addr:         gatewayServer.gateway.ListenAddr,
+	// HTTP Server
+	httpServer := &http.Server{
+		Addr:         ":80",
+		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
+		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
+		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
+		Handler:      route, // Pass our instance of gorilla/mux in.
+	}
+	// HTTPS Server
+	httpsServer := &http.Server{
+		Addr:         ":443",
 		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
 		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
 		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
@@ -53,33 +63,49 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 		printRoute(gatewayServer.gateway.Routes)
 	}
 	// Set KeepAlive
-	srv.SetKeepAlivesEnabled(!gatewayServer.gateway.DisableKeepAlive)
+	httpServer.SetKeepAlivesEnabled(!gatewayServer.gateway.DisableKeepAlive)
+	httpsServer.SetKeepAlivesEnabled(!gatewayServer.gateway.DisableKeepAlive)
 	go func() {
-		logger.Info("Started Goma Gateway server on %v", gatewayServer.gateway.ListenAddr)
+		logger.Info("Starting HTTP server listen=0.0.0.0:80")
+		if err := httpServer.ListenAndServe(); err != nil {
+			logger.Fatal("Error starting Goma Gateway HTTP server: %v", err)
+		}
+	}()
+	go func() {
 		if listenWithTLS {
-			logger.Info("Server is running securely over HTTPS on %v ", gatewayServer.gateway.ListenAddr)
-			if err := srv.ListenAndServeTLS("", ""); err != nil {
-				logger.Fatal("Error starting Goma Gateway server: %v", err)
-			}
-		} else {
-			if err := srv.ListenAndServe(); err != nil {
-				logger.Fatal("Error starting Goma Gateway server: %v", err)
+			logger.Info("Starting HTTPS server listen=0.0.0.0:443")
+			if err := httpsServer.ListenAndServeTLS("", ""); err != nil {
+				logger.Fatal("Error starting Goma Gateway HTTPS server: %v", err)
 			}
 		}
 	}()
 	var wg sync.WaitGroup
-	wg.Add(1)
-
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		<-ctx.Done()
 		shutdownCtx := context.Background()
 		shutdownCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
 		defer cancel()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			_, err := fmt.Fprintf(os.Stderr, "error shutting down Goma Gateway server: %s\n", err)
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			_, err := fmt.Fprintf(os.Stderr, "error shutting down HTTP server: %s\n", err)
 			if err != nil {
 				return
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		shutdownCtx := context.Background()
+		shutdownCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
+		defer cancel()
+		if listenWithTLS {
+			if err := httpsServer.Shutdown(shutdownCtx); err != nil {
+				_, err := fmt.Fprintf(os.Stderr, "error shutting HTTPS server: %s\n", err)
+				if err != nil {
+					return
+				}
 			}
 		}
 	}()
