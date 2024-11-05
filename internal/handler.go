@@ -75,6 +75,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 	var routes []HealthCheckRouteResponse
 	for _, route := range heathRoute.Routes {
 		go func() {
+			defer wg.Done()
 			if route.HealthCheck != "" {
 				err := HealthCheck(route.Destination + route.HealthCheck)
 				if err != nil {
@@ -90,7 +91,6 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 				logger.Warn("Route %s's healthCheck is undefined", route.Name)
 				routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "undefined", Error: ""})
 			}
-			defer wg.Done()
 		}()
 
 	}
@@ -109,7 +109,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Info("%s %s %s %s", r.Method, r.RemoteAddr, r.URL, r.UserAgent())
 	response := HealthCheckRouteResponse{
-		Name:   "Goma Gateway",
+		Name:   "Service Gateway",
 		Status: "healthy",
 		Error:  "",
 	}

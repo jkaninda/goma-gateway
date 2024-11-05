@@ -17,6 +17,7 @@ limitations under the License.
 */
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
@@ -29,12 +30,24 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	logger.Info("Initializing routes...")
 	route := gatewayServer.Initialize()
 	logger.Info("Initializing routes...done")
+	tlsConfig := &tls.Config{}
+	var listenWithTLS = false
+	if cert := gatewayServer.gateway.SSLCertFile; cert != "" && gatewayServer.gateway.SSLKeyFile != "" {
+		tlsConf, err := loadTLS(cert, gatewayServer.gateway.SSLKeyFile)
+		if err != nil {
+			return err
+		}
+		tlsConfig = tlsConf
+		listenWithTLS = true
+
+	}
 	srv := &http.Server{
 		Addr:         gatewayServer.gateway.ListenAddr,
 		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
 		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
 		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
 		Handler:      route, // Pass our instance of gorilla/mux in.
+		TLSConfig:    tlsConfig,
 	}
 	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
 		printRoute(gatewayServer.gateway.Routes)
@@ -42,10 +55,16 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	// Set KeepAlive
 	srv.SetKeepAlivesEnabled(!gatewayServer.gateway.DisableKeepAlive)
 	go func() {
-
 		logger.Info("Started Goma Gateway server on %v", gatewayServer.gateway.ListenAddr)
-		if err := srv.ListenAndServe(); err != nil {
-			logger.Error("Error starting Goma Gateway server: %v", err)
+		if listenWithTLS {
+			logger.Info("Server is running securely over HTTPS on %v ", gatewayServer.gateway.ListenAddr)
+			if err := srv.ListenAndServeTLS("", ""); err != nil {
+				logger.Fatal("Error starting Goma Gateway server: %v", err)
+			}
+		} else {
+			if err := srv.ListenAndServe(); err != nil {
+				logger.Fatal("Error starting Goma Gateway server: %v", err)
+			}
 		}
 	}()
 	var wg sync.WaitGroup
