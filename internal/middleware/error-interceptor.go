@@ -49,6 +49,10 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 			logger.Error("Backend error")
 			logger.Error("An error occurred from the backend with the status code: %d", rec.statusCode)
 			w.Header().Set("Content-Type", "application/json")
+			//Update Origin Cors Headers
+			if allowedOrigin(intercept.Origins, r.Header.Get("Origin")) {
+				w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+			}
 			w.WriteHeader(rec.statusCode)
 			err := json.NewEncoder(w).Encode(ProxyResponseError{
 				Success: false,

@@ -69,6 +69,10 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 				logger.Error("Too many requests from IP: %s %s %s", clientID, r.URL, r.UserAgent())
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
+				//Update Origin Cors Headers
+				if allowedOrigin(rl.Origins, r.Header.Get("Origin")) {
+					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+				}
 				err := json.NewEncoder(w).Encode(ProxyResponseError{
 					Success: false,
 					Code:    http.StatusTooManyRequests,
@@ -83,13 +87,4 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-func getRealIP(r *http.Request) string {
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return ip
-	}
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		return ip
-	}
-	return r.RemoteAddr
 }
