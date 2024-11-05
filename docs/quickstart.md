@@ -68,7 +68,6 @@ gateway:
   ## SSL Private Key file
   sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
-  # Distributed Rate Limiting for Token based across multiple instances is not yet integrated
   rateLimiter: 0
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"

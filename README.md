@@ -119,7 +119,7 @@ Create a config file in this format
 
 Example of a configuration file
 ```yaml
-# Goma Gateway configurations
+## Goma Gateway configurations
 gateway:
   # Proxy write timeout
   writeTimeout: 15
@@ -132,7 +132,6 @@ gateway:
   ## SSL Private Key file
   sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
-  # Distributed Rate Limiting for Token based across multiple instances is not yet integrated
   rateLimiter: 0
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"

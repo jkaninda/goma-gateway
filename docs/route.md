@@ -13,48 +13,7 @@ The Route allows you to match on HTTP traffic and direct it to the backend.
 ### Create a route
 
 ```yaml
-  ##### Define routes
-  routes:
-    # Example of a route | 1
-    - name: Public
-    # host Domain/host based request routing
-      host: "" # Host is optional
-      path: /public
-      ## Rewrite a request path
-      # e.g rewrite: /store to /
-      rewrite: /
-      destination:  https://example.com
-      #DisableHeaderXForward Disable X-forwarded header.
-      # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
-      # It will not match the backend route, by default, it's disabled
-      disableHeaderXForward: false
-      # Internal health check
-      healthCheck: '' #/internal/health/ready
-      # Route Cors, global cors will be overridden by route
-      cors:
-        # Route Origins Cors, global cors will be overridden by route
-        origins:
-          - https://dev.example.com
-          - http://localhost:3000
-          - https://example.com
-        # Route Cors headers, route will override global cors
-        headers:
-          Access-Control-Allow-Methods: 'GET'
-          Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
-          Access-Control-Allow-Credentials: 'true'
-          Access-Control-Max-Age: 1728000
-      ##### Define route middlewares from middlewares names
-      ## The name must be unique
-      ## List of middleware name
-      middlewares:
-        - api-forbidden-paths
-        - basic-auth
-```
-
-### Full example of route
-
-```yaml
-# Goma Gateway configurations
+  # Goma Gateway configurations
 gateway:
   # Proxy write timeout
   writeTimeout: 15
@@ -67,7 +26,6 @@ gateway:
   ## SSL Private Key file
   sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
-  # Distributed Rate Limiting for Token based across multiple instances is not yet integrated
   rateLimiter: 0
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"
@@ -81,8 +39,8 @@ gateway:
   disableKeepAlive: false
   # interceptErrors intercepts backend errors based on defined the status codes
   interceptErrors:
-    - 405
-    - 500
+   - 405
+   - 500
   # - 400
   # Proxy Global HTTP Cors
   cors:
@@ -99,7 +57,7 @@ gateway:
   routes:
     # Example of a route | 1
     - name: Public
-      # host Domain/host based request routing
+    # host Domain/host based request routing
       host: "" # Host is optional
       path: /public
       ## Rewrite a request path
@@ -177,16 +135,16 @@ middlewares:
     # In case you want to get headers from the authentication service and inject them into the next request headers.
     #  Key is authentication request response header Key. Value is the next Request header Key.
     headers:
-      userId: Auth-UserId
-      userCountryId: Auth-UserCountryId
+        userId: Auth-UserId
+        userCountryId: Auth-UserCountryId
     # In case you want to get headers from the Authentication service and inject them to the next request params.
     #Key is authentication request response header Key. Value is the next Request parameter Key.
     params:
       userCountryId: countryId
-  # The server will return 403
+# The server will return 403
   - name: api-forbidden-paths
     type: access
-    ## prevents access paths
+      ## prevents access paths
     paths:
       - /swagger-ui/*
       - /v2/swagger-ui/*
