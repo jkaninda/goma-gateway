@@ -3,6 +3,7 @@ on:
   push:
     tags:
       - 0.**
+      - v0.**
 jobs:
   docker:
     runs-on: ubuntu-latest
