@@ -44,7 +44,7 @@ It comes with a lot of integrated features, such as:
 - Cross-Origin Resource Sharing (CORS)
 - Custom Headers
 - Backend Errors interceptor
-- TLS
+-  Support TLS
 - Authentication middleware
   - JWT `client authorization based on the result of a request`
   - Basic-Auth
