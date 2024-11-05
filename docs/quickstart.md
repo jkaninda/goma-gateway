@@ -28,8 +28,8 @@ docker run --rm --name goma-gateway \
 ```
 ### 4. Healthcheck
 
-- Goma Gateway readiness: `/readyz`
-- Routes health check: `/healthz`
+- Goma Gateway health check: `/health/live`
+- Routes health check: `health/live`
 
 ### 5. Simple deployment in docker compose file
 
@@ -46,6 +46,7 @@ services:
       timeout: 10s
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./config:/config/
 ```
@@ -56,8 +57,6 @@ Example of a configuration file
 ```yaml
 # Goma Gateway configurations
 gateway:
-  ########## Global settings
-  listenAddr: :80 #:443 SSL
   # Proxy write timeout
   writeTimeout: 15
   # Proxy read timeout

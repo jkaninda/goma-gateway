@@ -35,8 +35,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	// Routes health check
 	if !gateway.DisableHealthCheckStatus {
 		r.HandleFunc("/healthz", heath.HealthCheckHandler).Methods("GET")
+		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET")
 	}
-	// Readiness
+	// Health check
+	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET")
 	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
 
 	if gateway.RateLimiter != 0 {

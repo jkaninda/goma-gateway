@@ -1,7 +1,5 @@
 # Goma Gateway configurations
 gateway:
-  ########## Global settings
-  listenAddr: :80 #:443 SSL
   # Proxy write timeout
   writeTimeout: 15
   # Proxy read timeout
