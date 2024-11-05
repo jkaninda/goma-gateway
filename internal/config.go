@@ -85,7 +85,7 @@ func initConfig(configFile string) {
 	}
 	conf := &GatewayConfig{
 		GatewayConfig: Gateway{
-			ListenAddr:                   "0.0.0.0:80",
+			ListenAddr:                   ":80",
 			WriteTimeout:                 15,
 			ReadTimeout:                  15,
 			IdleTimeout:                  60,
