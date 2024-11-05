@@ -10,11 +10,14 @@ You may get a copy of the License at
     http://www.apache.org/licenses/LICENSE-2.0
 */
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 )
 
+// printRoute prints routes
 func printRoute(routes []Route) {
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"Name", "Route", "Rewrite", "Destination"})
@@ -23,6 +26,8 @@ func printRoute(routes []Route) {
 	}
 	fmt.Println(t.Render())
 }
+
+// getRealIP gets user real IP
 func getRealIP(r *http.Request) string {
 	if ip := r.Header.Get("X-Real-IP"); ip != "" {
 		return ip
@@ -31,4 +36,20 @@ func getRealIP(r *http.Request) string {
 		return ip
 	}
 	return r.RemoteAddr
+}
+
+// loadTLS loads TLS Certificate
+func loadTLS(cert, key string) (*tls.Config, error) {
+	if cert == "" && key == "" {
+		return nil, fmt.Errorf("no certificate or key file provided")
+	}
+	serverCert, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		logger.Error("Error loading server certificate: %v", err)
+		return nil, err
+	}
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+	}
+	return tlsConfig, nil
 }

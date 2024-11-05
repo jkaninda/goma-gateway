@@ -136,7 +136,9 @@ type Gateway struct {
 	// ListenAddr Defines the server listenAddr
 	//
 	//e.g: localhost:8080
-	ListenAddr string `yaml:"listenAddr" env:"GOMA_LISTEN_ADDR, overwrite"`
+	ListenAddr  string `yaml:"listenAddr" env:"GOMA_LISTEN_ADDR, overwrite"`
+	SSLCertFile string `yaml:"sslCertFile" env:"GOMA_SSL_CERT_FILE, overwrite"`
+	SSLKeyFile  string `yaml:"sslKeyFile" env:"GOMA_SSL_KEY_FILE, overwrite"`
 	// WriteTimeout defines proxy write timeout
 	WriteTimeout int `yaml:"writeTimeout" env:"GOMA_WRITE_TIMEOUT, overwrite"`
 	// ReadTimeout defines proxy read timeout
