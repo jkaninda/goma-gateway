@@ -44,7 +44,7 @@ It comes with a lot of integrated features, such as:
 - Cross-Origin Resource Sharing (CORS)
 - Custom Headers
 - Backend Errors interceptor
--  Support TLS
+- Support TLS
 - Authentication middleware
   - JWT `client authorization based on the result of a request`
   - Basic-Auth
@@ -57,6 +57,7 @@ It comes with a lot of integrated features, such as:
   - [ ] OAuth authentication middleware — Optional
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
   - [ ] Blocklist IP address middleware
+  - [x] Block common exploits middleware
 
 
 ----
@@ -88,6 +89,7 @@ docker run --rm --name goma-gateway \
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/config" \
  -p 80:80 \
+ -p 443:443 \
  jkaninda/goma-gateway server --config /config/config.yml
 ```
 ### 4. Healthcheck
