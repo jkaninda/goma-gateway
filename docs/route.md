@@ -9,8 +9,21 @@ nav_order: 3
 
 The Route allows you to match on HTTP traffic and direct it to the backend. 
 
+### Example of a route
 
-### Create a route
+```yaml
+    - name: Example
+      path: /store/cart
+      rewrite: /cart
+      destination:  http://cart-service:8080
+      healthCheck: ''
+      cors: {}
+      middlewares:
+        - api-forbidden-paths
+        - jwt-auth
+```
+
+### Full example of routes and middlewares
 
 ```yaml
   # Goma Gateway configurations

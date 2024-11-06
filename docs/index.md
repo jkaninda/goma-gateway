@@ -40,10 +40,7 @@ We are open to receiving stars, PRs, and issues!
 
 ---
 
-The [jkaninda/goma-gateway](https://hub.docker.com/r/jkaninda/goma-gateway) Docker image can be deployed on Docker, Docker Swarm and Kubernetes. 
-
-It also supports database __encryption__ using GPG.
-
+The [jkaninda/goma-gateway](https://hub.docker.com/r/jkaninda/goma-gateway) Docker image can be deployed on Docker, Docker in Swarm mode, and Kubernetes. 
 
 
 ## Available image registries
