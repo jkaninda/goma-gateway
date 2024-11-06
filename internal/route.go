@@ -40,7 +40,11 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	// Health check
 	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET")
 	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
-
+	// Enable common exploits
+	if gateway.BlockCommonExploits {
+		logger.Info("Block common exploits enabled")
+		r.Use(middleware.BlockExploitsMiddleware)
+	}
 	if gateway.RateLimiter != 0 {
 		//rateLimiter := middleware.NewRateLimiter(gateway.RateLimiter, time.Minute)
 		limiter := middleware.NewRateLimiterWindow(gateway.RateLimiter, time.Minute, gateway.Cors.Origins) //  requests per minute
