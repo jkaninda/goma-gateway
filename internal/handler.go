@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
+	"context"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
@@ -129,4 +130,31 @@ func allowedOrigin(origins []string, origin string) bool {
 	}
 	return false
 
+}
+func (oauth OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r *http.Request) {
+	oauthConfig := oauth2Config(oauth)
+	logger.Info("URL State: %s", r.URL.Query().Get("state"))
+	// Verify the state to protect against CSRF
+	if r.URL.Query().Get("state") != oauth.State {
+		http.Error(w, "Invalid state", http.StatusBadRequest)
+		return
+	}
+
+	// Exchange the authorization code for an access token
+	code := r.URL.Query().Get("code")
+	token, err := oauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Save token to a cookie for simplicity
+	http.SetCookie(w, &http.Cookie{
+		Name:  "oauth-token",
+		Value: token.AccessToken,
+		Path:  oauth.CookiePath,
+	})
+
+	// Redirect to the home page or another protected route
+	http.Redirect(w, r, oauth.RedirectPath, http.StatusSeeOther)
 }

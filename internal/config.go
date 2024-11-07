@@ -17,9 +17,11 @@ limitations under the License.
 */
 import (
 	"fmt"
+	"github.com/jkaninda/goma-gateway/internal/middleware"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
+	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"
 	"os"
 )
@@ -175,6 +177,25 @@ func initConfig(configFile string) {
 					"/actuator/*",
 				},
 			},
+			{
+				Name: "oauth",
+				Type: OAuth,
+				Paths: []string{
+					"/protected",
+					"/example-of-oauth",
+				},
+				Rule: OauthRulerMiddleware{
+					ClientID:     "",
+					ClientSecret: "",
+					RedirectURL:  "",
+					Scopes:       []string{"user"},
+					Endpoint: OauthEndpoint{
+						AuthURL:  "https://accounts.google.com/o/oauth2/auth",
+						TokenURL: "https://oauth2.googleapis.com/token",
+					},
+					State: "randomStateString",
+				},
+			},
 		},
 	}
 	yamlData, err := yaml.Marshal(&conf)
@@ -249,4 +270,52 @@ func getBasicAuthMiddleware(input interface{}) (BasicRuleMiddleware, error) {
 
 	}
 	return *basicAuth, nil
+}
+
+// oAuthMiddleware returns OauthRulerMiddleware, error
+func oAuthMiddleware(input interface{}) (OauthRulerMiddleware, error) {
+	oauthRuler := new(OauthRulerMiddleware)
+	var bytes []byte
+	bytes, err := yaml.Marshal(input)
+	if err != nil {
+		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
+	}
+	err = yaml.Unmarshal(bytes, oauthRuler)
+	if err != nil {
+		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
+	}
+	if oauthRuler.ClientID == "" || oauthRuler.ClientSecret == "" || oauthRuler.RedirectURL == "" {
+		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: empty clientId/secretId in %s middleware", oauthRuler)
+
+	}
+	return *oauthRuler, nil
+}
+
+func oauth2Config(oauth OauthRulerMiddleware) *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     oauth.ClientID,
+		ClientSecret: oauth.ClientSecret,
+		RedirectURL:  oauth.RedirectURL,
+		Scopes:       oauth.Scopes,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:       oauth.Endpoint.AuthURL,
+			TokenURL:      oauth.Endpoint.TokenURL,
+			DeviceAuthURL: oauth.Endpoint.DeviceAuthURL,
+		},
+	}
+}
+
+func oauthRulerMiddleware(oauth middleware.Oauth) *OauthRulerMiddleware {
+	return &OauthRulerMiddleware{
+		ClientID:     oauth.ClientID,
+		ClientSecret: oauth.ClientSecret,
+		RedirectURL:  oauth.RedirectURL,
+		State:        oauth.State,
+		Scopes:       oauth.Scopes,
+		Endpoint: OauthEndpoint{
+			AuthURL:       oauth.Endpoint.AuthURL,
+			TokenURL:      oauth.Endpoint.TokenURL,
+			DeviceAuthURL: oauth.Endpoint.DeviceAuthURL,
+		},
+	}
 }

@@ -7,4 +7,4 @@ const gatewayName = "Goma Gateway"
 const AccessMiddleware = "access" // access middleware
 const BasicAuth = "basic"         // basic authentication middleware
 const JWTAuth = "jwt"             // JWT authentication middleware
-const OAuth = "OAuth"             // OAuth authentication middleware
+const OAuth = "oauth"             // OAuth authentication middleware
