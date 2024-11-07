@@ -44,7 +44,7 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	}
 	// HTTP Server
 	httpServer := &http.Server{
-		Addr:         ":80",
+		Addr:         ":8080",
 		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
 		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
 		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
@@ -52,7 +52,7 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	}
 	// HTTPS Server
 	httpsServer := &http.Server{
-		Addr:         ":443",
+		Addr:         ":8443",
 		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
 		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
 		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
@@ -66,14 +66,14 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	httpServer.SetKeepAlivesEnabled(!gatewayServer.gateway.DisableKeepAlive)
 	httpsServer.SetKeepAlivesEnabled(!gatewayServer.gateway.DisableKeepAlive)
 	go func() {
-		logger.Info("Starting HTTP server listen=0.0.0.0:80")
+		logger.Info("Starting HTTP server listen=0.0.0.0:8080")
 		if err := httpServer.ListenAndServe(); err != nil {
 			logger.Fatal("Error starting Goma Gateway HTTP server: %v", err)
 		}
 	}()
 	go func() {
 		if listenWithTLS {
-			logger.Info("Starting HTTPS server listen=0.0.0.0:443")
+			logger.Info("Starting HTTPS server listen=0.0.0.0:8443")
 			if err := httpsServer.ListenAndServeTLS("", ""); err != nil {
 				logger.Fatal("Error starting Goma Gateway HTTPS server: %v", err)
 			}
