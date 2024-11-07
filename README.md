@@ -54,10 +54,10 @@ It comes with a lot of integrated features, such as:
 
 ### Todo:
 
-  - [ ] OAuth authentication middleware — Optional
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
   - [ ] Blocklist IP address middleware
   - [x] Block common exploits middleware
+  - [x] OAuth authentication middleware 
 
 
 ----
