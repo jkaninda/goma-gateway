@@ -39,7 +39,7 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing yaml %q: %w", configFile, err)
+			return nil, fmt.Errorf("parsing the configuration file %q: %w", configFile, err)
 		}
 		return &GatewayServer{
 			ctx:         nil,
@@ -48,6 +48,27 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 		}, nil
 	}
 	logger.Error("Configuration file not found: %v", configFile)
+	// Check a default file
+	if util.FileExists(ConfigFile) {
+		buf, err := os.ReadFile(ConfigFile)
+		if err != nil {
+			return nil, err
+
+		}
+		logger.Info("Using configuration file: %s", ConfigFile)
+		util.SetEnv("GOMA_CONFIG_FILE", configFile)
+		c := &GatewayConfig{}
+		err = yaml.Unmarshal(buf, c)
+		if err != nil {
+			return nil, fmt.Errorf("parsing the configuration file %q: %w", ConfigFile, err)
+		}
+		return &GatewayServer{
+			ctx:         nil,
+			gateway:     c.GatewayConfig,
+			middlewares: c.Middlewares,
+		}, nil
+
+	}
 	logger.Info("Generating new configuration file...")
 	initConfig(ConfigFile)
 	logger.Info("Server configuration file is available at %s", ConfigFile)
