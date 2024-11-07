@@ -107,3 +107,24 @@ type responseRecorder struct {
 	statusCode int
 	body       *bytes.Buffer
 }
+type Oauth struct {
+	// ClientID is the application's ID.
+	ClientID string
+	// ClientSecret is the application's secret.
+	ClientSecret string
+	// Endpoint contains the resource server's token endpoint
+	Endpoint OauthEndpoint
+	// RedirectURL is the URL to redirect users going through
+	// the OAuth flow, after the resource owner's URLs.
+	RedirectURL string
+	// Scope specifies optional requested permissions.
+	Scopes []string
+	// contains filtered or unexported fields
+	State   string
+	Origins []string
+}
+type OauthEndpoint struct {
+	AuthURL       string
+	TokenURL      string
+	DeviceAuthURL string
+}

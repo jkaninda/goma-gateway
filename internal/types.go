@@ -72,6 +72,34 @@ type JWTRuleMiddleware struct {
 	//e.g: Header X-Auth-UserId to query userId
 	Params map[string]string `yaml:"params"`
 }
+type OauthRulerMiddleware struct {
+	// ClientID is the application's ID.
+	ClientID string `yaml:"clientId"`
+
+	// ClientSecret is the application's secret.
+	ClientSecret string `yaml:"clientSecret"`
+
+	// Endpoint contains the resource server's token endpoint
+	Endpoint OauthEndpoint `yaml:"endpoint"`
+
+	// RedirectURL is the URL to redirect users going through
+	// the OAuth flow, after the resource owner's URLs.
+	RedirectURL string `yaml:"redirectUrl"`
+	// RedirectPath is the PATH to redirect users after authentication, e.g: /my-protected-path/dashboard
+	RedirectPath string `yaml:"redirectPath"`
+	//CookiePath e.g: /my-protected-path or / || by default is applied on a route path
+	CookiePath string `yaml:"cookiePath"`
+
+	// Scope specifies optional requested permissions.
+	Scopes []string `yaml:"scopes"`
+	// contains filtered or unexported fields
+	State string `yaml:"state"`
+}
+type OauthEndpoint struct {
+	AuthURL       string `yaml:"authUrl"`
+	TokenURL      string `yaml:"tokenUrl"`
+	DeviceAuthURL string `yaml:"deviceAuthUrl"`
+}
 type RateLimiter struct {
 	// ipBased, tokenBased
 	Type string  `yaml:"type"`

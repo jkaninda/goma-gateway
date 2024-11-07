@@ -88,6 +88,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								cors:            route.Cors,
 							}
 							secureRouter := r.PathPrefix(util.ParseRoutePath(route.Path, midPath)).Subrouter()
+							//callBackRouter := r.PathPrefix(util.ParseRoutePath(route.Path, "/callback")).Subrouter()
 							//Check Authentication middleware
 							switch rMiddleware.Type {
 							case BasicAuth:
@@ -126,9 +127,40 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 									secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
 
 								}
-							case "OAuth":
-								logger.Error("OAuth is not yet implemented")
-								logger.Info("Auth middleware ignored")
+							case OAuth, "openid":
+								oauth, err := oAuthMiddleware(rMiddleware.Rule)
+								if err != nil {
+									logger.Error("Error: %s", err.Error())
+								} else {
+									amw := middleware.Oauth{
+										ClientID:     oauth.ClientID,
+										ClientSecret: oauth.ClientSecret,
+										RedirectURL:  oauth.RedirectURL + route.Path,
+										Scopes:       oauth.Scopes,
+										Endpoint: middleware.OauthEndpoint{
+											AuthURL:       oauth.Endpoint.AuthURL,
+											TokenURL:      oauth.Endpoint.TokenURL,
+											DeviceAuthURL: oauth.Endpoint.DeviceAuthURL,
+										},
+										State:   oauth.State,
+										Origins: gateway.Cors.Origins,
+									}
+									oauthRuler := oauthRulerMiddleware(amw)
+									// Check if a cookie path is defined
+									if oauthRuler.CookiePath == "" {
+										oauthRuler.CookiePath = route.Path
+									}
+									// Check if a RedirectPath is defined
+									if oauthRuler.RedirectPath == "" {
+										oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, midPath)
+									}
+									secureRouter.Use(amw.AuthMiddleware)
+									secureRouter.Use(CORSHandler(route.Cors))
+									secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
+									secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
+									// Callback route
+									r.HandleFunc("/callback"+route.Path, oauthRuler.callbackHandler).Methods("GET")
+								}
 							default:
 								if !doesExist(rMiddleware.Type) {
 									logger.Error("Unknown middleware type %s", rMiddleware.Type)
