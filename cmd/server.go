@@ -50,7 +50,7 @@ var ServerCmd = &cobra.Command{
 }
 
 func init() {
-	ServerCmd.Flags().StringP("config", "", "", "Goma config file")
+	ServerCmd.Flags().StringP("config", "c", "", "Path to the configuration filename")
 }
 func intro() {
 	nameFigure := figure.NewFigure("Goma", "", true)

@@ -26,7 +26,7 @@ import (
 // rootCmd represents
 var rootCmd = &cobra.Command{
 	Use:     "goma",
-	Short:   "Goma Gateway is a lightweight API Gateway, Reverse Proxy",
+	Short:   "Goma Gateway is a lightweight API Gateway Management",
 	Long:    `.`,
 	Example: util.MainExample,
 	Version: util.FullVersion(),
