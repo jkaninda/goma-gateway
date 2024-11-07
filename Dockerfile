@@ -11,8 +11,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/jkaninda/goma-gat
 
 FROM alpine:3.20.3
 ENV TZ=UTC
-ARG WORKDIR="/config"
-ARG CERTSDIR="${WORKDIR}/certs"
+ARG WORKDIR="/etc/goma/"
 ARG appVersion=""
 ARG user="goma"
 ENV VERSION=${appVersion}
@@ -20,8 +19,8 @@ LABEL author="Jonas Kaninda"
 LABEL version=${appVersion}
 LABEL github="github.com/jkaninda/goma-gateway"
 
-RUN mkdir -p ${WORKDIR} ${CERTSDIR} && \
-     chmod a+rw ${WORKDIR} ${CERTSDIR}
+RUN mkdir -p ${WORKDIR} && \
+     chmod a+rw ${WORKDIR}
 COPY --from=build /app/goma /usr/local/bin/goma
 RUN chmod a+x /usr/local/bin/goma && \
     ln -s /usr/local/bin/goma /usr/bin/goma

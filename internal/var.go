@@ -1,6 +1,6 @@
 package pkg
 
-const ConfigFile = "/config/goma.yml"                          // Default configuration file
+const ConfigFile = "/etc/goma/goma.yml"                        // Default configuration file
 const accessControlAllowOrigin = "Access-Control-Allow-Origin" // Cors
 const serverName = "Goma"
 const gatewayName = "Goma Gateway"
