@@ -28,5 +28,6 @@ RUN chmod a+x /usr/local/bin/goma && \
 RUN addgroup -S ${user} && adduser -S ${user} -G ${user}
 RUN apk --update add --no-cache tzdata ca-certificates curl #libcap && setcap 'cap_net_bind_service=+ep' /usr/local/bin/goma
 USER ${user}
+EXPOSE 8080 8443
 WORKDIR $WORKDIR
 ENTRYPOINT ["/usr/local/bin/goma"]
