@@ -10,11 +10,16 @@ You may get a copy of the License at
     http://www.apache.org/licenses/LICENSE-2.0
 */
 import (
+	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"github.com/golang-jwt/jwt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"golang.org/x/oauth2"
 	"net/http"
+	"time"
 )
 
 // printRoute prints routes
@@ -52,4 +57,41 @@ func loadTLS(cert, key string) (*tls.Config, error) {
 		Certificates: []tls.Certificate{serverCert},
 	}
 	return tlsConfig, nil
+}
+func (oauth *OauthRulerMiddleware) getUserInfo(token *oauth2.Token) (UserInfo, error) {
+	oauthConfig := oauth2Config(oauth)
+	// Call the user info endpoint with the token
+	client := oauthConfig.Client(context.Background(), token)
+	resp, err := client.Get(oauth.Endpoint.UserInfoURL)
+	if err != nil {
+		return UserInfo{}, err
+	}
+	defer resp.Body.Close()
+
+	// Parse the user info
+	var userInfo UserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return UserInfo{}, err
+	}
+
+	return userInfo, nil
+}
+func createJWT(email, jwtSecret string) (string, error) {
+	// Define JWT claims
+	claims := jwt.MapClaims{
+		"email": email,
+		"exp":   jwt.TimeFunc().Add(time.Hour * 24).Unix(), // Token expiration
+		"iss":   "Goma-Gateway",                            // Issuer claim
+	}
+
+	// Create a new token with HS256 signing method
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Sign the token with a secret
+	signedToken, err := token.SignedString([]byte(jwtSecret))
+	if err != nil {
+		return "", err
+	}
+
+	return signedToken, nil
 }

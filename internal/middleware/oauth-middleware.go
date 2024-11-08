@@ -18,39 +18,71 @@
 package middleware
 
 import (
+	"fmt"
+	"github.com/golang-jwt/jwt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"golang.org/x/oauth2"
 	"net/http"
+	"time"
 )
 
-func oauth2Config(oauth Oauth) *oauth2.Config {
-	return &oauth2.Config{
-		ClientID:     oauth.ClientID,
-		ClientSecret: oauth.ClientSecret,
-		RedirectURL:  oauth.RedirectURL,
-		Scopes:       oauth.Scopes,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:       oauth.Endpoint.AuthURL,
-			TokenURL:      oauth.Endpoint.TokenURL,
-			DeviceAuthURL: oauth.Endpoint.DeviceAuthURL,
-		},
-	}
-}
 func (oauth Oauth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("%s: %s Oauth", getRealIP(r), r.URL.Path)
-		oauthConfig := oauth2Config(oauth)
+		oauthConf := oauth2Config(oauth)
 		// Check if the user is authenticated
-		_, err := r.Cookie("oauth-token")
+		token, err := r.Cookie("goma.JWT")
 		if err != nil {
 			// If no token, redirect to OAuth provider
-			url := oauthConfig.AuthCodeURL(oauth.State)
+			url := oauthConf.AuthCodeURL(oauth.State)
 			http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 			return
 		}
-		//TODO: Check if the token stored in the cookie is valid
-
+		ok, err := validateJWT(token.Value, oauth)
+		if err != nil {
+			// If no token, redirect to OAuth provider
+			url := oauthConf.AuthCodeURL(oauth.State)
+			http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+			return
+		}
+		if !ok {
+			// If no token, redirect to OAuth provider
+			url := oauthConf.AuthCodeURL(oauth.State)
+			http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+			return
+		}
 		// Token exists, proceed with request
 		next.ServeHTTP(w, r)
 	})
+}
+
+func validateJWT(signedToken string, oauth Oauth) (bool, error) {
+	// Parse the JWT token and provide the key function
+	token, err := jwt.Parse(signedToken, func(token *jwt.Token) (interface{}, error) {
+		// Ensure the signing method is HMAC and specifically HS256
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		// Return the shared secret key for validation
+		return []byte(oauth.JWTSecret), nil
+	})
+
+	// If there's an error or token is invalid, return false
+	if err != nil || !token.Valid {
+		return false, fmt.Errorf("token is invalid: %v", err)
+	}
+
+	// Check if token claims are valid
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		// Optional: Check token expiration
+		if exp, ok := claims["exp"].(float64); ok {
+			if time.Unix(int64(exp), 0).Before(time.Now()) {
+				return false, fmt.Errorf("token has expired")
+			}
+		}
+
+		// Token is valid and not expired
+		return true, nil
+	}
+
+	return false, fmt.Errorf("token is invalid or missing claims")
 }

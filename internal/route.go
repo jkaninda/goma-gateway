@@ -132,18 +132,24 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								if err != nil {
 									logger.Error("Error: %s", err.Error())
 								} else {
+									redirectURL := "/callback" + route.Path
+									if oauth.RedirectURL != "" {
+										redirectURL = oauth.RedirectURL
+									}
 									amw := middleware.Oauth{
 										ClientID:     oauth.ClientID,
 										ClientSecret: oauth.ClientSecret,
-										RedirectURL:  oauth.RedirectURL + route.Path,
+										RedirectURL:  redirectURL,
 										Scopes:       oauth.Scopes,
 										Endpoint: middleware.OauthEndpoint{
-											AuthURL:       oauth.Endpoint.AuthURL,
-											TokenURL:      oauth.Endpoint.TokenURL,
-											DeviceAuthURL: oauth.Endpoint.DeviceAuthURL,
+											AuthURL:     oauth.Endpoint.AuthURL,
+											TokenURL:    oauth.Endpoint.TokenURL,
+											UserInfoURL: oauth.Endpoint.UserInfoURL,
 										},
-										State:   oauth.State,
-										Origins: gateway.Cors.Origins,
+										State:     oauth.State,
+										Origins:   gateway.Cors.Origins,
+										JWTSecret: oauth.JWTSecret,
+										Provider:  oauth.Provider,
 									}
 									oauthRuler := oauthRulerMiddleware(amw)
 									// Check if a cookie path is defined
@@ -154,12 +160,15 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 									if oauthRuler.RedirectPath == "" {
 										oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, midPath)
 									}
+									if oauthRuler.Provider == "" {
+										oauthRuler.Provider = "custom"
+									}
 									secureRouter.Use(amw.AuthMiddleware)
 									secureRouter.Use(CORSHandler(route.Cors))
 									secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
 									secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
 									// Callback route
-									r.HandleFunc("/callback"+route.Path, oauthRuler.callbackHandler).Methods("GET")
+									r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods("GET")
 								}
 							default:
 								if !doesExist(rMiddleware.Type) {
