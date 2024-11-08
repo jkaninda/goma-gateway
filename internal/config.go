@@ -112,6 +112,7 @@ func initConfig(configFile string) {
 		configFile = GetConfigPaths()
 	}
 	conf := &GatewayConfig{
+		Version: util.Version,
 		GatewayConfig: Gateway{
 			WriteTimeout:                 15,
 			ReadTimeout:                  15,
@@ -120,7 +121,7 @@ func initConfig(configFile string) {
 			ErrorLog:                     "/dev/stderr",
 			DisableRouteHealthCheckError: false,
 			DisableDisplayRouteOnStart:   false,
-			RateLimiter:                  0,
+			RateLimit:                    0,
 			InterceptErrors:              []int{405, 500},
 			Cors: Cors{
 				Origins: []string{"http://localhost:8080", "https://example.com"},
@@ -134,6 +135,7 @@ func initConfig(configFile string) {
 				{
 					Name:        "Public",
 					Path:        "/public",
+					Methods:     []string{"GET"},
 					Destination: "https://example.com",
 					Rewrite:     "/",
 					HealthCheck: "",

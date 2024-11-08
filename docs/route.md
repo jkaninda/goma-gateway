@@ -16,6 +16,7 @@ The Route allows you to match on HTTP traffic and direct it to the backend.
       path: /store/cart
       rewrite: /cart
       destination:  http://cart-service:8080
+      methods: [POST, PUT, GET]
       healthCheck: ''
       cors: {}
       middlewares:
@@ -39,7 +40,7 @@ gateway:
   ## SSL Private Key file
   sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
-  rateLimiter: 0
+  rateLimit: 0
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"
   ## Enable, disable routes health check
@@ -77,6 +78,7 @@ gateway:
       # e.g rewrite: /store to /
       rewrite: /
       destination:  https://example.com
+      methods: [GET]
       #DisableHeaderXForward Disable X-forwarded header.
       # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
       # It will not match the backend route, by default, it's disabled
