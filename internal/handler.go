@@ -55,13 +55,8 @@ func CORSHandler(cors Cors) mux.MiddlewareFunc {
 // ProxyErrorHandler catches backend errors and returns a custom response
 func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	logger.Error("Proxy error: %v", err)
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadGateway)
-	err = json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": false,
-		"code":    http.StatusBadGateway,
-		"message": "The service is currently unavailable. Please try again later.",
-	})
+	_, err = w.Write([]byte("Bad Gateway"))
 	if err != nil {
 		return
 	}
@@ -131,27 +126,42 @@ func allowedOrigin(origins []string, origin string) bool {
 	return false
 
 }
-func (oauth OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r *http.Request) {
+
+// callbackHandler handles oauth callback
+func (oauth *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r *http.Request) {
 	oauthConfig := oauth2Config(oauth)
-	logger.Info("URL State: %s", r.URL.Query().Get("state"))
 	// Verify the state to protect against CSRF
 	if r.URL.Query().Get("state") != oauth.State {
 		http.Error(w, "Invalid state", http.StatusBadRequest)
 		return
 	}
-
 	// Exchange the authorization code for an access token
 	code := r.URL.Query().Get("code")
 	token, err := oauthConfig.Exchange(context.Background(), code)
 	if err != nil {
-		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
+		logger.Error("Failed to exchange token: %v", err.Error())
+		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
 		return
 	}
 
+	// Get user info from the token
+	userInfo, err := oauth.getUserInfo(token)
+	if err != nil {
+		logger.Error("Error getting user info: %v", err)
+		http.Error(w, "Error getting user info: ", http.StatusInternalServerError)
+		return
+	}
+	// Generate JWT with user's email
+	jwtToken, err := createJWT(userInfo.Email, oauth.JWTSecret)
+	if err != nil {
+		logger.Error("Error creating JWT: %v", err)
+		http.Error(w, "Error creating JWT ", http.StatusInternalServerError)
+		return
+	}
 	// Save token to a cookie for simplicity
 	http.SetCookie(w, &http.Cookie{
-		Name:  "oauth-token",
-		Value: token.AccessToken,
+		Name:  "goma.JWT",
+		Value: jwtToken,
 		Path:  oauth.CookiePath,
 	})
 

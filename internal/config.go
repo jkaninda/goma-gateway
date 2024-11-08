@@ -22,6 +22,11 @@ import (
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/amazon"
+	"golang.org/x/oauth2/facebook"
+	"golang.org/x/oauth2/github"
+	"golang.org/x/oauth2/gitlab"
+	"golang.org/x/oauth2/google"
 	"gopkg.in/yaml.v3"
 	"os"
 )
@@ -179,7 +184,7 @@ func initConfig(configFile string) {
 					"/example-of-jwt",
 				},
 				Rule: JWTRuleMiddleware{
-					URL: "https://www.googleapis.com/auth/userinfo.email",
+					URL: "https://example.com/auth/userinfo",
 					RequiredHeaders: []string{
 						"Authorization",
 					},
@@ -199,20 +204,41 @@ func initConfig(configFile string) {
 				},
 			},
 			{
-				Name: "oauth",
+				Name: "oauth-google",
 				Type: OAuth,
 				Paths: []string{
 					"/protected",
 					"/example-of-oauth",
 				},
 				Rule: OauthRulerMiddleware{
-					ClientID:     "",
-					ClientSecret: "",
-					RedirectURL:  "",
-					Scopes:       []string{"user"},
+					ClientID:     "xxx",
+					ClientSecret: "xxx",
+					Provider:     "google",
+					JWTSecret:    "your-strong-jwt-secret | It's optional",
+					RedirectURL:  "http://localhost:8080/callback",
+					Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
+						"https://www.googleapis.com/auth/userinfo.profile"},
+					Endpoint: OauthEndpoint{},
+					State:    "randomStateString",
+				},
+			},
+			{
+				Name: "oauth-authentik",
+				Type: OAuth,
+				Paths: []string{
+					"/protected",
+					"/example-of-oauth",
+				},
+				Rule: OauthRulerMiddleware{
+					ClientID:     "xxx",
+					ClientSecret: "xxx",
+					RedirectURL:  "http://localhost:8080/callback",
+					Scopes:       []string{"email", "openid"},
+					JWTSecret:    "your-strong-jwt-secret | It's optional",
 					Endpoint: OauthEndpoint{
-						AuthURL:  "https://accounts.google.com/o/oauth2/auth",
-						TokenURL: "https://oauth2.googleapis.com/token",
+						AuthURL:     "https://authentik.example.com/application/o/authorize/",
+						TokenURL:    "https://authentik.example.com/application/o/token/",
+						UserInfoURL: "https://authentik.example.com/application/o/userinfo/",
 					},
 					State: "randomStateString",
 				},
@@ -311,21 +337,6 @@ func oAuthMiddleware(input interface{}) (OauthRulerMiddleware, error) {
 	}
 	return *oauthRuler, nil
 }
-
-func oauth2Config(oauth OauthRulerMiddleware) *oauth2.Config {
-	return &oauth2.Config{
-		ClientID:     oauth.ClientID,
-		ClientSecret: oauth.ClientSecret,
-		RedirectURL:  oauth.RedirectURL,
-		Scopes:       oauth.Scopes,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:       oauth.Endpoint.AuthURL,
-			TokenURL:      oauth.Endpoint.TokenURL,
-			DeviceAuthURL: oauth.Endpoint.DeviceAuthURL,
-		},
-	}
-}
-
 func oauthRulerMiddleware(oauth middleware.Oauth) *OauthRulerMiddleware {
 	return &OauthRulerMiddleware{
 		ClientID:     oauth.ClientID,
@@ -333,10 +344,51 @@ func oauthRulerMiddleware(oauth middleware.Oauth) *OauthRulerMiddleware {
 		RedirectURL:  oauth.RedirectURL,
 		State:        oauth.State,
 		Scopes:       oauth.Scopes,
+		JWTSecret:    oauth.JWTSecret,
+		Provider:     oauth.Provider,
 		Endpoint: OauthEndpoint{
-			AuthURL:       oauth.Endpoint.AuthURL,
-			TokenURL:      oauth.Endpoint.TokenURL,
-			DeviceAuthURL: oauth.Endpoint.DeviceAuthURL,
+			AuthURL:     oauth.Endpoint.AuthURL,
+			TokenURL:    oauth.Endpoint.TokenURL,
+			UserInfoURL: oauth.Endpoint.UserInfoURL,
 		},
 	}
+}
+func oauth2Config(oauth *OauthRulerMiddleware) *oauth2.Config {
+	conf := &oauth2.Config{
+		ClientID:     oauth.ClientID,
+		ClientSecret: oauth.ClientSecret,
+		RedirectURL:  oauth.RedirectURL,
+		Scopes:       oauth.Scopes,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  oauth.Endpoint.AuthURL,
+			TokenURL: oauth.Endpoint.TokenURL,
+		},
+	}
+	switch oauth.Provider {
+	case "google":
+		conf.Endpoint = google.Endpoint
+		if oauth.Endpoint.UserInfoURL == "" {
+			oauth.Endpoint.UserInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
+		}
+	case "amazon":
+		conf.Endpoint = amazon.Endpoint
+	case "facebook":
+		conf.Endpoint = facebook.Endpoint
+		if oauth.Endpoint.UserInfoURL == "" {
+			oauth.Endpoint.UserInfoURL = "https://graph.facebook.com/me"
+		}
+	case "github":
+		conf.Endpoint = github.Endpoint
+		if oauth.Endpoint.UserInfoURL == "" {
+			oauth.Endpoint.UserInfoURL = "https://api.github.com/user/repo"
+		}
+	case "gitlab":
+		conf.Endpoint = gitlab.Endpoint
+	default:
+		if oauth.Provider != "custom" {
+			logger.Error("Unknown provider: %s", oauth.Provider)
+		}
+
+	}
+	return conf
 }

@@ -16,7 +16,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
@@ -44,18 +43,12 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 				w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
 			}
 		}
-
 		// Parse the target backend URL
 		targetURL, err := url.Parse(proxyRoute.destination)
 		if err != nil {
 			logger.Error("Error parsing backend URL: %s", err)
-			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			err := json.NewEncoder(w).Encode(ErrorResponse{
-				Message: "Internal server error",
-				Code:    http.StatusInternalServerError,
-				Success: false,
-			})
+			_, err := w.Write([]byte("Internal Server Error"))
 			if err != nil {
 				return
 			}

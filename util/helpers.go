@@ -10,6 +10,7 @@ You may get a copy of the License at
     http://www.apache.org/licenses/LICENSE-2.0
 */
 import (
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -95,4 +96,12 @@ func ParseRoutePath(path, blockedPath string) string {
 	default:
 		return basePath + blockedPath
 	}
+}
+
+func UrlParsePath(uri string) string {
+	parse, err := url.Parse(uri)
+	if err != nil {
+		return ""
+	}
+	return parse.Path
 }

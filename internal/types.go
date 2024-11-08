@@ -78,7 +78,8 @@ type OauthRulerMiddleware struct {
 
 	// ClientSecret is the application's secret.
 	ClientSecret string `yaml:"clientSecret"`
-
+	// oauth provider google, gitlab, github, amazon, facebook, custom
+	Provider string `yaml:"provider"`
 	// Endpoint contains the resource server's token endpoint
 	Endpoint OauthEndpoint `yaml:"endpoint"`
 
@@ -93,12 +94,13 @@ type OauthRulerMiddleware struct {
 	// Scope specifies optional requested permissions.
 	Scopes []string `yaml:"scopes"`
 	// contains filtered or unexported fields
-	State string `yaml:"state"`
+	State     string `yaml:"state"`
+	JWTSecret string `yaml:"jwtSecret"`
 }
 type OauthEndpoint struct {
-	AuthURL       string `yaml:"authUrl"`
-	TokenURL      string `yaml:"tokenUrl"`
-	DeviceAuthURL string `yaml:"deviceAuthUrl"`
+	AuthURL     string `yaml:"authUrl"`
+	TokenURL    string `yaml:"tokenUrl"`
+	UserInfoURL string `yaml:"userInfoUrl"`
 }
 type RateLimiter struct {
 	// ipBased, tokenBased
@@ -241,4 +243,12 @@ type HealthCheckRouteResponse struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
 	Error  string `json:"error"`
+}
+type UserInfo struct {
+	Email string `json:"email"`
+}
+
+type JWTSecret struct {
+	ISS    string `yaml:"iss"`
+	Secret string `yaml:"secret"`
 }

@@ -120,11 +120,13 @@ type Oauth struct {
 	// Scope specifies optional requested permissions.
 	Scopes []string
 	// contains filtered or unexported fields
-	State   string
-	Origins []string
+	State     string
+	Origins   []string
+	JWTSecret string
+	Provider  string
 }
 type OauthEndpoint struct {
-	AuthURL       string
-	TokenURL      string
-	DeviceAuthURL string
+	AuthURL     string
+	TokenURL    string
+	UserInfoURL string
 }
