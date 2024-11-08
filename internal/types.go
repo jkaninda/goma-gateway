@@ -145,6 +145,9 @@ type Route struct {
 	Destination string `yaml:"destination"`
 	// Cors contains the route cors headers
 	Cors Cors `yaml:"cors"`
+	//RateLimit int      `yaml:"rateLimit"`
+	// Methods allowed method
+	Methods []string `yaml:"methods"`
 	// DisableHeaderXForward Disable X-forwarded header.
 	//
 	// [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
@@ -173,8 +176,8 @@ type Gateway struct {
 	ReadTimeout int `yaml:"readTimeout" env:"GOMA_READ_TIMEOUT, overwrite"`
 	// IdleTimeout defines proxy idle timeout
 	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
-	// RateLimiter Defines the number of request peer minutes
-	RateLimiter int `yaml:"rateLimiter" env:"GOMA_RATE_LIMITER, overwrite"`
+	// RateLimit Defines the number of request peer minutes
+	RateLimit int `yaml:"rateLimit" env:"GOMA_RATE_LIMIT, overwrite"`
 	// BlockCommonExploits enable, disable block common exploits
 	BlockCommonExploits bool   `yaml:"blockCommonExploits"`
 	AccessLog           string `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
@@ -195,6 +198,7 @@ type Gateway struct {
 	Routes []Route `yaml:"routes"`
 }
 type GatewayConfig struct {
+	Version string `yaml:"version"`
 	// GatewayConfig holds Gateway config
 	GatewayConfig Gateway `yaml:"gateway"`
 	// Middlewares holds proxy middlewares
@@ -216,6 +220,7 @@ type ProxyRoute struct {
 	path            string
 	rewrite         string
 	destination     string
+	methods         []string
 	cors            Cors
 	disableXForward bool
 }

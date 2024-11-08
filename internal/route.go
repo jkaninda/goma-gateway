@@ -45,9 +45,9 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		logger.Info("Block common exploits enabled")
 		r.Use(middleware.BlockExploitsMiddleware)
 	}
-	if gateway.RateLimiter != 0 {
-		//rateLimiter := middleware.NewRateLimiter(gateway.RateLimiter, time.Minute)
-		limiter := middleware.NewRateLimiterWindow(gateway.RateLimiter, time.Minute, gateway.Cors.Origins) //  requests per minute
+	if gateway.RateLimit != 0 {
+		//rateLimiter := middleware.NewRateLimiter(gateway.RateLimit, time.Minute)
+		limiter := middleware.NewRateLimiterWindow(gateway.RateLimit, time.Minute, gateway.Cors.Origins) //  requests per minute
 		// Add rate limit middleware to all routes, if defined
 		r.Use(limiter.RateLimitMiddleware())
 	}
@@ -85,6 +85,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								rewrite:         route.Rewrite,
 								destination:     route.Destination,
 								disableXForward: route.DisableHeaderXForward,
+								methods:         route.Methods,
 								cors:            route.Cors,
 							}
 							secureRouter := r.PathPrefix(util.ParseRoutePath(route.Path, midPath)).Subrouter()
@@ -189,6 +190,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				path:            route.Path,
 				rewrite:         route.Rewrite,
 				destination:     route.Destination,
+				methods:         route.Methods,
 				disableXForward: route.DisableHeaderXForward,
 				cors:            route.Cors,
 			}

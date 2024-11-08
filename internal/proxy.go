@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -28,6 +29,18 @@ import (
 func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("%s %s %s %s", r.Method, getRealIP(r), r.URL, r.UserAgent())
+		// Check Method if is allowed
+		if len(proxyRoute.methods) > 0 {
+			if !slices.Contains(proxyRoute.methods, r.Method) {
+				logger.Error("%s Method is not allowed", r.Method)
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				_, err := w.Write([]byte(fmt.Sprintf("%s method is not allowed", r.Method)))
+				if err != nil {
+					return
+				}
+				return
+			}
+		}
 		// Set CORS headers from the cors config
 		//Update Cors Headers
 		for k, v := range proxyRoute.cors.Headers {

@@ -223,6 +223,7 @@ Example of rateLimit middleware
       path: /protected
       rewrite: /
       destination: 'https://example.com'
+      methods: [POST, PUT, GET]
       healthCheck:
       cors: {}
       middlewares:

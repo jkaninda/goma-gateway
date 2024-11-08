@@ -10,7 +10,7 @@ Goma Gateway is a lightweight API Gateway Management.
 
 <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Goma logo">
 
-It comes with a lot of integrated features, such as:
+It's designed to be straightforward and efficient, offering features, like:
 
 - RESTFull API Gateway management
 - Domain/host based request routing
@@ -31,6 +31,8 @@ It comes with a lot of integrated features, such as:
 - Rate limiting
   - In-Memory Token Bucket based
   - In-Memory client IP based
+- Limit HTTP methods allowed for a particular route.
+
 
 Declare your routes and middlewares as code.
 
