@@ -11,19 +11,19 @@ nav_order: 2
 
 You can generate the configuration file using `config init --output /config/config.yml` command.
 
-The default configuration is automatically generated if any configuration file is not provided, and is available at `/config/goma.yml`
+The default configuration is automatically generated if any configuration file is not provided, and is available at `/etc/goma/goma.yml`
 
 ```shell
 docker run --rm  --name goma-gateway \
- -v "${PWD}/config:/config" \
+ -v "${PWD}/config:/etc/goma/" \
  jkaninda/goma-gateway config init --output /config/config.yml
 ```
 
 ### 3. Start server with a custom config
 ```shell
 docker run --rm --name goma-gateway \
- -v "${PWD}/config:/config" \
- -p 80:80 \
+ -v "${PWD}/config:/etc/goma/" \
+ -p 8080:8080 \
  jkaninda/goma-gateway server --config /config/config.yml
 ```
 ### 4. Healthcheck
@@ -39,16 +39,16 @@ services:
     image: jkaninda/goma-gateway
     command: server
     healthcheck:
-      test: curl -f http://localhost/readyz || exit 1
+      test: curl -f http://localhost/health/live || exit 1
       interval: 30s
       retries: 5
       start_period: 20s
       timeout: 10s
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:8080"
+      - "8443:8443"
     volumes:
-      - ./config:/config/
+      - ./config:/etc/goma/
 ```
 
 ## Customize configuration file
@@ -79,6 +79,7 @@ gateway:
   disableDisplayRouteOnStart: false
   # disableKeepAlive allows enabling and disabling KeepALive server
   disableKeepAlive: false
+  blockCommonExploits: false
   # interceptErrors intercepts backend errors based on defined the status codes
   interceptErrors:
     - 405

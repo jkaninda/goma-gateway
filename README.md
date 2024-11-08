@@ -45,9 +45,13 @@ It comes with a lot of integrated features, such as:
 - Custom Headers
 - Backend Errors interceptor
 - Support TLS
+- Block common exploits middleware
+  - Patterns to detect SQL injection attempts
+  - Pattern to detect simple XSS attempts
 - Authentication middleware
   - JWT `client authorization based on the result of a request`
   - Basic-Auth
+  - OAuth 
 - Rate limiting
   - In-Memory Token Bucket based
   - In-Memory client IP based
@@ -56,8 +60,6 @@ It comes with a lot of integrated features, such as:
 
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
   - [ ] Blocklist IP address middleware
-  - [x] Block common exploits middleware
-  - [x] OAuth authentication middleware 
 
 
 ----
@@ -72,25 +74,25 @@ The default configuration is automatically generated if any configuration file i
 
 ```shell
 docker run --rm  --name goma-gateway \
- -v "${PWD}/config:/config" \
- jkaninda/goma-gateway config init --output /config/goma.yml
+ -v "${PWD}/config:/etc/goma/" \
+ jkaninda/goma-gateway config init --output /etc/goma/goma.yml
 ```
 ### 2. Run server
 
 ```shell
 docker run --rm --name goma-gateway \
- -v "${PWD}/config:/config" \
- -p 80:80 \
+ -v "${PWD}/config:/etc/goma/" \
+ -p 8080:8080 \
  jkaninda/goma-gateway server
 ```
 
 ### 3. Start server with a custom config
 ```shell
 docker run --rm --name goma-gateway \
- -v "${PWD}/config:/config" \
- -p 80:80 \
- -p 443:443 \
- jkaninda/goma-gateway server --config /config/config.yml
+ -v "${PWD}/config:/etc/goma/" \
+ -p 8080:8080 \
+ -p 8443:8443 \
+ jkaninda/goma-gateway server --config /etc/goma/config.yml
 ```
 ### 4. Healthcheck
 
@@ -111,9 +113,9 @@ services:
       start_period: 20s
       timeout: 10s
     ports:
-      - "80:80"
+      - "8080:8080"
     volumes:
-      - ./config:/config/
+      - ./config:/etc/goma/
 ```
 
 Create a config file in this format
@@ -145,6 +147,7 @@ gateway:
   disableDisplayRouteOnStart: false
   # disableKeepAlive allows enabling and disabling KeepALive server
   disableKeepAlive: false
+  blockCommonExploits: false
   # interceptErrors intercepts backend errors based on defined the status codes
   interceptErrors:
     - 405

@@ -20,24 +20,24 @@ spec:
               memory: "128Mi"
               cpu: "200m"
           ports:
-            - containerPort: 80
+            - containerPort: 8080
           livenessProbe:
             httpGet:
               path: /health/live
-              port: 80
+              port: 8080
             initialDelaySeconds: 15
             periodSeconds: 30
             timeoutSeconds: 10
           readinessProbe:
             httpGet:
               path: /health/live
-              port: 80
+              port: 8080
             initialDelaySeconds: 15
-            periodSeconds: 40
+            periodSeconds: 30
             timeoutSeconds: 10
           volumeMounts:
             - name: config
-              mountPath: /config/
+              mountPath: /etc/goma/
       volumes:
         - name: config
           configMap:
