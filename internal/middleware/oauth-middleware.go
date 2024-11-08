@@ -20,17 +20,15 @@ package middleware
 import (
 	"fmt"
 	"github.com/golang-jwt/jwt"
-	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"time"
 )
 
 func (oauth Oauth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Info("%s: %s Oauth", getRealIP(r), r.URL.Path)
 		oauthConf := oauth2Config(oauth)
 		// Check if the user is authenticated
-		token, err := r.Cookie("goma.JWT")
+		token, err := r.Cookie("goma.oauth")
 		if err != nil {
 			// If no token, redirect to OAuth provider
 			url := oauthConf.AuthCodeURL(oauth.State)
