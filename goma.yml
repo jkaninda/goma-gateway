@@ -22,6 +22,7 @@ gateway:
   disableDisplayRouteOnStart: false
   # disableKeepAlive allows enabling and disabling KeepALive server
   disableKeepAlive: false
+  blockCommonExploits: false
   # interceptErrors intercepts backend errors based on defined the status codes
   interceptErrors:
    - 405

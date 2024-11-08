@@ -20,12 +20,17 @@ It comes with a lot of integrated features, such as:
 - Cross-Origin Resource Sharing (CORS)
 - Custom Headers
 - Backend Errors interceptor
+- Support TLS
+- Block common exploits middleware
+  - Patterns to detect SQL injection attempts
+  - Pattern to detect simple XSS attempts
 - Authentication middleware
-    - JWT `client authorization based on the result of a request`
-    - Basic-Auth
+  - JWT `client authorization based on the result of a request`
+  - Basic-Auth
+  - OAuth
 - Rate limiting
-    - In-Memory Token Bucket based
-    - In-Memory client IP based
+  - In-Memory Token Bucket based
+  - In-Memory client IP based
 
 Declare your routes and middlewares as code.
 
