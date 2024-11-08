@@ -68,9 +68,9 @@ It comes with a lot of integrated features, such as:
 
 ### 1. Initialize configuration
 
-You can generate the configuration file using `config init --output /config/config.yml` command.
+You can generate the configuration file using `config init --output /etc/goma/config.yml` command.
 
-The default configuration is automatically generated if any configuration file is not provided, and is available at `/config/goma.yml`
+The default configuration is automatically generated if any configuration file is not provided, and is available at `/etc/goma/goma.yml`
 
 ```shell
 docker run --rm  --name goma-gateway \
