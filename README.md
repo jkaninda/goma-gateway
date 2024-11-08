@@ -106,12 +106,6 @@ services:
   goma-gateway:
     image: jkaninda/goma-gateway
     command: server
-    healthcheck:
-      test: curl -f http://localhost/heath/live || exit 1
-      interval: 30s
-      retries: 5
-      start_period: 20s
-      timeout: 10s
     ports:
       - "8080:8080"
     volumes:
