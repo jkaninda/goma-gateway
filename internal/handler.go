@@ -160,7 +160,7 @@ func (oauth *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r *htt
 	}
 	// Save token to a cookie for simplicity
 	http.SetCookie(w, &http.Cookie{
-		Name:  "goma.JWT",
+		Name:  "goma.oauth",
 		Value: jwtToken,
 		Path:  oauth.CookiePath,
 	})
