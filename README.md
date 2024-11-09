@@ -60,7 +60,8 @@ It's designed to be straightforward and efficient, offering features, like:
 
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
   - [ ] Blocklist IP address middleware
-
+  - [x] Support Load Balancing, round-robin algorithm
+  - [ ] Load Balancing Healthcheck, disable unavailable servers
 
 ----
 
