@@ -71,7 +71,7 @@ While it may work against different implementations, there are no guarantees abo
 
 We decided to publish this image as a simpler and more lightweight because of the following requirements:
 
-- The original image is based on `Alpine` and requires additional tools, making it heavy.
+- The original image is based on `Alpine`, making it heavy.
 - This image is written in Go.
 - `arm64` and `arm/v7` architectures are supported.
 - Docker in Swarm mode is supported.
