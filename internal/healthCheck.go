@@ -23,7 +23,7 @@ import (
 	"net/url"
 )
 
-func HealthCheck(healthURL string) error {
+func healthCheck(healthURL string) error {
 	healthCheckURL, err := url.Parse(healthURL)
 	if err != nil {
 		return fmt.Errorf("error parsing HealthCheck URL: %v ", err)

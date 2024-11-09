@@ -143,6 +143,8 @@ type Route struct {
 	Rewrite string `yaml:"rewrite"`
 	// Destination Defines backend URL
 	Destination string `yaml:"destination"`
+	//
+	Backends []string `yaml:"backends"`
 	// Cors contains the route cors headers
 	Cors Cors `yaml:"cors"`
 	//RateLimit int      `yaml:"rateLimit"`
@@ -197,6 +199,14 @@ type Gateway struct {
 	// Routes holds proxy routes
 	Routes []Route `yaml:"routes"`
 }
+
+type RouteHealthCheck struct {
+	Path              string `yaml:"path"`
+	Interval          int    `yaml:"interval"`
+	Timeout           int    `yaml:"timeout"`
+	HealthyStatuses   []int  `yaml:"healthyStatuses"`
+	UnhealthyStatuses []int  `yaml:"unhealthyStatuses"`
+}
 type GatewayConfig struct {
 	Version string `yaml:"version"`
 	// GatewayConfig holds Gateway config
@@ -220,6 +230,8 @@ type ProxyRoute struct {
 	path            string
 	rewrite         string
 	destination     string
+	backends        []string
+	healthCheck     RouteHealthCheck
 	methods         []string
 	cors            Cors
 	disableXForward bool

@@ -53,7 +53,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	}
 	for _, route := range gateway.Routes {
 		if route.Path != "" {
+			if route.Destination == "" && len(route.Backends) == 0 {
+				logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
 
+			}
 			// Apply middlewares to route
 			for _, mid := range route.Middlewares {
 				if mid != "" {
@@ -84,6 +87,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								path:            route.Path,
 								rewrite:         route.Rewrite,
 								destination:     route.Destination,
+								backends:        route.Backends,
 								disableXForward: route.DisableHeaderXForward,
 								methods:         route.Methods,
 								cors:            route.Cors,
@@ -190,6 +194,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				path:            route.Path,
 				rewrite:         route.Rewrite,
 				destination:     route.Destination,
+				backends:        route.Backends,
 				methods:         route.Methods,
 				disableXForward: route.DisableHeaderXForward,
 				cors:            route.Cors,
