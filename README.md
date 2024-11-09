@@ -112,10 +112,16 @@ services:
       - ./config:/etc/goma/
 ```
 
+## Supported Systems
 
-## Requirement
+- [x] Linux
+- [x] MacOS
+- [x] Windows 
+
+## Deployment
 
 - Docker
+- Kubernetes
 
 ## Contributing
 
@@ -125,6 +131,8 @@ The Goma Gateway project welcomes all contributors. We appreciate your help!
 ## Give a Star! ⭐
 
 If you like or are using Goma Gateway, please give it a star. Thanks!
+
+Please share.
 
 
 ## License

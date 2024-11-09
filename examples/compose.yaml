@@ -9,7 +9,7 @@ services:
       start_period: 20s
       timeout: 10s
     ports:
-      - "80:8080"
-      - "443:8443"
+      - "8080:8080"
+      - "8443:8443"
     volumes:
-      - ./config:/etc/goma/
+      - ./:/etc/goma/
