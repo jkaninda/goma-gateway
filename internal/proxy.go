@@ -86,7 +86,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			}
 		}
 		w.Header().Set("Proxied-By", gatewayName) //Set Server name
-		w.Header().Set("Server", serverName)
+		w.Header().Del("Server")                  // Remove the Server header
 		// Custom error handler for proxy errors
 		proxy.ErrorHandler = ProxyErrorHandler
 		proxy.ServeHTTP(w, r)
