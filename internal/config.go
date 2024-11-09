@@ -75,6 +75,13 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 
 	}
 	logger.Info("Generating new configuration file...")
+	//check if config directory does exist
+	if !util.FolderExists(ConfigDir) {
+		err := os.MkdirAll(ConfigDir, os.ModePerm)
+		if err != nil {
+			return nil, err
+		}
+	}
 	initConfig(ConfigFile)
 	logger.Info("Server configuration file is available at %s", ConfigFile)
 	util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
@@ -88,7 +95,6 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 		return nil, fmt.Errorf("in file %q: %w", ConfigFile, err)
 	}
 	logger.Info("Generating new configuration file...done")
-	logger.Info("Starting server with default configuration")
 	return &GatewayServer{
 		ctx:         nil,
 		gateway:     c.GatewayConfig,
@@ -256,14 +262,6 @@ func initConfig(configFile string) {
 		logger.Fatal("Unable to write config file %s", err)
 	}
 	logger.Info("Configuration file has been initialized successfully")
-}
-func Get() *Gateway {
-	if cfg == nil {
-		c := &Gateway{}
-		c.Setup(GetConfigPaths())
-		cfg = c
-	}
-	return cfg
 }
 func (Gateway) Setup(conf string) *Gateway {
 	if util.FileExists(conf) {
