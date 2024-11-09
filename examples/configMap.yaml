@@ -4,20 +4,21 @@ metadata:
   name: goma-config
 data:
   goma.yml: |
-    # Goma Gateway configurations
+      # Goma Gateway configurations
+    version: 0.1.7
     gateway:
       # Proxy write timeout
       writeTimeout: 15
       # Proxy read timeout
       readTimeout: 15
       # Proxy idle timeout
-      idleTimeout: 60
+      idleTimeout: 30
       ## SSL Certificate file
       sslCertFile: '' #cert.pem
       ## SSL Private Key file
       sslKeyFile: ''#key.pem
       # Proxy rate limit, it's In-Memory IP based
-      rateLimiter: 0
+      rateLimit: 0
       accessLog:    "/dev/Stdout"
       errorLog:     "/dev/stderr"
       ## Enable, disable routes health check
@@ -28,6 +29,8 @@ data:
       disableDisplayRouteOnStart: false
       # disableKeepAlive allows enabling and disabling KeepALive server
       disableKeepAlive: false
+      # Block common exploits | detect SQL injection, and simple XSS attempts
+      blockCommonExploits: false
       # interceptErrors intercepts backend errors based on defined the status codes
       interceptErrors:
         - 405
@@ -47,7 +50,7 @@ data:
       ##### Define routes
       routes:
         # Example of a route | 1
-        - name: Public
+        - name: Public  # Name is optional
           # host Domain/host based request routing
           host: "" # Host is optional
           path: /public
@@ -55,6 +58,8 @@ data:
           # e.g rewrite: /store to /
           rewrite: /
           destination:  https://example.com
+          # Limit HTTP methods allowed for this route
+          methods: [POST, PUT, GET]
           #DisableHeaderXForward Disable X-forwarded header.
           # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
           # It will not match the backend route, by default, it's disabled
@@ -84,6 +89,7 @@ data:
           path: /protected
           rewrite: /
           destination:  https://example.com
+          methods: []
           healthCheck:
           cors: {}
           middlewares:

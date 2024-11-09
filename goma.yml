@@ -5,7 +5,7 @@ gateway:
   # Proxy read timeout
   readTimeout: 15
   # Proxy idle timeout
-  idleTimeout: 60
+  idleTimeout: 30
   ## SSL Certificate file
   sslCertFile: '' #cert.pem
   ## SSL Private Key file
