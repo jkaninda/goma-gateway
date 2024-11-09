@@ -24,6 +24,16 @@ func FileExists(filename string) bool {
 	}
 	return !info.IsDir()
 }
+
+// FolderExists checks if the folder does exist
+func FolderExists(name string) bool {
+	info, err := os.Stat(name)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return info.IsDir()
+
+}
 func GetStringEnv(key, defaultValue string) string {
 	val := os.Getenv(key)
 	if val == "" {
