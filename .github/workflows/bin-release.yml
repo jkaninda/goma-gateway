@@ -28,4 +28,4 @@ jobs:
           goversion: "https://dl.google.com/go/go1.23.2.linux-amd64.tar.gz"
           project_path: "./"
           binary_name: "goma"
-          extra_files: LICENSE README.md
+          #extra_files: LICENSE README.md
