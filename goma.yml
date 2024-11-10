@@ -1,4 +1,5 @@
 # Goma Gateway configurations
+version: 1.0
 gateway:
   # Proxy write timeout
   writeTimeout: 15

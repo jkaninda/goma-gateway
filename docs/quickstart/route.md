@@ -2,7 +2,7 @@
 title: Route
 layout: default
 parent: Quickstart
-nav_order: 1
+nav_order: 2
 ---
 
 
@@ -13,7 +13,7 @@ The Route allows you to match on HTTP traffic and direct it to the backend.
 ### Example of a route
 
 ```yaml
-version: ''
+version: 1.0
 gateway:
   routes:
     - name: Example

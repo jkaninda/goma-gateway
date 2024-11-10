@@ -2,7 +2,7 @@
 title: Healthcheck
 layout: default
 parent: Quickstart
-nav_order: 2
+nav_order: 5
 ---
 
 
