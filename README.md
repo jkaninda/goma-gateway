@@ -119,6 +119,7 @@ services:
 - [x] Windows 
 
 Please download the binary from the [release page](https://github.com/jkaninda/goma-gateway/releases).
+
 Init configs:
 
 ```shell
