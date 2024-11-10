@@ -131,12 +131,14 @@ type MiddlewareName struct {
 
 // Route defines gateway route
 type Route struct {
+	// Path defines route path
+	Path string `yaml:"path"`
 	// Name defines route name
 	Name string `yaml:"name"`
 	//Host Domain/host based request routing
-	Host string `yaml:"host"`
-	// Path defines route path
-	Path string `yaml:"path"`
+	//Host  string   `yaml:"host"`
+	//Hosts Domains/hosts based request routing
+	Hosts []string `yaml:"hosts"`
 	// Rewrite rewrites route path to desired path
 	//
 	// E.g. /cart to / => It will rewrite /cart path to /

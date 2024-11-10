@@ -118,7 +118,7 @@ func initConfig(configFile string) {
 		configFile = GetConfigPaths()
 	}
 	conf := &GatewayConfig{
-		Version: util.Version,
+		Version: util.ConfigVersion,
 		GatewayConfig: Gateway{
 			WriteTimeout:                 15,
 			ReadTimeout:                  15,
@@ -165,7 +165,7 @@ func initConfig(configFile string) {
 				},
 				{
 					Name:        "Hostname example",
-					Host:        "http://example.localhost",
+					Hosts:       []string{"example.com", "example.localhost"},
 					Path:        "/",
 					Destination: "https://example.com",
 					Rewrite:     "/",
