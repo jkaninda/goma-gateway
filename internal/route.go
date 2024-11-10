@@ -20,8 +20,16 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/middleware"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"time"
 )
+
+func init() {
+	_ = prometheus.Register(totalRequests)
+	_ = prometheus.Register(responseStatus)
+	_ = prometheus.Register(httpDuration)
+}
 
 // Initialize the routes
 func (gatewayServer GatewayServer) Initialize() *mux.Router {
@@ -32,11 +40,18 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,
 		Routes:                       gateway.Routes,
 	}
+	if gateway.EnableMetrics {
+		// Prometheus endpoint
+		r.Path("/metrics").Handler(promhttp.Handler())
+		r.Use(prometheusMiddleware)
+	}
+
 	// Routes health check
 	if !gateway.DisableHealthCheckStatus {
 		r.HandleFunc("/healthz", heath.HealthCheckHandler).Methods("GET")
 		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET")
 	}
+
 	// Health check
 	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET")
 	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
@@ -223,6 +238,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			} else {
 				router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
 			}
+
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Error("Route path ignored: %s", route.Path)

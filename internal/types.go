@@ -196,6 +196,7 @@ type Gateway struct {
 	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart"`
 	// DisableKeepAlive allows enabling and disabling KeepALive server
 	DisableKeepAlive bool `yaml:"disableKeepAlive"`
+	EnableMetrics    bool `yaml:"enableMetrics"`
 	// InterceptErrors holds the status codes to intercept the error from backend
 	InterceptErrors []int `yaml:"interceptErrors"`
 	// Cors holds proxy global cors
