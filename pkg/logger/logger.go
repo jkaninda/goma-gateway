@@ -18,9 +18,11 @@ limitations under the License.
 */
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/util"
 	"log"
 	"os"
+	"runtime"
+
+	"github.com/jkaninda/goma-gateway/util"
 )
 
 type Logger struct {
@@ -50,17 +52,12 @@ func Warn(msg string, args ...interface{}) {
 	}
 }
 
-// Error error message
+// Error logs error messages
 func Error(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ERROR_LOG", "/dev/stderr")))
-	formattedMessage := fmt.Sprintf(msg, args...)
-	if len(args) == 0 {
-		log.Printf("ERROR: %s\n", msg)
-	} else {
-		log.Printf("ERROR: %s\n", formattedMessage)
-
-	}
+	logWithCaller("ERROR", msg, args...)
 }
+
 func Fatal(msg string, args ...interface{}) {
 	log.SetOutput(os.Stdout)
 	formattedMessage := fmt.Sprintf(msg, args...)
@@ -75,13 +72,27 @@ func Fatal(msg string, args ...interface{}) {
 
 func Debug(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
+	logWithCaller("DEBUG", msg, args...)
+
+}
+
+// Helper function to format and log messages with file and line number
+func logWithCaller(level, msg string, args ...interface{}) {
 	formattedMessage := fmt.Sprintf(msg, args...)
+	_, file, line, ok := runtime.Caller(2) // Get the caller's file and line number (skip 2 frames)
+
+	if !ok {
+		file = "unknown"
+		line = 0
+	}
+
 	if len(args) == 0 {
-		log.Printf("DEBUG: %s\n", msg)
+		log.Printf("%s: %s (File: %s, Line: %d)\n", level, msg, file, line)
 	} else {
-		log.Printf("DEBUG: %s\n", formattedMessage)
+		log.Printf("%s: %s (File: %s, Line: %d)\n", level, formattedMessage, file, line)
 	}
 }
+
 func getStd(out string) *os.File {
 	switch out {
 	case "/dev/stdout":
