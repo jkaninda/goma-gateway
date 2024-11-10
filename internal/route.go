@@ -53,7 +53,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	}
 	for _, route := range gateway.Routes {
 		if route.Path != "" {
+			if route.Destination == "" && len(route.Backends) == 0 {
+				logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
 
+			}
 			// Apply middlewares to route
 			for _, mid := range route.Middlewares {
 				if mid != "" {
@@ -84,6 +87,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								path:            route.Path,
 								rewrite:         route.Rewrite,
 								destination:     route.Destination,
+								backends:        route.Backends,
 								disableXForward: route.DisableHeaderXForward,
 								methods:         route.Methods,
 								cors:            route.Cors,
@@ -190,6 +194,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				path:            route.Path,
 				rewrite:         route.Rewrite,
 				destination:     route.Destination,
+				backends:        route.Backends,
 				methods:         route.Methods,
 				disableXForward: route.DisableHeaderXForward,
 				cors:            route.Cors,
@@ -197,14 +202,16 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			router := r.PathPrefix(route.Path).Subrouter()
 			// Apply route Cors
 			router.Use(CORSHandler(route.Cors))
-			if route.Host != "" {
-				router.Host(route.Host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
+			if len(route.Hosts) > 0 {
+				for _, host := range route.Hosts {
+					router.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
+				}
 			} else {
 				router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
 			}
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
-			logger.Debug("Route path ignored: %s", route.Path)
+			logger.Error("Route path ignored: %s", route.Path)
 		}
 	}
 	// Apply global Cors middlewares

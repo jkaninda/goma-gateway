@@ -15,6 +15,8 @@ import (
 
 var Version string
 
+const ConfigVersion = "1.0"
+
 func VERSION(def string) string {
 	build := os.Getenv("VERSION")
 	if build == "" {

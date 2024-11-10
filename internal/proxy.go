@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync/atomic"
 )
 
 // ProxyHandler proxies requests to the backend
@@ -76,8 +77,13 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			r.Header.Set("X-Real-IP", getRealIP(r))
 			r.Host = targetURL.Host
 		}
+		backendURL, _ := url.Parse(proxyRoute.destination)
+		if len(proxyRoute.backends) > 0 {
+			// Select the next backend URL
+			backendURL = getNextBackend(proxyRoute.backends)
+		}
 		// Create proxy
-		proxy := httputil.NewSingleHostReverseProxy(targetURL)
+		proxy := httputil.NewSingleHostReverseProxy(backendURL)
 		// Rewrite
 		if proxyRoute.path != "" && proxyRoute.rewrite != "" {
 			// Rewrite the path
@@ -91,4 +97,11 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		proxy.ErrorHandler = ProxyErrorHandler
 		proxy.ServeHTTP(w, r)
 	}
+}
+
+// getNextBackend selects the next backend in a round-robin fashion
+func getNextBackend(backendURLs []string) *url.URL {
+	idx := atomic.AddUint32(&counter, 1) % uint32(len(backendURLs))
+	backendURL, _ := url.Parse(backendURLs[idx])
+	return backendURL
 }

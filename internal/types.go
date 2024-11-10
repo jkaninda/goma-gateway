@@ -131,18 +131,22 @@ type MiddlewareName struct {
 
 // Route defines gateway route
 type Route struct {
+	// Path defines route path
+	Path string `yaml:"path"`
 	// Name defines route name
 	Name string `yaml:"name"`
 	//Host Domain/host based request routing
-	Host string `yaml:"host"`
-	// Path defines route path
-	Path string `yaml:"path"`
+	//Host  string   `yaml:"host"`
+	//Hosts Domains/hosts based request routing
+	Hosts []string `yaml:"hosts"`
 	// Rewrite rewrites route path to desired path
 	//
 	// E.g. /cart to / => It will rewrite /cart path to /
 	Rewrite string `yaml:"rewrite"`
 	// Destination Defines backend URL
 	Destination string `yaml:"destination"`
+	//
+	Backends []string `yaml:"backends"`
 	// Cors contains the route cors headers
 	Cors Cors `yaml:"cors"`
 	//RateLimit int      `yaml:"rateLimit"`
@@ -197,6 +201,14 @@ type Gateway struct {
 	// Routes holds proxy routes
 	Routes []Route `yaml:"routes"`
 }
+
+type RouteHealthCheck struct {
+	Path              string `yaml:"path"`
+	Interval          int    `yaml:"interval"`
+	Timeout           int    `yaml:"timeout"`
+	HealthyStatuses   []int  `yaml:"healthyStatuses"`
+	UnhealthyStatuses []int  `yaml:"unhealthyStatuses"`
+}
 type GatewayConfig struct {
 	Version string `yaml:"version"`
 	// GatewayConfig holds Gateway config
@@ -220,6 +232,8 @@ type ProxyRoute struct {
 	path            string
 	rewrite         string
 	destination     string
+	backends        []string
+	healthCheck     RouteHealthCheck
 	methods         []string
 	cors            Cors
 	disableXForward bool
