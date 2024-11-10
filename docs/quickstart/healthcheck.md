@@ -10,6 +10,20 @@ nav_order: 5
 
 Goma comes with routes healthcheck, that can be enabled and disabled.
 
+```yaml
+version: 1.0
+gateway:
+    routes:
+        - path: /cart
+          name: example route
+          rewrite: /
+          methods: []
+          healthCheck:
+            path: "/health/live"
+            interval: 30 # in Seconds
+            timeout: 10 # in Seconds
+            healthyStatuses: [200,404] # Healthy statuses
+```
 
 - Goma Gateway healthcheck: `/health/live`
 - Routes health check: `health/routes`
