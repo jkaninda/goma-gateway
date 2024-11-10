@@ -44,6 +44,8 @@ It's designed to be straightforward and efficient, offering features, like:
 - Custom Headers
 - Backend Errors interceptor
 - Logging
+- Metrics
+- Supports Load Balancing, round-robin algorithm
 - Support TLS
 - Block common exploits middleware
   - Patterns to detect SQL injection attempts
@@ -58,11 +60,8 @@ It's designed to be straightforward and efficient, offering features, like:
 - Limit HTTP methods allowed for a particular route.
 
 ### Todo:
-  - [x] Support Load Balancing, round-robin algorithm
   - [ ] Load Balancing Healthcheck, disable unavailable servers
   - [ ] Blocklist IP address middleware
-  - [ ] Tracing
-  - [ ] Metrics
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
 
 ----
@@ -120,6 +119,13 @@ services:
 - [x] Linux
 - [x] MacOS
 - [x] Windows 
+
+Please download the binary from the [release page](https://github.com/jkaninda/goma-gateway/releases).
+
+To run 
+```shell
+./goma server --config config.yml
+```
 
 ## Deployment
 

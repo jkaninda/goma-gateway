@@ -66,7 +66,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			rl.mu.Unlock()
 
 			if client.RequestCount > rl.Requests {
-				logger.Error("Too many requests from IP: %s %s %s", clientID, r.URL, r.UserAgent())
+				logger.Debug("Too many requests from IP: %s %s %s", clientID, r.URL, r.UserAgent())
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 				//Update Origin Cors Headers

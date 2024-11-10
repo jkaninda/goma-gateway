@@ -16,9 +16,10 @@ gateway:
   readTimeout: 15
   idleTimeout: 30
   # Rate limiting
-  rateLimiter: 0
+  rateLimit: 0
   accessLog: /dev/Stdout
   errorLog: /dev/stderr
+  logLevel: info
   disableRouteHealthCheckError: false
   disableDisplayRouteOnStart: false
   disableKeepAlive: false

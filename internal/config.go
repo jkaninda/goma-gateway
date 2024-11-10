@@ -102,9 +102,19 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 		middlewares: c.Middlewares,
 	}, nil
 }
-func GetConfigPaths() string {
-	return util.GetStringEnv("GOMAY_CONFIG_FILE", ConfigFile)
+
+// SetEnv sets environment variables
+func (gatewayServer GatewayServer) SetEnv() {
+	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
+	util.SetEnv("GOMA_ERROR_LOG", gatewayServer.gateway.ErrorLog)
+	util.SetEnv("GOMA_ACCESS_LOG", gatewayServer.gateway.AccessLog)
 }
+
+func GetConfigPaths() string {
+	return util.GetStringEnv("GOMA_CONFIG_FILE", ConfigFile)
+}
+
+// InitConfig initializes configs
 func InitConfig(cmd *cobra.Command) {
 	configFile, _ := cmd.Flags().GetString("output")
 	if configFile == "" {
@@ -114,6 +124,8 @@ func InitConfig(cmd *cobra.Command) {
 	return
 
 }
+
+// initConfig initializes configs
 func initConfig(configFile string) {
 	if configFile == "" {
 		configFile = GetConfigPaths()

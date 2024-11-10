@@ -65,7 +65,7 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 
 // HealthCheckHandler handles health check of routes
 func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("%s %s %s %s", r.Method, r.RemoteAddr, r.URL, r.UserAgent())
+	logger.Debug("%s %s %s %s", r.Method, r.RemoteAddr, r.URL, r.UserAgent())
 	wg := sync.WaitGroup{}
 	wg.Add(len(heathRoute.Routes))
 	var routes []HealthCheckRouteResponse
@@ -80,11 +80,11 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 					}
 					routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "unhealthy", Error: "Error: " + err.Error()})
 				} else {
-					logger.Info("Route %s is healthy", route.Name)
+					logger.Debug("Route %s is healthy", route.Name)
 					routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "healthy", Error: ""})
 				}
 			} else {
-				logger.Warn("Route %s's healthCheck is undefined", route.Name)
+				logger.Debug("Route %s's healthCheck is undefined", route.Name)
 				routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "undefined", Error: ""})
 			}
 		}()

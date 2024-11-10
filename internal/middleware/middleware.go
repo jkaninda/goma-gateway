@@ -82,6 +82,7 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			}
 			return
 		}
+		logger.Trace("JWT Auth response headers: %v", authReq.Header)
 		// Copy headers from the original request to the new request
 		for name, values := range r.Header {
 			for _, value := range values {
@@ -96,8 +97,8 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 		client := &http.Client{}
 		authResp, err := client.Do(authReq)
 		if err != nil || authResp.StatusCode != http.StatusOK {
-			logger.Info("%s %s %s %s", r.Method, getRealIP(r), r.URL, r.UserAgent())
-			logger.Warn("Proxy authentication error")
+			logger.Debug("%s %s %s %s", r.Method, getRealIP(r), r.URL, r.UserAgent())
+			logger.Debug("Proxy authentication error")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			err = json.NewEncoder(w).Encode(ProxyResponseError{
@@ -139,10 +140,11 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 // AuthMiddleware checks for the Authorization header and verifies the credentials
 func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.Trace("Basic-Auth request headers: %v", r.Header)
 		// Get the Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			logger.Error("Proxy error, missing Authorization header")
+			logger.Debug("Proxy error, missing Authorization header")
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -175,7 +177,7 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 		// Decode the base64 encoded username:password string
 		payload, err := base64.StdEncoding.DecodeString(authHeader[len("Basic "):])
 		if err != nil {
-			logger.Error("Proxy error, missing Basic Authorization header")
+			logger.Debug("Proxy error, missing Basic Authorization header")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			err := json.NewEncoder(w).Encode(ProxyResponseError{
