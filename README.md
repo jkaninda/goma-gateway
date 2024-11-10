@@ -120,6 +120,13 @@ services:
 - [x] MacOS
 - [x] Windows 
 
+Please download the binary from the [release page](https://github.com/jkaninda/goma-gateway/releases).
+
+To run 
+```shell
+./goma server --config config.yml
+```
+
 ## Deployment
 
 - Docker
