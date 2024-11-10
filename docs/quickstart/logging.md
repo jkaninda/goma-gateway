@@ -1,5 +1,5 @@
 ---
-title: General troubleshooting steps
+title: Logging
 layout: default
 parent: Quickstart
 nav_order: 6
