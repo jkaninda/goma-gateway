@@ -46,7 +46,7 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		rec := newResponseRecorder(w)
 		next.ServeHTTP(rec, r)
 		if canIntercept(rec.statusCode, intercept.Errors) {
-			logger.Error("Backend error")
+			logger.Debug("Backend error")
 			logger.Error("An error occurred from the backend with the status code: %d", rec.statusCode)
 			w.Header().Set("Content-Type", "application/json")
 			//Update Origin Cors Headers

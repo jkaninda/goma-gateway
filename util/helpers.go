@@ -73,9 +73,11 @@ func GetBoolEnv(key string, defaultValue bool) bool {
 
 // SetEnv Set env
 func SetEnv(name, value string) {
-	err := os.Setenv(name, value)
-	if err != nil {
-		return
+	if len(value) != 0 {
+		err := os.Setenv(name, value)
+		if err != nil {
+			return
+		}
 	}
 
 }

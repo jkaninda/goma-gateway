@@ -41,6 +41,7 @@ var ServerCmd = &cobra.Command{
 		if err != nil {
 			logger.Fatal("Could not load configuration: %v", err)
 		}
+		gs.SetEnv()
 		if err := gs.Start(ctx); err != nil {
 			logger.Fatal("Could not start server: %v", err)
 

@@ -188,6 +188,7 @@ type Gateway struct {
 	BlockCommonExploits bool   `yaml:"blockCommonExploits"`
 	AccessLog           string `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
 	ErrorLog            string `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
+	LogLevel            string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
 	// DisableHealthCheckStatus enable and disable routes health check
 	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus"`
 	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors

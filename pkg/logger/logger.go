@@ -33,23 +33,15 @@ type Logger struct {
 // Info returns info log
 func Info(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
-	formattedMessage := fmt.Sprintf(msg, args...)
-	if len(args) == 0 {
-		log.Printf("INFO: %s\n", msg)
-	} else {
-		log.Printf("INFO: %s\n", formattedMessage)
-	}
+	logWithCaller("INFO", msg, args...)
+
 }
 
 // Warn returns warning log
 func Warn(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
-	formattedMessage := fmt.Sprintf(msg, args...)
-	if len(args) == 0 {
-		log.Printf("WARN: %s\n", msg)
-	} else {
-		log.Printf("WARN: %s\n", formattedMessage)
-	}
+	logWithCaller("WARN", msg, args...)
+
 }
 
 // Error logs error messages
@@ -60,36 +52,47 @@ func Error(msg string, args ...interface{}) {
 
 func Fatal(msg string, args ...interface{}) {
 	log.SetOutput(os.Stdout)
-	formattedMessage := fmt.Sprintf(msg, args...)
-	if len(args) == 0 {
-		log.Printf("ERROR: %s\n", msg)
-	} else {
-		log.Printf("ERROR: %s\n", formattedMessage)
-	}
-
+	logWithCaller("ERROR", msg, args...)
 	os.Exit(1)
 }
 
 func Debug(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
-	logWithCaller("DEBUG", msg, args...)
+	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
+	if logLevel == "trace" || logLevel == "debug" {
+		logWithCaller("DEBUG", msg, args...)
+	}
+
+}
+func Trace(msg string, args ...interface{}) {
+	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
+	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
+	if logLevel == "trace" {
+		logWithCaller("DEBUG", msg, args...)
+	}
 
 }
 
 // Helper function to format and log messages with file and line number
 func logWithCaller(level, msg string, args ...interface{}) {
-	formattedMessage := fmt.Sprintf(msg, args...)
-	_, file, line, ok := runtime.Caller(2) // Get the caller's file and line number (skip 2 frames)
+	// Format message if there are additional arguments
+	formattedMessage := msg
+	if len(args) > 0 {
+		formattedMessage = fmt.Sprintf(msg, args...)
+	}
 
+	// Get the caller's file and line number (skip 2 frames)
+	_, file, line, ok := runtime.Caller(2)
 	if !ok {
 		file = "unknown"
 		line = 0
 	}
-
-	if len(args) == 0 {
-		log.Printf("%s: %s (File: %s, Line: %d)\n", level, msg, file, line)
-	} else {
+	// Log message with caller information if GOMA_LOG_LEVEL is trace
+	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
+	if logLevel == "trace" {
 		log.Printf("%s: %s (File: %s, Line: %d)\n", level, formattedMessage, file, line)
+	} else {
+		log.Printf("%s: %s\n", level, formattedMessage)
 	}
 }
 

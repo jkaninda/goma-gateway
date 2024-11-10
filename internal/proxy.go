@@ -30,6 +30,8 @@ import (
 func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("%s %s %s %s", r.Method, getRealIP(r), r.URL.Path, r.UserAgent())
+		logger.Trace("Request params: %s", r.URL.RawQuery)
+		logger.Trace("Request Headers: %s", r.Header)
 		// Check Method if is allowed
 		if len(proxyRoute.methods) > 0 {
 			if !slices.Contains(proxyRoute.methods, r.Method) {
