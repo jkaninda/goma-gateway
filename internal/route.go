@@ -197,14 +197,16 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			router := r.PathPrefix(route.Path).Subrouter()
 			// Apply route Cors
 			router.Use(CORSHandler(route.Cors))
-			if route.Host != "" {
-				router.Host(route.Host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
+			if len(route.Hosts) > 0 {
+				for _, host := range route.Hosts {
+					router.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
+				}
 			} else {
 				router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
 			}
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
-			logger.Debug("Route path ignored: %s", route.Path)
+			logger.Error("Route path ignored: %s", route.Path)
 		}
 	}
 	// Apply global Cors middlewares
