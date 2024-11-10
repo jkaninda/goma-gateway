@@ -143,27 +143,29 @@ type Route struct {
 	//
 	// E.g. /cart to / => It will rewrite /cart path to /
 	Rewrite string `yaml:"rewrite"`
-	// Destination Defines backend URL
-	Destination string `yaml:"destination"`
 	//
-	Backends []string `yaml:"backends"`
-	// Cors contains the route cors headers
-	Cors Cors `yaml:"cors"`
-	//RateLimit int      `yaml:"rateLimit"`
 	// Methods allowed method
 	Methods []string `yaml:"methods"`
+	// HealthCheck Defines the backend is health
+	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
+	// Destination Defines backend URL
+	Destination string   `yaml:"destination"`
+	Backends    []string `yaml:"backends"`
+	// Cors contains the route cors headers
+	Cors      Cors `yaml:"cors"`
+	RateLimit int  `yaml:"rateLimit"`
 	// DisableHeaderXForward Disable X-forwarded header.
 	//
 	// [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
 	//
 	// It will not match the backend route
 	DisableHeaderXForward bool `yaml:"disableHeaderXForward"`
-	// HealthCheck Defines the backend is health check PATH
-	HealthCheck string `yaml:"healthCheck"`
 	// InterceptErrors intercepts backend errors based on the status codes
 	//
 	// Eg: [ 403, 405, 500 ]
 	InterceptErrors []int `yaml:"interceptErrors"`
+	// BlockCommonExploits enable, disable block common exploits
+	BlockCommonExploits bool `yaml:"blockCommonExploits"`
 	// Middlewares Defines route middleware from Middleware names
 	Middlewares []string `yaml:"middlewares"`
 }
@@ -203,11 +205,10 @@ type Gateway struct {
 }
 
 type RouteHealthCheck struct {
-	Path              string `yaml:"path"`
-	Interval          int    `yaml:"interval"`
-	Timeout           int    `yaml:"timeout"`
-	HealthyStatuses   []int  `yaml:"healthyStatuses"`
-	UnhealthyStatuses []int  `yaml:"unhealthyStatuses"`
+	Path            string `yaml:"path"`
+	Interval        int    `yaml:"interval"`
+	Timeout         int    `yaml:"timeout"`
+	HealthyStatuses []int  `yaml:"healthyStatuses"`
 }
 type GatewayConfig struct {
 	Version string `yaml:"version"`
@@ -225,6 +226,7 @@ type ErrorResponse struct {
 }
 type GatewayServer struct {
 	ctx         context.Context
+	version     string
 	gateway     Gateway
 	middlewares []Middleware
 }

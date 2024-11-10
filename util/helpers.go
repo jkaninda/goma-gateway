@@ -12,6 +12,7 @@ You may get a copy of the License at
 import (
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -114,4 +115,8 @@ func UrlParsePath(uri string) string {
 		return ""
 	}
 	return parse.Path
+}
+
+func HasWhitespace(s string) bool {
+	return regexp.MustCompile(`\s`).MatchString(s)
 }

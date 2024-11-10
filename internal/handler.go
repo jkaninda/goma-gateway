@@ -72,8 +72,8 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 	for _, route := range heathRoute.Routes {
 		go func() {
 			defer wg.Done()
-			if route.HealthCheck != "" {
-				err := healthCheck(route.Destination + route.HealthCheck)
+			if route.HealthCheck.Path != "" {
+				err := healthCheck(route.Destination+route.HealthCheck.Path, route.HealthCheck.HealthyStatuses)
 				if err != nil {
 					if heathRoute.DisableRouteHealthCheckError {
 						routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "unhealthy", Error: "Route healthcheck errors disabled"})
