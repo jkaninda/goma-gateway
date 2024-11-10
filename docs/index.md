@@ -22,7 +22,7 @@ It's designed to be straightforward and efficient, offering features, like:
 - Backend Errors interceptor
 - Logging
 - Metrics
-- Supports Load Balancing, round-robin algorithm
+- Load Balancing, round-robin algorithm
 - Support TLS
 - Block common exploits middleware
   - Patterns to detect SQL injection attempts
