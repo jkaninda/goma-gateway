@@ -1,55 +1,37 @@
 ---
-title: Quickstart
+title: Route
 layout: default
+parent: Quickstart
 nav_order: 2
 ---
 
 
-## Usage
+# Route
 
-### 1. Initialize configuration
+The Route allows you to match on HTTP traffic and direct it to the backend.
 
-You can generate the configuration file using `config init --output /etc/goma/config.yml` command.
-
-The default configuration is automatically generated if any configuration file is not provided, and is available at `/etc/goma/goma.yml`
-
-```shell
-docker run --rm  --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- jkaninda/goma-gateway config init --output /etc/goma/config.yml
-```
-
-### 3. Start server with a custom config
-```shell
-docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- -p 8080:8080 \
- jkaninda/goma-gateway server --config /config/config.yml
-```
-### 4. Healthcheck
-
-- Goma Gateway health check: `/health/live`
-- Routes health check: `health/routes`
-
-### 5. Simple deployment in docker compose file
+### Example of a route
 
 ```yaml
-services:
-  goma-gateway:
-    image: jkaninda/goma-gateway
-    command: server
-    ports:
-      - "8080:8080"
-      - "8443:8443"
-    volumes:
-      - ./config:/etc/goma/
+version: 1.0
+gateway:
+  routes:
+    - name: Example
+      path: /store/cart
+      rewrite: /cart
+      destination:  http://cart-service:8080
+      methods: [POST, PUT, GET]
+      healthCheck: ''
+      cors: {}
+      middlewares:
+        - api-forbidden-paths
+        - jwt-auth
 ```
 
-## Customize configuration file
+### Full example of routes and middlewares
 
-Example of a configuration file
 ```yaml
-# Goma Gateway configurations
+  # Goma Gateway configurations
 gateway:
   # Proxy write timeout
   writeTimeout: 15
@@ -62,7 +44,7 @@ gateway:
   ## SSL Private Key file
   sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
-  rateLimiter: 0
+  rateLimit: 0
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"
   ## Enable, disable routes health check
@@ -73,11 +55,10 @@ gateway:
   disableDisplayRouteOnStart: false
   # disableKeepAlive allows enabling and disabling KeepALive server
   disableKeepAlive: false
-  blockCommonExploits: false
   # interceptErrors intercepts backend errors based on defined the status codes
   interceptErrors:
-    - 405
-    - 500
+   - 405
+   - 500
   # - 400
   # Proxy Global HTTP Cors
   cors:
@@ -94,13 +75,14 @@ gateway:
   routes:
     # Example of a route | 1
     - name: Public
-      # host Domain/host based request routing
+    # host Domain/host based request routing
       host: "" # Host is optional
       path: /public
       ## Rewrite a request path
       # e.g rewrite: /store to /
       rewrite: /
       destination:  https://example.com
+      methods: [GET]
       #DisableHeaderXForward Disable X-forwarded header.
       # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
       # It will not match the backend route, by default, it's disabled
@@ -172,16 +154,16 @@ middlewares:
     # In case you want to get headers from the authentication service and inject them into the next request headers.
     #  Key is authentication request response header Key. Value is the next Request header Key.
     headers:
-      userId: Auth-UserId
-      userCountryId: Auth-UserCountryId
+        userId: Auth-UserId
+        userCountryId: Auth-UserCountryId
     # In case you want to get headers from the Authentication service and inject them to the next request params.
     #Key is authentication request response header Key. Value is the next Request parameter Key.
     params:
       userCountryId: countryId
-  # The server will return 403
+# The server will return 403
   - name: api-forbidden-paths
     type: access
-    ## prevents access paths
+      ## prevents access paths
     paths:
       - /swagger-ui/*
       - /v2/swagger-ui/*

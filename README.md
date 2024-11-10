@@ -43,6 +43,7 @@ It's designed to be straightforward and efficient, offering features, like:
 - Cross-Origin Resource Sharing (CORS)
 - Custom Headers
 - Backend Errors interceptor
+- Logging
 - Support TLS
 - Block common exploits middleware
   - Patterns to detect SQL injection attempts
@@ -57,10 +58,12 @@ It's designed to be straightforward and efficient, offering features, like:
 - Limit HTTP methods allowed for a particular route.
 
 ### Todo:
-
-  - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
+  - [x] Support Load Balancing, round-robin algorithm
+  - [ ] Load Balancing Healthcheck, disable unavailable servers
   - [ ] Blocklist IP address middleware
-
+  - [ ] Tracing
+  - [ ] Metrics
+  - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
 
 ----
 
