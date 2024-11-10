@@ -27,7 +27,7 @@ docker run --rm  --name goma-gateway \
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  -p 8080:8080 \
- jkaninda/goma-gateway config config check --config /etc/goma/config.yml
+ jkaninda/goma-gateway config check --config /etc/goma/config.yml
 ```
 
 ### 3. Start server with a custom config
