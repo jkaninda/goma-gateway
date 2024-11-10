@@ -77,7 +77,16 @@ docker run --rm  --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  jkaninda/goma-gateway config init --output /etc/goma/goma.yml
 ```
-### 2. Run server
+## 2. Check configuration
+
+```shell
+docker run --rm --name goma-gateway \
+ -v "${PWD}/config:/etc/goma/" \
+ -p 8080:8080 \
+ jkaninda/goma-gateway config check --config /etc/goma/config.yml
+```
+
+### 3. Run server
 
 ```shell
 docker run --rm --name goma-gateway \
@@ -86,7 +95,7 @@ docker run --rm --name goma-gateway \
  jkaninda/goma-gateway server
 ```
 
-### 3. Start server with a custom config
+### 4. Start server with a custom config
 ```shell
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
@@ -97,7 +106,8 @@ docker run --rm --name goma-gateway \
 ### 4. Healthcheck
 
 - Goma Gateway health check: `/health/live`
-- Routes health check: `health/routes`
+- Routes health check: `/health/routes`
+
 
 ### 5. Simple deployment in docker compose file
 
