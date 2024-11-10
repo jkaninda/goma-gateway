@@ -13,6 +13,7 @@ gateway:
   sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
   rateLimit: 0
+  logLevel: info # debug, trace
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"
   ## Enable, disable routes health check
@@ -44,10 +45,10 @@ gateway:
   ##### Define routes
   routes:
     # Example of a route | 1
-    - name: Public  # Name is optional
+    - path: /
+      name: Public  # Name is optional
     # host Domain/host based request routing
-      host: "" # Host is optional
-      path: /public
+      hosts: [] # Hosts are optional
       ## Rewrite a request path
       # e.g rewrite: /store to /
       rewrite: /
@@ -58,8 +59,6 @@ gateway:
       # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
       # It will not match the backend route, by default, it's disabled
       disableHeaderXForward: false
-      # Internal health check
-      healthCheck: '' #/internal/health/ready
       # Route Cors, global cors will be overridden by route
       cors:
         # Route Origins Cors, route will override global cors origins
@@ -79,17 +78,27 @@ gateway:
       middlewares:
         - api-forbidden-paths
     # Example of a route | 2
-    - name: Basic auth
-      path: /protected
+    - path: /protected
+      name:  Basic auth
       rewrite: /
-      destination:  https://example.com
-      methods: []
+      destination: ''
+      backends:
+        - https://example.com
+        - https://example2.com
+      methods:
+        - GET
+      # Route healthcheck
       healthCheck:
+         path: /health/live
+         interval: 30
+         timeout: 10
+         healthyStatuses:
+           - 200
+           - 404
       cors: {}
       middlewares:
         - api-forbidden-paths
         - basic-auth
-
 #Defines proxy middlewares
 # middleware name must be unique
 middlewares:

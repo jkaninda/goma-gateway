@@ -20,6 +20,9 @@ It's designed to be straightforward and efficient, offering features, like:
 - Cross-Origin Resource Sharing (CORS)
 - Custom Headers
 - Backend Errors interceptor
+- Logging
+- Metrics
+- Supports Load Balancing, round-robin algorithm
 - Support TLS
 - Block common exploits middleware
   - Patterns to detect SQL injection attempts
@@ -28,9 +31,7 @@ It's designed to be straightforward and efficient, offering features, like:
   - JWT `client authorization based on the result of a request`
   - Basic-Auth
   - OAuth
-- Rate limiting
-  - In-Memory Token Bucket based
-  - In-Memory client IP based
+- Rate limiting, In-Memory client IP based
 - Limit HTTP methods allowed for a particular route.
 
 

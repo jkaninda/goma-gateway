@@ -32,7 +32,7 @@ func TestMiddleware(t *testing.T) {
 	middlewares := []Middleware{
 		{
 			Name:  "basic-auth",
-			Type:  "basic",
+			Type:  BasicAuth,
 			Paths: []string{"/", "/admin"},
 			Rule: BasicRuleMiddleware{
 				Username: "goma",
@@ -41,7 +41,7 @@ func TestMiddleware(t *testing.T) {
 		},
 		{
 			Name:  "forbidden path access",
-			Type:  "access",
+			Type:  AccessMiddleware,
 			Paths: []string{"/", "/admin"},
 			Rule: BasicRuleMiddleware{
 				Username: "goma",
@@ -51,12 +51,41 @@ func TestMiddleware(t *testing.T) {
 
 		{
 			Name:  "jwt",
-			Type:  "jwt",
+			Type:  JWTAuth,
 			Paths: []string{"/", "/admin"},
 			Rule: JWTRuleMiddleware{
 				URL:     "https://www.googleapis.com/auth/userinfo.email",
 				Headers: map[string]string{},
 				Params:  map[string]string{},
+			},
+		},
+		{
+			Name: "oauth-google",
+			Type: OAuth,
+			Paths: []string{
+				"/protected",
+				"/example-of-oauth",
+			},
+			Rule: OauthRulerMiddleware{
+				ClientID:     "xxx",
+				ClientSecret: "xxx",
+				Provider:     "google",
+				JWTSecret:    "your-strong-jwt-secret | It's optional",
+				RedirectURL:  "http://localhost:8080/callback",
+				Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
+					"https://www.googleapis.com/auth/userinfo.profile"},
+				Endpoint: OauthEndpoint{},
+				State:    "randomStateString",
+			},
+		},
+		{
+			Name: "api-forbidden-paths",
+			Type: AccessMiddleware,
+			Paths: []string{
+				"/swagger-ui/*",
+				"/v2/swagger-ui/*",
+				"/api-docs/*",
+				"/actuator/*",
 			},
 		},
 	}
@@ -74,28 +103,43 @@ func TestMiddleware(t *testing.T) {
 func TestReadMiddleware(t *testing.T) {
 	TestMiddleware(t)
 	middlewares := getMiddlewares(t)
-	middleware, err := getMiddleware(rules, middlewares)
+	m, err := getMiddleware(rules, middlewares)
 	if err != nil {
 		t.Fatalf("Error searching middleware %s", err.Error())
 	}
-	switch middleware.Type {
-	case "basic":
-		log.Println("Basic auth")
-		basicAuth, err := getBasicAuthMiddleware(middleware.Rule)
-		if err != nil {
-			log.Fatalln("error:", err)
-		}
-		log.Printf("Username: %s and password: %s\n", basicAuth.Username, basicAuth.Password)
-	case "jwt":
-		log.Println("JWT auth")
-		jwt, err := getJWTMiddleware(middleware.Rule)
-		if err != nil {
-			log.Fatalln("error:", err)
-		}
-		log.Printf("JWT authentification URL is %s\n", jwt.URL)
-	default:
-		t.Errorf("Unknown middleware type %s", middleware.Type)
+	log.Printf("Middleware: %v\n", m)
 
+	for _, middleware := range middlewares {
+
+		switch middleware.Type {
+		case BasicAuth:
+			log.Println("Basic auth")
+			basicAuth, err := getBasicAuthMiddleware(middleware.Rule)
+			if err != nil {
+				log.Fatalln("error:", err)
+			}
+			log.Printf("Username: %s and password: %s\n", basicAuth.Username, basicAuth.Password)
+		case JWTAuth:
+			log.Println("JWT auth")
+			jwt, err := getJWTMiddleware(middleware.Rule)
+			if err != nil {
+				log.Fatalln("error:", err)
+			}
+			log.Printf("JWT authentification URL is %s\n", jwt.URL)
+		case OAuth:
+			log.Println("OAuth auth")
+			oauth, err := oAuthMiddleware(middleware.Rule)
+			if err != nil {
+				log.Fatalln("error:", err)
+			}
+			log.Printf("OAuth authentification:  provider %s\n", oauth.Provider)
+		case AccessMiddleware:
+			log.Println("Access middleware")
+			log.Printf("Access middleware:  paths: [%s]\n", middleware.Paths)
+		default:
+			t.Errorf("Unknown middleware type %s", middleware.Type)
+
+		}
 	}
 
 }

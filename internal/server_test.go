@@ -1,6 +1,8 @@
 package pkg
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,6 +21,16 @@ func TestInit(t *testing.T) {
 	}
 }
 
+func TestCheckConfig(t *testing.T) {
+	TestInit(t)
+	initConfig(configFile)
+	err := CheckConfig(configFile)
+	if err != nil {
+		t.Error(err)
+	}
+	log.Println("Goma Gateway configuration file checked successfully")
+}
+
 func TestStart(t *testing.T) {
 	TestInit(t)
 	initConfig(configFile)
@@ -28,7 +40,8 @@ func TestStart(t *testing.T) {
 		t.Error(err)
 	}
 	route := gatewayServer.Initialize()
-	route.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
+
+	route.HandleFunc("/test", func(rw http.ResponseWriter, r *http.Request) {
 		_, err := rw.Write([]byte("Hello Goma Proxy"))
 		if err != nil {
 			t.Fatalf("Failed writing HTTP response: %v", err)
@@ -43,10 +56,19 @@ func TestStart(t *testing.T) {
 			t.Fatalf("expected a status code of 200, got %v", resp.StatusCode)
 		}
 	}
+	ctx := context.Background()
+	go func() {
+		err = gatewayServer.Start(ctx)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}()
+
 	t.Run("httpServer", func(t *testing.T) {
 		s := httptest.NewServer(route)
 		defer s.Close()
 		assertResponseBody(t, s, "Hello Goma Proxy")
 	})
-
+	ctx.Done()
 }
