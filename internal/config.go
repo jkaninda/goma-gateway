@@ -48,6 +48,7 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 		}
 		return &GatewayServer{
 			ctx:         nil,
+			version:     c.Version,
 			gateway:     c.GatewayConfig,
 			middlewares: c.Middlewares,
 		}, nil
@@ -122,7 +123,7 @@ func initConfig(configFile string) {
 		GatewayConfig: Gateway{
 			WriteTimeout:                 15,
 			ReadTimeout:                  15,
-			IdleTimeout:                  60,
+			IdleTimeout:                  30,
 			AccessLog:                    "/dev/Stdout",
 			ErrorLog:                     "/dev/stderr",
 			DisableRouteHealthCheckError: false,
@@ -140,11 +141,14 @@ func initConfig(configFile string) {
 			Routes: []Route{
 				{
 					Name:        "Public",
-					Path:        "/public",
+					Path:        "/",
 					Methods:     []string{"GET"},
 					Destination: "https://example.com",
 					Rewrite:     "/",
-					HealthCheck: "",
+					HealthCheck: RouteHealthCheck{
+						Path:            "/",
+						HealthyStatuses: []int{200, 404},
+					},
 					Middlewares: []string{"api-forbidden-paths"},
 				},
 				{
@@ -152,7 +156,7 @@ func initConfig(configFile string) {
 					Path:        "/protected",
 					Destination: "https://example.com",
 					Rewrite:     "/",
-					HealthCheck: "",
+					HealthCheck: RouteHealthCheck{},
 					Cors: Cors{
 						Origins: []string{"http://localhost:3000", "https://dev.example.com"},
 						Headers: map[string]string{
@@ -164,12 +168,35 @@ func initConfig(configFile string) {
 					Middlewares: []string{"basic-auth", "api-forbidden-paths"},
 				},
 				{
-					Name:        "Hostname example",
-					Hosts:       []string{"example.com", "example.localhost"},
-					Path:        "/",
-					Destination: "https://example.com",
+					Path:            "/",
+					Name:            "Hostname and load balancing example",
+					Hosts:           []string{"example.com", "example.localhost"},
+					InterceptErrors: []int{404, 405, 500},
+					RateLimit:       60,
+					Backends: []string{
+						"https://example.com",
+						"https://example2.com",
+						"https://example4.com",
+					},
 					Rewrite:     "/",
-					HealthCheck: "",
+					HealthCheck: RouteHealthCheck{},
+				},
+				{
+					Path:  "/loadbalancing",
+					Name:  "loadBalancing example",
+					Hosts: []string{"example.com", "example.localhost"},
+					Backends: []string{
+						"https://example.com",
+						"https://example2.com",
+						"https://example4.com",
+					},
+					Rewrite: "/",
+					HealthCheck: RouteHealthCheck{
+						Path:            "/health/live",
+						HealthyStatuses: []int{200, 404},
+						Interval:        30,
+						Timeout:         10,
+					},
 				},
 			},
 		},
@@ -207,7 +234,6 @@ func initConfig(configFile string) {
 					"/swagger-ui/*",
 					"/v2/swagger-ui/*",
 					"/api-docs/*",
-					"/internal/*",
 					"/actuator/*",
 				},
 			},
@@ -234,12 +260,11 @@ func initConfig(configFile string) {
 				Name: "oauth-authentik",
 				Type: OAuth,
 				Paths: []string{
-					"/protected",
-					"/example-of-oauth",
+					"/*",
 				},
 				Rule: OauthRulerMiddleware{
-					ClientID:     "xxx",
-					ClientSecret: "xxx",
+					ClientID:     "xxxx",
+					ClientSecret: "xxxx",
 					RedirectURL:  "http://localhost:8080/callback",
 					Scopes:       []string{"email", "openid"},
 					JWTSecret:    "your-strong-jwt-secret | It's optional",

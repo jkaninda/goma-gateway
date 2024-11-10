@@ -29,7 +29,7 @@ import (
 // ProxyHandler proxies requests to the backend
 func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger.Info("%s %s %s %s", r.Method, getRealIP(r), r.URL, r.UserAgent())
+		logger.Info("%s %s %s %s", r.Method, getRealIP(r), r.URL.Path, r.UserAgent())
 		// Check Method if is allowed
 		if len(proxyRoute.methods) > 0 {
 			if !slices.Contains(proxyRoute.methods, r.Method) {

@@ -21,9 +21,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 )
 
-func healthCheck(healthURL string) error {
+func healthCheck(healthURL string, healthyStatuses []int) error {
 	healthCheckURL, err := url.Parse(healthURL)
 	if err != nil {
 		return fmt.Errorf("error parsing HealthCheck URL: %v ", err)
@@ -45,10 +46,16 @@ func healthCheck(healthURL string) error {
 		if err != nil {
 		}
 	}(healthResp.Body)
-
-	if healthResp.StatusCode >= 400 {
-		logger.Debug("Error performing HealthCheck request: %v ", err)
-		return fmt.Errorf("health check failed with status code %v", healthResp.StatusCode)
+	if len(healthyStatuses) > 0 {
+		if !slices.Contains(healthyStatuses, healthResp.StatusCode) {
+			logger.Error("Error performing HealthCheck request: %v ", err)
+			return fmt.Errorf("health check failed with status code %v", healthResp.StatusCode)
+		}
+	} else {
+		if healthResp.StatusCode >= 400 {
+			logger.Debug("Error performing HealthCheck request: %v ", err)
+			return fmt.Errorf("health check failed with status code %v", healthResp.StatusCode)
+		}
 	}
 	return nil
 }

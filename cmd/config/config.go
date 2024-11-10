@@ -17,8 +17,8 @@ limitations under the License.
 package config
 
 import (
-	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/spf13/cobra"
+	"log"
 )
 
 var Cmd = &cobra.Command{
@@ -28,7 +28,7 @@ var Cmd = &cobra.Command{
 		if len(args) == 0 {
 			return
 		} else {
-			logger.Fatal(`"config" accepts no argument %q`, args)
+			log.Fatalf("Config accepts no argument %q", args)
 
 		}
 
@@ -37,4 +37,5 @@ var Cmd = &cobra.Command{
 
 func init() {
 	Cmd.AddCommand(InitConfigCmd)
+	Cmd.AddCommand(CheckConfigCmd)
 }
