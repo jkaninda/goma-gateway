@@ -54,9 +54,7 @@ It's designed to be straightforward and efficient, offering features, like:
   - JWT `client authorization based on the result of a request`
   - Basic-Auth
   - OAuth 
-- Rate limiting
-  - In-Memory Token Bucket based
-  - In-Memory client IP based
+- Rate limiting, In-Memory client IP based
 - Limit HTTP methods allowed for a particular route.
 
 ### Todo:
@@ -121,11 +119,19 @@ services:
 - [x] Windows 
 
 Please download the binary from the [release page](https://github.com/jkaninda/goma-gateway/releases).
+Init configs:
+
+```shell
+./goma config init --output config.yml
+```
 
 To run 
 ```shell
 ./goma server --config config.yml
 ```
+
+
+
 
 ## Deployment
 
