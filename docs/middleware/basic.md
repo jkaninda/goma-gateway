@@ -29,8 +29,8 @@ Example of access middleware
 
 ```yaml
   routes:
-    - name: Basic auth
-      path: /protected
+    - path: /protected
+      name: Basic auth
       rewrite: /
       destination: 'https://example.com'
       methods: [POST, PUT, GET]
