@@ -35,7 +35,7 @@ var totalRequests = prometheus.NewCounterVec(
 		Name: "http_requests_total",
 		Help: "Number of get requests.",
 	},
-	[]string{"path"},
+	[]string{"name", "path"},
 )
 
 var responseStatus = prometheus.NewCounterVec(
@@ -49,16 +49,19 @@ var responseStatus = prometheus.NewCounterVec(
 var httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name: "http_response_time_seconds",
 	Help: "Duration of HTTP requests.",
-}, []string{"path"})
+}, []string{"name", "path"})
 
-func prometheusMiddleware(next http.Handler) http.Handler {
+func (pr PrometheusRoute) prometheusMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		route := mux.CurrentRoute(r)
-		path, _ := route.GetPathTemplate()
-		timer := prometheus.NewTimer(httpDuration.WithLabelValues(path))
+		path := pr.path
+		if len(path) == 0 {
+			route := mux.CurrentRoute(r)
+			path, _ = route.GetPathTemplate()
+		}
+		timer := prometheus.NewTimer(httpDuration.WithLabelValues(pr.name, path))
 
 		responseStatus.WithLabelValues(strconv.Itoa(http.StatusOK)).Inc()
-		totalRequests.WithLabelValues(path).Inc()
+		totalRequests.WithLabelValues(pr.name, path).Inc()
 
 		timer.ObserveDuration()
 		next.ServeHTTP(w, r)

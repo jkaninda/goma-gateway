@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"github.com/common-nighthawk/go-figure"
 	"github.com/jkaninda/goma-gateway/internal"
-	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 var ServerCmd = &cobra.Command{
@@ -39,11 +39,13 @@ var ServerCmd = &cobra.Command{
 		g := pkg.GatewayServer{}
 		gs, err := g.Config(configFile)
 		if err != nil {
-			logger.Fatal("Could not load configuration: %v", err)
+			fmt.Printf("Could not load configuration: %v\n", err)
+			os.Exit(1)
 		}
 		gs.SetEnv()
 		if err := gs.Start(ctx); err != nil {
-			logger.Fatal("Could not start server: %v", err)
+			fmt.Printf("Could not start server: %v\n", err)
+			os.Exit(1)
 
 		}
 
@@ -56,7 +58,7 @@ func init() {
 func intro() {
 	nameFigure := figure.NewFigure("Goma", "", true)
 	nameFigure.Print()
-	fmt.Printf("Version: %s\n", util.FullVersion())
+	fmt.Printf("Version: %s\n", util.Version)
 	fmt.Println("Copyright (c) 2024 Jonas Kaninda")
 	fmt.Println("Starting Goma Gateway server...")
 }

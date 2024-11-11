@@ -18,7 +18,6 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
 )
@@ -32,5 +31,5 @@ var VersionCmd = &cobra.Command{
 }
 
 func version() {
-	fmt.Println("Version:\t", util.FullVersion())
+	util.FullVersion()
 }

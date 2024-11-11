@@ -17,8 +17,9 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
-	"log"
+	"os"
 )
 
 var Cmd = &cobra.Command{
@@ -28,8 +29,8 @@ var Cmd = &cobra.Command{
 		if len(args) == 0 {
 			return
 		} else {
-			log.Fatalf("Config accepts no argument %q", args)
-
+			fmt.Printf("config accepts no argument %q\n", args)
+			os.Exit(1)
 		}
 
 	},

@@ -30,6 +30,7 @@ jobs:
           TAG_NAME="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG_NAME#v}"
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo BUILD_TIME=$(date) >> ${GITHUB_ENV}
       -
         name: Build and push
         uses: docker/build-push-action@v3
@@ -39,6 +40,8 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           build-args: |
             appVersion=${{ env.VERSION }}
+            buildTime=${{ env.BUILD_TIME }}
+            gitCommit=${{ github.sha }}
           tags: |
             "${{vars.BUILDKIT_IMAGE}}:${{ env.VERSION }}"
             "${{vars.BUILDKIT_IMAGE}}:latest"

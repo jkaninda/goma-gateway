@@ -18,9 +18,10 @@
 package config
 
 import (
+	"fmt"
 	pkg "github.com/jkaninda/goma-gateway/internal"
 	"github.com/spf13/cobra"
-	"log"
+	"os"
 )
 
 var CheckConfigCmd = &cobra.Command{
@@ -29,13 +30,15 @@ var CheckConfigCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		configFile, _ := cmd.Flags().GetString("config")
 		if configFile == "" {
-			log.Fatalln("no config file specified")
+			fmt.Println("no config file specified")
+			os.Exit(1)
 		}
 		err := pkg.CheckConfig(configFile)
 		if err != nil {
-			log.Fatalf(" Error checking config file: %s\n", err)
+			fmt.Printf(" Error checking config file: %s\n", err)
+			os.Exit(1)
 		}
-		log.Println("Goma Gateway configuration file checked successfully")
+		fmt.Println("Goma Gateway configuration file checked successfully")
 
 	},
 }
