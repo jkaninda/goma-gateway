@@ -20,6 +20,14 @@ jobs:
             goos: windows
     steps:
       - uses: actions/checkout@v4
+      - name: Get the tag name
+        id: get_tag_name
+        run: |
+          # Extract tag name and remove "v" if present
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_NAME#v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo BUILD_TIME=$(date) >> ${GITHUB_ENV}
       - uses: wangyoucao577/go-release-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -28,4 +36,6 @@ jobs:
           goversion: "https://dl.google.com/go/go1.23.2.linux-amd64.tar.gz"
           project_path: "./"
           binary_name: "goma"
+          build_flags: -v
+          ldflags: -X "github.com/jkaninda/goma-gateway/util.Version=${{ env.VERSION }}" -X "github.com/jkaninda/goma-gateway/util.buildTime=${{ env.BUILD_TIME }}" -X github.com/jkaninda/goma-gateway/util.gitCommit=${{ github.sha }}
           #extra_files: LICENSE README.md

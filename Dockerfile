@@ -1,20 +1,21 @@
 FROM golang:1.23.2 AS build
 WORKDIR /app
 ARG appVersion=""
+ARG buildTime=""
+ARG gitCommit=""
 # Copy the source code.
 COPY . .
 # Installs Go dependencies
 RUN go mod download
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/jkaninda/goma-gateway/util.Version=${appVersion}'" -o /app/goma
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/jkaninda/goma-gateway/util.Version=${appVersion}' -X 'github.com/jkaninda/goma-gateway/util.buildTime=${buildTime}'-X 'github.com/jkaninda/goma-gateway/util.gitCommit=${gitCommit}'" -o /app/goma
 
 FROM alpine:3.20.3
 ENV TZ=UTC
 ARG WORKDIR="/etc/goma/"
 ARG appVersion=""
 ARG user="goma"
-ENV VERSION=${appVersion}
 LABEL author="Jonas Kaninda"
 LABEL version=${appVersion}
 LABEL github="github.com/jkaninda/goma-gateway"
