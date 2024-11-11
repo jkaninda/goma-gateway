@@ -17,10 +17,11 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
 	"github.com/jkaninda/goma-gateway/cmd/config"
-	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 // rootCmd represents
@@ -29,7 +30,7 @@ var rootCmd = &cobra.Command{
 	Short:   "Goma Gateway is a lightweight API Gateway Management",
 	Long:    `.`,
 	Example: util.MainExample,
-	Version: util.FullVersion(),
+	Version: util.Version,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -37,7 +38,8 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		logger.Fatal("Error executing root command %v", err)
+		fmt.Printf("Error executing root command %v\n", err)
+		os.Exit(1)
 	}
 }
 func init() {

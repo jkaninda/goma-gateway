@@ -27,7 +27,12 @@ func printRoute(routes []Route) {
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"Name", "Route", "Rewrite", "Destination"})
 	for _, route := range routes {
-		t.AppendRow(table.Row{route.Name, route.Path, route.Rewrite, route.Destination})
+		if len(route.Backends) > 0 {
+			t.AppendRow(table.Row{route.Name, route.Path, route.Rewrite, fmt.Sprintf("backends: [%d]", len(route.Backends))})
+
+		} else {
+			t.AppendRow(table.Row{route.Name, route.Path, route.Rewrite, route.Destination})
+		}
 	}
 	fmt.Println(t.Render())
 }

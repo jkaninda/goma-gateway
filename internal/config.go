@@ -20,7 +20,6 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/middleware"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
-	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/amazon"
 	"golang.org/x/oauth2/facebook"
@@ -83,7 +82,11 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 			return nil, err
 		}
 	}
-	initConfig(ConfigFile)
+	err := initConfig(ConfigFile)
+	if err != nil {
+		return nil, err
+	}
+	logger.Info("Generating new configuration file...done")
 	logger.Info("Server configuration file is available at %s", ConfigFile)
 	util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 	buf, err := os.ReadFile(ConfigFile)
@@ -115,18 +118,13 @@ func GetConfigPaths() string {
 }
 
 // InitConfig initializes configs
-func InitConfig(cmd *cobra.Command) {
-	configFile, _ := cmd.Flags().GetString("output")
-	if configFile == "" {
-		configFile = GetConfigPaths()
-	}
-	initConfig(configFile)
-	return
+func InitConfig(configFile string) error {
+	return initConfig(configFile)
 
 }
 
 // initConfig initializes configs
-func initConfig(configFile string) {
+func initConfig(configFile string) error {
 	if configFile == "" {
 		configFile = GetConfigPaths()
 	}
@@ -292,13 +290,13 @@ func initConfig(configFile string) {
 	}
 	yamlData, err := yaml.Marshal(&conf)
 	if err != nil {
-		logger.Fatal("Error serializing configuration %v", err.Error())
+		return fmt.Errorf("serializing configuration %v\n", err.Error())
 	}
 	err = os.WriteFile(configFile, yamlData, 0644)
 	if err != nil {
-		logger.Fatal("Unable to write config file %s", err)
+		return fmt.Errorf("unable to write config file %s\n", err)
 	}
-	logger.Info("Configuration file has been initialized successfully")
+	return nil
 }
 func (Gateway) Setup(conf string) *Gateway {
 	if util.FileExists(conf) {

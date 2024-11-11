@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
-	"log"
 	"os"
 )
 
@@ -46,21 +45,21 @@ func CheckConfig(fileName string) error {
 	}
 	for index, route := range gateway.gateway.Routes {
 		if len(route.Name) == 0 {
-			log.Printf("Warning: route name is empty, index: [%d]", index)
+			fmt.Printf("Warning: route name is empty, index: [%d]", index)
 		}
 		if route.Destination == "" && len(route.Backends) == 0 {
-			log.Printf("Error: no destination or backends specified for route: %s | index: [%d] \n", route.Name, index)
+			fmt.Printf("Error: no destination or backends specified for route: %s | index: [%d] \n", route.Name, index)
 		}
 	}
 
 	//Check middleware
 	for index, mid := range c.Middlewares {
 		if util.HasWhitespace(mid.Name) {
-			log.Printf("Warning: Middleware contains whitespace: %s | index: [%d], please remove whitespace characters\n", mid.Name, index)
+			fmt.Printf("Warning: Middleware contains whitespace: %s | index: [%d], please remove whitespace characters\n", mid.Name, index)
 		}
 	}
 
-	log.Printf("Routes count=%d Middlewares count=%d\n", len(gateway.gateway.Routes), len(gateway.middlewares))
+	fmt.Printf("Routes count=%d Middlewares count=%d\n", len(gateway.gateway.Routes), len(gateway.middlewares))
 
 	return nil
 

@@ -43,9 +43,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	if gateway.EnableMetrics {
 		// Prometheus endpoint
 		r.Path("/metrics").Handler(promhttp.Handler())
-		r.Use(prometheusMiddleware)
 	}
-
 	// Routes health check
 	if !gateway.DisableHealthCheckStatus {
 		r.HandleFunc("/healthz", heath.HealthCheckHandler).Methods("GET")
@@ -238,7 +236,14 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			} else {
 				router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
 			}
-
+			if gateway.EnableMetrics {
+				pr := PrometheusRoute{
+					name: route.Name,
+					path: route.Path,
+				}
+				// Prometheus endpoint
+				router.Use(pr.prometheusMiddleware)
+			}
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Error("Route path ignored: %s", route.Path)

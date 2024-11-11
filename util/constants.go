@@ -10,26 +10,20 @@ You may get a copy of the License at
     http://www.apache.org/licenses/LICENSE-2.0
 */
 import (
-	"os"
+	"fmt"
 )
-
-var Version string
 
 const ConfigVersion = "1.0"
 
-func VERSION(def string) string {
-	build := os.Getenv("VERSION")
-	if build == "" {
-		return def
-	}
-	return build
-}
-func FullVersion() string {
-	ver := Version
-	if b := VERSION(""); b != "" {
-		return b
-	}
-	return ver
+var Version = "development"
+var buildTime string
+var gitCommit string
+
+func FullVersion() {
+	fmt.Printf("Goma Gateway version: %s\n", Version)
+	fmt.Printf("Configuration version: %s\n", ConfigVersion)
+	fmt.Printf("Build time: %s\n", buildTime)
+	fmt.Printf("Git commit: %s\n", gitCommit)
 }
 
 const MainExample = "Initialize config: config init --output config.yml\n" +
