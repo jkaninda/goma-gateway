@@ -17,6 +17,7 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
 	"net/http"
 	"time"
@@ -99,4 +100,44 @@ func createJWT(email, jwtSecret string) (string, error) {
 	}
 
 	return signedToken, nil
+}
+
+// healthCheckRoutes creates []Health
+func healthCheckRoutes(routes []Route) []Health {
+	var healthRoutes []Health
+	for _, route := range routes {
+		if len(route.HealthCheck.Path) > 0 {
+			timeout, _ := util.ParseDuration("")
+			if len(route.HealthCheck.Timeout) > 0 {
+				d1, err1 := util.ParseDuration(route.HealthCheck.Timeout)
+				if err1 != nil {
+					logger.Error("Health check timeout is invalid: %s", route.HealthCheck.Timeout)
+				}
+				timeout = d1
+			}
+			if len(route.Backends) > 0 {
+				for index, backend := range route.Backends {
+					health := Health{
+						Name:            fmt.Sprintf("%s - [%d]", route.Name, index),
+						URL:             backend + route.HealthCheck.Path,
+						TimeOut:         timeout,
+						HealthyStatuses: route.HealthCheck.HealthyStatuses,
+					}
+					healthRoutes = append(healthRoutes, health)
+				}
+
+			} else {
+				health := Health{
+					Name:            route.Name,
+					URL:             route.Destination + route.HealthCheck.Path,
+					TimeOut:         timeout,
+					HealthyStatuses: route.HealthCheck.HealthyStatuses,
+				}
+				healthRoutes = append(healthRoutes, health)
+			}
+		} else {
+			logger.Debug("Route %s's healthCheck is undefined", route.Name)
+		}
+	}
+	return healthRoutes
 }

@@ -147,11 +147,11 @@ type Route struct {
 	//
 	// Methods allowed method
 	Methods []string `yaml:"methods"`
-	// HealthCheck Defines the backend is health
-	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
 	// Destination Defines backend URL
 	Destination string   `yaml:"destination"`
 	Backends    []string `yaml:"backends"`
+	// HealthCheck Defines the backend is health
+	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
 	// Cors contains the route cors headers
 	Cors      Cors `yaml:"cors"`
 	RateLimit int  `yaml:"rateLimit"`
@@ -279,7 +279,9 @@ type JWTSecret struct {
 
 // Health represents the health check content for a route
 type Health struct {
+	Name            string
 	URL             string
 	TimeOut         time.Duration
+	Interval        string
 	HealthyStatuses []int
 }

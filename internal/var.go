@@ -12,4 +12,4 @@ const OAuth = "oauth"             // OAuth authentication middleware
 // Round-robin counter
 var counter uint32
 
-var routes *[]Route
+var Routes *[]Route
