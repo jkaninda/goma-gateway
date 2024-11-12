@@ -40,8 +40,8 @@ func (health Health) Check() error {
 	client := &http.Client{Timeout: health.TimeOut}
 	healthResp, err := client.Do(healthReq)
 	if err != nil {
-		logger.Error("Error route %s: performing HealthCheck request: %v ", health.Name, err)
-		return fmt.Errorf("Error route %s: performing HealthCheck request: %v ", health.Name, err)
+		logger.Debug("Error route %s: performing HealthCheck request: %v ", health.Name, err)
+		return fmt.Errorf("error  performing HealthCheck request: %v ", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -50,13 +50,13 @@ func (health Health) Check() error {
 	}(healthResp.Body)
 	if len(health.HealthyStatuses) > 0 {
 		if !slices.Contains(health.HealthyStatuses, healthResp.StatusCode) {
-			logger.Error("Error: Route %s: health check failed with status code %d", health.Name, healthResp.StatusCode)
-			return fmt.Errorf("route %s health check failed with status code %d", health.Name, healthResp.StatusCode)
+			logger.Debug("Error: Route %s: health check failed with status code %d", health.Name, healthResp.StatusCode)
+			return fmt.Errorf("health check failed with status code %d", healthResp.StatusCode)
 		}
 	} else {
 		if healthResp.StatusCode >= 400 {
-			logger.Error("Error: Route %s: health check failed with status code %d", health.Name, healthResp.StatusCode)
-			return fmt.Errorf("route %s: health check failed with status code %d", health.Name, healthResp.StatusCode)
+			logger.Debug("Error: Route %s: health check failed with status code %d", health.Name, healthResp.StatusCode)
+			return fmt.Errorf("health check failed with status code %d", healthResp.StatusCode)
 		}
 	}
 	return nil
