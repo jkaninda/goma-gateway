@@ -10,8 +10,8 @@ nav_order: 1
 ```yaml
 version: 1.0
 gateway:
-  sslCertFile: cert.pem
-  sslKeyFile: key.pem
+  sslCertFile: /etc/goma/cert.pem
+  sslKeyFile: /etc/goma/key.pem
   writeTimeout: 15
   readTimeout: 15
   idleTimeout: 30
@@ -25,6 +25,7 @@ gateway:
   disableKeepAlive: false
   disableHealthCheckStatus: false
   blockCommonExploits: true
+  # Intercept backend errors
   interceptErrors:
     - 500
   cors:
