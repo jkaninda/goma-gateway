@@ -155,12 +155,12 @@ type Route struct {
 	// Cors contains the route cors headers
 	Cors      Cors `yaml:"cors"`
 	RateLimit int  `yaml:"rateLimit"`
-	// DisableHeaderXForward Disable X-forwarded header.
+	// DisableHostFording Disable X-forwarded header.
 	//
 	// [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
 	//
 	// It will not match the backend route
-	DisableHeaderXForward bool `yaml:"disableHeaderXForward"`
+	DisableHostFording bool `yaml:"disableHostFording"`
 	// InterceptErrors intercepts backend errors based on the status codes
 	//
 	// Eg: [ 403, 405, 500 ]
@@ -234,14 +234,14 @@ type GatewayServer struct {
 	middlewares []Middleware
 }
 type ProxyRoute struct {
-	path            string
-	rewrite         string
-	destination     string
-	backends        []string
-	healthCheck     RouteHealthCheck
-	methods         []string
-	cors            Cors
-	disableXForward bool
+	path               string
+	rewrite            string
+	destination        string
+	backends           []string
+	healthCheck        RouteHealthCheck
+	methods            []string
+	cors               Cors
+	disableHostFording bool
 }
 type RoutePath struct {
 	route       Route

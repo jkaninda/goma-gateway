@@ -55,10 +55,8 @@ gateway:
       destination:  https://example.com
       # Limit HTTP methods allowed for this route
       methods: [POST, PUT, GET]
-      #DisableHeaderXForward Disable X-forwarded header.
-      # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
-      # It will not match the backend route, by default, it's disabled
-      disableHeaderXForward: false
+      #disableHostFording proxy host forwarding
+      disableHostFording: false
       # Route Cors, global cors will be overridden by route
       cors:
         # Route Origins Cors, route will override global cors origins
