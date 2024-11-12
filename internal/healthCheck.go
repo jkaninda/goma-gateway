@@ -27,12 +27,6 @@ import (
 	"time"
 )
 
-type Health struct {
-	URL             string
-	TimeOut         time.Duration
-	HealthyStatuses []int
-}
-
 func (health Health) Check() error {
 	healthCheckURL, err := url.Parse(health.URL)
 	if err != nil {
@@ -70,8 +64,8 @@ func (health Health) Check() error {
 }
 func routesHealthCheck(routes []Route) {
 	for _, route := range routes {
-		go func() {
-			if len(route.HealthCheck.Path) > 0 {
+		if len(route.HealthCheck.Path) > 0 {
+			go func() {
 				interval := "30s"
 				timeout, _ := util.ParseDuration("")
 				if len(route.HealthCheck.Interval) > 0 {
@@ -92,29 +86,40 @@ func routesHealthCheck(routes []Route) {
 					timeout = d1
 
 				}
-				if len(route.Backends) > 0 {
+				if n := len(route.Backends); len(route.Backends) > 0 {
 					for index, backend := range route.Backends {
-						err := createCron(fmt.Sprintf("%s [%d]", route.Name, index), expression, backend+route.HealthCheck.Path, timeout, route.HealthCheck.HealthyStatuses)
-						if err != nil {
-							logger.Error("Error creating cron expression: %v ", err)
-							return
+						if n > 1 {
+							go func() {
+								err := createHealthCheckJob(fmt.Sprintf("%s [%d]", route.Name, index), expression, backend+route.HealthCheck.Path, timeout, route.HealthCheck.HealthyStatuses)
+								if err != nil {
+									logger.Error("Error creating healthcheck job: %v ", err)
+									return
+								}
+							}()
+						} else {
+							err := createHealthCheckJob(fmt.Sprintf("%s [%d]", route.Name, index), expression, backend+route.HealthCheck.Path, timeout, route.HealthCheck.HealthyStatuses)
+							if err != nil {
+								logger.Error("Error creating healthcheck job: %v ", err)
+								return
+							}
 						}
+
 					}
 
 				} else {
-					err := createCron(route.Name, expression, route.Destination+route.HealthCheck.Path, timeout, route.HealthCheck.HealthyStatuses)
+					err := createHealthCheckJob(route.Name, expression, route.Destination+route.HealthCheck.Path, timeout, route.HealthCheck.HealthyStatuses)
 					if err != nil {
 						logger.Error("Error creating cron expression: %v ", err)
 						return
 					}
 				}
 
-			}
-		}()
+			}()
+		}
 
 	}
 }
-func createCron(name, expression string, healthURL string, timeout time.Duration, healthyStatuses []int) error {
+func createHealthCheckJob(name, expression string, healthURL string, timeout time.Duration, healthyStatuses []int) error {
 	// Create a new cron instance
 	c := cron.New()
 

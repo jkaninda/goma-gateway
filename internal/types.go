@@ -20,6 +20,7 @@ package pkg
 import (
 	"context"
 	"github.com/gorilla/mux"
+	"time"
 )
 
 type Config struct {
@@ -274,4 +275,11 @@ type UserInfo struct {
 type JWTSecret struct {
 	ISS    string `yaml:"iss"`
 	Secret string `yaml:"secret"`
+}
+
+// Health represents the health check content for a route
+type Health struct {
+	URL             string
+	TimeOut         time.Duration
+	HealthyStatuses []int
 }
