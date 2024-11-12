@@ -4,7 +4,7 @@ metadata:
   name: goma-config
 data:
   goma.yml: |
-    # Goma Gateway configurations
+      # Goma Gateway configurations
     version: 1.0
     gateway:
       # Proxy write timeout
@@ -96,8 +96,8 @@ data:
           # Route healthcheck
           healthCheck:
             path: /health/live
-            interval: 30
-            timeout: 10
+            interval: 30s
+            timeout: 10s
             healthyStatuses:
               - 200
               - 404

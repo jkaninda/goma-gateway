@@ -20,6 +20,7 @@ package pkg
 import (
 	"context"
 	"github.com/gorilla/mux"
+	"time"
 )
 
 type Config struct {
@@ -146,11 +147,11 @@ type Route struct {
 	//
 	// Methods allowed method
 	Methods []string `yaml:"methods"`
-	// HealthCheck Defines the backend is health
-	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
 	// Destination Defines backend URL
 	Destination string   `yaml:"destination"`
 	Backends    []string `yaml:"backends"`
+	// HealthCheck Defines the backend is health
+	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
 	// Cors contains the route cors headers
 	Cors      Cors `yaml:"cors"`
 	RateLimit int  `yaml:"rateLimit"`
@@ -208,8 +209,8 @@ type Gateway struct {
 
 type RouteHealthCheck struct {
 	Path            string `yaml:"path"`
-	Interval        int    `yaml:"interval"`
-	Timeout         int    `yaml:"timeout"`
+	Interval        string `yaml:"interval"`
+	Timeout         string `yaml:"timeout"`
 	HealthyStatuses []int  `yaml:"healthyStatuses"`
 }
 type GatewayConfig struct {
@@ -274,4 +275,13 @@ type UserInfo struct {
 type JWTSecret struct {
 	ISS    string `yaml:"iss"`
 	Secret string `yaml:"secret"`
+}
+
+// Health represents the health check content for a route
+type Health struct {
+	Name            string
+	URL             string
+	TimeOut         time.Duration
+	Interval        string
+	HealthyStatuses []int
 }

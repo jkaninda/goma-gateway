@@ -32,8 +32,8 @@ metadata:
   name: goma-config
 data:
   goma.yml: |
-      # Goma Gateway configurations
-    version: 0.1.7
+    # Goma Gateway configurations
+    version: 1.0
     gateway:
       # Proxy write timeout
       writeTimeout: 15
@@ -47,6 +47,7 @@ data:
       sslKeyFile: ''#key.pem
       # Proxy rate limit, it's In-Memory IP based
       rateLimit: 0
+      logLevel: info # debug, trace, off
       accessLog:    "/dev/Stdout"
       errorLog:     "/dev/stderr"
       ## Enable, disable routes health check
@@ -78,10 +79,10 @@ data:
       ##### Define routes
       routes:
         # Example of a route | 1
-        - name: Public  # Name is optional
+        - path: /
+          name: Public  # Name is optional
           # host Domain/host based request routing
-          host: "" # Host is optional
-          path: /public
+          hosts: [] # Hosts are optional
           ## Rewrite a request path
           # e.g rewrite: /store to /
           rewrite: /
@@ -92,8 +93,6 @@ data:
           # [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
           # It will not match the backend route, by default, it's disabled
           disableHeaderXForward: false
-          # Internal health check
-          healthCheck: '' #/internal/health/ready
           # Route Cors, global cors will be overridden by route
           cors:
             # Route Origins Cors, route will override global cors origins
@@ -113,17 +112,27 @@ data:
           middlewares:
             - api-forbidden-paths
         # Example of a route | 2
-        - name: Basic auth
-          path: /protected
+        - path: /protected
+          name:  Basic auth
           rewrite: /
-          destination:  https://example.com
-          methods: []
+          destination: ''
+          backends:
+            - https://example.com
+            - https://example2.com
+          methods:
+            - GET
+          # Route healthcheck
           healthCheck:
+            path: /health/live
+            interval: 30s
+            timeout: 10s
+            healthyStatuses:
+              - 200
+              - 404
           cors: {}
           middlewares:
             - api-forbidden-paths
             - basic-auth
-    
     #Defines proxy middlewares
     # middleware name must be unique
     middlewares:
@@ -176,6 +185,46 @@ data:
           - /api-docs/*
           - /internal/*
           - /actuator/*
+          - name: oauth-google
+            type: oauth
+            paths:
+              - /protected
+              - /example-of-oauth
+            rule:
+              clientId: xxx
+              clientSecret: xxx
+              provider: google
+              endpoint:
+                userInfoUrl: ""
+              redirectUrl: http://localhost:8080/callback
+              redirectPath: ""
+              cookiePath: ""
+              scopes:
+                - https://www.googleapis.com/auth/userinfo.email
+                - https://www.googleapis.com/auth/userinfo.profile
+              state: randomStateString
+              jwtSecret: your-strong-jwt-secret | It's optional
+          - name: oauth-authentik
+            type: oauth
+            paths:
+              - /protected
+              - /example-of-oauth
+            rule:
+              clientId: xxx
+              clientSecret: xxx
+              provider: custom
+              endpoint:
+                authUrl: https://authentik.example.com/application/o/authorize/
+                tokenUrl: https://authentik.example.com/application/o/token/
+                userInfoUrl: https://authentik.example.com/application/o/userinfo/
+              redirectUrl: http://localhost:8080/callback
+              redirectPath: ""
+              cookiePath: ""
+              scopes:
+                - email
+                - openid
+              state: randomStateString
+              jwtSecret: your-strong-jwt-secret | It's optional
 ```
 ## 3. Create Kubernetes deployment
 

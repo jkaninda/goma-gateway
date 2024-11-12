@@ -18,44 +18,88 @@ limitations under the License.
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/util"
+	"github.com/robfig/cron/v3"
 	"io"
 	"net/http"
 	"net/url"
 	"slices"
 )
 
-func healthCheck(healthURL string, healthyStatuses []int) error {
-	healthCheckURL, err := url.Parse(healthURL)
+func (health Health) Check() error {
+	healthCheckURL, err := url.Parse(health.URL)
 	if err != nil {
 		return fmt.Errorf("error parsing HealthCheck URL: %v ", err)
 	}
 	// Create a new request for the route
 	healthReq, err := http.NewRequest("GET", healthCheckURL.String(), nil)
 	if err != nil {
-		return fmt.Errorf("error creating HealthCheck request: %v ", err)
+		return fmt.Errorf("error route %s: creating HealthCheck request: %v ", health.Name, err)
 	}
 	// Perform the request to the route's healthcheck
-	client := &http.Client{}
+	client := &http.Client{Timeout: health.TimeOut}
 	healthResp, err := client.Do(healthReq)
 	if err != nil {
-		logger.Error("Error performing HealthCheck request: %v ", err)
-		return fmt.Errorf("error performing HealthCheck request: %v ", err)
+		logger.Debug("Error route %s: performing HealthCheck request: %v ", health.Name, err)
+		return fmt.Errorf("error  performing HealthCheck request: %v ", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
 		}
 	}(healthResp.Body)
-	if len(healthyStatuses) > 0 {
-		if !slices.Contains(healthyStatuses, healthResp.StatusCode) {
-			logger.Error("Error performing HealthCheck request: %v ", err)
-			return fmt.Errorf("health check failed with status code %v", healthResp.StatusCode)
+	if len(health.HealthyStatuses) > 0 {
+		if !slices.Contains(health.HealthyStatuses, healthResp.StatusCode) {
+			logger.Debug("Error: Route %s: health check failed with status code %d", health.Name, healthResp.StatusCode)
+			return fmt.Errorf("health check failed with status code %d", healthResp.StatusCode)
 		}
 	} else {
 		if healthResp.StatusCode >= 400 {
-			logger.Debug("Error performing HealthCheck request: %v ", err)
-			return fmt.Errorf("health check failed with status code %v", healthResp.StatusCode)
+			logger.Debug("Error: Route %s: health check failed with status code %d", health.Name, healthResp.StatusCode)
+			return fmt.Errorf("health check failed with status code %d", healthResp.StatusCode)
 		}
 	}
 	return nil
+}
+func routesHealthCheck(routes []Route) {
+	for _, health := range healthCheckRoutes(routes) {
+		go func() {
+			err := health.createHealthCheckJob()
+			if err != nil {
+				logger.Error("Error creating healthcheck job: %v ", err)
+				return
+			}
+
+		}()
+
+	}
+}
+func (health Health) createHealthCheckJob() error {
+	interval := "30s"
+	if len(health.Interval) > 0 {
+		interval = health.Interval
+	}
+	expression := fmt.Sprintf("@every %s", interval)
+	if !util.IsValidCronExpression(expression) {
+		logger.Error("Health check interval is invalid: %s", interval)
+		logger.Info("Route health check ignored")
+		return fmt.Errorf("health check interval is invalid: %s", interval)
+	}
+	// Create a new cron instance
+	c := cron.New()
+	_, err := c.AddFunc(expression, func() {
+		err := health.Check()
+		if err != nil {
+			logger.Error("Route %s is unhealthy: error %v", health.Name, err.Error())
+			return
+		}
+		logger.Info("Route %s is healthy", health.Name)
+	})
+	if err != nil {
+		return err
+	}
+	// Start the cron scheduler
+	c.Start()
+	defer c.Stop()
+	select {}
 }

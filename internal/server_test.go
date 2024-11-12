@@ -3,7 +3,6 @@ package pkg
 import (
 	"context"
 	"log"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -23,32 +22,31 @@ func TestInit(t *testing.T) {
 
 func TestCheckConfig(t *testing.T) {
 	TestInit(t)
-	initConfig(configFile)
-	err := CheckConfig(configFile)
+	err := initConfig(configFile)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf(err.Error())
+	}
+	err = CheckConfig(configFile)
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
 	log.Println("Goma Gateway configuration file checked successfully")
 }
 
 func TestStart(t *testing.T) {
 	TestInit(t)
-	initConfig(configFile)
+	err := initConfig(configFile)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 	g := GatewayServer{}
 	gatewayServer, err := g.Config(configFile)
 	if err != nil {
 		t.Error(err)
 	}
 	route := gatewayServer.Initialize()
-
-	route.HandleFunc("/test", func(rw http.ResponseWriter, r *http.Request) {
-		_, err := rw.Write([]byte("Hello Goma Proxy"))
-		if err != nil {
-			t.Fatalf("Failed writing HTTP response: %v", err)
-		}
-	})
-	assertResponseBody := func(t *testing.T, s *httptest.Server, expectedBody string) {
-		resp, err := s.Client().Get(s.URL)
+	assertResponseBody := func(t *testing.T, s *httptest.Server) {
+		resp, err := s.Client().Get(s.URL + "/health/live")
 		if err != nil {
 			t.Fatalf("unexpected error getting from server: %v", err)
 		}
@@ -68,7 +66,7 @@ func TestStart(t *testing.T) {
 	t.Run("httpServer", func(t *testing.T) {
 		s := httptest.NewServer(route)
 		defer s.Close()
-		assertResponseBody(t, s, "Hello Goma Proxy")
+		assertResponseBody(t, s)
 	})
 	ctx.Done()
 }

@@ -69,24 +69,20 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 	wg := sync.WaitGroup{}
 	wg.Add(len(heathRoute.Routes))
 	var routes []HealthCheckRouteResponse
-	for _, route := range heathRoute.Routes {
+	for _, health := range healthCheckRoutes(heathRoute.Routes) {
 		go func() {
 			defer wg.Done()
-			if route.HealthCheck.Path != "" {
-				err := healthCheck(route.Destination+route.HealthCheck.Path, route.HealthCheck.HealthyStatuses)
-				if err != nil {
-					if heathRoute.DisableRouteHealthCheckError {
-						routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "unhealthy", Error: "Route healthcheck errors disabled"})
-					}
-					routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "unhealthy", Error: "Error: " + err.Error()})
-				} else {
-					logger.Debug("Route %s is healthy", route.Name)
-					routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "healthy", Error: ""})
+			err := health.Check()
+			if err != nil {
+				if heathRoute.DisableRouteHealthCheckError {
+					routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "unhealthy", Error: "Route healthcheck errors disabled"})
 				}
+				routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "unhealthy", Error: "Error: " + err.Error()})
 			} else {
-				logger.Debug("Route %s's healthCheck is undefined", route.Name)
-				routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "undefined", Error: ""})
+				logger.Debug("Route %s is healthy", health.Name)
+				routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "healthy", Error: ""})
 			}
+
 		}()
 
 	}

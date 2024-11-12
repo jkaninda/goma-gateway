@@ -28,3 +28,7 @@ GOMA_LOG_LEVEL=trace
 ### When using a configuration file
 
 Edit the Goma settings and set `logLevel: trace`.
+
+### Disable logging
+
+To disable logs, you need to set `logLevel: off`, it will turn off logs

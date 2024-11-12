@@ -20,8 +20,8 @@ gateway:
           methods: []
           healthCheck:
             path: "/health/live"
-            interval: 30 # in Seconds
-            timeout: 10 # in Seconds
+            interval: 30s 
+            timeout: 10s
             healthyStatuses: [200,404] # Healthy statuses
 ```
 

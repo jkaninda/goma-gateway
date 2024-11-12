@@ -72,12 +72,10 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		}
 		// Update the headers to allow for SSL redirection
 		if !proxyRoute.disableXForward {
-			r.URL.Host = targetURL.Host
 			r.URL.Scheme = targetURL.Scheme
 			r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
 			r.Header.Set("X-Forwarded-For", getRealIP(r))
 			r.Header.Set("X-Real-IP", getRealIP(r))
-			r.Host = targetURL.Host
 		}
 		backendURL, _ := url.Parse(proxyRoute.destination)
 		if len(proxyRoute.backends) > 0 {

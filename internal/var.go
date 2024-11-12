@@ -11,3 +11,5 @@ const JWTAuth = "jwt"             // JWT authentication middleware
 const OAuth = "oauth"             // OAuth authentication middleware
 // Round-robin counter
 var counter uint32
+
+var Routes *[]Route

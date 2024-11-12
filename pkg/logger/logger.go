@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/jkaninda/goma-gateway/util"
 )
@@ -59,7 +60,7 @@ func Fatal(msg string, args ...interface{}) {
 func Debug(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
 	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
-	if logLevel == "trace" || logLevel == "debug" {
+	if strings.ToLower(logLevel) == "trace" || strings.ToLower(logLevel) == "debug" {
 		logWithCaller("DEBUG", msg, args...)
 	}
 
@@ -67,7 +68,7 @@ func Debug(msg string, args ...interface{}) {
 func Trace(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
 	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
-	if logLevel == "trace" {
+	if strings.ToLower(logLevel) == "trace" {
 		logWithCaller("DEBUG", msg, args...)
 	}
 
@@ -89,10 +90,12 @@ func logWithCaller(level, msg string, args ...interface{}) {
 	}
 	// Log message with caller information if GOMA_LOG_LEVEL is trace
 	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
-	if logLevel == "trace" {
-		log.Printf("%s: %s (File: %s, Line: %d)\n", level, formattedMessage, file, line)
-	} else {
-		log.Printf("%s: %s\n", level, formattedMessage)
+	if strings.ToLower(logLevel) != "off" {
+		if strings.ToLower(logLevel) == "trace" {
+			log.Printf("%s: %s (File: %s, Line: %d)\n", level, formattedMessage, file, line)
+		} else {
+			log.Printf("%s: %s\n", level, formattedMessage)
+		}
 	}
 }
 

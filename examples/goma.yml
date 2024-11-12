@@ -13,7 +13,7 @@ gateway:
   sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
   rateLimit: 0
-  logLevel: info # debug, trace
+  logLevel: info # debug, trace, off
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"
   ## Enable, disable routes health check
@@ -90,8 +90,8 @@ gateway:
       # Route healthcheck
       healthCheck:
          path: /health/live
-         interval: 30
-         timeout: 10
+         interval: 30s
+         timeout: 10s
          healthyStatuses:
            - 200
            - 404
