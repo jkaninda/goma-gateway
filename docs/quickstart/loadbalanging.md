@@ -8,7 +8,9 @@ nav_order: 4
 
 # Load Balancing
 
-Goma Gateway supports rund robim load blancing
+Goma Gateway supports round-robin algorithm load balancing.
+
+It comes with an integrated load balancing backends healthcheck.
 
 ```yaml
 version: 1.0
@@ -23,8 +25,8 @@ gateway:
           methods: []
           healthCheck:
             path: "/"
-            interval: 0
-            timeout: 0
+            interval: 30s
+            timeout: 10s
             healthyStatuses: [200,404]
           ## destination: will be override by backends
           destination: ""

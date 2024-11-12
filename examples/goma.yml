@@ -13,7 +13,7 @@ gateway:
   sslKeyFile: ''#key.pem
   # Proxy rate limit, it's In-Memory IP based
   rateLimit: 0
-  logLevel: info # debug, trace
+  logLevel: info # debug, trace, off
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"
   ## Enable, disable routes health check

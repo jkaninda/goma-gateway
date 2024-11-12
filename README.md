@@ -58,7 +58,6 @@ It's designed to be straightforward and efficient, offering features, like:
 - Limit HTTP methods allowed for a particular route.
 
 ### Todo:
-  - [ ] Load Balancing Healthcheck, disable unavailable servers
   - [ ] Blocklist IP address middleware
   - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
 
