@@ -35,6 +35,8 @@ func init() {
 func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	gateway := gatewayServer.gateway
 	middlewares := gatewayServer.middlewares
+	//Routes background healthcheck
+	routesHealthCheck(gateway.Routes)
 	r := mux.NewRouter()
 	heath := HealthCheckRoute{
 		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,

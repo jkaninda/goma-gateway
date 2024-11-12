@@ -204,8 +204,8 @@ func initConfig(configFile string) error {
 					HealthCheck: RouteHealthCheck{
 						Path:            "/health/live",
 						HealthyStatuses: []int{200, 404},
-						Interval:        30,
-						Timeout:         10,
+						Interval:        "30s",
+						Timeout:         "10s",
 					},
 				},
 			},

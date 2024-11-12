@@ -10,11 +10,13 @@ You may get a copy of the License at
     http://www.apache.org/licenses/LICENSE-2.0
 */
 import (
+	"github.com/robfig/cron/v3"
 	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // FileExists checks if the file does exist
@@ -121,4 +123,22 @@ func UrlParsePath(uri string) string {
 
 func HasWhitespace(s string) bool {
 	return regexp.MustCompile(`\s`).MatchString(s)
+}
+
+// IsValidCronExpression verify cronExpression and returns boolean
+func IsValidCronExpression(cronExpr string) bool {
+	// Parse the cron expression
+	_, err := cron.ParseStandard(cronExpr)
+	return err == nil
+}
+
+func ParseDuration(durationStr string) (time.Duration, error) {
+	if durationStr == "" {
+		return 0, nil
+	}
+	duration, err := time.ParseDuration(durationStr)
+	if err != nil {
+		return 0, err
+	}
+	return duration, nil
 }

@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/util"
 	"net/http"
 	"sync"
 )
@@ -73,7 +74,13 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 		go func() {
 			defer wg.Done()
 			if route.HealthCheck.Path != "" {
-				err := healthCheck(route.Destination+route.HealthCheck.Path, route.HealthCheck.HealthyStatuses)
+				timeout, _ := util.ParseDuration(route.HealthCheck.Timeout)
+				health := Health{
+					URL:             route.Destination + route.HealthCheck.Path,
+					TimeOut:         timeout,
+					HealthyStatuses: route.HealthCheck.HealthyStatuses,
+				}
+				err := health.Check()
 				if err != nil {
 					if heathRoute.DisableRouteHealthCheckError {
 						routes = append(routes, HealthCheckRouteResponse{Name: route.Name, Status: "unhealthy", Error: "Route healthcheck errors disabled"})

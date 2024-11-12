@@ -208,8 +208,8 @@ type Gateway struct {
 
 type RouteHealthCheck struct {
 	Path            string `yaml:"path"`
-	Interval        int    `yaml:"interval"`
-	Timeout         int    `yaml:"timeout"`
+	Interval        string `yaml:"interval"`
+	Timeout         string `yaml:"timeout"`
 	HealthyStatuses []int  `yaml:"healthyStatuses"`
 }
 type GatewayConfig struct {

@@ -26,6 +26,7 @@ import (
 	"time"
 )
 
+// Start starts the server
 func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	logger.Info("Initializing routes...")
 	route := gatewayServer.Initialize()
@@ -64,7 +65,6 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	}
 	// Set KeepAlive
 	httpServer.SetKeepAlivesEnabled(!gatewayServer.gateway.DisableKeepAlive)
-	httpsServer.SetKeepAlivesEnabled(!gatewayServer.gateway.DisableKeepAlive)
 	go func() {
 		logger.Info("Starting HTTP server listen=0.0.0.0:8080")
 		if err := httpServer.ListenAndServe(); err != nil {
