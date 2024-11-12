@@ -99,13 +99,13 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 					} else {
 						for _, midPath := range rMiddleware.Paths {
 							proxyRoute := ProxyRoute{
-								path:            route.Path,
-								rewrite:         route.Rewrite,
-								destination:     route.Destination,
-								backends:        route.Backends,
-								disableXForward: route.DisableHeaderXForward,
-								methods:         route.Methods,
-								cors:            route.Cors,
+								path:               route.Path,
+								rewrite:            route.Rewrite,
+								destination:        route.Destination,
+								backends:           route.Backends,
+								disableHostFording: route.DisableHostFording,
+								methods:            route.Methods,
+								cors:               route.Cors,
 							}
 							secureRouter := r.PathPrefix(util.ParseRoutePath(route.Path, midPath)).Subrouter()
 							//callBackRouter := r.PathPrefix(util.ParseRoutePath(route.Path, "/callback")).Subrouter()
@@ -206,13 +206,13 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				}
 			}
 			proxyRoute := ProxyRoute{
-				path:            route.Path,
-				rewrite:         route.Rewrite,
-				destination:     route.Destination,
-				backends:        route.Backends,
-				methods:         route.Methods,
-				disableXForward: route.DisableHeaderXForward,
-				cors:            route.Cors,
+				path:               route.Path,
+				rewrite:            route.Rewrite,
+				destination:        route.Destination,
+				backends:           route.Backends,
+				methods:            route.Methods,
+				disableHostFording: route.DisableHostFording,
+				cors:               route.Cors,
 			}
 			// create route
 			router := r.PathPrefix(route.Path).Subrouter()
