@@ -90,8 +90,8 @@ gateway:
       # Route healthcheck
       healthCheck:
          path: /health/live
-         interval: 30
-         timeout: 10
+         interval: 30s
+         timeout: 10s
          healthyStatuses:
            - 200
            - 404

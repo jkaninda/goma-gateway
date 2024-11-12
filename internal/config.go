@@ -157,6 +157,8 @@ func initConfig(configFile string) error {
 					Rewrite:     "/",
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
+						Interval:        "30s",
+						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
 					},
 					Middlewares: []string{"api-forbidden-paths"},
