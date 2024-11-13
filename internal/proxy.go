@@ -17,6 +17,7 @@ limitations under the License.
 */
 import (
 	"fmt"
+	"github.com/jkaninda/goma-gateway/internal/middleware"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"net/http/httputil"
@@ -36,11 +37,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		if len(proxyRoute.methods) > 0 {
 			if !slices.Contains(proxyRoute.methods, r.Method) {
 				logger.Error("%s Method is not allowed", r.Method)
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				_, err := w.Write([]byte(fmt.Sprintf("%s method is not allowed", r.Method)))
-				if err != nil {
-					return
-				}
+				middleware.RespondWithError(w, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, r.Method), proxyRoute.ErrorInterceptor)
 				return
 			}
 		}
@@ -63,11 +60,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		targetURL, err := url.Parse(proxyRoute.destination)
 		if err != nil {
 			logger.Error("Error parsing backend URL: %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, err := w.Write([]byte("Internal Server Error"))
-			if err != nil {
-				return
-			}
+			middleware.RespondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), proxyRoute.ErrorInterceptor)
 			return
 		}
 		r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))

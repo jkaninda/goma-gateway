@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
-	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
@@ -28,20 +28,17 @@ func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !rl.Allow() {
+				logger.Error("Too many requests from IP: %s %s %s", getRealIP(r), r.URL, r.UserAgent())
+				//RespondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), basicAuth.ErrorInterceptor)
+
 				// Rate limit exceeded, return a 429 Too Many Requests response
-				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
-				err := json.NewEncoder(w).Encode(ProxyResponseError{
-					Success: false,
-					Code:    http.StatusTooManyRequests,
-					Message: "Too many requests, API rate limit exceeded. Please try again later.",
-				})
+				_, err := w.Write([]byte(fmt.Sprintf("%d Too many requests, API rate limit exceeded. Please try again later", http.StatusTooManyRequests)))
 				if err != nil {
 					return
 				}
 				return
 			}
-
 			// Proceed to the next handler if rate limit is not exceeded
 			next.ServeHTTP(w, r)
 		})
@@ -66,21 +63,12 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			rl.mu.Unlock()
 
 			if client.RequestCount > rl.Requests {
-				logger.Debug("Too many requests from IP: %s %s %s", clientID, r.URL, r.UserAgent())
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusTooManyRequests)
+				logger.Error("Too many requests from IP: %s %s %s", clientID, r.URL, r.UserAgent())
 				//Update Origin Cors Headers
 				if allowedOrigin(rl.Origins, r.Header.Get("Origin")) {
 					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 				}
-				err := json.NewEncoder(w).Encode(ProxyResponseError{
-					Success: false,
-					Code:    http.StatusTooManyRequests,
-					Message: "Too many requests, API rate limit exceeded. Please try again later.",
-				})
-				if err != nil {
-					return
-				}
+				RespondWithError(w, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API rate limit exceeded. Please try again later", http.StatusTooManyRequests), rl.ErrorInterceptor)
 				return
 			}
 			// Proceed to the next handler if rate limit is not exceeded

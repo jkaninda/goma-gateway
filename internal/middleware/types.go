@@ -19,6 +19,7 @@ package middleware
 
 import (
 	"bytes"
+	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/error-interceptor"
 	"net/http"
 	"sync"
 	"time"
@@ -26,11 +27,12 @@ import (
 
 // RateLimiter defines rate limit properties.
 type RateLimiter struct {
-	Requests  int
-	Window    time.Duration
-	ClientMap map[string]*Client
-	mu        sync.Mutex
-	Origins   []string
+	Requests         int
+	Window           time.Duration
+	ClientMap        map[string]*Client
+	mu               sync.Mutex
+	Origins          []string
+	ErrorInterceptor errorinterceptor.ErrorInterceptor
 }
 
 // Client stores request count and window expiration for each client.
@@ -67,11 +69,12 @@ type ProxyResponseError struct {
 
 // JwtAuth  stores JWT configuration
 type JwtAuth struct {
-	AuthURL         string
-	RequiredHeaders []string
-	Headers         map[string]string
-	Params          map[string]string
-	Origins         []string
+	AuthURL          string
+	RequiredHeaders  []string
+	Headers          map[string]string
+	Params           map[string]string
+	Origins          []string
+	ErrorInterceptor errorinterceptor.ErrorInterceptor
 }
 
 // AuthenticationMiddleware Define struct
@@ -82,17 +85,19 @@ type AuthenticationMiddleware struct {
 	Params          map[string]string
 }
 type AccessListMiddleware struct {
-	Path        string
-	Destination string
-	List        []string
+	Path             string
+	Destination      string
+	List             []string
+	ErrorInterceptor errorinterceptor.ErrorInterceptor
 }
 
 // AuthBasic contains Basic auth configuration
 type AuthBasic struct {
-	Username string
-	Password string
-	Headers  map[string]string
-	Params   map[string]string
+	Username         string
+	Password         string
+	Headers          map[string]string
+	Params           map[string]string
+	ErrorInterceptor errorinterceptor.ErrorInterceptor
 }
 
 // InterceptErrors contains backend status code errors to intercept
@@ -120,10 +125,11 @@ type Oauth struct {
 	// Scope specifies optional requested permissions.
 	Scopes []string
 	// contains filtered or unexported fields
-	State     string
-	Origins   []string
-	JWTSecret string
-	Provider  string
+	State            string
+	Origins          []string
+	JWTSecret        string
+	Provider         string
+	ErrorInterceptor errorinterceptor.ErrorInterceptor
 }
 type OauthEndpoint struct {
 	AuthURL     string

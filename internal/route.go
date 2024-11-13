@@ -58,7 +58,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	// Enable common exploits
 	if gateway.BlockCommonExploits {
 		logger.Info("Block common exploits enabled")
-		r.Use(middleware.BlockExploitsMiddleware)
+		blockCommon := middleware.BlockCommon{}
+		r.Use(blockCommon.BlockExploitsMiddleware)
 	}
 	if gateway.RateLimit != 0 {
 		//rateLimiter := middleware.NewRateLimiter(gateway.RateLimit, time.Minute)
@@ -219,8 +220,11 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			// Apply common exploits to the route
 			// Enable common exploits
 			if route.BlockCommonExploits {
+				blockCommon := middleware.BlockCommon{
+					ErrorInterceptor: route.ErrorInterceptor,
+				}
 				logger.Info("Block common exploits enabled")
-				router.Use(middleware.BlockExploitsMiddleware)
+				router.Use(blockCommon.BlockExploitsMiddleware)
 			}
 			// Apply route rate limit
 			if route.RateLimit > 0 {
@@ -246,6 +250,12 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				// Prometheus endpoint
 				router.Use(pr.prometheusMiddleware)
 			}
+			// Apply route Error interceptor middleware
+			interceptErrors := middleware.RouteErrorInterceptor{
+				Origins:          gateway.Cors.Origins,
+				ErrorInterceptor: route.ErrorInterceptor,
+			}
+			r.Use(interceptErrors.RouteErrorInterceptor)
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Error("Route path ignored: %s", route.Path)

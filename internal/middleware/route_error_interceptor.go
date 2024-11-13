@@ -17,52 +17,31 @@ package middleware
  *
  */
 import (
-	"bytes"
-	"encoding/json"
+	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/error-interceptor"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"
-	"slices"
 )
 
-func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
-	return &responseRecorder{
-		ResponseWriter: w,
-		statusCode:     http.StatusOK,
-		body:           &bytes.Buffer{},
-	}
+// RouteErrorInterceptor contains backend status code errors to intercept
+type RouteErrorInterceptor struct {
+	Origins          []string
+	ErrorInterceptor errorinterceptor.ErrorInterceptor
 }
 
-func (rec *responseRecorder) WriteHeader(code int) {
-	rec.statusCode = code
-}
-
-func (rec *responseRecorder) Write(data []byte) (int, error) {
-	return rec.body.Write(data)
-}
-
-// ErrorInterceptor Middleware intercepts backend errors
-func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handler {
+// RouteErrorInterceptor Middleware intercepts backend route errors
+func (intercept RouteErrorInterceptor) RouteErrorInterceptor(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := newResponseRecorder(w)
 		next.ServeHTTP(rec, r)
-		if canIntercept(rec.statusCode, intercept.Errors) {
+		if canInterceptError(rec.statusCode, intercept.ErrorInterceptor.Errors) {
 			logger.Debug("Backend error")
 			logger.Error("An error occurred from the backend with the status code: %d", rec.statusCode)
-			w.Header().Set("Content-Type", "application/json")
 			//Update Origin Cors Headers
 			if allowedOrigin(intercept.Origins, r.Header.Get("Origin")) {
 				w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 			}
-			w.WriteHeader(rec.statusCode)
-			err := json.NewEncoder(w).Encode(ProxyResponseError{
-				Success: false,
-				Code:    rec.statusCode,
-				Message: http.StatusText(rec.statusCode),
-			})
-			if err != nil {
-				return
-			}
+			RespondWithError(w, rec.statusCode, http.StatusText(rec.statusCode), intercept.ErrorInterceptor)
 			return
 		} else {
 			// No error: write buffered response to client
@@ -76,7 +55,4 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		}
 
 	})
-}
-func canIntercept(code int, errors []int) bool {
-	return slices.Contains(errors, code)
 }

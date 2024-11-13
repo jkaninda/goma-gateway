@@ -9,6 +9,10 @@ const AccessMiddleware = "access" // access middleware
 const BasicAuth = "basic"         // basic authentication middleware
 const JWTAuth = "jwt"             // JWT authentication middleware
 const OAuth = "oauth"             // OAuth authentication middleware
+const applicationJson = "application/json"
+const textPlain = "text/plain"
+const applicationXml = "application/xml"
+
 // Round-robin counter
 var counter uint32
 
