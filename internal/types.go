@@ -246,7 +246,6 @@ type ProxyRoute struct {
 	methods            []string
 	cors               Cors
 	disableHostFording bool
-	ErrorInterceptor   errorinterceptor.ErrorInterceptor
 }
 type RoutePath struct {
 	route       Route

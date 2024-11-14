@@ -19,21 +19,21 @@ package middleware
 
 import (
 	"bytes"
-	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
 	"net/http"
 	"sync"
 	"time"
 )
 
-// RateLimiter defines rate limit properties.
+// RateLimiter defines requests limit properties.
 type RateLimiter struct {
-	Requests         int
-	Window           time.Duration
-	ClientMap        map[string]*Client
-	mu               sync.Mutex
-	Origins          []string
-	ErrorInterceptor errorinterceptor.ErrorInterceptor
-	RedisBased       bool
+	requests   int
+	id         int
+	window     time.Duration
+	clientMap  map[string]*Client
+	mu         sync.Mutex
+	origins    []string
+	hosts      []string
+	redisBased bool
 }
 
 // Client stores request count and window expiration for each client.
@@ -41,15 +41,24 @@ type Client struct {
 	RequestCount int
 	ExpiresAt    time.Time
 }
+type RateLimit struct {
+	Id         int
+	Requests   int
+	Window     time.Duration
+	Origins    []string
+	Hosts      []string
+	RedisBased bool
+}
 
 // NewRateLimiterWindow creates a new RateLimiter.
-func NewRateLimiterWindow(requests int, window time.Duration, redisBased bool, origin []string) *RateLimiter {
+func (rateLimit RateLimit) NewRateLimiterWindow() *RateLimiter {
 	return &RateLimiter{
-		Requests:   requests,
-		Window:     window,
-		ClientMap:  make(map[string]*Client),
-		Origins:    origin,
-		RedisBased: redisBased,
+		id:         rateLimit.Id,
+		requests:   rateLimit.Requests,
+		window:     rateLimit.Window,
+		clientMap:  make(map[string]*Client),
+		origins:    rateLimit.Origins,
+		redisBased: rateLimit.RedisBased,
 	}
 }
 
@@ -71,12 +80,11 @@ type ProxyResponseError struct {
 
 // JwtAuth  stores JWT configuration
 type JwtAuth struct {
-	AuthURL          string
-	RequiredHeaders  []string
-	Headers          map[string]string
-	Params           map[string]string
-	Origins          []string
-	ErrorInterceptor errorinterceptor.ErrorInterceptor
+	AuthURL         string
+	RequiredHeaders []string
+	Headers         map[string]string
+	Params          map[string]string
+	Origins         []string
 }
 
 // AuthenticationMiddleware Define struct
@@ -87,19 +95,17 @@ type AuthenticationMiddleware struct {
 	Params          map[string]string
 }
 type AccessListMiddleware struct {
-	Path             string
-	Destination      string
-	List             []string
-	ErrorInterceptor errorinterceptor.ErrorInterceptor
+	Path        string
+	Destination string
+	List        []string
 }
 
 // AuthBasic contains Basic auth configuration
 type AuthBasic struct {
-	Username         string
-	Password         string
-	Headers          map[string]string
-	Params           map[string]string
-	ErrorInterceptor errorinterceptor.ErrorInterceptor
+	Username string
+	Password string
+	Headers  map[string]string
+	Params   map[string]string
 }
 
 // InterceptErrors contains backend status code errors to intercept
@@ -127,11 +133,10 @@ type Oauth struct {
 	// Scope specifies optional requested permissions.
 	Scopes []string
 	// contains filtered or unexported fields
-	State            string
-	Origins          []string
-	JWTSecret        string
-	Provider         string
-	ErrorInterceptor errorinterceptor.ErrorInterceptor
+	State     string
+	Origins   []string
+	JWTSecret string
+	Provider  string
 }
 type OauthEndpoint struct {
 	AuthURL     string

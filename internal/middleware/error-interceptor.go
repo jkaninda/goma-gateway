@@ -18,7 +18,6 @@ package middleware
  */
 import (
 	"bytes"
-	"encoding/json"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"
@@ -49,20 +48,11 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		if canIntercept(rec.statusCode, intercept.Errors) {
 			logger.Debug("Backend error")
 			logger.Error("An error occurred from the backend with the status code: %d", rec.statusCode)
-			w.Header().Set("Content-Type", "application/json")
 			//Update Origin Cors Headers
 			if allowedOrigin(intercept.Origins, r.Header.Get("Origin")) {
 				w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 			}
-			w.WriteHeader(rec.statusCode)
-			err := json.NewEncoder(w).Encode(ProxyResponseError{
-				Success: false,
-				Code:    rec.statusCode,
-				Message: http.StatusText(rec.statusCode),
-			})
-			if err != nil {
-				return
-			}
+			RespondWithError(w, rec.statusCode, http.StatusText(rec.statusCode))
 			return
 		} else {
 			// No error: write buffered response to client

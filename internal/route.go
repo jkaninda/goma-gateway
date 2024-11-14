@@ -66,12 +66,20 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		r.Use(blockCommon.BlockExploitsMiddleware)
 	}
 	if gateway.RateLimit > 0 {
-		//rateLimiter := middleware.NewRateLimiter(gateway.RateLimit, time.Minute)
-		limiter := middleware.NewRateLimiterWindow(gateway.RateLimit, time.Minute, redisBased, gateway.Cors.Origins) //  requests per minute
 		// Add rate limit middleware to all routes, if defined
+		rateLimit := middleware.RateLimit{
+			Id:         1,
+			Requests:   gateway.RateLimit,
+			Window:     time.Minute, //  requests per minute
+			Origins:    gateway.Cors.Origins,
+			Hosts:      []string{},
+			RedisBased: redisBased,
+		}
+		limiter := rateLimit.NewRateLimiterWindow()
+		// Add rate limit middleware
 		r.Use(limiter.RateLimitMiddleware())
 	}
-	for _, route := range gateway.Routes {
+	for rIndex, route := range gateway.Routes {
 		if route.Path != "" {
 			if route.Destination == "" && len(route.Backends) == 0 {
 				logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
@@ -232,9 +240,16 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			}
 			// Apply route rate limit
 			if route.RateLimit > 0 {
-				//rateLimiter := middleware.NewRateLimiter(gateway.RateLimit, time.Minute)
-				limiter := middleware.NewRateLimiterWindow(route.RateLimit, time.Minute, redisBased, route.Cors.Origins) //  requests per minute
-				// Add rate limit middleware to all routes, if defined
+				rateLimit := middleware.RateLimit{
+					Id:         rIndex,
+					Requests:   route.RateLimit,
+					Window:     time.Minute, //  requests per minute
+					Origins:    route.Cors.Origins,
+					Hosts:      route.Hosts,
+					RedisBased: redisBased,
+				}
+				limiter := rateLimit.NewRateLimiterWindow()
+				// Add rate limit middleware
 				router.Use(limiter.RateLimitMiddleware())
 			}
 			// Apply route Cors
@@ -255,11 +270,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				router.Use(pr.prometheusMiddleware)
 			}
 			// Apply route Error interceptor middleware
-			interceptErrors := middleware.RouteErrorInterceptor{
-				Origins:          gateway.Cors.Origins,
-				ErrorInterceptor: route.ErrorInterceptor,
+			interceptErrors := middleware.InterceptErrors{
+				Origins: gateway.Cors.Origins,
 			}
-			r.Use(interceptErrors.RouteErrorInterceptor)
+			router.Use(interceptErrors.ErrorInterceptor)
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Error("Route path ignored: %s", route.Path)

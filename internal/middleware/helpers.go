@@ -60,14 +60,14 @@ func errMessage(code int, errors []errorinterceptor.Error) (string, error) {
 }
 
 // RespondWithError is a helper function to handle error responses with flexible content type
-func RespondWithError(w http.ResponseWriter, statusCode int, logMessage string, errorIntercept errorinterceptor.ErrorInterceptor) {
-	message, err := errMessage(statusCode, errorIntercept.Errors)
-	if err != nil {
+func RespondWithError(w http.ResponseWriter, statusCode int, logMessage string) {
+	message := http.StatusText(statusCode)
+	if len(logMessage) != 0 {
 		message = logMessage
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	err = json.NewEncoder(w).Encode(ProxyResponseError{
+	err := json.NewEncoder(w).Encode(ProxyResponseError{
 		Success: false,
 		Code:    statusCode,
 		Message: message,
