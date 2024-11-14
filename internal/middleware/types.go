@@ -27,7 +27,7 @@ import (
 // RateLimiter defines requests limit properties.
 type RateLimiter struct {
 	requests   int
-	id         int
+	id         string
 	window     time.Duration
 	clientMap  map[string]*Client
 	mu         sync.Mutex
@@ -42,7 +42,7 @@ type Client struct {
 	ExpiresAt    time.Time
 }
 type RateLimit struct {
-	Id         int
+	Id         string
 	Requests   int
 	Window     time.Duration
 	Origins    []string

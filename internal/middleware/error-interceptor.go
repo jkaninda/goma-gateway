@@ -45,15 +45,12 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := newResponseRecorder(w)
 		next.ServeHTTP(rec, r)
+		w.Header().Set("Proxied-By", "Goma Gateway")
+		w.Header().Del("Server") //Delete server name
 		if canIntercept(rec.statusCode, intercept.Errors) {
-			logger.Debug("Backend error")
-			logger.Error("An error occurred from the backend with the status code: %d", rec.statusCode)
-			//Update Origin Cors Headers
-			if allowedOrigin(intercept.Origins, r.Header.Get("Origin")) {
-				w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-			}
+			logger.Debug("An error occurred in the backend, %d", rec.statusCode)
+			logger.Error("Backend error: %d", rec.statusCode)
 			RespondWithError(w, rec.statusCode, http.StatusText(rec.statusCode))
-			return
 		} else {
 			// No error: write buffered response to client
 			w.WriteHeader(rec.statusCode)
@@ -61,7 +58,6 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 			if err != nil {
 				return
 			}
-			return
 
 		}
 

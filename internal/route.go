@@ -62,13 +62,12 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	// Enable common exploits
 	if gateway.BlockCommonExploits {
 		logger.Info("Block common exploits enabled")
-		blockCommon := middleware.BlockCommon{}
-		r.Use(blockCommon.BlockExploitsMiddleware)
+		r.Use(middleware.BlockExploitsMiddleware)
 	}
 	if gateway.RateLimit > 0 {
 		// Add rate limit middleware to all routes, if defined
 		rateLimit := middleware.RateLimit{
-			Id:         1,
+			Id:         "global_rate", //Generate a unique ID for routes
 			Requests:   gateway.RateLimit,
 			Window:     time.Minute, //  requests per minute
 			Origins:    gateway.Cors.Origins,
@@ -232,16 +231,13 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			// Apply common exploits to the route
 			// Enable common exploits
 			if route.BlockCommonExploits {
-				blockCommon := middleware.BlockCommon{
-					ErrorInterceptor: route.ErrorInterceptor,
-				}
 				logger.Info("Block common exploits enabled")
-				router.Use(blockCommon.BlockExploitsMiddleware)
+				router.Use(middleware.BlockExploitsMiddleware)
 			}
 			// Apply route rate limit
 			if route.RateLimit > 0 {
 				rateLimit := middleware.RateLimit{
-					Id:         rIndex,
+					Id:         string(rune(rIndex)), // Use route index as ID
 					Requests:   route.RateLimit,
 					Window:     time.Minute, //  requests per minute
 					Origins:    route.Cors.Origins,

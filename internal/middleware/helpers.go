@@ -75,6 +75,5 @@ func RespondWithError(w http.ResponseWriter, statusCode int, logMessage string) 
 	if err != nil {
 		return
 	}
-	return
 
 }
