@@ -43,14 +43,17 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 // ErrorInterceptor Middleware intercepts backend errors
 func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if the connection is a WebSocket
+		if isWebSocketRequest(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		rec := newResponseRecorder(w)
 		next.ServeHTTP(rec, r)
-		w.Header().Set("Proxied-By", "Goma Gateway")
-		w.Header().Del("Server") //Delete server name
 		if canIntercept(rec.statusCode, intercept.Errors) {
-			logger.Debug("An error occurred in the backend, %d", rec.statusCode)
-			logger.Error("Backend error: %d", rec.statusCode)
+			logger.Error("Request to %s resulted in error with status code %d\n", r.URL.Path, rec.statusCode)
 			RespondWithError(w, rec.statusCode, http.StatusText(rec.statusCode))
+			return
 		} else {
 			// No error: write buffered response to client
 			w.WriteHeader(rec.statusCode)
@@ -62,6 +65,9 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		}
 
 	})
+}
+func isWebSocketRequest(r *http.Request) bool {
+	return r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Connection") == "Upgrade"
 }
 func canIntercept(code int, errors []int) bool {
 	return slices.Contains(errors, code)
