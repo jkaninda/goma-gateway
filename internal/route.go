@@ -35,6 +35,10 @@ func init() {
 func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	gateway := gatewayServer.gateway
 	middlewares := gatewayServer.middlewares
+	redisBased := false
+	if len(gateway.Redis.Addr) != 0 {
+		redisBased = true
+	}
 	//Routes background healthcheck
 	routesHealthCheck(gateway.Routes)
 	r := mux.NewRouter()
@@ -61,9 +65,9 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		blockCommon := middleware.BlockCommon{}
 		r.Use(blockCommon.BlockExploitsMiddleware)
 	}
-	if gateway.RateLimit != 0 {
+	if gateway.RateLimit > 0 {
 		//rateLimiter := middleware.NewRateLimiter(gateway.RateLimit, time.Minute)
-		limiter := middleware.NewRateLimiterWindow(gateway.RateLimit, time.Minute, gateway.Cors.Origins) //  requests per minute
+		limiter := middleware.NewRateLimiterWindow(gateway.RateLimit, time.Minute, redisBased, gateway.Cors.Origins) //  requests per minute
 		// Add rate limit middleware to all routes, if defined
 		r.Use(limiter.RateLimitMiddleware())
 	}
@@ -229,7 +233,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			// Apply route rate limit
 			if route.RateLimit > 0 {
 				//rateLimiter := middleware.NewRateLimiter(gateway.RateLimit, time.Minute)
-				limiter := middleware.NewRateLimiterWindow(route.RateLimit, time.Minute, route.Cors.Origins) //  requests per minute
+				limiter := middleware.NewRateLimiterWindow(route.RateLimit, time.Minute, redisBased, route.Cors.Origins) //  requests per minute
 				// Add rate limit middleware to all routes, if defined
 				router.Use(limiter.RateLimitMiddleware())
 			}

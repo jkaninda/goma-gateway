@@ -178,6 +178,8 @@ type Gateway struct {
 	SSLCertFile string `yaml:"sslCertFile" env:"GOMA_SSL_CERT_FILE, overwrite"`
 	// SSLKeyFile SSL Private key  file
 	SSLKeyFile string `yaml:"sslKeyFile" env:"GOMA_SSL_KEY_FILE, overwrite"`
+	// Redis contains redis database details
+	Redis Redis `yaml:"redis"`
 	// WriteTimeout defines proxy write timeout
 	WriteTimeout int `yaml:"writeTimeout" env:"GOMA_WRITE_TIMEOUT, overwrite"`
 	// ReadTimeout defines proxy read timeout
@@ -204,6 +206,7 @@ type Gateway struct {
 	InterceptErrors []int `yaml:"interceptErrors"`
 	// Cors holds proxy global cors
 	Cors Cors `yaml:"cors"`
+
 	// Routes holds proxy routes
 	Routes []Route `yaml:"routes"`
 }
@@ -286,4 +289,9 @@ type Health struct {
 	TimeOut         time.Duration
 	Interval        string
 	HealthyStatuses []int
+}
+type Redis struct {
+	// Addr redis hostname and post number :
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
 }

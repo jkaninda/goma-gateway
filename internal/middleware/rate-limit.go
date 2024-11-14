@@ -16,9 +16,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
+	"errors"
 	"fmt"
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/redis/go-redis/v9"
+	"golang.org/x/net/context"
 	"net/http"
 	"time"
 )
@@ -49,30 +53,62 @@ func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			clientID := getRealIP(r)
-			rl.mu.Lock()
-			client, exists := rl.ClientMap[clientID]
-			if !exists || time.Now().After(client.ExpiresAt) {
-				client = &Client{
-					RequestCount: 0,
-					ExpiresAt:    time.Now().Add(rl.Window),
+			clientIP := getRealIP(r)
+			logger.Debug("rate limiter: clientID: %s, redisBased: %s", clientIP, rl.RedisBased)
+			if rl.RedisBased {
+				err := redisRateLimiter(clientIP, rl.Requests)
+				if err != nil {
+					logger.Error("Redis Rate limiter error: %s", err.Error())
+					RespondWithError(w, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API rate limit exceeded. Please try again later", http.StatusTooManyRequests), rl.ErrorInterceptor)
+					return
 				}
-				rl.ClientMap[clientID] = client
-			}
-			client.RequestCount++
-			rl.mu.Unlock()
+				// Proceed to the next handler if rate limit is not exceeded
+				next.ServeHTTP(w, r)
+			} else {
+				rl.mu.Lock()
+				client, exists := rl.ClientMap[clientIP]
+				if !exists || time.Now().After(client.ExpiresAt) {
+					client = &Client{
+						RequestCount: 0,
+						ExpiresAt:    time.Now().Add(rl.Window),
+					}
+					rl.ClientMap[clientIP] = client
+				}
+				client.RequestCount++
+				rl.mu.Unlock()
 
-			if client.RequestCount > rl.Requests {
-				logger.Error("Too many requests from IP: %s %s %s", clientID, r.URL, r.UserAgent())
-				//Update Origin Cors Headers
-				if allowedOrigin(rl.Origins, r.Header.Get("Origin")) {
-					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+				if client.RequestCount > rl.Requests {
+					logger.Error("Too many requests from IP: %s %s %s", clientIP, r.URL, r.UserAgent())
+					//Update Origin Cors Headers
+					if allowedOrigin(rl.Origins, r.Header.Get("Origin")) {
+						w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+					}
+					RespondWithError(w, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API rate limit exceeded. Please try again later", http.StatusTooManyRequests), rl.ErrorInterceptor)
+					return
 				}
-				RespondWithError(w, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API rate limit exceeded. Please try again later", http.StatusTooManyRequests), rl.ErrorInterceptor)
-				return
 			}
 			// Proceed to the next handler if rate limit is not exceeded
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+func redisRateLimiter(clientIP string, rate int) error {
+	ctx := context.Background()
+
+	res, err := limiter.Allow(ctx, clientIP, redis_rate.PerMinute(rate))
+	if err != nil {
+		return err
+	}
+	if res.Remaining == 0 {
+		return errors.New("rate limit exceeded")
+	}
+
+	return nil
+}
+func InitRedis(addr, password string) {
+	Rdb = redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: password,
+	})
+	limiter = redis_rate.NewLimiter(Rdb)
 }

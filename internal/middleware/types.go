@@ -33,6 +33,7 @@ type RateLimiter struct {
 	mu               sync.Mutex
 	Origins          []string
 	ErrorInterceptor errorinterceptor.ErrorInterceptor
+	RedisBased       bool
 }
 
 // Client stores request count and window expiration for each client.
@@ -42,12 +43,13 @@ type Client struct {
 }
 
 // NewRateLimiterWindow creates a new RateLimiter.
-func NewRateLimiterWindow(requests int, window time.Duration, origin []string) *RateLimiter {
+func NewRateLimiterWindow(requests int, window time.Duration, redisBased bool, origin []string) *RateLimiter {
 	return &RateLimiter{
-		Requests:  requests,
-		Window:    window,
-		ClientMap: make(map[string]*Client),
-		Origins:   origin,
+		Requests:   requests,
+		Window:     window,
+		ClientMap:  make(map[string]*Client),
+		Origins:    origin,
+		RedisBased: redisBased,
 	}
 }
 

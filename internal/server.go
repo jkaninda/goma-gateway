@@ -19,7 +19,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/jkaninda/goma-gateway/internal/middleware"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/redis/go-redis/v9"
 	"net/http"
 	"os"
 	"sync"
@@ -30,8 +32,19 @@ import (
 func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	logger.Info("Initializing routes...")
 	route := gatewayServer.Initialize()
+	gateway := gatewayServer.gateway
 	logger.Debug("Routes count=%d Middlewares count=%d", len(gatewayServer.gateway.Routes), len(gatewayServer.middlewares))
 	logger.Info("Initializing routes...done")
+	if len(gateway.Redis.Addr) != 0 {
+		middleware.InitRedis(gateway.Redis.Addr, gateway.Redis.Password)
+		defer func(Rdb *redis.Client) {
+			err := Rdb.Close()
+			if err != nil {
+				logger.Error("Redis connection closed with error: %v", err)
+			}
+		}(middleware.Rdb)
+	}
+
 	tlsConfig := &tls.Config{}
 	var listenWithTLS = false
 	if cert := gatewayServer.gateway.SSLCertFile; cert != "" && gatewayServer.gateway.SSLKeyFile != "" {
