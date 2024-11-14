@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middleware"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
@@ -84,6 +85,11 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			if strings.HasPrefix(r.URL.Path, fmt.Sprintf("%s/", proxyRoute.path)) {
 				r.URL.Path = strings.Replace(r.URL.Path, fmt.Sprintf("%s/", proxyRoute.path), proxyRoute.rewrite, 1)
 			}
+		}
+		// Custom transport with InsecureSkipVerify
+		proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: proxyRoute.insecureSkipVerify,
+		},
 		}
 		w.Header().Set("Proxied-By", gatewayName) //Set Server name
 		w.Header().Del("Server")                  // Remove the Server header

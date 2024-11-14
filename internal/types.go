@@ -148,8 +148,9 @@ type Route struct {
 	// Methods allowed method
 	Methods []string `yaml:"methods"`
 	// Destination Defines backend URL
-	Destination string   `yaml:"destination"`
-	Backends    []string `yaml:"backends"`
+	Destination        string   `yaml:"destination"`
+	Backends           []string `yaml:"backends"`
+	InsecureSkipVerify bool     `yaml:"insecureSkipVerify"`
 	// HealthCheck Defines the backend is health
 	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
 	// Cors contains the route cors headers
@@ -243,6 +244,7 @@ type ProxyRoute struct {
 	methods            []string
 	cors               Cors
 	disableHostFording bool
+	insecureSkipVerify bool
 }
 type RoutePath struct {
 	route       Route
