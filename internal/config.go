@@ -18,7 +18,6 @@ limitations under the License.
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middleware"
-	"github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
@@ -28,7 +27,6 @@ import (
 	"golang.org/x/oauth2/gitlab"
 	"golang.org/x/oauth2/google"
 	"gopkg.in/yaml.v3"
-	"net/http"
 	"os"
 )
 
@@ -182,23 +180,11 @@ func initConfig(configFile string) error {
 					Middlewares: []string{"basic-auth", "api-forbidden-paths"},
 				},
 				{
-					Path:  "/",
-					Name:  "Hostname and load balancing example",
-					Hosts: []string{"example.com", "example.localhost"},
-					//ErrorIntercept: []int{404, 405, 500},
-					ErrorInterceptor: errorinterceptor.ErrorInterceptor{
-						Errors: []errorinterceptor.Error{
-							{
-								Code:    http.StatusUnauthorized,
-								Message: http.StatusText(http.StatusUnauthorized),
-							},
-							{
-								Code:    http.StatusInternalServerError,
-								Message: http.StatusText(http.StatusInternalServerError),
-							},
-						},
-					},
-					RateLimit: 60,
+					Path:            "/",
+					Name:            "Hostname and load balancing example",
+					Hosts:           []string{"example.com", "example.localhost"},
+					InterceptErrors: []int{404, 405, 500},
+					RateLimit:       60,
 					Backends: []string{
 						"https://example.com",
 						"https://example2.com",
@@ -208,7 +194,7 @@ func initConfig(configFile string) error {
 					HealthCheck: RouteHealthCheck{},
 				},
 				{
-					Path:  "/loadbalancing",
+					Path:  "/",
 					Name:  "loadBalancing example",
 					Hosts: []string{"example.com", "example.localhost"},
 					Backends: []string{
@@ -292,6 +278,7 @@ func initConfig(configFile string) error {
 					ClientID:     "xxxx",
 					ClientSecret: "xxxx",
 					RedirectURL:  "http://localhost:8080/callback",
+					Provider:     "custom",
 					Scopes:       []string{"email", "openid"},
 					JWTSecret:    "your-strong-jwt-secret | It's optional",
 					Endpoint: OauthEndpoint{
