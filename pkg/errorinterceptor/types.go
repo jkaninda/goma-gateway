@@ -15,19 +15,17 @@
  *
  */
 
-package middleware
+package errorinterceptor
 
-import (
-	"github.com/go-redis/redis_rate/v10"
-	"github.com/redis/go-redis/v9"
-)
-
-// sqlPatterns contains SQL injections patters
-const sqlPatterns = `(?i)(union|select|drop|insert|delete|update|create|alter|exec|;|--)`
-const traversalPatterns = `\.\./`
-const xssPatterns = `(?i)<script|onerror|onload`
-
-var (
-	Rdb     *redis.Client
-	limiter *redis_rate.Limiter
-)
+type ErrorInterceptor struct {
+	// ContentType error response content type, application/json, plain/text
+	//ContentType string `yaml:"contentType"`
+	//Errors contains error status code and custom message
+	Errors []Error `yaml:"errors"`
+}
+type Error struct {
+	// Code HTTP status code
+	Code int `yaml:"code"`
+	// Message Error custom response message
+	Message string `yaml:"message"`
+}

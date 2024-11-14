@@ -16,7 +16,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
@@ -31,16 +30,7 @@ func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.H
 		for _, block := range blockList.List {
 			if isPathBlocked(r.URL.Path, util.ParseURLPath(blockList.Path+block)) {
 				logger.Error("%s: %s access forbidden", getRealIP(r), r.URL.Path)
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusForbidden)
-				err := json.NewEncoder(w).Encode(ProxyResponseError{
-					Success: false,
-					Code:    http.StatusForbidden,
-					Message: fmt.Sprintf("You do not have permission to access this resource"),
-				})
-				if err != nil {
-					return
-				}
+				RespondWithError(w, http.StatusForbidden, fmt.Sprintf("%d you do not have permission to access this resource", http.StatusForbidden))
 				return
 			}
 		}
@@ -64,7 +54,7 @@ func isPathBlocked(requestPath, blockedPath string) bool {
 	return false
 }
 
-// NewRateLimiter creates a new rate limiter with the specified refill rate and token capacity
+// NewRateLimiter creates a new requests limiter with the specified refill requests and token capacity
 func NewRateLimiter(maxTokens int, refillRate time.Duration) *TokenRateLimiter {
 	return &TokenRateLimiter{
 		tokens:     maxTokens,

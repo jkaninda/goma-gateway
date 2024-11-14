@@ -18,10 +18,10 @@ package middleware
  */
 import (
 	"bytes"
-	"encoding/json"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"
+	"slices"
 )
 
 func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
@@ -45,23 +45,12 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := newResponseRecorder(w)
 		next.ServeHTTP(rec, r)
+		w.Header().Set("Proxied-By", "Goma Gateway")
+		w.Header().Del("Server") //Delete server name
 		if canIntercept(rec.statusCode, intercept.Errors) {
-			logger.Debug("Backend error")
-			logger.Error("An error occurred from the backend with the status code: %d", rec.statusCode)
-			w.Header().Set("Content-Type", "application/json")
-			//Update Origin Cors Headers
-			if allowedOrigin(intercept.Origins, r.Header.Get("Origin")) {
-				w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-			}
-			w.WriteHeader(rec.statusCode)
-			err := json.NewEncoder(w).Encode(ProxyResponseError{
-				Success: false,
-				Code:    rec.statusCode,
-				Message: http.StatusText(rec.statusCode),
-			})
-			if err != nil {
-				return
-			}
+			logger.Debug("An error occurred in the backend, %d", rec.statusCode)
+			logger.Error("Backend error: %d", rec.statusCode)
+			RespondWithError(w, rec.statusCode, http.StatusText(rec.statusCode))
 		} else {
 			// No error: write buffered response to client
 			w.WriteHeader(rec.statusCode)
@@ -75,12 +64,5 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 	})
 }
 func canIntercept(code int, errors []int) bool {
-	for _, er := range errors {
-		if er == code {
-			return true
-		}
-		continue
-
-	}
-	return false
+	return slices.Contains(errors, code)
 }

@@ -20,6 +20,7 @@ package pkg
 import (
 	"context"
 	"github.com/gorilla/mux"
+	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
 	"time"
 )
 
@@ -161,12 +162,12 @@ type Route struct {
 	//
 	// It will not match the backend route
 	DisableHostFording bool `yaml:"disableHostFording"`
-	// InterceptErrors intercepts backend errors based on the status codes
-	//
-	// Eg: [ 403, 405, 500 ]
-	InterceptErrors []int `yaml:"interceptErrors"`
+
 	// BlockCommonExploits enable, disable block common exploits
 	BlockCommonExploits bool `yaml:"blockCommonExploits"`
+	// ErrorInterceptor intercepts backend errors based on the status codes and custom message
+	//
+	ErrorInterceptor errorinterceptor.ErrorInterceptor `yaml:"errorInterceptor"`
 	// Middlewares Defines route middleware from Middleware names
 	Middlewares []string `yaml:"middlewares"`
 }
@@ -177,6 +178,8 @@ type Gateway struct {
 	SSLCertFile string `yaml:"sslCertFile" env:"GOMA_SSL_CERT_FILE, overwrite"`
 	// SSLKeyFile SSL Private key  file
 	SSLKeyFile string `yaml:"sslKeyFile" env:"GOMA_SSL_KEY_FILE, overwrite"`
+	// Redis contains redis database details
+	Redis Redis `yaml:"redis"`
 	// WriteTimeout defines proxy write timeout
 	WriteTimeout int `yaml:"writeTimeout" env:"GOMA_WRITE_TIMEOUT, overwrite"`
 	// ReadTimeout defines proxy read timeout
@@ -203,6 +206,7 @@ type Gateway struct {
 	InterceptErrors []int `yaml:"interceptErrors"`
 	// Cors holds proxy global cors
 	Cors Cors `yaml:"cors"`
+
 	// Routes holds proxy routes
 	Routes []Route `yaml:"routes"`
 }
@@ -284,4 +288,9 @@ type Health struct {
 	TimeOut         time.Duration
 	Interval        string
 	HealthyStatuses []int
+}
+type Redis struct {
+	// Addr redis hostname and post number :
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
 }

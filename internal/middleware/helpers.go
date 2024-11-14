@@ -17,7 +17,13 @@
 
 package middleware
 
-import "net/http"
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
+	"net/http"
+	"slices"
+)
 
 func getRealIP(r *http.Request) string {
 	if ip := r.Header.Get("X-Real-IP"); ip != "" {
@@ -29,12 +35,45 @@ func getRealIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 func allowedOrigin(origins []string, origin string) bool {
-	for _, o := range origins {
-		if o == origin {
+	return slices.Contains(origins, origin)
+}
+func canInterceptError(code int, errors []errorinterceptor.Error) bool {
+	for _, er := range errors {
+		if er.Code == code {
 			return true
 		}
 		continue
+
 	}
 	return false
+}
+func errMessage(code int, errors []errorinterceptor.Error) (string, error) {
+	for _, er := range errors {
+		if er.Code == code {
+			if len(er.Message) != 0 {
+				return er.Message, nil
+			}
+			continue
+		}
+	}
+	return "", fmt.Errorf("%d errors occurred", code)
+}
+
+// RespondWithError is a helper function to handle error responses with flexible content type
+func RespondWithError(w http.ResponseWriter, statusCode int, logMessage string) {
+	message := http.StatusText(statusCode)
+	if len(logMessage) != 0 {
+		message = logMessage
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	err := json.NewEncoder(w).Encode(ProxyResponseError{
+		Success: false,
+		Code:    statusCode,
+		Message: message,
+	})
+	if err != nil {
+		return
+	}
 
 }
