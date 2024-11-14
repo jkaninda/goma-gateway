@@ -266,11 +266,13 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				router.Use(pr.prometheusMiddleware)
 			}
 			// Apply route Error interceptor middleware
-			interceptErrors := middleware.InterceptErrors{
-				Origins: route.Cors.Origins,
-				Errors:  route.InterceptErrors,
+			if len(route.InterceptErrors) != 0 {
+				interceptErrors := middleware.InterceptErrors{
+					Origins: route.Cors.Origins,
+					Errors:  route.InterceptErrors,
+				}
+				router.Use(interceptErrors.ErrorInterceptor)
 			}
-			router.Use(interceptErrors.ErrorInterceptor)
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Error("Route path ignored: %s", route.Path)
@@ -279,11 +281,14 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	// Apply global Cors middlewares
 	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middleware
 	// Apply errorInterceptor middleware
-	interceptErrors := middleware.InterceptErrors{
-		Errors:  gateway.InterceptErrors,
-		Origins: gateway.Cors.Origins,
+	if len(gateway.InterceptErrors) != 0 {
+		interceptErrors := middleware.InterceptErrors{
+			Errors:  gateway.InterceptErrors,
+			Origins: gateway.Cors.Origins,
+		}
+		r.Use(interceptErrors.ErrorInterceptor)
 	}
-	r.Use(interceptErrors.ErrorInterceptor)
+
 	return r
 
 }
