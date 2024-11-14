@@ -20,7 +20,6 @@ package pkg
 import (
 	"context"
 	"github.com/gorilla/mux"
-	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
 	"time"
 )
 
@@ -162,12 +161,10 @@ type Route struct {
 	//
 	// It will not match the backend route
 	DisableHostFording bool `yaml:"disableHostFording"`
-
+	// InterceptErrors holds the status codes to intercept the error from backend
+	InterceptErrors []int `yaml:"interceptErrors"`
 	// BlockCommonExploits enable, disable block common exploits
 	BlockCommonExploits bool `yaml:"blockCommonExploits"`
-	// ErrorInterceptor intercepts backend errors based on the status codes and custom message
-	//
-	ErrorInterceptor errorinterceptor.ErrorInterceptor `yaml:"errorInterceptor"`
 	// Middlewares Defines route middleware from Middleware names
 	Middlewares []string `yaml:"middlewares"`
 }
@@ -290,7 +287,7 @@ type Health struct {
 	HealthyStatuses []int
 }
 type Redis struct {
-	// Addr redis hostname and post number :
+	// Addr redis hostname and port number :
 	Addr     string `yaml:"addr"`
 	Password string `yaml:"password"`
 }

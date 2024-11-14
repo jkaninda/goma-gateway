@@ -267,7 +267,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			}
 			// Apply route Error interceptor middleware
 			interceptErrors := middleware.InterceptErrors{
-				Origins: gateway.Cors.Origins,
+				Origins: route.Cors.Origins,
+				Errors:  route.InterceptErrors,
 			}
 			router.Use(interceptErrors.ErrorInterceptor)
 		} else {
