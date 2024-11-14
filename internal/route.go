@@ -118,6 +118,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								disableHostFording: route.DisableHostFording,
 								methods:            route.Methods,
 								cors:               route.Cors,
+								insecureSkipVerify: route.InsecureSkipVerify,
 							}
 							secureRouter := r.PathPrefix(util.ParseRoutePath(route.Path, midPath)).Subrouter()
 							//callBackRouter := r.PathPrefix(util.ParseRoutePath(route.Path, "/callback")).Subrouter()
@@ -225,6 +226,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				methods:            route.Methods,
 				disableHostFording: route.DisableHostFording,
 				cors:               route.Cors,
+				insecureSkipVerify: route.InsecureSkipVerify,
 			}
 			// create route
 			router := r.PathPrefix(route.Path).Subrouter()
