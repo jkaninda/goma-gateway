@@ -17,7 +17,7 @@ package middleware
  *
  */
 import (
-	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/error-interceptor"
+	"github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"

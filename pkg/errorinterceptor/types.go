@@ -15,8 +15,17 @@
  *
  */
 
-package error_interceptor
+package errorinterceptor
 
-const TextPlain = "text/plain"
-const ApplicationXml = "application/xml"
-const ApplicationJson = "application/json"
+type ErrorInterceptor struct {
+	// ContentType error response content type, application/json, plain/text
+	//ContentType string `yaml:"contentType"`
+	//Errors contains error status code and custom message
+	Errors []Error `yaml:"errors"`
+}
+type Error struct {
+	// Code HTTP status code
+	Code int `yaml:"code"`
+	// Message Error custom response message
+	Message string `yaml:"message"`
+}

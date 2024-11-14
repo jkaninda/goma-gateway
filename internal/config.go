@@ -18,7 +18,7 @@ limitations under the License.
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middleware"
-	error_interceptor "github.com/jkaninda/goma-gateway/pkg/error-interceptor"
+	"github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
@@ -185,10 +185,9 @@ func initConfig(configFile string) error {
 					Path:  "/",
 					Name:  "Hostname and load balancing example",
 					Hosts: []string{"example.com", "example.localhost"},
-					//InterceptErrors: []int{404, 405, 500},
-					ErrorInterceptor: error_interceptor.ErrorInterceptor{
-						ContentType: applicationJson,
-						Errors: []error_interceptor.Error{
+					//ErrorIntercept: []int{404, 405, 500},
+					ErrorInterceptor: errorinterceptor.ErrorInterceptor{
+						Errors: []errorinterceptor.Error{
 							{
 								Code:    http.StatusUnauthorized,
 								Message: http.StatusText(http.StatusUnauthorized),

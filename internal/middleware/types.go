@@ -19,7 +19,7 @@ package middleware
 
 import (
 	"bytes"
-	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/error-interceptor"
+	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
 	"net/http"
 	"sync"
 	"time"

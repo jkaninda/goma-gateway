@@ -20,7 +20,7 @@ package pkg
 import (
 	"context"
 	"github.com/gorilla/mux"
-	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/error-interceptor"
+	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
 	"time"
 )
 
@@ -287,16 +287,3 @@ type Health struct {
 	Interval        string
 	HealthyStatuses []int
 }
-
-//type ErrorInterceptor struct {
-//	// ContentType error response content type, application/json, plain/text
-//	ContentType string `yaml:"contentType"`
-//	//Errors contains error status code and custom message
-//	Errors []ErrorInterceptor `yaml:"errors"`
-//}
-//type ErrorInterceptor struct {
-//	// Code HTTP status code
-//	Code int `yaml:"code"`
-//	// Message custom message
-//	Message string `yaml:"message"`
-//}

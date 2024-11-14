@@ -20,8 +20,9 @@ package middleware
 import (
 	"encoding/json"
 	"fmt"
-	errorinterceptor "github.com/jkaninda/goma-gateway/pkg/error-interceptor"
+	"github.com/jkaninda/goma-gateway/pkg/errorinterceptor"
 	"net/http"
+	"slices"
 )
 
 func getRealIP(r *http.Request) string {
@@ -34,14 +35,7 @@ func getRealIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 func allowedOrigin(origins []string, origin string) bool {
-	for _, o := range origins {
-		if o == origin {
-			return true
-		}
-		continue
-	}
-	return false
-
+	return slices.Contains(origins, origin)
 }
 func canInterceptError(code int, errors []errorinterceptor.Error) bool {
 	for _, er := range errors {
@@ -71,25 +65,16 @@ func RespondWithError(w http.ResponseWriter, statusCode int, logMessage string, 
 	if err != nil {
 		message = logMessage
 	}
-	if errorIntercept.ContentType == errorinterceptor.ApplicationJson {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(statusCode)
-		err := json.NewEncoder(w).Encode(ProxyResponseError{
-			Success: false,
-			Code:    statusCode,
-			Message: message,
-		})
-		if err != nil {
-			return
-		}
-		return
-	} else {
-		w.Header().Set("Content-Type", "plain/text;charset=utf-8")
-		w.WriteHeader(statusCode)
-		_, err2 := w.Write([]byte(message))
-		if err2 != nil {
-			return
-		}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	err = json.NewEncoder(w).Encode(ProxyResponseError{
+		Success: false,
+		Code:    statusCode,
+		Message: message,
+	})
+	if err != nil {
 		return
 	}
+	return
+
 }
