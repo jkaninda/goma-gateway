@@ -33,6 +33,8 @@ It's designed to be straightforward and efficient, offering features, like:
   - OAuth
 - Rate limiting, In-Memory client IP based
 - Limit HTTP methods allowed for a particular route.
+- Distributed rate limiting, client IP based using Redis
+
 
 
 Declare your routes and middlewares as code.
