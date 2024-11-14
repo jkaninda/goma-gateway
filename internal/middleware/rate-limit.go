@@ -54,8 +54,8 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := getRealIP(r)
-			clientID := fmt.Sprintf("%d-%s", rl.id, clientIP) // Generate client Id, ID+ route ID
-			logger.Debug("requests limiter: clientIP: %s, redisBased: %s", clientIP, rl.redisBased)
+			clientID := fmt.Sprintf("%s-%s", rl.id, clientIP) // Generate client Id, ID+ route ID
+			logger.Debug("requests limiter: clientIP: %s, clientID: %s", clientIP, clientID)
 			if rl.redisBased {
 				err := redisRateLimiter(clientID, rl.requests)
 				if err != nil {
