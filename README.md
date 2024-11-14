@@ -56,10 +56,10 @@ It's designed to be straightforward and efficient, offering features, like:
   - OAuth 
 - Rate limiting, In-Memory client IP based
 - Limit HTTP methods allowed for a particular route.
+- Distributed rate limiting, client IP based using Redis
 
 ### Todo:
   - [ ] Blocklist IP address middleware
-  - [ ] Distributed Rate Limiting for In-Memory client IP based across multiple instances using Redis
 
 ----
 
