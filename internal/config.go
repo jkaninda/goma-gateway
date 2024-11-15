@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
+	"context"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
@@ -31,7 +32,7 @@ import (
 )
 
 // Config reads config file and returns Gateway
-func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
+func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewayServer, error) {
 	if util.FileExists(configFile) {
 		buf, err := os.ReadFile(configFile)
 		if err != nil {
@@ -44,7 +45,8 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", configFile, err)
 		}
 		return &GatewayServer{
-			ctx:         nil,
+			ctx:         ctx,
+			configFile:  configFile,
 			version:     c.Version,
 			gateway:     c.GatewayConfig,
 			middlewares: c.Middlewares,
@@ -59,14 +61,15 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 
 		}
 		logger.Info("Using configuration file: %s", ConfigFile)
-		util.SetEnv("GOMA_CONFIG_FILE", configFile)
+		util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", ConfigFile, err)
 		}
 		return &GatewayServer{
-			ctx:         nil,
+			ctx:         ctx,
+			configFile:  ConfigFile,
 			gateway:     c.GatewayConfig,
 			middlewares: c.Middlewares,
 		}, nil
@@ -98,7 +101,8 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 	}
 	logger.Info("Generating new configuration file...done")
 	return &GatewayServer{
-		ctx:         nil,
+		ctx:         ctx,
+		configFile:  ConfigFile,
 		gateway:     c.GatewayConfig,
 		middlewares: c.Middlewares,
 	}, nil

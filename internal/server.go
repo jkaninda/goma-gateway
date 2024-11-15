@@ -29,7 +29,7 @@ import (
 )
 
 // Start / Start starts the server
-func (gatewayServer GatewayServer) Start(ctx context.Context) error {
+func (gatewayServer GatewayServer) Start() error {
 	logger.Info("Initializing routes...")
 	route := gatewayServer.Initialize()
 	logger.Debug("Routes count=%d, Middlewares count=%d", len(gatewayServer.gateway.Routes), len(gatewayServer.middlewares))
@@ -56,7 +56,7 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	}
 
 	// Handle graceful shutdown
-	return gatewayServer.shutdown(ctx, httpServer, httpsServer, listenWithTLS)
+	return gatewayServer.shutdown(httpServer, httpsServer, listenWithTLS)
 }
 
 func (gatewayServer GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
@@ -90,13 +90,13 @@ func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Se
 	return nil
 }
 
-func (gatewayServer GatewayServer) shutdown(ctx context.Context, httpServer, httpsServer *http.Server, listenWithTLS bool) error {
+func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server, listenWithTLS bool) error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	logger.Info("Shutting down Goma Gateway...")
 
-	shutdownCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(gatewayServer.ctx, 10*time.Second)
 	defer cancel()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {

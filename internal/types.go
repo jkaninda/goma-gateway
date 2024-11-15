@@ -113,6 +113,7 @@ type ErrorResponse struct {
 }
 type GatewayServer struct {
 	ctx         context.Context
+	configFile  string
 	version     string
 	gateway     Gateway
 	middlewares []Middleware

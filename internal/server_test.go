@@ -39,8 +39,9 @@ func TestStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error initializing config: %s", err.Error())
 	}
+	ctx := context.Background()
 	g := GatewayServer{}
-	gatewayServer, err := g.Config(configFile)
+	gatewayServer, err := g.Config(configFile, ctx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -54,9 +55,8 @@ func TestStart(t *testing.T) {
 			t.Fatalf("expected a status code of 200, got %v", resp.StatusCode)
 		}
 	}
-	ctx := context.Background()
 	go func() {
-		err = gatewayServer.Start(ctx)
+		err = gatewayServer.Start()
 		if err != nil {
 			t.Error(err)
 			return
