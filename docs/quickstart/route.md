@@ -135,6 +135,7 @@ gateway:
           - https://example.com
           - https://example2.com
           - https://example4.com
+      insecureSkipVerify: true
       methods: []
       healthCheck:
         path: "/health/live"

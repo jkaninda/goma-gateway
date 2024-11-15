@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
@@ -36,8 +37,14 @@ func (health Health) Check() error {
 	if err != nil {
 		return fmt.Errorf("error route %s: creating HealthCheck request: %v ", health.Name, err)
 	}
+	// Create custom transport with TLS configuration
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: health.InsecureSkipVerify, // Skip SSL certificate verification
+		},
+	}
 	// Perform the request to the route's healthcheck
-	client := &http.Client{Timeout: health.TimeOut}
+	client := &http.Client{Transport: transport, Timeout: health.TimeOut}
 	healthResp, err := client.Do(healthReq)
 	if err != nil {
 		logger.Debug("Error route %s: performing HealthCheck request: %v ", health.Name, err)

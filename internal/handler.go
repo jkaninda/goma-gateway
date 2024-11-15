@@ -18,6 +18,7 @@ limitations under the License.
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
@@ -56,7 +57,7 @@ func CORSHandler(cors Cors) mux.MiddlewareFunc {
 func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	logger.Error("Proxy error: %v", err)
 	w.WriteHeader(http.StatusBadGateway)
-	_, err = w.Write([]byte("Bad Gateway"))
+	_, err = w.Write([]byte(fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway))))
 	if err != nil {
 		return
 	}
