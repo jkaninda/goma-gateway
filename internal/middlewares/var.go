@@ -15,17 +15,19 @@
  *
  */
 
-package pkg
+package middlewares
 
-// Middleware defined the route middlewares
-type Middleware struct {
-	//Path contains the name of middlewares and must be unique
-	Name string `yaml:"name"`
-	// Type contains authentication types
-	//
-	// basic, jwt, auth0, rateLimit, access
-	Type  string   `yaml:"type"`  // Middleware type [basic, jwt, auth0, rateLimit, access]
-	Paths []string `yaml:"paths"` // Protected paths
-	// Rule contains rule type of
-	Rule interface{} `yaml:"rule"` // Middleware rule
-}
+import (
+	"github.com/go-redis/redis_rate/v10"
+	"github.com/redis/go-redis/v9"
+)
+
+// sqlPatterns contains SQL injections patters
+const sqlPatterns = `(?i)(union|select|drop|insert|delete|update|create|alter|exec|;|--)`
+const traversalPatterns = `\.\./`
+const xssPatterns = `(?i)<script|onerror|onload`
+
+var (
+	Rdb     *redis.Client
+	limiter *redis_rate.Limiter
+)

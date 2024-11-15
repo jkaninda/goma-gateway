@@ -17,15 +17,20 @@
 
 package pkg
 
-// Middleware defined the route middlewares
-type Middleware struct {
-	//Path contains the name of middlewares and must be unique
-	Name string `yaml:"name"`
-	// Type contains authentication types
-	//
-	// basic, jwt, auth0, rateLimit, access
-	Type  string   `yaml:"type"`  // Middleware type [basic, jwt, auth0, rateLimit, access]
-	Paths []string `yaml:"paths"` // Protected paths
-	// Rule contains rule type of
-	Rule interface{} `yaml:"rule"` // Middleware rule
+import (
+	"crypto/tls"
+	"fmt"
+)
+
+func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
+	cert, key := gatewayServer.gateway.SSLCertFile, gatewayServer.gateway.SSLKeyFile
+	if cert == "" || key == "" {
+		return nil, false, nil
+	}
+
+	tlsConfig, err := loadTLS(cert, key)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to load TLS config: %w", err)
+	}
+	return tlsConfig, true, nil
 }

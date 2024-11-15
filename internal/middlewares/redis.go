@@ -15,19 +15,32 @@
  *
  */
 
-package middleware
+package middlewares
 
 import (
+	"context"
+	"errors"
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/redis/go-redis/v9"
 )
 
-// sqlPatterns contains SQL injections patters
-const sqlPatterns = `(?i)(union|select|drop|insert|delete|update|create|alter|exec|;|--)`
-const traversalPatterns = `\.\./`
-const xssPatterns = `(?i)<script|onerror|onload`
+func redisRateLimiter(clientIP string, rate int) error {
+	ctx := context.Background()
 
-var (
-	Rdb     *redis.Client
-	limiter *redis_rate.Limiter
-)
+	res, err := limiter.Allow(ctx, clientIP, redis_rate.PerMinute(rate))
+	if err != nil {
+		return err
+	}
+	if res.Remaining == 0 {
+		return errors.New("requests limit exceeded")
+	}
+
+	return nil
+}
+func InitRedis(addr, password string) {
+	Rdb = redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: password,
+	})
+	limiter = redis_rate.NewLimiter(Rdb)
+}

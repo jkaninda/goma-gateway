@@ -17,7 +17,7 @@ limitations under the License.
 */
 import (
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/middleware"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus"
@@ -34,7 +34,7 @@ func init() {
 // Initialize the routes
 func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	gateway := gatewayServer.gateway
-	middlewares := gatewayServer.middlewares
+	m := gatewayServer.middlewares
 	redisBased := false
 	if len(gateway.Redis.Addr) != 0 {
 		redisBased = true
@@ -62,11 +62,11 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	// Enable common exploits
 	if gateway.BlockCommonExploits {
 		logger.Info("Block common exploits enabled")
-		r.Use(middleware.BlockExploitsMiddleware)
+		r.Use(middlewares.BlockExploitsMiddleware)
 	}
 	if gateway.RateLimit > 0 {
-		// Add rate limit middleware to all routes, if defined
-		rateLimit := middleware.RateLimit{
+		// Add rate limit middlewares to all routes, if defined
+		rateLimit := middlewares.RateLimit{
 			Id:         "global_rate", //Generate a unique ID for routes
 			Requests:   gateway.RateLimit,
 			Window:     time.Minute, //  requests per minute
@@ -75,7 +75,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			RedisBased: redisBased,
 		}
 		limiter := rateLimit.NewRateLimiterWindow()
-		// Add rate limit middleware
+		// Add rate limit middlewares
 		r.Use(limiter.RateLimitMiddleware())
 	}
 	for rIndex, route := range gateway.Routes {
@@ -87,14 +87,14 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			// Apply middlewares to route
 			for _, mid := range route.Middlewares {
 				if mid != "" {
-					// Get Access middleware if it does exist
-					accessMiddleware, err := getMiddleware([]string{mid}, middlewares)
+					// Get Access middlewares if it does exist
+					accessMiddleware, err := getMiddleware([]string{mid}, m)
 					if err != nil {
 						logger.Error("Error: %v", err.Error())
 					} else {
-						// Apply access middleware
+						// Apply access middlewares
 						if accessMiddleware.Type == AccessMiddleware {
-							blM := middleware.AccessListMiddleware{
+							blM := middlewares.AccessListMiddleware{
 								Path: route.Path,
 								List: accessMiddleware.Paths,
 							}
@@ -103,10 +103,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 						}
 
 					}
-					// Get route authentication middleware if it does exist
-					rMiddleware, err := getMiddleware([]string{mid}, middlewares)
+					// Get route authentication middlewares if it does exist
+					rMiddleware, err := getMiddleware([]string{mid}, m)
 					if err != nil {
-						//Error: middleware not found
+						//Error: middlewares not found
 						logger.Error("Error: %v", err.Error())
 					} else {
 						for _, midPath := range rMiddleware.Paths {
@@ -122,20 +122,20 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 							}
 							secureRouter := r.PathPrefix(util.ParseRoutePath(route.Path, midPath)).Subrouter()
 							//callBackRouter := r.PathPrefix(util.ParseRoutePath(route.Path, "/callback")).Subrouter()
-							//Check Authentication middleware
+							//Check Authentication middlewares
 							switch rMiddleware.Type {
 							case BasicAuth:
 								basicAuth, err := getBasicAuthMiddleware(rMiddleware.Rule)
 								if err != nil {
 									logger.Error("Error: %s", err.Error())
 								} else {
-									amw := middleware.AuthBasic{
+									amw := middlewares.AuthBasic{
 										Username: basicAuth.Username,
 										Password: basicAuth.Password,
 										Headers:  nil,
 										Params:   nil,
 									}
-									// Apply JWT authentication middleware
+									// Apply JWT authentication middlewares
 									secureRouter.Use(amw.AuthMiddleware)
 									secureRouter.Use(CORSHandler(route.Cors))
 									secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
@@ -146,14 +146,14 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								if err != nil {
 									logger.Error("Error: %s", err.Error())
 								} else {
-									amw := middleware.JwtAuth{
+									amw := middlewares.JwtAuth{
 										AuthURL:         jwt.URL,
 										RequiredHeaders: jwt.RequiredHeaders,
 										Headers:         jwt.Headers,
 										Params:          jwt.Params,
 										Origins:         gateway.Cors.Origins,
 									}
-									// Apply JWT authentication middleware
+									// Apply JWT authentication middlewares
 									secureRouter.Use(amw.AuthMiddleware)
 									secureRouter.Use(CORSHandler(route.Cors))
 									secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
@@ -169,12 +169,12 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 									if oauth.RedirectURL != "" {
 										redirectURL = oauth.RedirectURL
 									}
-									amw := middleware.Oauth{
+									amw := middlewares.Oauth{
 										ClientID:     oauth.ClientID,
 										ClientSecret: oauth.ClientSecret,
 										RedirectURL:  redirectURL,
 										Scopes:       oauth.Scopes,
-										Endpoint: middleware.OauthEndpoint{
+										Endpoint: middlewares.OauthEndpoint{
 											AuthURL:     oauth.Endpoint.AuthURL,
 											TokenURL:    oauth.Endpoint.TokenURL,
 											UserInfoURL: oauth.Endpoint.UserInfoURL,
@@ -205,7 +205,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 								}
 							default:
 								if !doesExist(rMiddleware.Type) {
-									logger.Error("Unknown middleware type %s", rMiddleware.Type)
+									logger.Error("Unknown middlewares type %s", rMiddleware.Type)
 								}
 
 							}
@@ -214,7 +214,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 
 					}
 				} else {
-					logger.Error("Error, middleware path is empty")
+					logger.Error("Error, middlewares path is empty")
 					logger.Error("Middleware ignored")
 				}
 			}
@@ -234,7 +234,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			// Enable common exploits
 			if route.BlockCommonExploits {
 				logger.Info("Block common exploits enabled")
-				router.Use(middleware.BlockExploitsMiddleware)
+				router.Use(middlewares.BlockExploitsMiddleware)
 			}
 			id := string(rune(rIndex))
 			if len(route.Name) != 0 {
@@ -243,7 +243,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			}
 			// Apply route rate limit
 			if route.RateLimit > 0 {
-				rateLimit := middleware.RateLimit{
+				rateLimit := middlewares.RateLimit{
 					Id:         id, // Use route index as ID
 					Requests:   route.RateLimit,
 					Window:     time.Minute, //  requests per minute
@@ -252,7 +252,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 					RedisBased: redisBased,
 				}
 				limiter := rateLimit.NewRateLimiterWindow()
-				// Add rate limit middleware
+				// Add rate limit middlewares
 				router.Use(limiter.RateLimitMiddleware())
 			}
 			// Apply route Cors
@@ -272,9 +272,9 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				// Prometheus endpoint
 				router.Use(pr.prometheusMiddleware)
 			}
-			// Apply route Error interceptor middleware
+			// Apply route Error interceptor middlewares
 			if len(route.InterceptErrors) != 0 {
-				interceptErrors := middleware.InterceptErrors{
+				interceptErrors := middlewares.InterceptErrors{
 					Origins: route.Cors.Origins,
 					Errors:  route.InterceptErrors,
 				}
@@ -286,10 +286,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		}
 	}
 	// Apply global Cors middlewares
-	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middleware
-	// Apply errorInterceptor middleware
+	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
+	// Apply errorInterceptor middlewares
 	if len(gateway.InterceptErrors) != 0 {
-		interceptErrors := middleware.InterceptErrors{
+		interceptErrors := middlewares.InterceptErrors{
 			Errors:  gateway.InterceptErrors,
 			Origins: gateway.Cors.Origins,
 		}

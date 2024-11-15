@@ -16,8 +16,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
+	"context"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/middleware"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
@@ -31,7 +32,7 @@ import (
 )
 
 // Config reads config file and returns Gateway
-func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
+func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewayServer, error) {
 	if util.FileExists(configFile) {
 		buf, err := os.ReadFile(configFile)
 		if err != nil {
@@ -44,7 +45,8 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", configFile, err)
 		}
 		return &GatewayServer{
-			ctx:         nil,
+			ctx:         ctx,
+			configFile:  configFile,
 			version:     c.Version,
 			gateway:     c.GatewayConfig,
 			middlewares: c.Middlewares,
@@ -59,14 +61,15 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 
 		}
 		logger.Info("Using configuration file: %s", ConfigFile)
-		util.SetEnv("GOMA_CONFIG_FILE", configFile)
+		util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", ConfigFile, err)
 		}
 		return &GatewayServer{
-			ctx:         nil,
+			ctx:         ctx,
+			configFile:  ConfigFile,
 			gateway:     c.GatewayConfig,
 			middlewares: c.Middlewares,
 		}, nil
@@ -98,7 +101,8 @@ func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 	}
 	logger.Info("Generating new configuration file...done")
 	return &GatewayServer{
-		ctx:         nil,
+		ctx:         ctx,
+		configFile:  ConfigFile,
 		gateway:     c.GatewayConfig,
 		middlewares: c.Middlewares,
 	}, nil
@@ -330,7 +334,7 @@ func getJWTMiddleware(input interface{}) (JWTRuleMiddleware, error) {
 		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if jWTRuler.URL == "" {
-		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middleware")
+		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middlewares")
 
 	}
 	return *jWTRuler, nil
@@ -349,7 +353,7 @@ func getBasicAuthMiddleware(input interface{}) (BasicRuleMiddleware, error) {
 		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if basicAuth.Username == "" || basicAuth.Password == "" {
-		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty username/password in %s middleware", basicAuth)
+		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty username/password in %s middlewares", basicAuth)
 
 	}
 	return *basicAuth, nil
@@ -368,12 +372,12 @@ func oAuthMiddleware(input interface{}) (OauthRulerMiddleware, error) {
 		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if oauthRuler.ClientID == "" || oauthRuler.ClientSecret == "" || oauthRuler.RedirectURL == "" {
-		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: empty clientId/secretId in %s middleware", oauthRuler)
+		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: empty clientId/secretId in %s middlewares", oauthRuler)
 
 	}
 	return *oauthRuler, nil
 }
-func oauthRulerMiddleware(oauth middleware.Oauth) *OauthRulerMiddleware {
+func oauthRulerMiddleware(oauth middlewares.Oauth) *OauthRulerMiddleware {
 	return &OauthRulerMiddleware{
 		ClientID:     oauth.ClientID,
 		ClientSecret: oauth.ClientSecret,

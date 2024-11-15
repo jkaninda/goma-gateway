@@ -17,15 +17,24 @@
 
 package pkg
 
-// Middleware defined the route middlewares
-type Middleware struct {
-	//Path contains the name of middlewares and must be unique
-	Name string `yaml:"name"`
-	// Type contains authentication types
-	//
-	// basic, jwt, auth0, rateLimit, access
-	Type  string   `yaml:"type"`  // Middleware type [basic, jwt, auth0, rateLimit, access]
-	Paths []string `yaml:"paths"` // Protected paths
-	// Rule contains rule type of
-	Rule interface{} `yaml:"rule"` // Middleware rule
+import (
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
+)
+
+func (gatewayServer GatewayServer) initRedis() error {
+	if gatewayServer.gateway.Redis.Addr == "" {
+		return nil
+	}
+	logger.Info("Initializing Redis...")
+	middlewares.InitRedis(gatewayServer.gateway.Redis.Addr, gatewayServer.gateway.Redis.Password)
+	return nil
+}
+
+func (gatewayServer GatewayServer) closeRedis() {
+	if middlewares.Rdb != nil {
+		if err := middlewares.Rdb.Close(); err != nil {
+			logger.Error("Error closing Redis: %v", err)
+		}
+	}
 }

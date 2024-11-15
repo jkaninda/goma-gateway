@@ -18,111 +18,95 @@ limitations under the License.
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/middleware"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"github.com/redis/go-redis/v9"
 	"net/http"
 	"os"
-	"sync"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
-// Start starts the server
-func (gatewayServer GatewayServer) Start(ctx context.Context) error {
+// Start / Start starts the server
+func (gatewayServer GatewayServer) Start() error {
 	logger.Info("Initializing routes...")
 	route := gatewayServer.Initialize()
-	gateway := gatewayServer.gateway
-	logger.Debug("Routes count=%d Middlewares count=%d", len(gatewayServer.gateway.Routes), len(gatewayServer.middlewares))
-	logger.Info("Initializing routes...done")
-	if len(gateway.Redis.Addr) != 0 {
-		middleware.InitRedis(gateway.Redis.Addr, gateway.Redis.Password)
-		defer func(Rdb *redis.Client) {
-			err := Rdb.Close()
-			if err != nil {
-				logger.Error("Redis connection closed with error: %v", err)
-			}
-		}(middleware.Rdb)
+	logger.Debug("Routes count=%d, Middlewares count=%d", len(gatewayServer.gateway.Routes), len(gatewayServer.middlewares))
+	if err := gatewayServer.initRedis(); err != nil {
+		return fmt.Errorf("failed to initialize Redis: %w", err)
+	}
+	defer gatewayServer.closeRedis()
+
+	tlsConfig, listenWithTLS, err := gatewayServer.initTLS()
+	if err != nil {
+		return err
 	}
 
-	tlsConfig := &tls.Config{}
-	var listenWithTLS = false
-	if cert := gatewayServer.gateway.SSLCertFile; cert != "" && gatewayServer.gateway.SSLKeyFile != "" {
-		tlsConf, err := loadTLS(cert, gatewayServer.gateway.SSLKeyFile)
-		if err != nil {
-			return err
-		}
-		tlsConfig = tlsConf
-		listenWithTLS = true
-
-	}
-	// HTTP Server
-	httpServer := &http.Server{
-		Addr:         ":8080",
-		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
-		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
-		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
-		Handler:      route, // Pass our instance of gorilla/mux in.
-	}
-	// HTTPS Server
-	httpsServer := &http.Server{
-		Addr:         ":8443",
-		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
-		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
-		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
-		Handler:      route, // Pass our instance of gorilla/mux in.
-		TLSConfig:    tlsConfig,
-	}
 	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
 		printRoute(gatewayServer.gateway.Routes)
 	}
-	// Set KeepAlive
-	httpServer.SetKeepAlivesEnabled(!gatewayServer.gateway.DisableKeepAlive)
-	go func() {
-		logger.Info("Starting HTTP server listen=0.0.0.0:8080")
-		if err := httpServer.ListenAndServe(); err != nil {
-			logger.Fatal("Error starting Goma Gateway HTTP server: %v", err)
-		}
-	}()
-	go func() {
-		if listenWithTLS {
-			logger.Info("Starting HTTPS server listen=0.0.0.0:8443")
-			if err := httpsServer.ListenAndServeTLS("", ""); err != nil {
-				logger.Fatal("Error starting Goma Gateway HTTPS server: %v", err)
-			}
-		}
-	}()
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		<-ctx.Done()
-		shutdownCtx := context.Background()
-		shutdownCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
-		defer cancel()
-		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			_, err := fmt.Fprintf(os.Stderr, "error shutting down HTTP server: %s\n", err)
-			if err != nil {
-				return
-			}
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		<-ctx.Done()
-		shutdownCtx := context.Background()
-		shutdownCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
-		defer cancel()
-		if listenWithTLS {
-			if err := httpsServer.Shutdown(shutdownCtx); err != nil {
-				_, err := fmt.Fprintf(os.Stderr, "error shutting HTTPS server: %s\n", err)
-				if err != nil {
-					return
-				}
-			}
-		}
-	}()
-	wg.Wait()
-	return nil
 
+	httpServer := gatewayServer.createServer(":8080", route, nil)
+	httpsServer := gatewayServer.createServer(":8443", route, tlsConfig)
+
+	// Start HTTP/HTTPS servers
+	if err := gatewayServer.startServers(httpServer, httpsServer, listenWithTLS); err != nil {
+		return err
+	}
+
+	// Handle graceful shutdown
+	return gatewayServer.shutdown(httpServer, httpsServer, listenWithTLS)
+}
+
+func (gatewayServer GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
+	return &http.Server{
+		Addr:         addr,
+		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
+		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
+		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
+		Handler:      handler,
+		TLSConfig:    tlsConfig,
+	}
+}
+
+func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Server, listenWithTLS bool) error {
+	go func() {
+		logger.Info("Starting HTTP server on 0.0.0.0:8080")
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal("HTTP server error: %v", err)
+		}
+	}()
+
+	if listenWithTLS {
+		go func() {
+			logger.Info("Starting HTTPS server on 0.0.0.0:8443")
+			if err := httpsServer.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.Fatal("HTTPS server error: %v", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server, listenWithTLS bool) error {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	logger.Info("Shutting down Goma Gateway...")
+
+	shutdownCtx, cancel := context.WithTimeout(gatewayServer.ctx, 10*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("Error shutting down HTTP server: %v", err)
+	}
+
+	if listenWithTLS {
+		if err := httpsServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("Error shutting down HTTPS server: %v", err)
+		}
+	}
+	return nil
 }

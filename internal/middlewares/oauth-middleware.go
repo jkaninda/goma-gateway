@@ -15,7 +15,7 @@
  *
  */
 
-package middleware
+package middlewares
 
 import (
 	"fmt"

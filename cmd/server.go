@@ -37,13 +37,13 @@ var ServerCmd = &cobra.Command{
 		}
 		ctx := context.Background()
 		g := pkg.GatewayServer{}
-		gs, err := g.Config(configFile)
+		gs, err := g.Config(configFile, ctx)
 		if err != nil {
 			fmt.Printf("Could not load configuration: %v\n", err)
 			os.Exit(1)
 		}
 		gs.SetEnv()
-		if err := gs.Start(ctx); err != nil {
+		if err := gs.Start(); err != nil {
 			fmt.Printf("Could not start server: %v\n", err)
 			os.Exit(1)
 

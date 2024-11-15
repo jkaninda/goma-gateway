@@ -53,6 +53,6 @@ type Route struct {
 	InterceptErrors []int `yaml:"interceptErrors"`
 	// BlockCommonExploits enable, disable block common exploits
 	BlockCommonExploits bool `yaml:"blockCommonExploits"`
-	// Middlewares Defines route middleware from Middleware names
+	// Middlewares Defines route middlewares from Middleware names
 	Middlewares []string `yaml:"middlewares"`
 }
