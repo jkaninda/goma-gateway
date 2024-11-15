@@ -4,10 +4,10 @@ const ConfigDir = "/etc/goma/"                                 // Default config
 const ConfigFile = "/etc/goma/goma.yml"                        // Default configuration file
 const accessControlAllowOrigin = "Access-Control-Allow-Origin" // Cors
 const gatewayName = "Goma Gateway"
-const AccessMiddleware = "access" // access middleware
-const BasicAuth = "basic"         // basic authentication middleware
-const JWTAuth = "jwt"             // JWT authentication middleware
-const OAuth = "oauth"             // OAuth authentication middleware
+const AccessMiddleware = "access" // access middlewares
+const BasicAuth = "basic"         // basic authentication middlewares
+const JWTAuth = "jwt"             // JWT authentication middlewares
+const OAuth = "oauth"             // OAuth authentication middlewares
 // Round-robin counter
 var counter uint32
 

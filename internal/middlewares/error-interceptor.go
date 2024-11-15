@@ -1,4 +1,4 @@
-package middleware
+package middlewares
 
 /*
  * Copyright 2024 Jonas Kaninda

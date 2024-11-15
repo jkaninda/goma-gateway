@@ -1,4 +1,4 @@
-package middleware
+package middlewares
 
 /*
 Copyright 2024 Jonas Kaninda
@@ -16,13 +16,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import (
-	"errors"
 	"fmt"
-	"github.com/go-redis/redis_rate/v10"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"github.com/redis/go-redis/v9"
-	"golang.org/x/net/context"
 	"net/http"
 	"time"
 )
@@ -90,24 +86,4 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-func redisRateLimiter(clientIP string, rate int) error {
-	ctx := context.Background()
-
-	res, err := limiter.Allow(ctx, clientIP, redis_rate.PerMinute(rate))
-	if err != nil {
-		return err
-	}
-	if res.Remaining == 0 {
-		return errors.New("requests limit exceeded")
-	}
-
-	return nil
-}
-func InitRedis(addr, password string) {
-	Rdb = redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-	})
-	limiter = redis_rate.NewLimiter(Rdb)
 }

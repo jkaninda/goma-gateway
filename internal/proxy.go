@@ -18,7 +18,7 @@ limitations under the License.
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/middleware"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"net/http/httputil"
@@ -38,7 +38,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		if len(proxyRoute.methods) > 0 {
 			if !slices.Contains(proxyRoute.methods, r.Method) {
 				logger.Error("%s Method is not allowed", r.Method)
-				middleware.RespondWithError(w, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, r.Method))
+				middlewares.RespondWithError(w, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, r.Method))
 				return
 			}
 		}
@@ -61,7 +61,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		targetURL, err := url.Parse(proxyRoute.destination)
 		if err != nil {
 			logger.Error("Error parsing backend URL: %s", err)
-			middleware.RespondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+			middlewares.RespondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 			return
 		}
 		r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))

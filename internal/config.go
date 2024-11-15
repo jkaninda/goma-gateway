@@ -17,7 +17,7 @@ limitations under the License.
 */
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/middleware"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
@@ -330,7 +330,7 @@ func getJWTMiddleware(input interface{}) (JWTRuleMiddleware, error) {
 		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if jWTRuler.URL == "" {
-		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middleware")
+		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middlewares")
 
 	}
 	return *jWTRuler, nil
@@ -349,7 +349,7 @@ func getBasicAuthMiddleware(input interface{}) (BasicRuleMiddleware, error) {
 		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if basicAuth.Username == "" || basicAuth.Password == "" {
-		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty username/password in %s middleware", basicAuth)
+		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty username/password in %s middlewares", basicAuth)
 
 	}
 	return *basicAuth, nil
@@ -368,12 +368,12 @@ func oAuthMiddleware(input interface{}) (OauthRulerMiddleware, error) {
 		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
 	}
 	if oauthRuler.ClientID == "" || oauthRuler.ClientSecret == "" || oauthRuler.RedirectURL == "" {
-		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: empty clientId/secretId in %s middleware", oauthRuler)
+		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: empty clientId/secretId in %s middlewares", oauthRuler)
 
 	}
 	return *oauthRuler, nil
 }
-func oauthRulerMiddleware(oauth middleware.Oauth) *OauthRulerMiddleware {
+func oauthRulerMiddleware(oauth middlewares.Oauth) *OauthRulerMiddleware {
 	return &OauthRulerMiddleware{
 		ClientID:     oauth.ClientID,
 		ClientSecret: oauth.ClientSecret,

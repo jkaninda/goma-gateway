@@ -105,7 +105,7 @@ func TestReadMiddleware(t *testing.T) {
 	middlewares := getMiddlewares(t)
 	m, err := getMiddleware(rules, middlewares)
 	if err != nil {
-		t.Fatalf("Error searching middleware %s", err.Error())
+		t.Fatalf("Error searching middlewares %s", err.Error())
 	}
 	log.Printf("Middleware: %v\n", m)
 
@@ -134,10 +134,10 @@ func TestReadMiddleware(t *testing.T) {
 			}
 			log.Printf("OAuth authentification:  provider %s\n", oauth.Provider)
 		case AccessMiddleware:
-			log.Println("Access middleware")
-			log.Printf("Access middleware:  paths: [%s]\n", middleware.Paths)
+			log.Println("Access middlewares")
+			log.Printf("Access middlewares:  paths: [%s]\n", middleware.Paths)
 		default:
-			t.Errorf("Unknown middleware type %s", middleware.Type)
+			t.Errorf("Unknown middlewares type %s", middleware.Type)
 
 		}
 	}
@@ -148,7 +148,7 @@ func TestFoundMiddleware(t *testing.T) {
 	middlewares := getMiddlewares(t)
 	middleware, err := GetMiddleware("jwt", middlewares)
 	if err != nil {
-		t.Errorf("Error getting middleware %v", err)
+		t.Errorf("Error getting middlewares %v", err)
 	}
 	fmt.Println(middleware.Type)
 }
