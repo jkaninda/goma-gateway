@@ -108,7 +108,5 @@ func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server
 			logger.Error("Error shutting down HTTPS server: %v", err)
 		}
 	}
-
-	logger.Info("Goma Gateway shut down successfully")
 	return nil
 }
