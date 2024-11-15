@@ -142,3 +142,17 @@ func ParseDuration(durationStr string) (time.Duration, error) {
 	}
 	return duration, nil
 }
+
+func Slug(text string) string {
+	// Convert to lowercase
+	text = strings.ToLower(text)
+
+	// Replace spaces and special characters with hyphens
+	re := regexp.MustCompile(`[^\w]+`)
+	text = re.ReplaceAllString(text, "-")
+
+	// Remove leading and trailing hyphens
+	text = strings.Trim(text, "-")
+
+	return text
+}

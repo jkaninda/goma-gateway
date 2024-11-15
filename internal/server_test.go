@@ -54,6 +54,15 @@ func TestStart(t *testing.T) {
 			t.Fatalf("expected a status code of 200, got %v", resp.StatusCode)
 		}
 	}
+	assertRoutesResponseBody := func(t *testing.T, s *httptest.Server) {
+		resp, err := s.Client().Get(s.URL + "/health/routes")
+		if err != nil {
+			t.Fatalf("unexpected error getting from server: %v", err)
+		}
+		if resp.StatusCode != 200 {
+			t.Fatalf("expected a status code of 200, got %v", resp.StatusCode)
+		}
+	}
 	ctx := context.Background()
 	go func() {
 		err = gatewayServer.Start(ctx)
@@ -67,6 +76,7 @@ func TestStart(t *testing.T) {
 		s := httptest.NewServer(route)
 		defer s.Close()
 		assertResponseBody(t, s)
+		assertRoutesResponseBody(t, s)
 	})
 	ctx.Done()
 }

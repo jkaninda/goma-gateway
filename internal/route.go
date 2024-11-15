@@ -236,10 +236,15 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				logger.Info("Block common exploits enabled")
 				router.Use(middleware.BlockExploitsMiddleware)
 			}
+			id := string(rune(rIndex))
+			if len(route.Name) != 0 {
+				// Use route name as ID
+				id = util.Slug(route.Name)
+			}
 			// Apply route rate limit
 			if route.RateLimit > 0 {
 				rateLimit := middleware.RateLimit{
-					Id:         string(rune(rIndex)), // Use route index as ID
+					Id:         id, // Use route index as ID
 					Requests:   route.RateLimit,
 					Window:     time.Minute, //  requests per minute
 					Origins:    route.Cors.Origins,
