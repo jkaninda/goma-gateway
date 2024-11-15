@@ -53,6 +53,7 @@ func (health Health) Check() error {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
+			logger.Debug("Error performing HealthCheck request: %v ", err)
 		}
 	}(healthResp.Body)
 	if len(health.HealthyStatuses) > 0 {

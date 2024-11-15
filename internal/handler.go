@@ -61,7 +61,6 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	if err != nil {
 		return
 	}
-	return
 }
 
 // HealthCheckHandler handles health check of routes
@@ -77,8 +76,9 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 			if err != nil {
 				if heathRoute.DisableRouteHealthCheckError {
 					routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "unhealthy", Error: "Route healthcheck errors disabled"})
+				} else {
+					routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "unhealthy", Error: "Error: " + err.Error()})
 				}
-				routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "unhealthy", Error: "Error: " + err.Error()})
 			} else {
 				logger.Debug("Route %s is healthy", health.Name)
 				routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "healthy", Error: ""})

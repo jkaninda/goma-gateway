@@ -26,11 +26,6 @@ import (
 	"github.com/jkaninda/goma-gateway/util"
 )
 
-type Logger struct {
-	msg  string
-	args interface{}
-}
-
 // Info returns info log
 func Info(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))

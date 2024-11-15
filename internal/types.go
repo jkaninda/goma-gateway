@@ -19,13 +19,9 @@ package pkg
 
 import (
 	"context"
-	"github.com/gorilla/mux"
 	"time"
 )
 
-type Config struct {
-	file string
-}
 type BasicRuleMiddleware struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
@@ -122,24 +118,16 @@ type GatewayServer struct {
 	middlewares []Middleware
 }
 type ProxyRoute struct {
-	path               string
-	rewrite            string
-	destination        string
-	backends           []string
-	healthCheck        RouteHealthCheck
+	path        string
+	rewrite     string
+	destination string
+	backends    []string
+	//healthCheck        RouteHealthCheck
 	methods            []string
 	cors               Cors
 	disableHostFording bool
 	insecureSkipVerify bool
 }
-type RoutePath struct {
-	route       Route
-	path        string
-	rules       []string
-	middlewares []Middleware
-	router      *mux.Router
-}
-
 type HealthCheckRoute struct {
 	DisableRouteHealthCheckError bool
 	Routes                       []Route
