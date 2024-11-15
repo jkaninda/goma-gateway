@@ -76,7 +76,7 @@ gateway:
           Access-Control-Max-Age: 1728000
       ##### Apply middlewares to the route
       ## The name must be unique
-      ## List of middlewares name
+      ## List of middleware name
       middlewares:
         - api-forbidden-paths
     # Example of a route | 2
@@ -103,7 +103,7 @@ gateway:
         - api-forbidden-paths
         - basic-auth
 #Defines proxy middlewares
-# middlewares name must be unique
+# middleware name must be unique
 middlewares:
   # Enable Basic auth authorization based
   - name: basic-auth
