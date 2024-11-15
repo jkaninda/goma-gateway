@@ -30,8 +30,6 @@ import (
 	"os"
 )
 
-var cfg *Gateway
-
 // Config reads config file and returns Gateway
 func (GatewayServer) Config(configFile string) (*GatewayServer, error) {
 	if util.FileExists(configFile) {

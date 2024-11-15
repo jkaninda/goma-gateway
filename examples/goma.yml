@@ -87,6 +87,7 @@ gateway:
       backends:
         - https://example.com
         - https://example2.com
+      insecureSkipVerify: true
       methods:
         - GET
       # Route healthcheck

@@ -79,7 +79,7 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 		defer func(Body io.ReadCloser) {
 			err := Body.Close()
 			if err != nil {
-
+				logger.Error("Error closing body: %v", err)
 			}
 		}(authResp.Body)
 		// Inject specific header tp the current request's header

@@ -19,11 +19,7 @@ func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error)
 
 func doesExist(tyName string) bool {
 	middlewareList := []string{BasicAuth, JWTAuth, AccessMiddleware}
-	if slices.Contains(middlewareList, tyName) {
-		return true
-
-	}
-	return false
+	return slices.Contains(middlewareList, tyName)
 }
 func GetMiddleware(rule string, middlewares []Middleware) (Middleware, error) {
 	for _, m := range middlewares {

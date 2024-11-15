@@ -19,35 +19,12 @@ package pkg
 
 import (
 	"context"
-	"github.com/gorilla/mux"
 	"time"
 )
 
-type Config struct {
-	file string
-}
 type BasicRuleMiddleware struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
-}
-
-type Cors struct {
-	// Cors Allowed origins,
-	//e.g:
-	//
-	// - http://localhost:80
-	//
-	// - https://example.com
-	Origins []string `yaml:"origins"`
-	//
-	//e.g:
-	//
-	//Access-Control-Allow-Origin: '*'
-	//
-	//    Access-Control-Allow-Methods: 'GET, POST, PUT, DELETE, OPTIONS'
-	//
-	//    Access-Control-Allow-Cors: 'Content-Type, Authorization'
-	Headers map[string]string `yaml:"headers"`
 }
 
 // JWTRuleMiddleware authentication using HTTP GET method
@@ -114,101 +91,6 @@ type AccessRuleMiddleware struct {
 	ResponseCode int `yaml:"responseCode"` // HTTP Response code
 }
 
-// Middleware defined the route middleware
-type Middleware struct {
-	//Path contains the name of middleware and must be unique
-	Name string `yaml:"name"`
-	// Type contains authentication types
-	//
-	// basic, jwt, auth0, rateLimit, access
-	Type  string   `yaml:"type"`  // Middleware type [basic, jwt, auth0, rateLimit, access]
-	Paths []string `yaml:"paths"` // Protected paths
-	// Rule contains rule type of
-	Rule interface{} `yaml:"rule"` // Middleware rule
-}
-type MiddlewareName struct {
-	name string `yaml:"name"`
-}
-
-// Route defines gateway route
-type Route struct {
-	// Path defines route path
-	Path string `yaml:"path"`
-	// Name defines route name
-	Name string `yaml:"name"`
-	//Host Domain/host based request routing
-	//Host  string   `yaml:"host"`
-	//Hosts Domains/hosts based request routing
-	Hosts []string `yaml:"hosts"`
-	// Rewrite rewrites route path to desired path
-	//
-	// E.g. /cart to / => It will rewrite /cart path to /
-	Rewrite string `yaml:"rewrite"`
-	//
-	// Methods allowed method
-	Methods []string `yaml:"methods"`
-	// Destination Defines backend URL
-	Destination        string   `yaml:"destination"`
-	Backends           []string `yaml:"backends"`
-	InsecureSkipVerify bool     `yaml:"insecureSkipVerify"`
-	// HealthCheck Defines the backend is health
-	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
-	// Cors contains the route cors headers
-	Cors      Cors `yaml:"cors"`
-	RateLimit int  `yaml:"rateLimit"`
-	// DisableHostFording Disable X-forwarded header.
-	//
-	// [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
-	//
-	// It will not match the backend route
-	DisableHostFording bool `yaml:"disableHostFording"`
-	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors []int `yaml:"interceptErrors"`
-	// BlockCommonExploits enable, disable block common exploits
-	BlockCommonExploits bool `yaml:"blockCommonExploits"`
-	// Middlewares Defines route middleware from Middleware names
-	Middlewares []string `yaml:"middlewares"`
-}
-
-// Gateway contains Goma Proxy Gateway's configs
-type Gateway struct {
-	// SSLCertFile  SSL Certificate file
-	SSLCertFile string `yaml:"sslCertFile" env:"GOMA_SSL_CERT_FILE, overwrite"`
-	// SSLKeyFile SSL Private key  file
-	SSLKeyFile string `yaml:"sslKeyFile" env:"GOMA_SSL_KEY_FILE, overwrite"`
-	// Redis contains redis database details
-	Redis Redis `yaml:"redis"`
-	// WriteTimeout defines proxy write timeout
-	WriteTimeout int `yaml:"writeTimeout" env:"GOMA_WRITE_TIMEOUT, overwrite"`
-	// ReadTimeout defines proxy read timeout
-	ReadTimeout int `yaml:"readTimeout" env:"GOMA_READ_TIMEOUT, overwrite"`
-	// IdleTimeout defines proxy idle timeout
-	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
-	// RateLimit Defines the number of request peer minutes
-	RateLimit int `yaml:"rateLimit" env:"GOMA_RATE_LIMIT, overwrite"`
-	// BlockCommonExploits enable, disable block common exploits
-	BlockCommonExploits bool   `yaml:"blockCommonExploits"`
-	AccessLog           string `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
-	ErrorLog            string `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
-	LogLevel            string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
-	// DisableHealthCheckStatus enable and disable routes health check
-	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus"`
-	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors
-	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError"`
-	//Disable allows enabling and disabling displaying routes on start
-	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart"`
-	// DisableKeepAlive allows enabling and disabling KeepALive server
-	DisableKeepAlive bool `yaml:"disableKeepAlive"`
-	EnableMetrics    bool `yaml:"enableMetrics"`
-	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors []int `yaml:"interceptErrors"`
-	// Cors holds proxy global cors
-	Cors Cors `yaml:"cors"`
-
-	// Routes holds proxy routes
-	Routes []Route `yaml:"routes"`
-}
-
 type RouteHealthCheck struct {
 	Path            string `yaml:"path"`
 	Interval        string `yaml:"interval"`
@@ -236,24 +118,16 @@ type GatewayServer struct {
 	middlewares []Middleware
 }
 type ProxyRoute struct {
-	path               string
-	rewrite            string
-	destination        string
-	backends           []string
-	healthCheck        RouteHealthCheck
+	path        string
+	rewrite     string
+	destination string
+	backends    []string
+	//healthCheck        RouteHealthCheck
 	methods            []string
 	cors               Cors
 	disableHostFording bool
 	insecureSkipVerify bool
 }
-type RoutePath struct {
-	route       Route
-	path        string
-	rules       []string
-	middlewares []Middleware
-	router      *mux.Router
-}
-
 type HealthCheckRoute struct {
 	DisableRouteHealthCheckError bool
 	Routes                       []Route
@@ -282,11 +156,12 @@ type JWTSecret struct {
 
 // Health represents the health check content for a route
 type Health struct {
-	Name            string
-	URL             string
-	TimeOut         time.Duration
-	Interval        string
-	HealthyStatuses []int
+	Name               string
+	URL                string
+	TimeOut            time.Duration
+	Interval           string
+	HealthyStatuses    []int
+	InsecureSkipVerify bool
 }
 type Redis struct {
 	// Addr redis hostname and port number :

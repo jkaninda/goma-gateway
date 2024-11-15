@@ -24,11 +24,11 @@ func TestCheckConfig(t *testing.T) {
 	TestInit(t)
 	err := initConfig(configFile)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal("Error init config:", err)
 	}
 	err = CheckConfig(configFile)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("Error checking config: %s", err.Error())
 	}
 	log.Println("Goma Gateway configuration file checked successfully")
 }
@@ -37,7 +37,7 @@ func TestStart(t *testing.T) {
 	TestInit(t)
 	err := initConfig(configFile)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("Error initializing config: %s", err.Error())
 	}
 	g := GatewayServer{}
 	gatewayServer, err := g.Config(configFile)

@@ -118,20 +118,22 @@ func healthCheckRoutes(routes []Route) []Health {
 			if len(route.Backends) > 0 {
 				for index, backend := range route.Backends {
 					health := Health{
-						Name:            fmt.Sprintf("%s - [%d]", route.Name, index),
-						URL:             backend + route.HealthCheck.Path,
-						TimeOut:         timeout,
-						HealthyStatuses: route.HealthCheck.HealthyStatuses,
+						Name:               fmt.Sprintf("%s - [%d]", route.Name, index),
+						URL:                backend + route.HealthCheck.Path,
+						TimeOut:            timeout,
+						HealthyStatuses:    route.HealthCheck.HealthyStatuses,
+						InsecureSkipVerify: route.InsecureSkipVerify,
 					}
 					healthRoutes = append(healthRoutes, health)
 				}
 
 			} else {
 				health := Health{
-					Name:            route.Name,
-					URL:             route.Destination + route.HealthCheck.Path,
-					TimeOut:         timeout,
-					HealthyStatuses: route.HealthCheck.HealthyStatuses,
+					Name:               route.Name,
+					URL:                route.Destination + route.HealthCheck.Path,
+					TimeOut:            timeout,
+					HealthyStatuses:    route.HealthCheck.HealthyStatuses,
+					InsecureSkipVerify: route.InsecureSkipVerify,
 				}
 				healthRoutes = append(healthRoutes, health)
 			}

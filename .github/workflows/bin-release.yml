@@ -1,4 +1,4 @@
-# .github/workflows/release.yaml
+name: Bin release
 on:
   release:
     types: [created]
