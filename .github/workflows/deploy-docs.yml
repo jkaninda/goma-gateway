@@ -2,7 +2,8 @@ name: Deploy Documenation site to GitHub Pages
 
 on:
   push:
-    branches: ['main']
+    tags:
+      - v0.**
     paths:
       - 'docs/**'
       - '.github/workflows/deploy-docs.yml'
