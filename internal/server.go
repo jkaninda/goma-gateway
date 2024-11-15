@@ -56,7 +56,7 @@ func (gatewayServer GatewayServer) Start(ctx context.Context) error {
 	}
 
 	// Handle graceful shutdown
-	return gatewayServer.gracefulShutdown(ctx, httpServer, httpsServer, listenWithTLS)
+	return gatewayServer.shutdown(ctx, httpServer, httpsServer, listenWithTLS)
 }
 
 func (gatewayServer GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
@@ -90,7 +90,7 @@ func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Se
 	return nil
 }
 
-func (gatewayServer GatewayServer) gracefulShutdown(ctx context.Context, httpServer, httpsServer *http.Server, listenWithTLS bool) error {
+func (gatewayServer GatewayServer) shutdown(ctx context.Context, httpServer, httpsServer *http.Server, listenWithTLS bool) error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
