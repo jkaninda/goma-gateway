@@ -64,7 +64,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		logger.Info("Block common exploits enabled")
 		r.Use(middlewares.BlockExploitsMiddleware)
 	}
-	if gateway.RateLimit > 0 {
+	if gateway.RateLimit != 0 {
 		// Add rate limit middlewares to all routes, if defined
 		rateLimit := middlewares.RateLimit{
 			Id:         "global_rate", //Generate a unique ID for routes
@@ -242,7 +242,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				id = util.Slug(route.Name)
 			}
 			// Apply route rate limit
-			if route.RateLimit > 0 {
+			if route.RateLimit != 0 {
 				rateLimit := middlewares.RateLimit{
 					Id:         id, // Use route index as ID
 					Requests:   route.RateLimit,

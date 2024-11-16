@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/util"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -80,12 +81,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		// Create proxy
 		proxy := httputil.NewSingleHostReverseProxy(backendURL)
 		// Rewrite
-		if proxyRoute.path != "" && proxyRoute.rewrite != "" {
-			// Rewrite the path
-			if strings.HasPrefix(r.URL.Path, fmt.Sprintf("%s/", proxyRoute.path)) {
-				r.URL.Path = strings.Replace(r.URL.Path, fmt.Sprintf("%s/", proxyRoute.path), proxyRoute.rewrite, 1)
-			}
-		}
+		rewritePath(r, proxyRoute)
 		// Custom transport with InsecureSkipVerify
 		proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: proxyRoute.insecureSkipVerify,
@@ -104,4 +100,14 @@ func getNextBackend(backendURLs []string) *url.URL {
 	idx := atomic.AddUint32(&counter, 1) % uint32(len(backendURLs))
 	backendURL, _ := url.Parse(backendURLs[idx])
 	return backendURL
+}
+
+// rewritePath rewrites the path if it matches the prefix
+func rewritePath(r *http.Request, proxyRoute ProxyRoute) {
+	if proxyRoute.path != "" && proxyRoute.rewrite != "" {
+		// Rewrite the path if it matches the prefix
+		if strings.HasPrefix(r.URL.Path, fmt.Sprintf("%s/", proxyRoute.path)) {
+			r.URL.Path = util.ParseURLPath(strings.Replace(r.URL.Path, fmt.Sprintf("%s/", proxyRoute.path), proxyRoute.rewrite, 1))
+		}
+	}
 }
