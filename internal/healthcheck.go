@@ -98,7 +98,7 @@ func (health Health) createHealthCheckJob() error {
 	_, err := c.AddFunc(expression, func() {
 		err := health.Check()
 		if err != nil {
-			logger.Error("Route %s is unhealthy: error %v", health.Name, err.Error())
+			logger.Error("Route %s is unhealthy: %v", health.Name, err.Error())
 			return
 		}
 		logger.Info("Route %s is healthy", health.Name)
