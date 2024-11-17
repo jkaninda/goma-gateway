@@ -15,17 +15,6 @@
  *
  */
 
-package pkg
+package logger
 
-// Middleware defined the route middlewares
-type Middleware struct {
-	// Path contains the name of middlewares and must be unique
-	Name string `yaml:"name"`
-	// Type contains authentication types
-	//
-	// basic, jwt, auth0, rateLimit, access
-	Type  string   `yaml:"type"`  // Middleware type [basic, jwt, auth0, rateLimit, access]
-	Paths []string `yaml:"paths"` // Protected paths
-	// Rule contains rule type of
-	Rule interface{} `yaml:"rule"` // Middleware rule
-}
+const traceLog = "trace"

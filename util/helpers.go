@@ -10,13 +10,14 @@ You may get a copy of the License at
     http://www.apache.org/licenses/LICENSE-2.0
 */
 import (
-	"github.com/robfig/cron/v3"
 	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/robfig/cron/v3"
 )
 
 // FileExists checks if the file does exist
@@ -87,7 +88,7 @@ func MergeSlices(slice1, slice2 []string) []string {
 	return append(slice1, slice2...)
 }
 
-// ParseURLPath returns a URL path
+// ParseURLPath removes duplicated [//]
 func ParseURLPath(urlPath string) string {
 	// Replace any double slashes with a single slash
 	urlPath = strings.ReplaceAll(urlPath, "//", "/")
@@ -148,7 +149,7 @@ func Slug(text string) string {
 	text = strings.ToLower(text)
 
 	// Replace spaces and special characters with hyphens
-	re := regexp.MustCompile(`[^\w]+`)
+	re := regexp.MustCompile(`\W+`)
 	text = re.ReplaceAllString(text, "-")
 
 	// Remove leading and trailing hyphens

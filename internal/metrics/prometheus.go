@@ -15,22 +15,23 @@
  *
  */
 
-package pkg
+package metrics
 
 import (
+	"net/http"
+	"strconv"
+
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"net/http"
-	"strconv"
 )
 
 type PrometheusRoute struct {
-	name string
-	path string
+	Name string
+	Path string
 }
 
-var totalRequests = prometheus.NewCounterVec(
+var TotalRequests = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Name: "http_requests_total",
 		Help: "Number of get requests.",
@@ -38,7 +39,7 @@ var totalRequests = prometheus.NewCounterVec(
 	[]string{"name", "path"},
 )
 
-var responseStatus = prometheus.NewCounterVec(
+var ResponseStatus = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Name: "response_status",
 		Help: "Status of HTTP response",
@@ -46,22 +47,22 @@ var responseStatus = prometheus.NewCounterVec(
 	[]string{"status"},
 )
 
-var httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+var HttpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name: "http_response_time_seconds",
 	Help: "Duration of HTTP requests.",
 }, []string{"name", "path"})
 
-func (pr PrometheusRoute) prometheusMiddleware(next http.Handler) http.Handler {
+func (pr PrometheusRoute) PrometheusMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := pr.path
+		path := pr.Path
 		if len(path) == 0 {
 			route := mux.CurrentRoute(r)
 			path, _ = route.GetPathTemplate()
 		}
-		timer := prometheus.NewTimer(httpDuration.WithLabelValues(pr.name, path))
+		timer := prometheus.NewTimer(HttpDuration.WithLabelValues(pr.Name, path))
 
-		responseStatus.WithLabelValues(strconv.Itoa(http.StatusOK)).Inc()
-		totalRequests.WithLabelValues(pr.name, path).Inc()
+		ResponseStatus.WithLabelValues(strconv.Itoa(http.StatusOK)).Inc()
+		TotalRequests.WithLabelValues(pr.Name, path).Inc()
 
 		timer.ObserveDuration()
 		next.ServeHTTP(w, r)

@@ -42,7 +42,7 @@ type Gateway struct {
 	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus"`
 	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors
 	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError"`
-	//Disable allows enabling and disabling displaying routes on start
+	// Disable allows enabling and disabling displaying routes on start
 	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart"`
 	// DisableKeepAlive allows enabling and disabling KeepALive server
 	DisableKeepAlive bool `yaml:"disableKeepAlive"`

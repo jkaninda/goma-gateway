@@ -29,8 +29,6 @@ func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !rl.Allow() {
 				logger.Error("Too many requests from IP: %s %s %s", getRealIP(r), r.URL, r.UserAgent())
-				//RespondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), basicAuth.ErrorInterceptor)
-
 				// Rate limit exceeded, return a 429 Too Many Requests response
 				w.WriteHeader(http.StatusTooManyRequests)
 				_, err := w.Write([]byte(fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusTooManyRequests)))
@@ -75,7 +73,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 
 				if client.RequestCount > rl.requests {
 					logger.Error("Too many requests from IP: %s %s %s", clientIP, r.URL, r.UserAgent())
-					//Update Origin Cors Headers
+					// Update Origin Cors Headers
 					if allowedOrigin(rl.origins, r.Header.Get("Origin")) {
 						w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 					}

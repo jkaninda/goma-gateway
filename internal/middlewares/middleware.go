@@ -33,7 +33,7 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			if r.Header.Get(header) == "" {
 				logger.Error("Proxy error, missing %s header", header)
 				w.Header().Set("Content-Type", "application/json")
-				//check allowed origin
+				// check allowed origin
 				if allowedOrigin(jwtAuth.Origins, r.Header.Get("Origin")) {
 					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 				}
@@ -42,7 +42,6 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 
 			}
 		}
-		//token := r.Header.Get("Authorization")
 		authURL, err := url.Parse(jwtAuth.AuthURL)
 		if err != nil {
 			logger.Error("Error parsing auth URL: %v", err)

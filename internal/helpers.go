@@ -19,6 +19,7 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
+	"io"
 	"net/http"
 	"time"
 )
@@ -72,7 +73,12 @@ func (oauth *OauthRulerMiddleware) getUserInfo(token *oauth2.Token) (UserInfo, e
 	if err != nil {
 		return UserInfo{}, err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			return
+		}
+	}(resp.Body)
 
 	// Parse the user info
 	var userInfo UserInfo

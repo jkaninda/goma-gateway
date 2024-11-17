@@ -47,7 +47,7 @@ type JWTRuleMiddleware struct {
 	//
 	// In case you want to get headers from Authentication service and inject them to next request's params.
 	//
-	//e.g: Header X-Auth-UserId to query userId
+	// e.g: Header X-Auth-UserId to query userId
 	Params map[string]string `yaml:"params"`
 }
 type OauthRulerMiddleware struct {
@@ -66,7 +66,7 @@ type OauthRulerMiddleware struct {
 	RedirectURL string `yaml:"redirectUrl"`
 	// RedirectPath is the PATH to redirect users after authentication, e.g: /my-protected-path/dashboard
 	RedirectPath string `yaml:"redirectPath"`
-	//CookiePath e.g: /my-protected-path or / || by default is applied on a route path
+	// CookiePath e.g: /my-protected-path or / || by default is applied on a route path
 	CookiePath string `yaml:"cookiePath"`
 
 	// Scope specifies optional requested permissions.
@@ -119,11 +119,10 @@ type GatewayServer struct {
 	middlewares []Middleware
 }
 type ProxyRoute struct {
-	path        string
-	rewrite     string
-	destination string
-	backends    []string
-	//healthCheck        RouteHealthCheck
+	path               string
+	rewrite            string
+	destination        string
+	backends           []string
 	methods            []string
 	cors               Cors
 	disableHostFording bool

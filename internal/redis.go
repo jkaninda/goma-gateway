@@ -22,13 +22,12 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 )
 
-func (gatewayServer GatewayServer) initRedis() error {
-	if gatewayServer.gateway.Redis.Addr == "" {
-		return nil
+func (gatewayServer GatewayServer) initRedis() {
+	if len(gatewayServer.gateway.Redis.Addr) != 0 {
+		logger.Info("Initializing Redis...")
+		middlewares.InitRedis(gatewayServer.gateway.Redis.Addr, gatewayServer.gateway.Redis.Password)
 	}
-	logger.Info("Initializing Redis...")
-	middlewares.InitRedis(gatewayServer.gateway.Redis.Addr, gatewayServer.gateway.Redis.Password)
-	return nil
+
 }
 
 func (gatewayServer GatewayServer) closeRedis() {
