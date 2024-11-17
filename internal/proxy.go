@@ -44,7 +44,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			}
 		}
 		// Set CORS headers from the cors config
-		//Update Cors Headers
+		// Update Cors Headers
 		for k, v := range proxyRoute.cors.Headers {
 			w.Header().Set(k, v)
 		}
@@ -87,7 +87,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			InsecureSkipVerify: proxyRoute.insecureSkipVerify,
 		},
 		}
-		w.Header().Set("Proxied-By", gatewayName) //Set Server name
+		w.Header().Set("Proxied-By", gatewayName) // Set Server name
 		w.Header().Del("Server")                  // Remove the Server header
 		// Custom error handler for proxy errors
 		proxy.ErrorHandler = ProxyErrorHandler

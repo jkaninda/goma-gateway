@@ -17,9 +17,10 @@ limitations under the License.
 */
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal"
-	"github.com/spf13/cobra"
 	"os"
+
+	pkg "github.com/jkaninda/goma-gateway/internal"
+	"github.com/spf13/cobra"
 )
 
 var InitConfigCmd = &cobra.Command{

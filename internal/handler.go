@@ -32,11 +32,11 @@ func CORSHandler(cors Cors) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Set CORS headers from the cors config
-			//Update Cors Headers
+			// Update Cors Headers
 			for k, v := range cors.Headers {
 				w.Header().Set(k, v)
 			}
-			//Update Origin Cors Headers
+			// Update Origin Cors Headers
 			if allowedOrigin(cors.Origins, r.Header.Get("Origin")) {
 				// Handle preflight requests (OPTIONS)
 				if r.Method == "OPTIONS" {
@@ -90,7 +90,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 	}
 	wg.Wait() // Wait for all requests to complete
 	response := HealthCheckResponse{
-		Status: "healthy", //Goma proxy
+		Status: "healthy", // Goma proxy
 		Routes: routes,    // Routes health check
 	}
 	w.Header().Set("Content-Type", "application/json")

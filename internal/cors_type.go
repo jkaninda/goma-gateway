@@ -19,16 +19,16 @@ package pkg
 
 type Cors struct {
 	// Cors Allowed origins,
-	//e.g:
+	// e.g:
 	//
 	// - http://localhost:80
 	//
 	// - https://example.com
 	Origins []string `yaml:"origins"`
 	//
-	//e.g:
+	// e.g:
 	//
-	//Access-Control-Allow-Origin: '*'
+	// Access-Control-Allow-Origin: '*'
 	//
 	//    Access-Control-Allow-Methods: 'GET, POST, PUT, DELETE, OPTIONS'
 	//

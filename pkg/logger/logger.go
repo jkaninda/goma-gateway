@@ -55,7 +55,7 @@ func Fatal(msg string, args ...interface{}) {
 func Debug(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
 	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
-	if strings.ToLower(logLevel) == "trace" || strings.ToLower(logLevel) == "debug" {
+	if strings.ToLower(logLevel) == traceLog || strings.ToLower(logLevel) == "debug" {
 		logWithCaller("DEBUG", msg, args...)
 	}
 
@@ -63,7 +63,7 @@ func Debug(msg string, args ...interface{}) {
 func Trace(msg string, args ...interface{}) {
 	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
 	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
-	if strings.ToLower(logLevel) == "trace" {
+	if strings.ToLower(logLevel) == traceLog {
 		logWithCaller("DEBUG", msg, args...)
 	}
 
@@ -86,7 +86,7 @@ func logWithCaller(level, msg string, args ...interface{}) {
 	// Log message with caller information if GOMA_LOG_LEVEL is trace
 	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
 	if strings.ToLower(logLevel) != "off" {
-		if strings.ToLower(logLevel) == "trace" {
+		if strings.ToLower(logLevel) == traceLog {
 			log.Printf("%s: %s (File: %s, Line: %d)\n", level, formattedMessage, file, line)
 		} else {
 			log.Printf("%s: %s\n", level, formattedMessage)

@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"os"
@@ -33,9 +32,7 @@ func (gatewayServer GatewayServer) Start() error {
 	logger.Info("Initializing routes...")
 	route := gatewayServer.Initialize()
 	logger.Debug("Routes count=%d, Middlewares count=%d", len(gatewayServer.gateway.Routes), len(gatewayServer.middlewares))
-	if err := gatewayServer.initRedis(); err != nil {
-		return fmt.Errorf("failed to initialize Redis: %w", err)
-	}
+	gatewayServer.initRedis()
 	defer gatewayServer.closeRedis()
 
 	tlsConfig, listenWithTLS, err := gatewayServer.initTLS()
@@ -51,9 +48,7 @@ func (gatewayServer GatewayServer) Start() error {
 	httpsServer := gatewayServer.createServer(":8443", route, tlsConfig)
 
 	// Start HTTP/HTTPS servers
-	if err := gatewayServer.startServers(httpServer, httpsServer, listenWithTLS); err != nil {
-		return err
-	}
+	gatewayServer.startServers(httpServer, httpsServer, listenWithTLS)
 
 	// Handle graceful shutdown
 	return gatewayServer.shutdown(httpServer, httpsServer, listenWithTLS)
@@ -70,7 +65,7 @@ func (gatewayServer GatewayServer) createServer(addr string, handler http.Handle
 	}
 }
 
-func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Server, listenWithTLS bool) error {
+func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Server, listenWithTLS bool) {
 	go func() {
 		logger.Info("Starting HTTP server on 0.0.0.0:8080")
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -86,8 +81,6 @@ func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Se
 			}
 		}()
 	}
-
-	return nil
 }
 
 func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server, listenWithTLS bool) error {

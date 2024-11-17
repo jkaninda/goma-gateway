@@ -52,7 +52,7 @@ func CheckConfig(fileName string) error {
 		}
 	}
 
-	//Check middlewares
+	// Check middlewares
 	for index, mid := range c.Middlewares {
 		if util.HasWhitespace(mid.Name) {
 			fmt.Printf("Warning: Middleware contains whitespace: %s | index: [%d], please remove whitespace characters\n", mid.Name, index)

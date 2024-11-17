@@ -26,13 +26,12 @@ import (
 
 // RateLimiter defines requests limit properties.
 type RateLimiter struct {
-	requests  int
-	id        string
-	window    time.Duration
-	clientMap map[string]*Client
-	mu        sync.Mutex
-	origins   []string
-	//hosts      []string
+	requests   int
+	id         string
+	window     time.Duration
+	clientMap  map[string]*Client
+	mu         sync.Mutex
+	origins    []string
 	redisBased bool
 }
 

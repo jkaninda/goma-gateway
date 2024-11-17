@@ -23,9 +23,9 @@ type Route struct {
 	Path string `yaml:"path"`
 	// Name defines route name
 	Name string `yaml:"name"`
-	//Host Domain/host based request routing
-	//Host  string   `yaml:"host"`
-	//Hosts Domains/hosts based request routing
+	// Host Domain/host based request routing
+	// Host  string   `yaml:"host"`
+	// Hosts Domains/hosts based request routing
 	Hosts []string `yaml:"hosts"`
 	// Rewrite rewrites route path to desired path
 	//

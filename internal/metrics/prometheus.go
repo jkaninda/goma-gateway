@@ -18,11 +18,12 @@
 package metrics
 
 import (
+	"net/http"
+	"strconv"
+
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"net/http"
-	"strconv"
 )
 
 type PrometheusRoute struct {

@@ -19,9 +19,10 @@ package config
 
 import (
 	"fmt"
+	"os"
+
 	pkg "github.com/jkaninda/goma-gateway/internal"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 var CheckConfigCmd = &cobra.Command{
