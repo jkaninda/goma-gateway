@@ -163,7 +163,8 @@ func initConfig(configFile string) error {
 						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
 					},
-					Middlewares: []string{"block-access"},
+					DisableHostFording: true,
+					Middlewares:        []string{"block-access"},
 				},
 				{
 					Name: "Load balancer",
