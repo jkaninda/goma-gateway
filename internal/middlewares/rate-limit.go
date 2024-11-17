@@ -80,7 +80,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 					RespondWithError(w, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusTooManyRequests))
 				}
 			}
-			// Proceed to the next handler if requests limit is not exceeded
+			// Proceed to the next handler if the request limit is not exceeded
 			next.ServeHTTP(w, r)
 		})
 	}
