@@ -17,6 +17,7 @@ limitations under the License.
 */
 import (
 	"github.com/gorilla/mux"
+	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
@@ -26,9 +27,9 @@ import (
 )
 
 func init() {
-	_ = prometheus.Register(totalRequests)
-	_ = prometheus.Register(responseStatus)
-	_ = prometheus.Register(httpDuration)
+	_ = prometheus.Register(metrics.TotalRequests)
+	_ = prometheus.Register(metrics.ResponseStatus)
+	_ = prometheus.Register(metrics.HttpDuration)
 }
 
 // Initialize the routes
@@ -265,12 +266,12 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
 			}
 			if gateway.EnableMetrics {
-				pr := PrometheusRoute{
-					name: route.Name,
-					path: route.Path,
+				pr := metrics.PrometheusRoute{
+					Name: route.Name,
+					Path: route.Path,
 				}
 				// Prometheus endpoint
-				router.Use(pr.prometheusMiddleware)
+				router.Use(pr.PrometheusMiddleware)
 			}
 			// Apply route Error interceptor middlewares
 			if len(route.InterceptErrors) != 0 {
