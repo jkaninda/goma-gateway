@@ -32,32 +32,71 @@ Architecture:
 - [Github](https://github.com/jkaninda/goma-gateway)
 
 ### Documentation is found at <https://jkaninda.github.io/goma-gateway>
-### Features
 
-It's designed to be straightforward and efficient, offering features, like:
+## Features
 
-- RESTFull API Gateway management
-- Domain/host based request routing
-- Multi domain request routing
-- Reverse Proxy
-- Websocket Proxy
-- Cross-Origin Resource Sharing (CORS)
-- Custom Headers
-- Backend Errors interceptor
-- Logging
-- Metrics
-- Load Balancing, round-robin algorithm
-- Support TLS
-- Block common exploits middleware
-  - Patterns to detect SQL injection attempts
-  - Pattern to detect simple XSS attempts
-- Authentication middleware
-  - JWT `client authorization based on the result of a request`
-  - Basic-Auth
-  - OAuth 
-- Rate limiting, In-Memory client IP based
-- Limit HTTP methods allowed for a particular route.
-- Distributed rate limiting, client IP based using Redis
+It's designed to be straightforward and efficient, offering a rich set of features, including:
+
+### Core Features
+- **RESTful API Gateway Management**  
+  Simplify the management of your API Gateway with powerful tools.
+
+- **Domain/Host-Based Request Routing**  
+  Route requests based on specific domains or hosts.
+
+- **Multi-Domain Request Routing**  
+  Handle requests across multiple domains seamlessly.
+
+- **Reverse Proxy**  
+  Efficiently forward client requests to backend servers.
+
+- **WebSocket Proxy**  
+  Enable real-time communication via WebSocket support.
+
+### Security and Control
+- **Cross-Origin Resource Sharing (CORS)**  
+  Define and manage cross-origin policies for secure interactions.
+
+- **Custom Headers**  
+  Add and modify headers to meet specific requirements.
+
+- **Backend Errors Interceptor**  
+  Catch and handle backend errors effectively.
+
+- **Block Common Exploits Middleware**
+  - Detect patterns indicating SQL injection attempts.
+  - Identify basic cross-site scripting (XSS) attempts.
+
+- **Authentication Middleware**
+  - Support for **JWT** with client authorization based on request results.
+  - **Basic-Auth** and **OAuth** authentication mechanisms.
+
+### Monitoring and Performance
+- **Logging**  
+  Comprehensive request and response logging.
+
+- **Metrics**  
+  Gather insights and monitor performance metrics.
+
+- **Rate Limiting**
+  - **In-Memory Rate Limiting**: Client IP-based request throttling.
+  - **Distributed Rate Limiting**: Leverage Redis for scalable, client IP-based rate limits.
+
+- **Load Balancing**  
+  Use a round-robin algorithm for efficient load distribution.
+
+### Configuration and Flexibility
+- **Support for Multiple Route Configuration Files**  
+  Organize routes across multiple `.yml` or `.yaml` files.
+
+- **TLS Support**  
+  Ensure secure communication with TLS integration.
+
+- **HTTP Method Restrictions**  
+  Limit HTTP methods for specific routes to enhance control.
+
+Define your routes and middleware directly in code for seamless configuration.
+
 
 ### Todo:
   - [ ] Blocklist IP address middleware
