@@ -56,7 +56,7 @@ func CheckConfig(fileName string) error {
 		}
 	}
 	fmt.Println("Checking middlewares...done")
-	//Check additional routes
+	// Check additional routes
 	fmt.Println("Checking routes...")
 	// Load Extra Routes
 	if len(gateway.gateway.ExtraRoutes.Directory) != 0 {
@@ -90,7 +90,7 @@ func checkRoutes(routes []Route, middlewares []Middleware) {
 		if route.Destination == "" && len(route.Backends) == 0 {
 			fmt.Printf("Error: no destination or backends specified for route: %s | index: [%d] \n", route.Name, index)
 		}
-		//checking middleware applied to routes
+		// checking middleware applied to routes
 		for _, middleware := range route.Middlewares {
 			if !slices.Contains(midNames, middleware) {
 				fmt.Printf("Couldn't find a middleware with the name: %s | route: %s \n", middleware, route.Name)
@@ -107,9 +107,7 @@ func checkRoutes(routes []Route, middlewares []Middleware) {
 }
 
 func middlewareNames(middlewares []Middleware) []string {
-
-	var names []string
-
+	names := []string{}
 	for _, mid := range middlewares {
 		names = append(names, mid.Name)
 
