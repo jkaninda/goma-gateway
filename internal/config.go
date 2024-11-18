@@ -76,7 +76,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 
 	}
 	logger.Info("Generating new configuration file...")
-	// check if config directory does exist
+	// check if config Directory does exist
 	if !util.FolderExists(ConfigDir) {
 		err := os.MkdirAll(ConfigDir, os.ModePerm)
 		if err != nil {

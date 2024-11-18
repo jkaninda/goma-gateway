@@ -56,3 +56,8 @@ type Route struct {
 	// Middlewares Defines route middlewares from Middleware names
 	Middlewares []string `yaml:"middlewares"`
 }
+
+type ExtraRoute struct {
+	// Routes holds proxy routes
+	Routes []Route `yaml:"routes"`
+}

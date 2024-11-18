@@ -35,18 +35,27 @@ func init() {
 // Initialize initializes the routes
 func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	gateway := gatewayServer.gateway
+	dynamicRoutes = gateway.Routes
+	// Load Extra Routes
+	if len(gateway.ExtraRoutes.Directory) != 0 {
+		extraRoutes, err := loadExtraRoutes(gateway.ExtraRoutes.Directory)
+		if err != nil {
+			logger.Error(err.Error())
+		}
+		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
+	}
 	m := gatewayServer.middlewares
 	redisBased := false
 	if len(gateway.Redis.Addr) != 0 {
 		redisBased = true
 	}
 	// Routes background healthcheck
-	routesHealthCheck(gateway.Routes)
+	routesHealthCheck(dynamicRoutes)
 
 	r := mux.NewRouter()
 	heath := HealthCheckRoute{
 		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,
-		Routes:                       gateway.Routes,
+		Routes:                       dynamicRoutes,
 	}
 	if gateway.EnableMetrics {
 		// Prometheus endpoint
@@ -80,7 +89,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		// Add rate limit middlewares
 		r.Use(limiter.RateLimitMiddleware())
 	}
-	for rIndex, route := range gateway.Routes {
+	for rIndex, route := range dynamicRoutes {
 		if len(route.Path) != 0 {
 			// Checks if route destination and backend are empty
 			if len(route.Destination) == 0 && len(route.Backends) == 0 {
