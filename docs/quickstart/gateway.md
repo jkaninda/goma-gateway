@@ -64,11 +64,6 @@ gateway:
   accessLog: /dev/Stdout
   errorLog: /dev/stderr
   logLevel: info
-  ## Add additional routes
-  extraRoutes:
-    # path
-    directory: /etc/goma/extra
-    watch: true
   disableRouteHealthCheckError: false
   disableDisplayRouteOnStart: false
   disableKeepAlive: false
@@ -85,5 +80,10 @@ gateway:
       Access-Control-Allow-Credentials: "true"
       Access-Control-Allow-Headers: Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id
       Access-Control-Max-Age: "1728000"
+  ## Add additional routes
+  extraRoutes:
+    # path
+    directory: /etc/goma/extra
+    watch: true
   routes: []
 ```

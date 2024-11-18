@@ -34,11 +34,11 @@ type Gateway struct {
 	// RateLimit Defines the number of request peer minutes
 	RateLimit int `yaml:"rateLimit" env:"GOMA_RATE_LIMIT, overwrite"`
 	// BlockCommonExploits enable, disable block common exploits
-	BlockCommonExploits bool             `yaml:"blockCommonExploits"`
-	AccessLog           string           `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
-	ErrorLog            string           `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
-	LogLevel            string           `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
-	ExtraRoutes         ExtraRouteConfig `yaml:"extraRoutes"`
+	BlockCommonExploits bool   `yaml:"blockCommonExploits"`
+	AccessLog           string `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
+	ErrorLog            string `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
+	LogLevel            string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
+
 	// DisableHealthCheckStatus enable and disable routes health check
 	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus"`
 	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors
@@ -52,7 +52,8 @@ type Gateway struct {
 	InterceptErrors []int `yaml:"interceptErrors"`
 	// Cors holds proxy global cors
 	Cors Cors `yaml:"cors"`
-
+	// ExtraRoutes additional routes from defined directory
+	ExtraRoutes ExtraRouteConfig `yaml:"extraRoutes"`
 	// Routes holds proxy routes
 	Routes []Route `yaml:"routes"`
 }

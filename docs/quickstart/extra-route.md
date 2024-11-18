@@ -16,7 +16,23 @@ When dealing with many routes, maintaining them in one file can quickly become u
 
 Example of an extra route
 
-Create a file using `yaml` or `.yaml` extensions
+Defined an extra route path in `gateway` section as shown below.
+
+```yaml
+version: 1.0
+gateway:
+  ...
+  ## Add additional routes
+  extraRoutes:
+    # path
+    directory: /etc/goma/extra
+    watch: false
+  routes:
+    - path: /
+      name: example
+```
+
+Create a file in `/etc/goma/extra` using `yaml` or `.yaml` extension.
 
 ```yaml
  routes:
