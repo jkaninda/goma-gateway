@@ -40,7 +40,6 @@ func loadExtraFiles(routePath string) ([]string, error) {
 	})
 
 	if err != nil {
-		//log.Fatalf("error walking the path %v: %v", routePath, err)
 		return nil, fmt.Errorf("error loading extra route files: %v", err)
 	}
 	return yamlFiles, nil

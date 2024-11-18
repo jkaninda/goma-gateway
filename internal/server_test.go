@@ -10,6 +10,7 @@ import (
 )
 
 const testPath = "./tests"
+const extraRoutePath = "./tests/extra"
 
 var configFile = filepath.Join(testPath, "goma.yml")
 
@@ -18,11 +19,15 @@ func TestInit(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	err = os.MkdirAll(extraRoutePath, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 func TestCheckConfig(t *testing.T) {
 	TestInit(t)
-	err := initConfig(configFile)
+	err := initConfiguration(configFile)
 	if err != nil {
 		t.Fatal("Error init config:", err)
 	}
@@ -35,9 +40,14 @@ func TestCheckConfig(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	TestInit(t)
-	err := initConfig(configFile)
+	err := initConfiguration(configFile)
 	if err != nil {
 		t.Fatalf("Error initializing config: %s", err.Error())
+	}
+
+	err = initExtraRoute(extraRoutePath)
+	if err != nil {
+		t.Fatalf("Error creating extra routes file: %s", err.Error())
 	}
 	ctx := context.Background()
 	g := GatewayServer{}

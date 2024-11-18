@@ -40,15 +40,15 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	if len(gateway.ExtraRoutes.Directory) != 0 {
 		extraRoutes, err := loadExtraRoutes(gateway.ExtraRoutes.Directory)
 		if err != nil {
-			logger.Error(err.Error())
+			logger.Error("Error: %v", err.Error())
 		}
 		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
 	}
-	//find duplicated route name
+	// find duplicated route name
 	duplicates := findDuplicateRouteNames(dynamicRoutes)
 	if len(duplicates) != 0 {
 		for _, duplicate := range duplicates {
-			logger.Error("Duplicate route name found: %s ", duplicate)
+			logger.Error("Duplicated route named was found: %s ", duplicate)
 		}
 	}
 	m := gatewayServer.middlewares
