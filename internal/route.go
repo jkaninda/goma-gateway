@@ -48,7 +48,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	duplicates := findDuplicateRouteNames(dynamicRoutes)
 	if len(duplicates) != 0 {
 		for _, duplicate := range duplicates {
-			logger.Error("Duplicated route named was found: %s ", duplicate)
+			logger.Error("Duplicated route name was found: %s ", duplicate)
 		}
 	}
 	m := gatewayServer.middlewares
