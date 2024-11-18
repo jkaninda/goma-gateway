@@ -20,6 +20,11 @@ gateway:
   #redis:
     #addr: redis:6379
    # password: password
+  ## Add additional routes
+  extraRoutes:
+    # path
+      directory: /etc/goma/extra
+      watch: true
   ## Enable, disable routes health check
   disableHealthCheckStatus: false
   ## Returns backend route healthcheck errors
