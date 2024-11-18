@@ -168,3 +168,8 @@ type Redis struct {
 	Addr     string `yaml:"addr"`
 	Password string `yaml:"password"`
 }
+
+type ExtraRouteConfig struct {
+	Directory string `yaml:"directory"`
+	Watch     bool   `yaml:"watch"`
+}

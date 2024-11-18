@@ -41,7 +41,7 @@ func (gatewayServer GatewayServer) Start() error {
 	}
 
 	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
-		printRoute(gatewayServer.gateway.Routes)
+		printRoute(dynamicRoutes)
 	}
 
 	httpServer := gatewayServer.createServer(":8080", route, nil)
