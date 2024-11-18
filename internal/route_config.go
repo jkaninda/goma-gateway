@@ -53,3 +53,18 @@ func loadExtraRoutes(routePath string) ([]Route, error) {
 	}
 	return extraRoutes, nil
 }
+
+func findDuplicateRouteNames(routes []Route) []string {
+	// Create a map to track occurrences of names
+	nameMap := make(map[string]int)
+	var duplicates []string
+
+	for _, route := range routes {
+		nameMap[route.Name]++
+		// If the count is ==2, it's a duplicate
+		if nameMap[route.Name] == 2 {
+			duplicates = append(duplicates, route.Name)
+		}
+	}
+	return duplicates
+}

@@ -44,6 +44,13 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		}
 		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
 	}
+	//find duplicated route name
+	duplicates := findDuplicateRouteNames(dynamicRoutes)
+	if len(duplicates) != 0 {
+		for _, duplicate := range duplicates {
+			logger.Error("Duplicate route name found: %s ", duplicate)
+		}
+	}
 	m := gatewayServer.middlewares
 	redisBased := false
 	if len(gateway.Redis.Addr) != 0 {
