@@ -49,6 +49,10 @@ func TestStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating extra routes file: %s", err.Error())
 	}
+	err = CheckConfig(configFile)
+	if err != nil {
+		t.Fatalf("Error checking config: %s", err.Error())
+	}
 	ctx := context.Background()
 	g := GatewayServer{}
 	gatewayServer, err := g.Config(configFile, ctx)
