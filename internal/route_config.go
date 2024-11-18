@@ -19,14 +19,12 @@ package pkg
 
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"gopkg.in/yaml.v3"
 	"os"
 )
 
 // loadExtraRoutes loads additional routes
 func loadExtraRoutes(routePath string) ([]Route, error) {
-	logger.Info("Loading additional routes from %s", routePath)
 	yamlFiles, err := loadExtraFiles(routePath)
 	if err != nil {
 		return nil, fmt.Errorf("error loading extra files: %v", err)
@@ -43,12 +41,6 @@ func loadExtraRoutes(routePath string) ([]Route, error) {
 			return nil, fmt.Errorf("in file %q: %w", ConfigFile, err)
 		}
 		extraRoutes = append(extraRoutes, ex.Routes...)
-
-	}
-	if len(extraRoutes) == 0 {
-		return nil, fmt.Errorf("no extra routes found in %s", routePath)
-	} else {
-		logger.Info("Loaded %d extra routes from %s", len(extraRoutes), routePath)
 
 	}
 	return extraRoutes, nil
