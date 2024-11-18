@@ -9,7 +9,7 @@
   \_____|\___/|_| |_| |_|\__,_|
                                
 ```
-Goma Gateway is a lightweight API Gateway Management.
+Goma Gateway is a lightweight High-Performance API Gateway Management.
 
 [![Build](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml/badge.svg)](https://github.com/jkaninda/goma-gateway/actions/workflows/release.yml)
 [![Test](https://github.com/jkaninda/goma-gateway/actions/workflows/test.yml/badge.svg)](https://github.com/jkaninda/goma-gateway/actions/workflows/test.yml)
