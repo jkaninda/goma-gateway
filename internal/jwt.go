@@ -15,33 +15,30 @@
  *
  */
 
-package middlewares
+package pkg
 
 import (
-	"context"
-	"errors"
-	"github.com/go-redis/redis_rate/v10"
-	"github.com/redis/go-redis/v9"
+	"github.com/golang-jwt/jwt"
+	"time"
 )
 
-// redisRateLimiter, handle rateLimit
-func redisRateLimiter(clientIP string, rate int) error {
-	ctx := context.Background()
+// createJWT create JWT token
+func createJWT(email, jwtSecret string) (string, error) {
+	// Define JWT claims
+	claims := jwt.MapClaims{
+		"email": email,
+		"exp":   jwt.TimeFunc().Add(time.Hour * 24).Unix(), // Token expiration
+		"iss":   "Goma-Gateway",                            // Issuer claim
+	}
 
-	res, err := limiter.Allow(ctx, clientIP, redis_rate.PerMinute(rate))
+	// Create a new token with HS256 signing method
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Sign the token with a secret
+	signedToken, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
-		return err
-	}
-	if res.Remaining == 0 {
-		return errors.New("requests limit exceeded")
+		return "", err
 	}
 
-	return nil
-}
-func InitRedis(addr, password string) {
-	Rdb = redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-	})
-	limiter = redis_rate.NewLimiter(Rdb)
+	return signedToken, nil
 }

@@ -20,6 +20,7 @@ package pkg
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 )
 
 func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
@@ -33,4 +34,20 @@ func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
 		return nil, false, fmt.Errorf("failed to load TLS config: %w", err)
 	}
 	return tlsConfig, true, nil
+}
+
+// loadTLS loads TLS Certificate
+func loadTLS(cert, key string) (*tls.Config, error) {
+	if cert == "" && key == "" {
+		return nil, fmt.Errorf("no certificate or key file provided")
+	}
+	serverCert, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		logger.Error("Error loading server certificate: %v", err)
+		return nil, err
+	}
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+	}
+	return tlsConfig, nil
 }

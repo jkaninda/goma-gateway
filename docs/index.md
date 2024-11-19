@@ -101,10 +101,6 @@ docker pull ghcr.io/jkaninda/goma-gateway
 
 Documentation references Docker Hub, but all examples will work using ghcr.io just as well.
 
-## Supported Engines
-
-This image is developed and tested against the Docker CE engine exclusively.
-While it may work against different implementations, there are no guarantees about support for non-Docker engines.
 
 ## References
 

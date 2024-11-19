@@ -31,6 +31,8 @@ gateway:
     - path: /
       name: example
 ```
+## Routes Configuration
+Below is an example of configuring routes for the Gateway, defining service paths, methods, backends, health checks, and other settings.
 
 Create a file in `/etc/goma/extra` using `yaml` or `.yaml` extension.
 
@@ -86,6 +88,7 @@ Create a file in `/etc/goma/extra` using `yaml` or `.yaml` extension.
        disableHostFording: true
        interceptErrors: [404,401]
        blockCommonExploits: false
+       ## List of middleware
        middlewares:
          - auth-middleware
 

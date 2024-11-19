@@ -71,6 +71,8 @@ func (health Health) Check() error {
 	}
 	return nil
 }
+
+// routesHealthCheck creates healthcheck job
 func routesHealthCheck(routes []Route) {
 	for _, health := range healthCheckRoutes(routes) {
 		go func() {
@@ -84,11 +86,14 @@ func routesHealthCheck(routes []Route) {
 
 	}
 }
+
+// createHealthCheckJob create healthcheck job
 func (health Health) createHealthCheckJob() error {
 	interval := "30s"
 	if len(health.Interval) > 0 {
 		interval = health.Interval
 	}
+	// create cron expression
 	expression := fmt.Sprintf("@every %s", interval)
 	if !util.IsValidCronExpression(expression) {
 		logger.Error("Health check interval is invalid: %s", interval)
@@ -112,4 +117,46 @@ func (health Health) createHealthCheckJob() error {
 	c.Start()
 	defer c.Stop()
 	select {}
+}
+
+// healthCheckRoutes creates and returns []Health
+func healthCheckRoutes(routes []Route) []Health {
+	var healthRoutes []Health
+	for _, route := range routes {
+		if len(route.HealthCheck.Path) != 0 {
+			timeout, _ := util.ParseDuration("")
+			if len(route.HealthCheck.Timeout) > 0 {
+				d1, err1 := util.ParseDuration(route.HealthCheck.Timeout)
+				if err1 != nil {
+					logger.Error("Health check timeout is invalid: %s", route.HealthCheck.Timeout)
+				}
+				timeout = d1
+			}
+			if len(route.Backends) != 0 {
+				for index, backend := range route.Backends {
+					health := Health{
+						Name:               fmt.Sprintf("%s - [%d]", route.Name, index),
+						URL:                backend + route.HealthCheck.Path,
+						TimeOut:            timeout,
+						HealthyStatuses:    route.HealthCheck.HealthyStatuses,
+						InsecureSkipVerify: route.InsecureSkipVerify,
+					}
+					healthRoutes = append(healthRoutes, health)
+				}
+
+			} else {
+				health := Health{
+					Name:               route.Name,
+					URL:                route.Destination + route.HealthCheck.Path,
+					TimeOut:            timeout,
+					HealthyStatuses:    route.HealthCheck.HealthyStatuses,
+					InsecureSkipVerify: route.InsecureSkipVerify,
+				}
+				healthRoutes = append(healthRoutes, health)
+			}
+		} else {
+			logger.Debug("Route %s's healthCheck is undefined", route.Name)
+		}
+	}
+	return healthRoutes
 }

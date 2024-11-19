@@ -9,7 +9,7 @@ nav_order: 4
 ### JWT middleware
 
 As BasicAuth, JWT middleware grants also access to route to authorized users only.
-It implements client authorization based on the result of a request.
+It implements client authorization based on the result of a request using JSON Web Tokens.
 
 If the request returns a 200 response code, access is allowed.
 If it returns 401 or 403, the access is denied with the corresponding error code. Any other response code returned by the request is considered an error.

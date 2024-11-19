@@ -26,6 +26,7 @@ import (
 	"time"
 )
 
+// init initializes prometheus metrics
 func init() {
 	_ = prometheus.Register(metrics.TotalRequests)
 	_ = prometheus.Register(metrics.ResponseStatus)
@@ -88,6 +89,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		logger.Info("Block common exploits enabled")
 		r.Use(middlewares.BlockExploitsMiddleware)
 	}
+	// check if RateLimit is set
 	if gateway.RateLimit != 0 {
 		// Add rate limit middlewares to all routes, if defined
 		rateLimit := middlewares.RateLimit{

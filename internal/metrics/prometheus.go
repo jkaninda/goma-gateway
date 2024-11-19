@@ -52,6 +52,7 @@ var HttpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Help: "Duration of HTTP requests.",
 }, []string{"name", "path"})
 
+// PrometheusMiddleware Prometheus http handler middleware, returns http.Handler
 func (pr PrometheusRoute) PrometheusMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := pr.Path

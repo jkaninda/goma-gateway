@@ -23,6 +23,7 @@ import (
 	"slices"
 )
 
+// getRealIP returns user real IP
 func getRealIP(r *http.Request) string {
 	if ip := r.Header.Get("X-Real-IP"); ip != "" {
 		return ip
