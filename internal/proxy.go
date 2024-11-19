@@ -74,7 +74,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			r.Host = targetURL.Host
 		}
 		backendURL, _ := url.Parse(proxyRoute.destination)
-		if len(proxyRoute.backends) > 0 {
+		if len(proxyRoute.backends) != 0 {
 			// Select the next backend URL
 			backendURL = getNextBackend(proxyRoute.backends)
 		}
@@ -87,8 +87,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			InsecureSkipVerify: proxyRoute.insecureSkipVerify,
 		},
 		}
-		w.Header().Set("Proxied-By", gatewayName) // Set Server name
-		w.Header().Del("Server")                  // Remove the Server header
+		w.Header().Set("Proxied-By", gatewayName)
 		// Custom error handler for proxy errors
 		proxy.ErrorHandler = ProxyErrorHandler
 		proxy.ServeHTTP(w, r)
