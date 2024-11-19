@@ -43,7 +43,7 @@ func (health Health) Check() error {
 			InsecureSkipVerify: health.InsecureSkipVerify, // Skip SSL certificate verification
 		},
 	}
-	//Set user-agent
+	// Set user-agent
 	healthReq.Header.Set("User-Agent", fmt.Sprintf("Goma-Gateway/%s", util.Version))
 	// Perform the request to the route's healthcheck
 	client := &http.Client{Transport: transport, Timeout: health.TimeOut}
