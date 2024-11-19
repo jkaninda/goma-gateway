@@ -8,7 +8,9 @@ nav_order: 5
 
 # Healthcheck
 
-Goma comes with routes healthcheck, that can be enabled and disabled.
+The proxy includes built-in health check routes, which can be easily enabled or disabled based on your requirements.
+
+These routes allow you to monitor the health and availability of your services.
 
 ```yaml
 version: 1.0

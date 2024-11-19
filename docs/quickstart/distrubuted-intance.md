@@ -8,6 +8,10 @@ nav_order: 5
 
 # Distributed instances
 
+Goma Gateway includes built-in support for Redis-based rate limiting, enabling efficient and scalable deployments.
+
+By leveraging Redis, the Gateway ensures high-performance request throttling and distributed rate limiting across multiple instances, making it ideal for modern, cloud-native architectures.
+
 ```yaml
 version: "1.0"
 gateway:

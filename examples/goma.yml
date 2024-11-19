@@ -16,7 +16,6 @@ gateway:
   logLevel: info # debug, trace, off
   accessLog:    "/dev/Stdout"
   errorLog:     "/dev/stderr"
-  ## Redis connexion for distributed rate limiting, when using multiple instances | It's optional
   #redis:
     #addr: redis:6379
    # password: password

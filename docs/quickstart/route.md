@@ -10,6 +10,46 @@ nav_order: 2
 
 The Route allows you to match on HTTP traffic and direct it to the backend.
 
+
+## Configuration Options
+
+This section outlines the available configuration options for defining routes in the Gateway.
+
+### Route Configuration
+
+- **`path`** (`string`): The route path (e.g., `/api/v1/resource`).
+- **`name`** (`string`): A unique name for the route.
+- **`hosts`** (`list of strings`): A list of allowed hostnames for the route.
+- **`rewrite`** (`string`): Rewrites the incoming route path to a new path.
+- **`methods`** (`array of strings`): A list of allowed HTTP methods (e.g., `GET`, `POST`).
+- **`destination`** (`string`): The backend endpoint for the route.
+- **`backends`** (`list of strings`): A list of backend services for load balancing.
+- **`insecureSkipVerify`** (`boolean`): Disables backend TLS certificate verification.
+
+## Health Check Configuration
+
+- **`healthCheck`**:
+    - **`path`** (`string`): The health check path (e.g., `/health`).
+    - **`interval`** (`string`, default: `30s`): The interval between health checks.
+    - **`timeout`** (`string`, default: `10s`): The maximum time to wait for a health check response.
+    - **`healthyStatuses`** (`array of integers`): A list of HTTP status codes considered healthy.
+
+## CORS Configuration
+
+- **`cors`**:
+    - **`origins`** (`array of strings`): A list of allowed origins for Cross-Origin Resource Sharing (CORS).
+    - **`headers`** (`array of strings`): A list of custom headers to include in responses.
+
+## Additional Options
+
+- **`rateLimit`** (`integer`): The maximum number of requests allowed per minute.
+- **`disableHostFording`** (`boolean`): Disables proxy host forwarding for improved security.
+- **`interceptErrors`** (`array of integers`): A list of backend error status codes to intercept for custom handling.
+- **`blockCommonExploits`** (`boolean`): Enables or disables blocking of common exploits.
+- **`middlewares`** (`array of strings`): A list of middleware names applied to the route.
+
+---
+
 ### Simple route
 
 ```yaml
