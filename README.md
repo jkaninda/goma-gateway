@@ -1,4 +1,4 @@
-# Goma Gateway - simple lightweight API Gateway Management.
+# Goma Gateway - simple Lightweight High-Performance API Gateway Management.
 
 ```
    _____                       
@@ -97,9 +97,6 @@ It's designed to be straightforward and efficient, offering a rich set of featur
 
 Define your routes and middleware directly in code for seamless configuration.
 
-
-### Todo:
-  - [ ] Blocklist IP address middleware
 
 ----
 
