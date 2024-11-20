@@ -9,33 +9,32 @@ nav_order: 3
 # Basic Auth Middleware
 
 
-Access middleware prevents access to a route or specific route path.
+Basic-auth middleware protects route paths.
 
-Example of access middleware
+Example of basic-auth middleware
 
 ```yaml
-  # The server will return 403
-  - name: api-forbidden-paths
-    type: access
-    ## prevents access paths
+middlewares:
+  - name: basic-auth
+    type: basic
     paths:
-      - /swagger-ui/*
-      - /v2/swagger-ui/*
-      - /api-docs/*
-      - /internal/*
-      - /actuator/*
+      - /admin/*
+    rule:
+      username: admin
+      password: admin
+
 ```
-### Apply access middleware on the route
+### Apply basic-auth middleware to the route
 
 ```yaml
   routes:
-    - path: /protected
-      name: Basic auth
+    - path: /
+      name: Basic-auth
       rewrite: /
-      destination: 'https://example.com'
+      destination: https://example.com
       methods: [POST, PUT, GET]
-      healthCheck:
+      healthCheck: {}
       cors: {}
       middlewares:
-        - api-forbidden-paths
+        - basic-auth
 ```

@@ -90,8 +90,8 @@ Example of rateLimit middleware
 ```yaml
   ##### Define routes
   routes:
-    - name: Basic auth
-      path: /protected
+    - path: /protected
+      name: oauth-route
       rewrite: /
       destination: 'https://example.com'
       methods: [POST, PUT, GET]
