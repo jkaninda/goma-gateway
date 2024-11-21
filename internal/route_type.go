@@ -61,3 +61,7 @@ type ExtraRoute struct {
 	// Routes holds proxy routes
 	Routes []Route `yaml:"routes"`
 }
+type ExtraMiddleware struct {
+	// Routes holds proxy routes
+	Middlewares []Middleware `yaml:"middlewares"`
+}

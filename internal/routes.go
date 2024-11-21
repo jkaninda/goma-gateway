@@ -37,28 +37,41 @@ func init() {
 func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	gateway := gatewayServer.gateway
 	dynamicRoutes = gateway.Routes
+	dynamicMiddlewares = gatewayServer.middlewares
+	if len(gateway.ExtraRoutes.Directory) == 0 {
+		gateway.ExtraRoutes.Directory = ExtraDir
+	}
+	// Load Extra Middlewares
+	logger.Info("Loading additional configurations...")
+	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraRoutes.Directory)
+	if err == nil {
+		dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
+		logger.Info("Loaded %d additional middlewares", len(extraMiddlewares))
+
+	}
 	// Load Extra Routes
-	if len(gateway.ExtraRoutes.Directory) != 0 {
-		logger.Info("Loading additional routes from %s", gateway.ExtraRoutes.Directory)
-		extraRoutes, err := loadExtraRoutes(gateway.ExtraRoutes.Directory)
-		if err != nil {
-			logger.Error("Error: %v", err.Error())
-		}
-		if len(extraRoutes) == 0 {
-			logger.Info("no extra routes found in %s", gateway.ExtraRoutes.Directory)
-		} else {
-			dynamicRoutes = append(dynamicRoutes, extraRoutes...)
-			logger.Info("Loaded %d extra routes from %s", len(extraRoutes), gateway.ExtraRoutes.Directory)
+	extraRoutes, err := loadExtraRoutes(gateway.ExtraRoutes.Directory)
+	if err == nil {
+		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
+		logger.Info("Loaded %d additional routes", len(extraRoutes))
+
+	}
+
+	// find duplicated middleware name
+	duplicates := findDuplicateMiddlewareNames(dynamicMiddlewares)
+	if len(duplicates) != 0 {
+		for _, duplicate := range duplicates {
+			logger.Fatal("Duplicated middleware name: %s, the name of the middleware should be unique.", duplicate)
 		}
 	}
 	// find duplicated route name
-	duplicates := findDuplicateRouteNames(dynamicRoutes)
+	duplicates = findDuplicateRouteNames(dynamicRoutes)
 	if len(duplicates) != 0 {
 		for _, duplicate := range duplicates {
 			logger.Error("Duplicated route name was found: %s ", duplicate)
 		}
 	}
-	m := gatewayServer.middlewares
+	m := dynamicMiddlewares
 	redisBased := false
 	if len(gateway.Redis.Addr) != 0 {
 		redisBased = true

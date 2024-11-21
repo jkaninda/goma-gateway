@@ -43,6 +43,9 @@ func loadExtraRoutes(routePath string) ([]Route, error) {
 		extraRoutes = append(extraRoutes, ex.Routes...)
 
 	}
+	if len(extraRoutes) == 0 {
+		return nil, fmt.Errorf("no extra routes found")
+	}
 	return extraRoutes, nil
 }
 
