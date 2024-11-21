@@ -1,6 +1,7 @@
 package pkg
 
-const ConfigDir = "/etc/goma/"                                 // Default configuration file
+const ConfigDir = "/etc/goma/" // Default configuration file
+const ExtraDir = ConfigDir + "extra"
 const ConfigFile = "/etc/goma/goma.yml"                        // Default configuration file
 const accessControlAllowOrigin = "Access-Control-Allow-Origin" // Cors
 const gatewayName = "Goma Gateway"
@@ -12,5 +13,6 @@ var (
 	// Round-robin counter
 	counter uint32
 	// dynamicRoutes routes
-	dynamicRoutes []Route
+	dynamicRoutes      []Route
+	dynamicMiddlewares []Middleware
 )
