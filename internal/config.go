@@ -133,23 +133,9 @@ func initConfig(configFile string) error {
 	conf := &GatewayConfig{
 		Version: util.ConfigVersion,
 		GatewayConfig: Gateway{
-			WriteTimeout:                 15,
-			ReadTimeout:                  15,
-			IdleTimeout:                  30,
-			AccessLog:                    "/dev/Stdout",
-			ErrorLog:                     "/dev/stderr",
-			DisableRouteHealthCheckError: false,
-			DisableDisplayRouteOnStart:   false,
-			RateLimit:                    0,
-			InterceptErrors:              []int{405, 500},
-			Cors: Cors{
-				Origins: []string{"http://localhost:8080", "https://example.com"},
-				Headers: map[string]string{
-					"Access-Control-Allow-Headers":     "Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers",
-					"Access-Control-Allow-Credentials": "true",
-					"Access-Control-Max-Age":           "1728000",
-				},
-			},
+			WriteTimeout: 15,
+			ReadTimeout:  15,
+			IdleTimeout:  30,
 			Routes: []Route{
 				{
 					Name:        "Example",

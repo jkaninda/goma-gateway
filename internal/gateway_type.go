@@ -32,26 +32,26 @@ type Gateway struct {
 	// IdleTimeout defines proxy idle timeout
 	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
 	// RateLimit Defines the number of request peer minutes
-	RateLimit int `yaml:"rateLimit" env:"GOMA_RATE_LIMIT, overwrite"`
+	RateLimit int `yaml:"rateLimit,omitempty" env:"GOMA_RATE_LIMIT, overwrite"`
 	// BlockCommonExploits enable, disable block common exploits
-	BlockCommonExploits bool   `yaml:"blockCommonExploits"`
-	AccessLog           string `yaml:"accessLog" env:"GOMA_ACCESS_LOG, overwrite"`
-	ErrorLog            string `yaml:"errorLog" env:"GOMA_ERROR_LOG=, overwrite"`
+	BlockCommonExploits bool   `yaml:"blockCommonExploits,omitempty"`
+	AccessLog           string `yaml:"accessLog,omitempty" env:"GOMA_ACCESS_LOG, overwrite"`
+	ErrorLog            string `yaml:"errorLog,omitempty" env:"GOMA_ERROR_LOG=, overwrite"`
 	LogLevel            string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
 
 	// DisableHealthCheckStatus enable and disable routes health check
 	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus"`
 	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors
-	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError"`
+	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError,omitempty"`
 	// Disable allows enabling and disabling displaying routes on start
-	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart"`
+	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart,omitempty"`
 	// DisableKeepAlive allows enabling and disabling KeepALive server
-	DisableKeepAlive bool `yaml:"disableKeepAlive"`
+	DisableKeepAlive bool `yaml:"disableKeepAlive,omitempty"`
 	EnableMetrics    bool `yaml:"enableMetrics"`
 	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors []int `yaml:"interceptErrors"`
+	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
 	// Cors holds proxy global cors
-	Cors Cors `yaml:"cors"`
+	Cors Cors `yaml:"cors,omitempty"`
 	// ExtraRoutes additional routes from defined directory
 	ExtraRoutes ExtraRouteConfig `yaml:"extraRoutes"`
 	// Routes holds proxy routes
