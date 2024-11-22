@@ -86,7 +86,7 @@ It's designed to be straightforward and efficient, offering a rich set of featur
   Use a round-robin algorithm for efficient load distribution.
 
 ### Configuration and Flexibility
-- **Support for Multiple Route Configuration Files**  
+- **Support for Multiple Route and Middleware Configuration Files**  
   Organize routes across multiple `.yml` or `.yaml` files.
 
 - **TLS Support**  
