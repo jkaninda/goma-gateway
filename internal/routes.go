@@ -106,11 +106,24 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		r.Use(limiter.RateLimitMiddleware())
 	}
 	for rIndex, route := range dynamicRoutes {
+
+		// create route
+		router := r.PathPrefix(route.Path).Subrouter()
 		if len(route.Path) != 0 {
 			// Checks if route destination and backend are empty
 			if len(route.Destination) == 0 && len(route.Backends) == 0 {
 				logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
 
+			}
+			proxyRoute := ProxyRoute{
+				path:               route.Path,
+				rewrite:            route.Rewrite,
+				destination:        route.Destination,
+				backends:           route.Backends,
+				methods:            route.Methods,
+				disableHostFording: route.DisableHostFording,
+				cors:               route.Cors,
+				insecureSkipVerify: route.InsecureSkipVerify,
 			}
 			// Apply middlewares to the route
 			for _, middleware := range route.Middlewares {
@@ -144,18 +157,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 					logger.Error("Middleware ignored")
 				}
 			}
-			proxyRoute := ProxyRoute{
-				path:               route.Path,
-				rewrite:            route.Rewrite,
-				destination:        route.Destination,
-				backends:           route.Backends,
-				methods:            route.Methods,
-				disableHostFording: route.DisableHostFording,
-				cors:               route.Cors,
-				insecureSkipVerify: route.InsecureSkipVerify,
-			}
-			// create route
-			router := r.PathPrefix(route.Path).Subrouter()
+
 			// Apply common exploits to the route
 			// Enable common exploits
 			if route.BlockCommonExploits {
@@ -206,6 +208,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				}
 				router.Use(interceptErrors.ErrorInterceptor)
 			}
+			//r.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
+			//r.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
 		} else {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Error("Route path ignored: %s", route.Path)
@@ -221,6 +225,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			}
 			r.Use(interceptErrors.ErrorInterceptor)
 		}
+
 	}
 
 	return r
@@ -228,105 +233,88 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 }
 
 func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gateway, r *mux.Router) {
-	for _, middlewarePath := range routeMiddleware.Paths {
-		proxyRoute := ProxyRoute{
-			path:               route.Path,
-			rewrite:            route.Rewrite,
-			destination:        route.Destination,
-			backends:           route.Backends,
-			disableHostFording: route.DisableHostFording,
-			methods:            route.Methods,
-			cors:               route.Cors,
-			insecureSkipVerify: route.InsecureSkipVerify,
+	// Check Authentication middleware types
+	switch routeMiddleware.Type {
+	case BasicAuth:
+		basicAuth, err := getBasicAuthMiddleware(routeMiddleware.Rule)
+		if err != nil {
+			logger.Error("Error: %s", err.Error())
+		} else {
+			authBasic := middlewares.AuthBasic{
+				Paths:    util.AddPrefixPath(route.Path, routeMiddleware.Paths),
+				Username: basicAuth.Username,
+				Password: basicAuth.Password,
+				Headers:  nil,
+				Params:   nil,
+			}
+			// Apply JWT authentication middlewares
+			r.Use(authBasic.AuthMiddleware)
+			r.Use(CORSHandler(route.Cors))
 		}
-		secureRouter := r.PathPrefix(util.ParseRoutePath(route.Path, middlewarePath)).Subrouter()
-		// Check Authentication middleware types
-		switch routeMiddleware.Type {
-		case BasicAuth:
-			basicAuth, err := getBasicAuthMiddleware(routeMiddleware.Rule)
-			if err != nil {
-				logger.Error("Error: %s", err.Error())
-			} else {
-				authBasic := middlewares.AuthBasic{
-					Username: basicAuth.Username,
-					Password: basicAuth.Password,
-					Headers:  nil,
-					Params:   nil,
-				}
-				// Apply JWT authentication middlewares
-				secureRouter.Use(authBasic.AuthMiddleware)
-				secureRouter.Use(CORSHandler(route.Cors))
-				secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
-				secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
+	case JWTAuth:
+		jwt, err := getJWTMiddleware(routeMiddleware.Rule)
+		if err != nil {
+			logger.Error("Error: %s", err.Error())
+		} else {
+			jwtAuth := middlewares.JwtAuth{
+				Paths:           util.AddPrefixPath(route.Path, routeMiddleware.Paths),
+				AuthURL:         jwt.URL,
+				RequiredHeaders: jwt.RequiredHeaders,
+				Headers:         jwt.Headers,
+				Params:          jwt.Params,
+				Origins:         gateway.Cors.Origins,
 			}
-		case JWTAuth:
-			jwt, err := getJWTMiddleware(routeMiddleware.Rule)
-			if err != nil {
-				logger.Error("Error: %s", err.Error())
-			} else {
-				jwtAuth := middlewares.JwtAuth{
-					AuthURL:         jwt.URL,
-					RequiredHeaders: jwt.RequiredHeaders,
-					Headers:         jwt.Headers,
-					Params:          jwt.Params,
-					Origins:         gateway.Cors.Origins,
-				}
-				// Apply JWT authentication middlewares
-				secureRouter.Use(jwtAuth.AuthMiddleware)
-				secureRouter.Use(CORSHandler(route.Cors))
-				secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
-				secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
+			// Apply JWT authentication middlewares
+			r.Use(jwtAuth.AuthMiddleware)
+			r.Use(CORSHandler(route.Cors))
 
+		}
+	case OAuth:
+		oauth, err := oAuthMiddleware(routeMiddleware.Rule)
+		if err != nil {
+			logger.Error("Error: %s", err.Error())
+		} else {
+			redirectURL := "/callback" + route.Path
+			if oauth.RedirectURL != "" {
+				redirectURL = oauth.RedirectURL
 			}
-		case OAuth:
-			oauth, err := oAuthMiddleware(routeMiddleware.Rule)
-			if err != nil {
-				logger.Error("Error: %s", err.Error())
-			} else {
-				redirectURL := "/callback" + route.Path
-				if oauth.RedirectURL != "" {
-					redirectURL = oauth.RedirectURL
-				}
-				amw := middlewares.Oauth{
-					ClientID:     oauth.ClientID,
-					ClientSecret: oauth.ClientSecret,
-					RedirectURL:  redirectURL,
-					Scopes:       oauth.Scopes,
-					Endpoint: middlewares.OauthEndpoint{
-						AuthURL:     oauth.Endpoint.AuthURL,
-						TokenURL:    oauth.Endpoint.TokenURL,
-						UserInfoURL: oauth.Endpoint.UserInfoURL,
-					},
-					State:     oauth.State,
-					Origins:   gateway.Cors.Origins,
-					JWTSecret: oauth.JWTSecret,
-					Provider:  oauth.Provider,
-				}
-				oauthRuler := oauthRulerMiddleware(amw)
-				// Check if a cookie path is defined
-				if oauthRuler.CookiePath == "" {
-					oauthRuler.CookiePath = route.Path
-				}
-				// Check if a RedirectPath is defined
-				if oauthRuler.RedirectPath == "" {
-					oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, middlewarePath)
-				}
-				if oauthRuler.Provider == "" {
-					oauthRuler.Provider = "custom"
-				}
-				secureRouter.Use(amw.AuthMiddleware)
-				secureRouter.Use(CORSHandler(route.Cors))
-				secureRouter.PathPrefix("/").Handler(proxyRoute.ProxyHandler()) // Proxy handler
-				secureRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())  // Proxy handler
-				// Callback route
-				r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods("GET")
+			amw := middlewares.Oauth{
+				Paths:        util.AddPrefixPath(route.Path, routeMiddleware.Paths),
+				ClientID:     oauth.ClientID,
+				ClientSecret: oauth.ClientSecret,
+				RedirectURL:  redirectURL,
+				Scopes:       oauth.Scopes,
+				Endpoint: middlewares.OauthEndpoint{
+					AuthURL:     oauth.Endpoint.AuthURL,
+					TokenURL:    oauth.Endpoint.TokenURL,
+					UserInfoURL: oauth.Endpoint.UserInfoURL,
+				},
+				State:     oauth.State,
+				Origins:   gateway.Cors.Origins,
+				JWTSecret: oauth.JWTSecret,
+				Provider:  oauth.Provider,
 			}
-		default:
-			if !doesExist(routeMiddleware.Type) {
-				logger.Error("Unknown middlewares type %s", routeMiddleware.Type)
+			oauthRuler := oauthRulerMiddleware(amw)
+			// Check if a cookie path is defined
+			if oauthRuler.CookiePath == "" {
+				oauthRuler.CookiePath = route.Path
 			}
-
+			// Check if a RedirectPath is defined
+			if oauthRuler.RedirectPath == "" {
+				oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
+			}
+			if oauthRuler.Provider == "" {
+				oauthRuler.Provider = "custom"
+			}
+			r.Use(amw.AuthMiddleware)
+			r.Use(CORSHandler(route.Cors))
+			r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods("GET")
+		}
+	default:
+		if !doesExist(routeMiddleware.Type) {
+			logger.Error("Unknown middlewares type %s", routeMiddleware.Type)
 		}
 
 	}
+
 }
