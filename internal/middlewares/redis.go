@@ -25,10 +25,13 @@ import (
 )
 
 // redisRateLimiter, handle rateLimit
-func redisRateLimiter(clientIP string, rate int) error {
+func redisRateLimiter(clientIP, unit string, rate int) error {
+	limit := redis_rate.PerMinute(rate)
+	if len(unit) != 0 && unit == "hour" {
+		limit = redis_rate.PerHour(rate)
+	}
 	ctx := context.Background()
-
-	res, err := limiter.Allow(ctx, clientIP, redis_rate.PerMinute(rate))
+	res, err := limiter.Allow(ctx, clientIP, limit)
 	if err != nil {
 		return err
 	}

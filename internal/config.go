@@ -226,6 +226,25 @@ func (Gateway) Setup(conf string) *Gateway {
 
 }
 
+// rateLimitMiddleware returns RateLimitRuleMiddleware, error
+func rateLimitMiddleware(input interface{}) (RateLimitRuleMiddleware, error) {
+	rateLimit := new(RateLimitRuleMiddleware)
+	var bytes []byte
+	bytes, err := yaml.Marshal(input)
+	if err != nil {
+		return RateLimitRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
+	}
+	err = yaml.Unmarshal(bytes, rateLimit)
+	if err != nil {
+		return RateLimitRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
+	}
+	if rateLimit.RequestsPerUnit == 0 {
+		return RateLimitRuleMiddleware{}, fmt.Errorf("requests per unit not defined")
+
+	}
+	return *rateLimit, nil
+}
+
 // getJWTMiddleware returns JWTRuleMiddleware,error
 func getJWTMiddleware(input interface{}) (JWTRuleMiddleware, error) {
 	jWTRuler := new(JWTRuleMiddleware)

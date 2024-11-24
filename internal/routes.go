@@ -23,7 +23,6 @@ import (
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"time"
 )
 
 // init initializes prometheus metrics
@@ -62,7 +61,6 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		logger.Fatal("Error: %v", err)
 	}
 	m := dynamicMiddlewares
-	redisBased := false
 	if len(gateway.Redis.Addr) != 0 {
 		redisBased = true
 	}
@@ -97,8 +95,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		// Add rate limit middlewares to all routes, if defined
 		rateLimit := middlewares.RateLimit{
 			Id:         "global_rate", // Generate a unique ID for routes
+			Unit:       "minute",
 			Requests:   gateway.RateLimit,
-			Window:     time.Minute, //  requests per minute
 			Origins:    gateway.Cors.Origins,
 			Hosts:      []string{},
 			RedisBased: redisBased,
@@ -116,7 +114,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			}
 			// Apply middlewares to the route
 			for _, middleware := range route.Middlewares {
-				if middleware != "" {
+				if len(middleware) != 0 {
 					// Get Access middlewares if it does exist
 					accessMiddleware, err := getMiddleware([]string{middleware}, m)
 					if err != nil {
@@ -172,9 +170,9 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			// Apply route rate limit
 			if route.RateLimit != 0 {
 				rateLimit := middlewares.RateLimit{
+					Unit:       "minute",
 					Id:         id, // Use route index as ID
 					Requests:   route.RateLimit,
-					Window:     time.Minute, //  requests per minute
 					Origins:    route.Cors.Origins,
 					Hosts:      route.Hosts,
 					RedisBased: redisBased,
@@ -212,16 +210,17 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Error("Route path ignored: %s", route.Path)
 		}
-	}
-	// Apply global Cors middlewares
-	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
-	// Apply errorInterceptor middlewares
-	if len(gateway.InterceptErrors) != 0 {
-		interceptErrors := middlewares.InterceptErrors{
-			Errors:  gateway.InterceptErrors,
-			Origins: gateway.Cors.Origins,
+
+		// Apply global Cors middlewares
+		r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
+		// Apply errorInterceptor middlewares
+		if len(gateway.InterceptErrors) != 0 {
+			interceptErrors := middlewares.InterceptErrors{
+				Errors:  gateway.InterceptErrors,
+				Origins: gateway.Cors.Origins,
+			}
+			r.Use(interceptErrors.ErrorInterceptor)
 		}
-		r.Use(interceptErrors.ErrorInterceptor)
 	}
 
 	return r

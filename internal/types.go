@@ -80,13 +80,11 @@ type OauthEndpoint struct {
 	TokenURL    string `yaml:"tokenUrl"`
 	UserInfoURL string `yaml:"userInfoUrl"`
 }
-type RateLimiter struct {
-	// ipBased, tokenBased
-	Type string  `yaml:"type"`
-	Rate float64 `yaml:"rate"`
-	Rule int     `yaml:"rule"`
-}
 
+type RateLimitRuleMiddleware struct {
+	Unit            string `yaml:"unit"`
+	RequestsPerUnit int    `yaml:"requestsPerUnit"`
+}
 type AccessRuleMiddleware struct {
 	ResponseCode int `yaml:"responseCode"` // HTTP Response code
 }

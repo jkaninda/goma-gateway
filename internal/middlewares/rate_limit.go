@@ -45,13 +45,17 @@ func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 
 // RateLimitMiddleware limits request based on the number of requests peer minutes.
 func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
+	window := time.Minute //  requests per minute
+	if len(rl.unit) != 0 && rl.unit == "hour" {
+		window = time.Hour
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := getRealIP(r)
 			clientID := fmt.Sprintf("%s-%s", rl.id, clientIP) // Generate client Id, ID+ route ID
 			logger.Debug("requests limiter: clientIP: %s, clientID: %s", clientIP, clientID)
 			if rl.redisBased {
-				err := redisRateLimiter(clientID, rl.requests)
+				err := redisRateLimiter(clientID, rl.unit, rl.requests)
 				if err != nil {
 					logger.Error("Redis Rate limiter error: %s", err.Error())
 					logger.Error("Too many requests from IP: %s %s %s", clientIP, r.URL, r.UserAgent())
@@ -64,7 +68,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 				if !exists || time.Now().After(client.ExpiresAt) {
 					client = &Client{
 						RequestCount: 0,
-						ExpiresAt:    time.Now().Add(rl.window),
+						ExpiresAt:    time.Now().Add(window),
 					}
 					rl.clientMap[clientID] = client
 				}

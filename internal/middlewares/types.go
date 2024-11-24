@@ -27,8 +27,8 @@ import (
 // RateLimiter defines requests limit properties.
 type RateLimiter struct {
 	requests   int
+	unit       string
 	id         string
-	window     time.Duration
 	clientMap  map[string]*Client
 	mu         sync.Mutex
 	origins    []string
@@ -42,8 +42,8 @@ type Client struct {
 }
 type RateLimit struct {
 	Id         string
+	Unit       string
 	Requests   int
-	Window     time.Duration
 	Origins    []string
 	Hosts      []string
 	RedisBased bool
@@ -53,8 +53,8 @@ type RateLimit struct {
 func (rateLimit RateLimit) NewRateLimiterWindow() *RateLimiter {
 	return &RateLimiter{
 		id:         rateLimit.Id,
+		unit:       rateLimit.Unit,
 		requests:   rateLimit.Requests,
-		window:     rateLimit.Window,
 		clientMap:  make(map[string]*Client),
 		origins:    rateLimit.Origins,
 		redisBased: rateLimit.RedisBased,
