@@ -32,6 +32,10 @@ func loadExtraFiles(routePath string) ([]string, error) {
 		if err != nil {
 			return err
 		}
+		// Skip hidden folders
+		if info.IsDir() && info.Name()[0] == '.' {
+			return filepath.SkipDir
+		}
 		// Check for .yaml or .yml file extension
 		if !info.IsDir() && (filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml") {
 			yamlFiles = append(yamlFiles, path)
@@ -40,7 +44,7 @@ func loadExtraFiles(routePath string) ([]string, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("error loading extra route files: %v", err)
+		return nil, fmt.Errorf("error loading extra config files: %v", err)
 	}
 	return yamlFiles, nil
 }
