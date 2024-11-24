@@ -19,12 +19,14 @@ package pkg
 
 import (
 	"fmt"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
 	"os"
 	"slices"
 )
 
+// CheckConfig checks configs
 func CheckConfig(fileName string) error {
 	if !util.FileExists(fileName) {
 		return fmt.Errorf("config file not found: %s", fileName)
@@ -81,6 +83,7 @@ func CheckConfig(fileName string) error {
 
 }
 
+// checkRoutes checks routes
 func checkRoutes(routes []Route, middlewares []Middleware) {
 	midNames := middlewareNames(middlewares)
 	for index, route := range routes {
@@ -106,6 +109,43 @@ func checkRoutes(routes []Route, middlewares []Middleware) {
 	}
 }
 
+// checkConfig checks configurations and returns error
+func checkConfig(routes []Route, middlewares []Middleware) error {
+	logger.Info("Checking configurations...")
+	midNames := middlewareNames(middlewares)
+	for index, route := range routes {
+		if len(route.Name) == 0 {
+			logger.Warn("Warning: route name is empty, index: [%d]", index)
+		}
+		if route.Destination == "" && len(route.Backends) == 0 {
+			return fmt.Errorf("Error: no destination or backends specified for route: %s | index: [%d] \n", route.Name, index)
+		}
+		// checking middleware applied to routes
+		for _, middleware := range route.Middlewares {
+			if !slices.Contains(midNames, middleware) {
+				logger.Warn("Couldn't find a middleware with the name: %s | route: %s", middleware, route.Name)
+			}
+		}
+	}
+
+	// find duplicated middleware name
+	duplicates := findDuplicateMiddlewareNames(dynamicMiddlewares)
+	if len(duplicates) != 0 {
+		for _, duplicate := range duplicates {
+			return fmt.Errorf("duplicated middleware name: %s, the name of the middleware should be unique", duplicate)
+		}
+	}
+	// find duplicated route name
+	duplicates = findDuplicateRouteNames(dynamicRoutes)
+	if len(duplicates) != 0 {
+		for _, duplicate := range duplicates {
+			logger.Warn("Duplicated route name was found: %s ", duplicate)
+		}
+	}
+	return nil
+}
+
+// middlewareNames reruns middleware names
 func middlewareNames(middlewares []Middleware) []string {
 	names := []string{}
 	for _, mid := range middlewares {

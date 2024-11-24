@@ -49,6 +49,7 @@ func loadExtraRoutes(routePath string) ([]Route, error) {
 	return extraRoutes, nil
 }
 
+// findDuplicateRouteNames finds duplicated route names
 func findDuplicateRouteNames(routes []Route) []string {
 	// Create a map to track occurrences of names
 	nameMap := make(map[string]int)
