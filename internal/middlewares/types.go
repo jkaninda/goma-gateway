@@ -33,6 +33,8 @@ type RateLimiter struct {
 	mu         sync.Mutex
 	origins    []string
 	redisBased bool
+	pathBased  bool
+	paths      []string
 }
 
 // Client stores request count and window expiration for each client.
@@ -47,6 +49,8 @@ type RateLimit struct {
 	Origins    []string
 	Hosts      []string
 	RedisBased bool
+	PathBased  bool
+	Paths      []string
 }
 
 // NewRateLimiterWindow creates a new RateLimiter.
@@ -58,6 +62,8 @@ func (rateLimit RateLimit) NewRateLimiterWindow() *RateLimiter {
 		clientMap:  make(map[string]*Client),
 		origins:    rateLimit.Origins,
 		redisBased: rateLimit.RedisBased,
+		pathBased:  rateLimit.PathBased,
+		paths:      rateLimit.Paths,
 	}
 }
 
