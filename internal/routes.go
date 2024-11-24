@@ -56,20 +56,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		logger.Info("Loaded %d additional routes", len(extraRoutes))
 
 	}
-
-	// find duplicated middleware name
-	duplicates := findDuplicateMiddlewareNames(dynamicMiddlewares)
-	if len(duplicates) != 0 {
-		for _, duplicate := range duplicates {
-			logger.Fatal("Duplicated middleware name: %s, the name of the middleware should be unique.", duplicate)
-		}
-	}
-	// find duplicated route name
-	duplicates = findDuplicateRouteNames(dynamicRoutes)
-	if len(duplicates) != 0 {
-		for _, duplicate := range duplicates {
-			logger.Error("Duplicated route name was found: %s ", duplicate)
-		}
+	// Check configs
+	err = checkConfig(dynamicRoutes, dynamicMiddlewares)
+	if err != nil {
+		logger.Fatal("Error: %v", err)
 	}
 	m := dynamicMiddlewares
 	redisBased := false

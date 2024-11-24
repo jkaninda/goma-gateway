@@ -17,7 +17,7 @@ func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error)
 		continue
 	}
 
-	return Middleware{}, errors.New("middlewares not found with name:  [" + strings.Join(rules, ";") + "]")
+	return Middleware{}, errors.New("middleware not found with name:  [" + strings.Join(rules, ";") + "]")
 }
 
 func doesExist(tyName string) bool {
