@@ -42,7 +42,7 @@ type Route struct {
 	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
 	// Cors contains the route cors headers
 	Cors      Cors `yaml:"cors"`
-	RateLimit int  `yaml:"rateLimit"`
+	RateLimit int  `yaml:"rateLimit,omitempty"`
 	// DisableHostFording Disable X-forwarded header.
 	//
 	// [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
