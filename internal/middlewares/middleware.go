@@ -29,7 +29,7 @@ import (
 //	authorization based on the result of backend's response and continue the request when the client is authorized
 func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isProtectedPath(r.URL.Path, jwtAuth.Paths) {
+		if isProtectedPath(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
 			for _, header := range jwtAuth.RequiredHeaders {
 				if r.Header.Get(header) == "" {
 					logger.Error("Proxy error, missing %s header", header)
@@ -98,16 +98,16 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			}
 			r.URL.RawQuery = query.Encode()
 		}
-
 		next.ServeHTTP(w, r)
 	})
+
 }
 
 // AuthMiddleware checks for the Authorization header and verifies the credentials
 func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Trace("Basic-Auth request headers: %v", r.Header)
-		if isProtectedPath(r.URL.Path, basicAuth.Paths) {
+		if isProtectedPath(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
 			// Get the Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {

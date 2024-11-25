@@ -53,9 +53,9 @@ func isPathBlocked(requestPath, blockedPath string) bool {
 	}
 	return false
 }
-func isProtectedPath(urlPath string, paths []string) bool {
+func isProtectedPath(urlPath, prefix string, paths []string) bool {
 	for _, path := range paths {
-		return isPathBlocked(urlPath, util.ParseURLPath(path))
+		return isPathBlocked(urlPath, util.ParseURLPath(prefix+path))
 	}
 	return false
 }

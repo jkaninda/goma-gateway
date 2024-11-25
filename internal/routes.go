@@ -201,7 +201,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 						// Error: middlewares not found
 						logger.Error("Error: %v", err.Error())
 					} else {
-						attachAuthMiddlewares(route, routeMiddleware, gateway, r)
+						attachAuthMiddlewares(route, routeMiddleware, gateway, router)
 					}
 				} else {
 					logger.Error("Error, middlewares path is empty")
@@ -211,13 +211,6 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 
 			// Apply route Cors
 			router.Use(CORSHandler(route.Cors))
-			if len(route.Hosts) > 0 {
-				for _, host := range route.Hosts {
-					router.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
-				}
-			} else {
-				router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
-			}
 			if gateway.EnableMetrics {
 				pr := metrics.PrometheusRoute{
 					Name: route.Name,
@@ -233,6 +226,13 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 					Errors:  route.InterceptErrors,
 				}
 				router.Use(interceptErrors.ErrorInterceptor)
+			}
+			if len(route.Hosts) != 0 {
+				for _, host := range route.Hosts {
+					router.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
+				}
+			} else {
+				router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
 			}
 
 		} else {
@@ -266,7 +266,8 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 			logger.Error("Error: %s", err.Error())
 		} else {
 			authBasic := middlewares.AuthBasic{
-				Paths:    util.AddPrefixPath(route.Path, routeMiddleware.Paths),
+				Path:     route.Path,
+				Paths:    routeMiddleware.Paths,
 				Username: basicAuth.Username,
 				Password: basicAuth.Password,
 				Headers:  nil,
@@ -282,7 +283,8 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 			logger.Error("Error: %s", err.Error())
 		} else {
 			jwtAuth := middlewares.JwtAuth{
-				Paths:           util.AddPrefixPath(route.Path, routeMiddleware.Paths),
+				Path:            route.Path,
+				Paths:           routeMiddleware.Paths,
 				AuthURL:         jwt.URL,
 				RequiredHeaders: jwt.RequiredHeaders,
 				Headers:         jwt.Headers,
@@ -304,7 +306,8 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 				redirectURL = oauth.RedirectURL
 			}
 			amw := middlewares.Oauth{
-				Paths:        util.AddPrefixPath(route.Path, routeMiddleware.Paths),
+				Path:         route.Path,
+				Paths:        routeMiddleware.Paths,
 				ClientID:     oauth.ClientID,
 				ClientSecret: oauth.ClientSecret,
 				RedirectURL:  redirectURL,

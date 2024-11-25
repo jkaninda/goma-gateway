@@ -85,7 +85,7 @@ type ProxyResponseError struct {
 
 // JwtAuth  stores JWT configuration
 type JwtAuth struct {
-	RoutePath       string
+	Path            string
 	Paths           []string
 	AuthURL         string
 	RequiredHeaders []string
@@ -109,6 +109,8 @@ type AccessListMiddleware struct {
 
 // AuthBasic contains Basic auth configuration
 type AuthBasic struct {
+	// Route path
+	Path     string
 	Paths    []string
 	Username string
 	Password string
@@ -129,6 +131,8 @@ type responseRecorder struct {
 	body       *bytes.Buffer
 }
 type Oauth struct {
+	// Route path
+	Path string
 	// Route protected path
 	Paths []string
 	// ClientID is the application's ID.

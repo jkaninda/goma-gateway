@@ -26,7 +26,7 @@ import (
 
 func (oauth Oauth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isProtectedPath(r.URL.Path, oauth.Paths) {
+		if isProtectedPath(r.URL.Path, oauth.Path, oauth.Paths) {
 			oauthConf := oauth2Config(oauth)
 			// Check if the user is authenticated
 			token, err := r.Cookie("goma.oauth")
