@@ -84,4 +84,3 @@ spec:
             name: goma-config
 ```
 
-## 4.  Kubernetes Advanced deployment using CRDs
