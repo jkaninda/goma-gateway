@@ -139,3 +139,9 @@ spec:
     middlewares:
       - basic-middleware-sample
 ```
+
+## Uninstall
+
+```sh
+kubectl delete -f https://raw.githubusercontent.com/jkaninda/goma-operator/main/dist/install.yaml
+```

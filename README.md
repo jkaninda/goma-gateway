@@ -162,6 +162,12 @@ services:
       - ./config:/etc/goma/
 ```
 
+### 6. Kubernetes deployment
+
+-  [Kubernetes installation](https://jkaninda.github.io/goma-gateway/install/kubernetes.html)
+
+- [Kubernetes advanced deployment using CRDs and Operator](https://jkaninda.github.io/goma-gateway/install/kuberntes-advanced.html) 
+
 ## Supported Systems
 
 - [x] Linux
@@ -180,9 +186,6 @@ To run
 ```shell
 ./goma server --config config.yml
 ```
-
-
-
 
 ## Deployment
 
