@@ -157,3 +157,11 @@ func Slug(text string) string {
 
 	return text
 }
+
+func AddPrefixPath(prefix string, paths []string) []string {
+	for i := range paths {
+		paths[i] = ParseURLPath(prefix + paths[i])
+	}
+	return paths
+
+}

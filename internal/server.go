@@ -30,7 +30,7 @@ import (
 // Start / Start starts the server
 func (gatewayServer GatewayServer) Start() error {
 	logger.Info("Initializing routes...")
-	route := gatewayServer.Initialize()
+	router := gatewayServer.Initialize()
 	logger.Debug("Routes count=%d, Middlewares count=%d", len(gatewayServer.gateway.Routes), len(gatewayServer.middlewares))
 	gatewayServer.initRedis()
 	defer gatewayServer.closeRedis()
@@ -44,8 +44,8 @@ func (gatewayServer GatewayServer) Start() error {
 		printRoute(dynamicRoutes)
 	}
 
-	httpServer := gatewayServer.createServer(":8080", route, nil)
-	httpsServer := gatewayServer.createServer(":8443", route, tlsConfig)
+	httpServer := gatewayServer.createServer(":8080", router, nil)
+	httpsServer := gatewayServer.createServer(":8443", router, tlsConfig)
 
 	// Start HTTP/HTTPS servers
 	gatewayServer.startServers(httpServer, httpsServer, listenWithTLS)

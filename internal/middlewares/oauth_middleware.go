@@ -26,27 +26,29 @@ import (
 
 func (oauth Oauth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		oauthConf := oauth2Config(oauth)
-		// Check if the user is authenticated
-		token, err := r.Cookie("goma.oauth")
-		if err != nil {
-			// If no token, redirect to OAuth provider
-			url := oauthConf.AuthCodeURL(oauth.State)
-			http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-			return
-		}
-		ok, err := validateJWT(token.Value, oauth)
-		if err != nil {
-			// If no token, redirect to OAuth provider
-			url := oauthConf.AuthCodeURL(oauth.State)
-			http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-			return
-		}
-		if !ok {
-			// If no token, redirect to OAuth provider
-			url := oauthConf.AuthCodeURL(oauth.State)
-			http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-			return
+		if isProtectedPath(r.URL.Path, oauth.Path, oauth.Paths) {
+			oauthConf := oauth2Config(oauth)
+			// Check if the user is authenticated
+			token, err := r.Cookie("goma.oauth")
+			if err != nil {
+				// If no token, redirect to OAuth provider
+				url := oauthConf.AuthCodeURL(oauth.State)
+				http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+				return
+			}
+			ok, err := validateJWT(token.Value, oauth)
+			if err != nil {
+				// If no token, redirect to OAuth provider
+				url := oauthConf.AuthCodeURL(oauth.State)
+				http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+				return
+			}
+			if !ok {
+				// If no token, redirect to OAuth provider
+				url := oauthConf.AuthCodeURL(oauth.State)
+				http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+				return
+			}
 		}
 		// Token exists, proceed with request
 		next.ServeHTTP(w, r)

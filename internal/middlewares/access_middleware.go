@@ -53,6 +53,12 @@ func isPathBlocked(requestPath, blockedPath string) bool {
 	}
 	return false
 }
+func isProtectedPath(urlPath, prefix string, paths []string) bool {
+	for _, path := range paths {
+		return isPathBlocked(urlPath, util.ParseURLPath(prefix+path))
+	}
+	return false
+}
 
 // NewRateLimiter creates a new requests limiter with the specified refill requests and token capacity
 func NewRateLimiter(maxTokens int, refillRate time.Duration) *TokenRateLimiter {

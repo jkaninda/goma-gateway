@@ -9,10 +9,13 @@ const AccessMiddleware = "access" // access middlewares
 const BasicAuth = "basic"         // basic authentication middlewares
 const JWTAuth = "jwt"             // JWT authentication middlewares
 const OAuth = "oauth"             // OAuth authentication middlewares
+
 var (
 	// Round-robin counter
 	counter uint32
 	// dynamicRoutes routes
-	dynamicRoutes      []Route
-	dynamicMiddlewares []Middleware
+	dynamicRoutes       []Route
+	dynamicMiddlewares  []Middleware
+	RateLimitMiddleware = []string{"ratelimit", "rateLimit"} // Rate Limit middlewares
+	redisBased          = false
 )

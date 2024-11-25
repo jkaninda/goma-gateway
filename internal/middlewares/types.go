@@ -27,12 +27,14 @@ import (
 // RateLimiter defines requests limit properties.
 type RateLimiter struct {
 	requests   int
+	unit       string
 	id         string
-	window     time.Duration
 	clientMap  map[string]*Client
 	mu         sync.Mutex
 	origins    []string
 	redisBased bool
+	pathBased  bool
+	paths      []string
 }
 
 // Client stores request count and window expiration for each client.
@@ -42,22 +44,26 @@ type Client struct {
 }
 type RateLimit struct {
 	Id         string
+	Unit       string
 	Requests   int
-	Window     time.Duration
 	Origins    []string
 	Hosts      []string
 	RedisBased bool
+	PathBased  bool
+	Paths      []string
 }
 
 // NewRateLimiterWindow creates a new RateLimiter.
 func (rateLimit RateLimit) NewRateLimiterWindow() *RateLimiter {
 	return &RateLimiter{
 		id:         rateLimit.Id,
+		unit:       rateLimit.Unit,
 		requests:   rateLimit.Requests,
-		window:     rateLimit.Window,
 		clientMap:  make(map[string]*Client),
 		origins:    rateLimit.Origins,
 		redisBased: rateLimit.RedisBased,
+		pathBased:  rateLimit.PathBased,
+		paths:      rateLimit.Paths,
 	}
 }
 
@@ -79,6 +85,8 @@ type ProxyResponseError struct {
 
 // JwtAuth  stores JWT configuration
 type JwtAuth struct {
+	Path            string
+	Paths           []string
 	AuthURL         string
 	RequiredHeaders []string
 	Headers         map[string]string
@@ -101,6 +109,9 @@ type AccessListMiddleware struct {
 
 // AuthBasic contains Basic auth configuration
 type AuthBasic struct {
+	// Route path
+	Path     string
+	Paths    []string
 	Username string
 	Password string
 	Headers  map[string]string
@@ -120,6 +131,10 @@ type responseRecorder struct {
 	body       *bytes.Buffer
 }
 type Oauth struct {
+	// Route path
+	Path string
+	// Route protected path
+	Paths []string
 	// ClientID is the application's ID.
 	ClientID string
 	// ClientSecret is the application's secret.
