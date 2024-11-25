@@ -143,7 +143,9 @@ docker run --rm --name goma-gateway \
 ```
 ### 4. Healthcheck
 
-- Goma Gateway health check: `/health/live`
+- Goma Gateway health check: 
+  - `/readyz`
+  - `/healthz`
 - Routes health check: `/health/routes`
 
 
