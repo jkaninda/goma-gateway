@@ -61,7 +61,7 @@ func TestStart(t *testing.T) {
 	}
 	route := gatewayServer.Initialize()
 	assertResponseBody := func(t *testing.T, s *httptest.Server) {
-		resp, err := s.Client().Get(s.URL + "/health/live")
+		resp, err := s.Client().Get(s.URL + "/readyz")
 		if err != nil {
 			t.Fatalf("unexpected error getting from server: %v", err)
 		}
