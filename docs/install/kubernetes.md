@@ -56,7 +56,7 @@ spec:
       containers:
         - name: goma-gateway
           image: jkaninda/goma-gateway
-          command: ["goma","server"]
+          command: ["/usr/local/bin/goma","server"]
           resources:
             limits:
               memory: "128Mi"
@@ -65,18 +65,16 @@ spec:
             - containerPort: 8080
           livenessProbe:
             httpGet:
-              path: /health/live
+              path: /healthz
               port: 8080
             initialDelaySeconds: 15
             periodSeconds: 30
-            timeoutSeconds: 10
           readinessProbe:
             httpGet:
-              path: /health/live
+              path: /readyz
               port: 8080
-            initialDelaySeconds: 15
-            periodSeconds: 30
-            timeoutSeconds: 10
+            initialDelaySeconds: 5
+            periodSeconds: 10
           volumeMounts:
             - name: config
               mountPath: /etc/goma/
@@ -85,3 +83,5 @@ spec:
           configMap:
             name: goma-config
 ```
+
+## 4.  Kubernetes Advanced deployment using CRDs

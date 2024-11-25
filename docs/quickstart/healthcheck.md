@@ -27,7 +27,9 @@ gateway:
             healthyStatuses: [200,404] # Healthy statuses
 ```
 
-- Goma Gateway healthcheck: `/health/live`
+- Goma Gateway health check:
+    - `/readyz`
+    - `/healthz`
 - Routes health check: `health/routes`
 
 ### Gateway healthcheck response:
