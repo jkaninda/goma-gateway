@@ -33,7 +33,9 @@ Architecture:
 - [Docker Hub](https://hub.docker.com/r/jkaninda/goma-gateway)
 - [Github](https://github.com/jkaninda/goma-gateway)
 
-### Documentation is found at <https://jkaninda.github.io/goma-gateway>
+### [Documentation](https://jkaninda.github.io/goma-gateway)
+### [Kubernetes operator](https://github.com/jkaninda/goma-gateway)
+
 
 ## Features
 
