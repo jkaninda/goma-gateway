@@ -30,7 +30,7 @@ version: 0.1.7
 gateway:
   routes:
     - name: Example
-      rateLimit: 60 # peer minute
+      rateLimit: 60 # per minute
 ```
 
 Example of global rate limiting middleware
@@ -38,7 +38,7 @@ Example of global rate limiting middleware
 ```yaml
 version: 0.1.7
 gateway:
-  rateLimit: 60 # peer minute
+  rateLimit: 60 # per minute
   routes:
     - name: Example
 ```
