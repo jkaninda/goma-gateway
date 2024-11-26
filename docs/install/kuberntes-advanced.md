@@ -81,6 +81,8 @@ spec:
     minReplicas: 2
     maxReplicas: 5
     targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  affinity: {}
 ```
 
 ## Middleware
