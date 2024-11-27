@@ -61,9 +61,9 @@ spec:
   gatewayVersion: latest # 0.2.2
   ## Server config
   server:
-     ## Kubernetes tls secret name
-    #tlsSecretName: tls-secret
-# Redis configs for distributed rate limiting across multiple instances
+#    # Kubernetes tls secret name
+#    tlsSecretName: tls-secret
+#    #Redis configs for distributed rate limiting across multiple instances
 #    redis:
 #        addr: redis:6379
 #        password: password
