@@ -71,8 +71,8 @@ spec:
   replicaCount: 1
   resources:
     limits:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 200m
+      memory: 512Mi
     requests:
       cpu: 100m
       memory: 128Mi
@@ -84,6 +84,15 @@ spec:
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
   affinity: {}
+```
+### Delete gateway
+```shell
+kubectl delete gateway (gatewayName)
+```
+Or
+
+```shell
+kubectl delete gateways.gomaproj.github.io (gatewayName)
 ```
 
 ## Middleware
@@ -151,4 +160,17 @@ spec:
 
 ```sh
 kubectl delete -f https://raw.githubusercontent.com/jkaninda/goma-operator/main/dist/install.yaml
+```
+
+### Force Gateway deletion
+
+```shell
+kubectl patch  gateways.gomaproj.github.io (gatewayName) -p '{"metadata":{"finalizers":[]}}' --type=merge
+```
+
+### Force gateway crd deletion
+
+```shell
+kubectl patch crd gateways.gomaproj.github.io -p '{"metadata":{"finalizers":[]}}' --type=merge
+
 ```
