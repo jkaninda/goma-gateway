@@ -47,6 +47,7 @@ To expose your Gateway outside the cluster, you have the following options:
 2. **Change the Service Type**:  
    Patch the Gateway's service to change its type (e.g., to `LoadBalancer` or `NodePort`) for external accessibility.
 
+A simple example of gateway
 
 ```yaml
 apiVersion: gomaproj.github.io/v1beta1
@@ -57,7 +58,7 @@ metadata:
 spec:
   # The version of Goma Gateway
   # See: https://github.com/jkaninda/goma-gateway/releases
-  gatewayVersion: 0.2.2 
+  gatewayVersion: latest # 0.2.2
   ## Server config
   server:
     writeTimeout: 10
@@ -87,6 +88,8 @@ spec:
 
 ## Middleware
 
+A simple example of middleware
+
 ```yaml
 apiVersion: gomaproj.github.io/v1beta1
 kind: Middleware
@@ -102,6 +105,8 @@ spec:
 ```
 
 ## Route
+
+A simple example of route
 
 ```yaml
 apiVersion: gomaproj.github.io/v1beta1
