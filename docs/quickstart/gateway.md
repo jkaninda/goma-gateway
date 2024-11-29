@@ -13,8 +13,8 @@ These settings enable precise control over traffic flow and routing within your 
 
 ## Configuration Options
 
-- **`sslCertFile`** (`string`): Path to the SSL certificate file.
-- **`sslKeyFile`** (`string`): Path to the SSL certificate private key file.
+- **`tlsCertFile`** (`string`): Path to the TLS certificate file.
+- **`tlsKeyFile`** (`string`): Path to the TLS certificate private key file.
 - **`redis`**: Redis configuration settings.
 - **`writeTimeout`** (`integer`): Timeout for writing responses (in seconds).
 - **`readTimeout`** (`integer`): Timeout for reading requests (in seconds).
@@ -103,7 +103,7 @@ metadata:
 spec:
   # The version of Goma Gateway
   # See: https://github.com/jkaninda/goma-gateway/releases
-  gatewayVersion: latest # 0.2.2
+  gatewayVersion: latest
   server:
     # Kubernetes tls secret name
     tlsSecretName: '' #Optional, tls-secret

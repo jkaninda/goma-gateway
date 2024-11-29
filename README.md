@@ -1,4 +1,4 @@
-# Goma Gateway - simple Lightweight High-Performance API Gateway Management.
+# Goma Gateway - simple Lightweight High-Performance Declarative API Gateway Management.
 
 ```
    _____                       
@@ -9,7 +9,7 @@
   \_____|\___/|_| |_| |_|\__,_|
                                
 ```
-Goma Gateway is a lightweight High-Performance API Gateway Management.
+Goma Gateway is a lightweight High-Performance Declarative API Gateway Management.
 
 [![Tests](https://github.com/jkaninda/goma-gateway/actions/workflows/test.yml/badge.svg)](https://github.com/jkaninda/goma-gateway/actions/workflows/test.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/jkaninda/goma-gateway)](https://github.com/jkaninda/goma-gateway/releases)
