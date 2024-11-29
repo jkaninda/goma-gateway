@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"slices"
+	"sort"
 )
 
 // init initializes prometheus metrics
@@ -64,6 +65,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	if len(gateway.Redis.Addr) != 0 {
 		redisBased = true
 	}
+	// Sort routes by path in descending order
+	sort.Slice(dynamicRoutes, func(i, j int) bool {
+		return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
+	})
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
 
