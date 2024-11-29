@@ -37,9 +37,8 @@ func (gatewayServer GatewayServer) Start() error {
 
 	tlsConfig, listenWithTLS, err := gatewayServer.initTLS()
 	if err != nil {
-		return err
+		logger.Error("Failed to initialize TLS")
 	}
-
 	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
 		printRoute(dynamicRoutes)
 	}

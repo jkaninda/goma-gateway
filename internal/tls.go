@@ -24,16 +24,35 @@ import (
 )
 
 func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
-	cert, key := gatewayServer.gateway.SSLCertFile, gatewayServer.gateway.SSLKeyFile
-	if cert == "" || key == "" {
+	loadAndWarn := func(cert, key string, warnMsg string) (*tls.Config, bool, error) {
+		if len(cert) != 0 || len(key) != 0 {
+			if warnMsg != "" {
+				logger.Warn(warnMsg)
+			}
+			tlsConfig, err := loadTLS(cert, key)
+			if err != nil {
+				return nil, false, fmt.Errorf("failed to load TLS config: %w", err)
+			}
+			return tlsConfig, true, nil
+		}
 		return nil, false, nil
 	}
-
-	tlsConfig, err := loadTLS(cert, key)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to load TLS config: %w", err)
+	// Check deprecated fields
+	tlsConfig, loaded, err := loadAndWarn(
+		gatewayServer.gateway.SSLCertFile,
+		gatewayServer.gateway.SSLKeyFile,
+		"sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead",
+	)
+	if loaded || err != nil {
+		return tlsConfig, loaded, err
 	}
-	return tlsConfig, true, nil
+
+	// Check new fields
+	return loadAndWarn(
+		gatewayServer.gateway.TlsCertFile,
+		gatewayServer.gateway.TlsKeyFile,
+		"",
+	)
 }
 
 // loadTLS loads TLS Certificate

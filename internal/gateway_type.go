@@ -20,9 +20,13 @@ package pkg
 // Gateway contains Goma Proxy Gateway's configs
 type Gateway struct {
 	// SSLCertFile  SSL Certificate file
-	SSLCertFile string `yaml:"sslCertFile" env:"GOMA_SSL_CERT_FILE, overwrite"`
+	SSLCertFile string `yaml:"sslCertFile,omitempty" env:"GOMA_SSL_CERT_FILE, overwrite"` // Deprecated, use TlsCertFile instead
 	// SSLKeyFile SSL Private key  file
-	SSLKeyFile string `yaml:"sslKeyFile" env:"GOMA_SSL_KEY_FILE, overwrite"`
+	SSLKeyFile string `yaml:"sslKeyFile,omitempty" env:"GOMA_SSL_KEY_FILE, overwrite"` // Deprecated, use TlsKeyFile instead
+	// TlsCertFile  TLS Certificate file
+	TlsCertFile string `yaml:"tlsCertFile" env:"GOMA_TLS_CERT_FILE, overwrite"`
+	// SSLKeyFile TLS Private key  file
+	TlsKeyFile string `yaml:"tlsKeyFile" env:"GOMA_TLS_KEY_FILE, overwrite"`
 	// Redis contains redis database details
 	Redis Redis `yaml:"redis"`
 	// WriteTimeout defines proxy write timeout

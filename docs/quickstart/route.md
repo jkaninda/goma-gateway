@@ -190,3 +190,36 @@ gateway:
         - api-forbidden-paths
         - jwt-auth
 ```
+## Advanced Kubernetes deployment
+
+```yaml
+apiVersion: gomaproj.github.io/v1beta1
+kind: Route
+metadata:
+  labels: {}
+  name: route-sample
+spec:
+  gateway: gateway-sample
+  path: /
+  hosts: []
+  rewrite: /g
+  methods: [GET]
+  destination: https://example.com
+  backends: []
+  insecureSkipVerify: true
+  healthCheck:
+    path: /
+    interval: 10s
+    timeout: 10s
+    healthyStatuses:
+      - 200
+      - 404
+  cors:
+    origins: []
+    headers: {}
+  disableHostFording: true
+  blockCommonExploits: true
+  middlewares:
+    - basic-middleware-sample
+    - ratelimit
+```
