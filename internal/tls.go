@@ -27,7 +27,7 @@ func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
 	loadAndWarn := func(cert, key string, warnMsg string) (*tls.Config, bool, error) {
 		if len(cert) != 0 || len(key) != 0 {
 			if warnMsg != "" {
-				logger.Warn(warnMsg)
+				logger.Warn("sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead")
 			}
 			tlsConfig, err := loadTLS(cert, key)
 			if err != nil {
@@ -41,7 +41,7 @@ func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
 	tlsConfig, loaded, err := loadAndWarn(
 		gatewayServer.gateway.SSLCertFile,
 		gatewayServer.gateway.SSLKeyFile,
-		"sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead",
+		"Warn",
 	)
 	if loaded || err != nil {
 		return tlsConfig, loaded, err
