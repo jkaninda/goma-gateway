@@ -1,0 +1,95 @@
+## Example of advanced Kubernetes deployment
+## Requirements:
+#  - CRDs and the Goma Gateway Operator
+# Kubernetes Operator: https://github.com/jkaninda/goma-operator
+### Middleware
+apiVersion: gomaproj.github.io/v1beta1
+kind: Middleware
+metadata:
+  name: basic-middleware-sample
+spec:
+  type: basic
+  paths:
+    - /admin/*
+  rule:
+    username: admin
+    password: admin
+---
+## Gateway
+apiVersion: gomaproj.github.io/v1beta1
+kind: Gateway
+metadata:
+  labels: {}
+  name: gateway-sample
+spec:
+  # The version of Goma Gateway
+  # See: https://github.com/jkaninda/goma-gateway/releases
+  gatewayVersion: latest #
+  ## Server config
+  server:
+    # Kubernetes tls secret name
+    tlsSecretName: '' #Optional, tls-secret
+    #Redis configs for distributed rate limiting across multiple instances
+    redis:
+      addr: '' #Optional, redis:6379
+      password: '' #Optional, password
+    writeTimeout: 10
+    readTimeout: 15
+    idleTimeout: 30
+    logLevel: info
+    disableHealthCheckStatus: false
+    disableKeepAlive: false
+    enableMetrics: true
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  # Enable auto scaling
+  autoScaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  affinity: {}
+
+---
+## Route
+apiVersion: gomaproj.github.io/v1beta1
+kind: Route
+metadata:
+  labels: {}
+  name: route-sample
+spec:
+  gateway: gateway-sample
+  path: /
+  hosts: []
+  rewrite: /
+  methods:
+    - GET
+    - POST
+    - PUT
+  destination: https://example.com
+  backends: []
+  insecureSkipVerify: false
+  healthCheck:
+    path: /
+    interval: 10s
+    timeout: 10s
+    healthyStatuses:
+      - 200
+      - 404
+  cors:
+    origins: []
+    headers: {}
+  rateLimit: 15
+  disableHostFording: true
+  interceptErrors: []
+  blockCommonExploits: false
+  ## Middleware names
+  middlewares:
+    - basic-middleware-sample

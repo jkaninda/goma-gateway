@@ -27,3 +27,10 @@ With Goma, you can create custom middleware tailored to your needs and apply the
   - Validates user permissions or access rights for specific route paths.
 
 Middleware provides a flexible and powerful way to enhance the functionality, security, and performance of your API.
+
+## Configuration Options
+
+- **`name`** (`string`): Name of the middleware without white space.
+- **`type`** (`string`): Type of the middleware.
+- **`paths`** (`array of string`): Paths to prevent or protect.
+- **`rule`** (`dictionary`): Middleware rule, changes depending on their type.

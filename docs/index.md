@@ -6,7 +6,7 @@ nav_order: 1
 
 # Goma Gateway
 {:.no_toc}
-Goma Gateway is a lightweight API Gateway Management.
+Goma Gateway is a lightweight High-Performance Declarative API Gateway Management.
 
 <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Goma logo">
 

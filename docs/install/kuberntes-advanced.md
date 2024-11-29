@@ -58,7 +58,7 @@ metadata:
 spec:
   # The version of Goma Gateway
   # See: https://github.com/jkaninda/goma-gateway/releases
-  gatewayVersion: latest # 0.2.2
+  gatewayVersion: latest
   ## Server config
   server:
     # Kubernetes tls secret name
