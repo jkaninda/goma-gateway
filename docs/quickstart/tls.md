@@ -1,19 +1,19 @@
 ---
-title: SSL Certificate
+title: TLS Certificate
 layout: default
 parent: Quickstart
 nav_order: 5
 ---
 
 
-# SSL Certificate
+# TLS Certificate
 
 
 
 ```yaml
 version: 1.0
 gateway:
-  sslCertFile: cert.pem
-  sslKeyFile: key.pem
+  tlsCertFile: cert.pem
+  tlsKeyFile: key.pem
 ```
 

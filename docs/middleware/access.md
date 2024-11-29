@@ -38,3 +38,20 @@ Example of access middleware
       middlewares:
         - api-forbidden-paths
 ```
+## Advanced Kubernetes deployment
+
+```yaml
+apiVersion: gomaproj.github.io/v1beta1
+kind: Middleware
+metadata:
+  name: access-middleware-sample
+spec:
+    type: access
+  ## prevents access paths
+    paths:
+      - /swagger-ui/*
+      - /v2/swagger-ui/*
+      - /api-docs/*
+      - /internal/*
+      - /actuator/*
+```

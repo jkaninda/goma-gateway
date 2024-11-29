@@ -38,3 +38,19 @@ middlewares:
       middlewares:
         - basic-auth
 ```
+
+## Advanced Kubernetes deployment
+
+```yaml
+apiVersion: gomaproj.github.io/v1beta1
+kind: Middleware
+metadata:
+  name: basic-middleware-sample
+spec:
+    type: basic
+    paths:
+      - /admin/*
+    rule:
+      username: admin
+      password: admin
+```

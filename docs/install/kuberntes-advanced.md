@@ -61,12 +61,12 @@ spec:
   gatewayVersion: latest # 0.2.2
   ## Server config
   server:
-#    # Kubernetes tls secret name
-#    tlsSecretName: tls-secret
-#    #Redis configs for distributed rate limiting across multiple instances
-#    redis:
-#        addr: redis:6379
-#        password: password
+    # Kubernetes tls secret name
+    tlsSecretName: '' #Optional, tls-secret
+    #Redis configs for distributed rate limiting across multiple instances
+    redis:
+        addr: '' #Optional, redis:6379
+        password: '' #Optional, password
     writeTimeout: 10
     readTimeout: 15
     idleTimeout: 30
@@ -131,35 +131,33 @@ metadata:
   name: route-sample
 spec:
   gateway: gateway-sample
-  routes:
-  - path: /
-    name: Example
-    hosts: []
-    rewrite: /
-    methods:
-      - GET
-      - POST
-      - PUT
-    destination: https://example.com
-    backends: []
-    insecureSkipVerify: false
-    healthCheck:
-      path: /
-      interval: 10s
-      timeout: 10s
-      healthyStatuses:
-        - 200
-        - 404
-    cors:
-      origins: []
-      headers: {}
-    rateLimit: 15
-    disableHostFording: true
-    interceptErrors: []
-    blockCommonExploits: false
-    ## Middleware names
-    middlewares:
-      - basic-middleware-sample
+  path: /
+  hosts: []
+  rewrite: /
+  methods:
+    - GET
+    - POST
+    - PUT
+  destination: https://example.com
+  backends: []
+  insecureSkipVerify: false
+  healthCheck:
+    path: /
+    interval: 10s
+    timeout: 10s
+    healthyStatuses:
+      - 200
+      - 404
+  cors:
+    origins: []
+    headers: {}
+  rateLimit: 15
+  disableHostFording: true
+  interceptErrors: []
+  blockCommonExploits: false
+  ## Middleware names
+  middlewares:
+    - basic-middleware-sample
 ```
 
 ## Uninstall

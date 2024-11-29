@@ -20,7 +20,7 @@ middlewares:
       - /*
     rule:
       unit: minute # or hour
-      requestsPerUnit: 10
+      requestsPerUnit: 60
 ```
 
 Example of route rate limiting middleware
@@ -41,4 +41,20 @@ gateway:
   rateLimit: 60 # per minute
   routes:
     - name: Example
+```
+
+## Advanced Kubernetes deployment
+
+```yaml
+apiVersion: gomaproj.github.io/v1beta1
+kind: Middleware
+metadata:
+  name: ratelimit-middleware-sample
+spec:
+    type: basic
+    paths:
+      - /*
+    rule:
+      unit: minute # or hour
+      requestsPerUnit: 60
 ```
