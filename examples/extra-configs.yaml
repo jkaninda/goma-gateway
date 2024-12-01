@@ -1,0 +1,51 @@
+##### Extra Middlewares
+middlewares:
+  # Enable Basic auth authorization based
+  - name: extra-basic-auth
+    # Authentication types | jwt, basic, OAuth
+    type: basic
+    paths:
+      - /user
+      - /admin
+      - /account
+    rule:
+      username: admin
+      password: admin
+  # The server will return 403
+  - name: extra-api-forbidden-paths
+    type: access
+    ## prevents access paths
+    paths:
+      - /swagger-ui/*
+      - /v2/swagger-ui/*
+      - /api-docs/*
+      - /internal/*
+      - /actuator/*
+##### Extra routes
+routes:
+  # Example of a route | 1
+  - path: /extra
+    name: Extra  # Name is optional
+    # host Domain/host based request routing
+    hosts: [] # Hosts are optional
+    ## Rewrite a request path
+    # e.g rewrite: /store to /
+    rewrite: /
+    destination:  https://example.com
+    # Limit HTTP methods allowed for this route
+    methods: [POST, PUT, GET]
+    #disableHostFording proxy host forwarding
+    disableHostFording: false
+    # Route Cors, global cors will be overridden by route
+    cors:
+      # Route Origins Cors, route will override global cors origins
+      origins:
+        - https://dev.example.com
+        - http://localhost:3000
+        - https://example.com
+      # Route Cors headers, route will override global cors headers
+      headers:
+        Access-Control-Allow-Methods: 'GET'
+        Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
+        Access-Control-Allow-Credentials: 'true'
+        Access-Control-Max-Age: 1728000
