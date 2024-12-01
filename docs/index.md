@@ -73,7 +73,7 @@ It's designed to be straightforward and efficient, offering a rich set of featur
 - **HTTP Method Restrictions**  
   Limit HTTP methods for specific routes to enhance control.
 
-Define your routes and middleware directly in code for seamless configuration.
+Declarative API Gateway Management, define your routes and middleware directly in code for seamless configuration.
 
 ----
 Architecture:

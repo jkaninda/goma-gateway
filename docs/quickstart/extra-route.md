@@ -93,3 +93,33 @@ Create a file in `/etc/goma/extra` using `yaml` or `.yaml` extension.
          - auth-middleware
 
 ```
+
+## Extra Middlewares
+
+Create a file in `/etc/goma/extra` using `yaml` or `.yaml` extension.
+
+```yaml
+##### Extra Middlewares
+middlewares:
+  # Enable Basic auth authorization based
+  - name: extra-basic-auth
+    # Authentication types | jwt, basic, OAuth
+    type: basic
+    paths:
+      - /user
+      - /admin
+      - /account
+    rule:
+      username: admin
+      password: admin
+  # The server will return 403
+  - name: extra-api-forbidden-paths
+    type: access
+    ## prevents access paths
+    paths:
+      - /swagger-ui/*
+      - /v2/swagger-ui/*
+      - /api-docs/*
+      - /internal/*
+      - /actuator/*
+```

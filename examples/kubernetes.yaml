@@ -32,8 +32,8 @@ spec:
             httpGet:
               path: /readyz
               port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: 15
+            periodSeconds: 15
           volumeMounts:
             - name: config
               mountPath: /etc/goma/

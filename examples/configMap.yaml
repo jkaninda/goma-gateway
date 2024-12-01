@@ -13,15 +13,13 @@ data:
       readTimeout: 15
       # Proxy idle timeout
       idleTimeout: 30
-      ## SSL Certificate file
-      sslCertFile: '' #cert.pem
-      ## SSL Private Key file
-      sslKeyFile: ''#key.pem
+      ## TLS Certificate file
+      tlsCertFile: '' #cert.pem
+      ## TLS Private Key file
+      tlsKeyFile: ''#key.pem
       # Proxy rate limit, it's In-Memory IP based
       rateLimit: 0
       logLevel: info # debug, trace, off
-      accessLog:    "/dev/Stdout"
-      errorLog:     "/dev/stderr"
         ## Redis connexion for distributed rate limiting, when using multiple instances | It's optional
         #redis:
         #addr: redis:6379
