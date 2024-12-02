@@ -93,4 +93,4 @@ spec:
 
 Advanced deployment is to deploy Goma Gateway using its Kubernetes Operator.
 
-See Operator Manuel
+See Operator Manual
