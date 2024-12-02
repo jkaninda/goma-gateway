@@ -7,6 +7,11 @@ nav_order: 4
 
 # Kubernetes Installation
 
+Goma Gateway has two types of installations: simple and advanced.
+
+## 1. Simple Deployment
+
+Simple deployment is to deploy Goma Gateway using Kubernetes deployment resources.
 
 Details about how to use Goma in Kubernetes can be found on the hub.docker.com repo hosting the image: Goma.
 We also have some cool examples with [Kubernetes deployment template](https://github.com/jkaninda/goma-gateway/tree/main/examples) with built-in orchestration and scalability.
@@ -84,3 +89,8 @@ spec:
             name: goma-config
 ```
 
+## 2. Advanced Deployment
+
+Advanced deployment is to deploy Goma Gateway using its Kubernetes Operator.
+
+See Operator Manuel

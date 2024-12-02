@@ -1,7 +1,7 @@
 ---
 title: Gateway
 layout: default
-parent: Quickstart
+parent: User Manual
 nav_order: 1
 ---
 
@@ -90,48 +90,4 @@ gateway:
     directory: /etc/goma/extra
     watch: true
   routes: []
-```
-
-## Advanced Kubernetes deployment
-
-```yaml
-apiVersion: gomaproj.github.io/v1beta1
-kind: Gateway
-metadata:
-  labels: {}
-  name: gateway-sample
-spec:
-  # The version of Goma Gateway
-  # See: https://github.com/jkaninda/goma-gateway/releases
-  gatewayVersion: latest
-  server:
-    # Kubernetes tls secret name
-    tlsSecretName: '' #Optional, tls-secret
-    #Redis configs for distributed rate limiting across multiple instances
-    redis:
-      addr: '' #Optional, redis:6379
-      password: '' #Optional, password
-    writeTimeout: 10
-    readTimeout: 15
-    idleTimeout: 35
-    logLevel: info
-    disableHealthCheckStatus: true
-    disableKeepAlive: false
-    enableMetrics: true
-  # Replicas count
-  replicaCount: 1
-  resources:
-    limits:
-      cpu: 250m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 128Mi
-  autoScaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 5
-    targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: 80
-  affinity: {}
 ```

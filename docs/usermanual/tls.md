@@ -1,7 +1,7 @@
 ---
 title: TLS Certificate
 layout: default
-parent: Quickstart
+parent: User Manual
 nav_order: 5
 ---
 

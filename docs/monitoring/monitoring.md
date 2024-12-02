@@ -1,8 +1,8 @@
 ---
 title: Monitoring
 layout: default
-parent: Quickstart
-nav_order: 6
+parent: Monitoring and Performance
+nav_order: 1
 ---
 
 

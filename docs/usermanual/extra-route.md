@@ -1,7 +1,7 @@
 ---
 title: Extra Routes
 layout: default
-parent: Quickstart
+parent: User Manual
 nav_order: 3
 ---
 
