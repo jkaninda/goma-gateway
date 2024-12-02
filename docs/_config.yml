@@ -52,6 +52,8 @@ nav_external_links:
   - title: GitHub Repository
     url: https://github.com/jkaninda/goma-gateway
 
+  - title: GitHub Kubernetes Operator
+    url: https://github.com/jkaninda/goma-operator
 footer_content: >-
   Copyright &copy; 2024 <a target="_blank" href="https://www.jonaskaninda.com">Jonas Kaninda</a>.
   Distributed under the <a href="https://github.com/jkaninda/goma-gateway/tree/main/LICENSE">Apache-2.0 License.</a><br>
