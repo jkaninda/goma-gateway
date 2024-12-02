@@ -77,12 +77,3 @@ spec:
     targetMemoryUtilizationPercentage: 80
   affinity: {}
 ```
-### Delete gateway
-```shell
-kubectl delete gateway (gatewayName)
-```
-Or
-
-```shell
-kubectl delete gateways.gomaproj.github.io (gatewayName)
-```
