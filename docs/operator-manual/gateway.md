@@ -1,23 +1,9 @@
 ---
-title: Kubernetes Advanced deployment
+title: Gateway
 layout: default
-parent: Installation
-nav_order: 5
+parent: Operator Manual
+nav_order: 2
 ---
-
-# Kubernetes Advanced deployment using CRDs and an Operator
-
-**Install the CRDs and Operator into the cluster:**
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-operator/main/dist/install.yaml
-```
-
-## Resources
-
-- Gateway
-- Route
-- Middleware
 
 ## Gateway
 The **Gateway** serves as the entry point to the server, handling and routing incoming traffic.
@@ -99,82 +85,4 @@ Or
 
 ```shell
 kubectl delete gateways.gomaproj.github.io (gatewayName)
-```
-
-## Middleware
-
-A simple example of middleware
-
-```yaml
-apiVersion: gomaproj.github.io/v1beta1
-kind: Middleware
-metadata:
-  name: basic-middleware-sample
-spec:
-    type: basic
-    paths:
-      - /admin/*
-    rule:
-        username: admin
-        password: admin
-```
-
-## Route
-
-A simple example of route
-
-```yaml
-apiVersion: gomaproj.github.io/v1beta1
-kind: Route
-metadata:
-  labels: {}
-  name: route-sample
-spec:
-  gateway: gateway-sample
-  path: /
-  hosts: []
-  rewrite: /
-  methods:
-    - GET
-    - POST
-    - PUT
-  destination: https://example.com
-  backends: []
-  insecureSkipVerify: false
-  healthCheck:
-    path: /
-    interval: 10s
-    timeout: 10s
-    healthyStatuses:
-      - 200
-      - 404
-  cors:
-    origins: []
-    headers: {}
-  rateLimit: 15
-  disableHostFording: true
-  interceptErrors: []
-  blockCommonExploits: false
-  ## Middleware names
-  middlewares:
-    - basic-middleware-sample
-```
-
-## Uninstall
-
-```sh
-kubectl delete -f https://raw.githubusercontent.com/jkaninda/goma-operator/main/dist/install.yaml
-```
-
-### Force Gateway deletion
-
-```shell
-kubectl patch  gateways.gomaproj.github.io (gatewayName) -p '{"metadata":{"finalizers":[]}}' --type=merge
-```
-
-### Force gateway crd deletion
-
-```shell
-kubectl patch crd gateways.gomaproj.github.io -p '{"metadata":{"finalizers":[]}}' --type=merge
-
 ```

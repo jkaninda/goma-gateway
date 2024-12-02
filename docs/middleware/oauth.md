@@ -83,7 +83,7 @@ kind: Middleware
 metadata:
   name: oauth-middleware-sample
 spec:
-    type: basic
+    type: oauth
     paths:
       - /protected
       - /example-of-oauth

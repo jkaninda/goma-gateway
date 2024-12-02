@@ -135,16 +135,11 @@ data:
           # Required headers, if not present in the request, the proxy will return 403
           requiredHeaders:
             - Authorization
-        #  You can also get headers from the authentication request result and inject them into the next request header or params.
-        #  In case you want to get headers from the authentication service and inject them into the next request headers.
-        #  Set the request variable to the given value after the authorization request completes.
-        # In case you want to get headers from the authentication service and inject them into the next request headers.
-        #  Key is authentication request response header Key. Value is the next Request header Key.
+        # Key: Auth request header key | Value: Next request header key
         headers:
           userId: Auth-UserId
           userCountryId: Auth-UserCountryId
-        # In case you want to get headers from the Authentication service and inject them to the next request params.
-        #Key is authentication request response header Key. Value is the next Request parameter Key.
+        # Key: Auth request header key | Value: Next request parameter key
         params:
           userCountryId: countryId
       # The server will return 403

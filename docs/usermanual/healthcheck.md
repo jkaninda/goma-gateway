@@ -1,8 +1,8 @@
 ---
 title: Healthcheck
 layout: default
-parent: Quickstart
-nav_order: 5
+parent: User Manual
+nav_order: 4
 ---
 
 

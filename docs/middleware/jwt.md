@@ -1,93 +1,103 @@
 ---
-title: JWT auth
+title: JWT Middleware
 layout: default
 parent: Middleware
 nav_order: 4
 ---
 
 
-### JWT middleware
+### JWT Middleware
 
-As BasicAuth, JWT middleware grants also access to route to authorized users only.
-It implements client authorization based on the result of a request using JSON Web Tokens.
+The JWT middleware restricts access to routes, similar to BasicAuth, by authorizing users based on JSON Web Tokens (JWTs).
 
-If the request returns a 200 response code, access is allowed.
-If it returns 401 or 403, the access is denied with the corresponding error code. Any other response code returned by the request is considered an error.
+---
 
-It depends on an authentication service on the backend.
+#### How It Works
 
-It works as  `ngx_http_auth_request_module` on Nginx
-```conf
-location /private/ {
-    auth_request /auth;
-    ...
-}
+1. **Authorization Logic**  
+   The middleware determines access based on the HTTP response from an authentication service:
+    - **200 (OK)**: Access is granted.
+    - **401 (Unauthorized)** or **403 (Forbidden)**: Access is denied with the corresponding error code.
+    - **Other Response Codes**: Treated as errors.
 
-location = /auth {
-    proxy_pass ...
-    proxy_pass_request_body off;
-    proxy_set_header Content-Length "";
-    proxy_set_header X-Original-URI $request_uri;
-}
+2. **Backend Dependency**  
+   The middleware relies on a backend authentication service to validate requests.
+
+3. **Nginx Inspiration**  
+   Its behavior is comparable to `ngx_http_auth_request_module` in Nginx. 
+
+Here's an example Nginx configuration:
+
+```
+   location /private/ {
+       auth_request /auth;
+       ...
+   }
+
+   location = /auth {
+       proxy_pass ...;
+       proxy_pass_request_body off;
+       proxy_set_header Content-Length "";
+       proxy_set_header X-Original-URI $request_uri;
+   }
 ```
 
-You can also get headers from the authentication request result and inject them into the next request header or params.
+### Header and Parameter Injection
 
-In case you want to get headers from the authentication service and inject them into the next request headers.
+The middleware supports extracting headers from the authentication response and injecting them into the next request’s headers or parameters.
 
-Set the request variable to the given value after the authorization request completes.
-
-Key is authentication request response header Key. Value is the next Request header Key.
+1. **Injecting Headers**
+Add headers to the next request after a successful authorization:
 
 ```yaml
-     headers:
-       ## Key Authentication request header key and value is next request header key
-       userId: X-Auth-UserId
-       userCountryId: X-Auth-UserCountryId
+headers:
+  # Key: Auth request header key | Value: Next request header key
+  userId: X-Auth-UserId
+  userCountryId: X-Auth-UserCountryId
 ```
-The second example, is in case you want to get headers from the authentication request and inject them into the next request parameters.
-Key is authentication request response header Key. Value is the next Request parameter Key.
 
-See the example below.
+2. **Injecting Parameters**
+   
+Add parameters to the next request from the authentication response headers:
 
 ```yaml
-      # Key Authentication request header key and value is next request parameter key
-     params:
-       userId: userId
-       userCountryId: countryId
+params:
+  # Key: Auth request header key | Value: Next request parameter key
+  userId: userId
+  userCountryId: countryId
 ```
-Example of JWT middleware
+
+### Example Configuration
+
+Below is a complete example of JWT middleware configuration:
+
 ```yaml
 middlewares:
-   #Enables JWT authorization based on the result of a request and continues the request.
-   - name: google-auth
-     # jwt authorization based on the result of backend's response and continue the request when the client is authorized
-     type: jwt
-     # Paths to protect
-     paths:
-       - /protected-access
-       - /example-of-jwt
-       #- /* or wildcard path
-     rule:
-       # This is an example URL
-       url: https://www.example.com/auth/access
-       # Required headers, if not present in the request, the proxy will return 403
-       requiredHeaders:
-         - Authorization
-       #Set the request variable to the given value after the authorization request completes.
-       #
-       # Add header to the next request from AuthRequest header, depending on your requirements
-       # Key is AuthRequest's response header Key, and value is Request's header Key
-       # In case you want to get headers from the authentication service and inject them into the next request header or parameters,
-       #Set the request variable to the given value after completing the authorization request.
-       #
-       # Add header to the next request from AuthRequest header, depending on your requirements
-       # Key is AuthRequest's response header Key, and value is next request header Key
-    # In case you want to get headers from the authentication service and inject them into the next request headers.
-     headers:
-       userId: X-Auth-UserId
-       userCountryId: X-Auth-UserCountryId
-       # In case you want to get headers from the Authentication service and inject them to the next request params.
-     params:
-       userCountryId: countryId
+  - name: jwt-auth
+    type: jwt
+    # Paths to protect
+    paths:
+      - /protected-access
+      - /example-of-jwt
+      # - /* for wildcard paths
+    rule:
+      # URL of the backend authentication service
+      url: https://www.example.com/auth/access
+      # Headers required in the incoming request
+      requiredHeaders:
+        - Authorization
+      # Headers to include in the next request
+      headers:
+        userId: X-Auth-UserId
+        userCountryId: X-Auth-UserCountryId
+      # Parameters to include in the next request
+      params:
+        userId: userId
+        userCountryId: countryId
+
 ```
+
+### Notes
+
+- Use this middleware to secure endpoints by delegating authorization to a backend service.
+- Properly configure the rule section to match your authentication service requirements.

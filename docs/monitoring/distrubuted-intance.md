@@ -1,8 +1,8 @@
 ---
 title: Distributed instances
 layout: default
-parent: Quickstart
-nav_order: 5
+parent: Monitoring and Performance
+nav_order: 4
 ---
 
 
@@ -15,8 +15,8 @@ By leveraging Redis, the Gateway ensures high-performance request throttling and
 ```yaml
 version: "1.0"
 gateway:
-  sslCertFile: cert.pem
-  sslKeyFile: key.pem
+  tlsCertFile: cert.pem
+  tlsKeyFile: key.pem
   writeTimeout: 15
   readTimeout: 15
   idleTimeout: 30
