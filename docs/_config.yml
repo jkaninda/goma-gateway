@@ -70,3 +70,5 @@ footer_content: >-
 #   - vendor/cache/
 #   - vendor/gems/
 #   - vendor/ruby/
+include:
+  - robots.txt
