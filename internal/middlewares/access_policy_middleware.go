@@ -49,6 +49,10 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 						RespondWithError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
 						return
 					}
+					if index == len(access.SourceRanges)-1 {
+						next.ServeHTTP(w, r)
+						return
+					}
 					continue
 				} else {
 					// Handle single IP
