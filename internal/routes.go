@@ -254,7 +254,6 @@ func attachMiddlewares(rIndex int, route Route, gateway Gateway, router *mux.Rou
 						logger.Error("Error: %v, middleware not applied", err.Error())
 					}
 					if len(accessPolicy.SourceRanges) != 0 {
-						logger.Info("Ips: %v", accessPolicy.SourceRanges)
 						access := middlewares.AccessPolicy{
 							SourceRanges: accessPolicy.SourceRanges,
 							Action:       accessPolicy.Action,
