@@ -15,7 +15,7 @@
  *
  */
 
-package pkg
+package internal
 
 import (
 	"github.com/golang-jwt/jwt"

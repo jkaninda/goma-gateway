@@ -15,7 +15,7 @@
  *
  */
 
-package pkg
+package internal
 
 // Gateway contains Goma Proxy Gateway's configs
 type Gateway struct {

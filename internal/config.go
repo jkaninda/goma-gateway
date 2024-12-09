@@ -1,4 +1,4 @@
-package pkg
+package internal
 
 /*
 Copyright 2024 Jonas Kaninda
@@ -191,7 +191,6 @@ func initConfig(configFile string) error {
 				Type: AccessMiddleware,
 				Paths: []string{
 					"/swagger-ui/*",
-					"/v2/swagger-ui/*",
 					"/api-docs/*",
 					"/actuator/*",
 				},

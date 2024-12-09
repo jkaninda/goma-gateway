@@ -1,4 +1,4 @@
-package pkg
+package internal
 
 const ConfigDir = "/etc/goma/" // Default configuration file
 const ExtraDir = ConfigDir + "extra"
