@@ -167,7 +167,14 @@ type Redis struct {
 	Password string `yaml:"password"`
 }
 
+// ExtraRouteConfig contains additional routes and middlewares directory
 type ExtraRouteConfig struct {
 	Directory string `yaml:"directory"`
 	Watch     bool   `yaml:"watch"`
+}
+
+// AccessPolicyRuleMiddleware access policy
+type AccessPolicyRuleMiddleware struct {
+	Action       string   `yaml:"action,omitempty"` // action, ALLOW or DENY
+	SourceRanges []string `yaml:"sourceRanges"`     //  list of Ips
 }

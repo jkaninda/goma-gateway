@@ -210,22 +210,22 @@ func attachMiddlewares(rIndex int, route Route, gateway Gateway, router *mux.Rou
 		}
 		if len(middleware) != 0 {
 			// Get Access middlewares if it does exist
-			accessMiddleware, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
+			mid, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
 			if err != nil {
 				logger.Error("Error: %v", err.Error())
 			} else {
 				// Apply access middlewares
-				if accessMiddleware.Type == AccessMiddleware {
+				if mid.Type == AccessMiddleware {
 					blM := middlewares.AccessListMiddleware{
 						Path: route.Path,
-						List: accessMiddleware.Paths,
+						List: mid.Paths,
 					}
 					router.Use(blM.AccessMiddleware)
 				}
 
 				// Apply Rate limit middleware
-				if slices.Contains(RateLimitMiddleware, accessMiddleware.Type) {
-					rateLimitMid, err := rateLimitMiddleware(accessMiddleware.Rule)
+				if slices.Contains(RateLimitMiddleware, mid.Type) {
+					rateLimitMid, err := rateLimitMiddleware(mid.Rule)
 					if err != nil {
 						logger.Error("Error: %v", err.Error())
 					}
@@ -238,17 +238,33 @@ func attachMiddlewares(rIndex int, route Route, gateway Gateway, router *mux.Rou
 							Hosts:      route.Hosts,
 							RedisBased: redisBased,
 							PathBased:  true,
-							Paths:      util.AddPrefixPath(route.Path, accessMiddleware.Paths),
+							Paths:      util.AddPrefixPath(route.Path, mid.Paths),
 						}
 						limiter := rateLimit.NewRateLimiterWindow()
-						// Add rate limit middlewares
+						// Apply rate limiter middlewares
 						router.Use(limiter.RateLimitMiddleware())
 
 					}
 
 				}
+				// AccessPolicy
+				if accessPolicy == mid.Type {
+					accessPolicy, err := getAccessPoliciesMiddleware(mid.Rule)
+					if err != nil {
+						logger.Error("Error: %v, middleware not applied", err.Error())
+					}
+					if len(accessPolicy.SourceRanges) != 0 {
+						logger.Info("Ips: %v", accessPolicy.SourceRanges)
+						access := middlewares.AccessPolicy{
+							SourceRanges: accessPolicy.SourceRanges,
+							Action:       accessPolicy.Action,
+						}
+						router.Use(access.AccessPolicyMiddleware)
+					}
+				}
 
 			}
+
 			// Get route authentication middlewares if it does exist
 			routeMiddleware, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
 			if err != nil {
