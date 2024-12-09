@@ -26,47 +26,62 @@ import (
 	"github.com/jkaninda/goma-gateway/util"
 )
 
-// Info returns info log
-func Info(msg string, args ...interface{}) {
-	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
-	logWithCaller("INFO", msg, args...)
-
+// Generic logging function
+func logMessage(level, defaultOutput, msg string, args ...interface{}) {
+	logLevel := getLogLevel()
+	if shouldLog(level, logLevel) {
+		log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", defaultOutput)))
+		logWithCaller(level, msg, args...)
+	}
 }
 
-// Warn returns warning log
-func Warn(msg string, args ...interface{}) {
-	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
-	logWithCaller("WARN", msg, args...)
+// Info logs informational messages
+func Info(msg string, args ...interface{}) {
+	logMessage("INFO", "/dev/stdout", msg, args...)
+}
 
+// Warn logs warning messages
+func Warn(msg string, args ...interface{}) {
+	logMessage("WARN", "/dev/stdout", msg, args...)
 }
 
 // Error logs error messages
 func Error(msg string, args ...interface{}) {
-	log.SetOutput(getStd(util.GetStringEnv("GOMA_ERROR_LOG", "/dev/stderr")))
-	logWithCaller("ERROR", msg, args...)
+	logMessage("ERROR", "/dev/stderr", msg, args...)
 }
 
+// Fatal logs fatal errors and exits the program
 func Fatal(msg string, args ...interface{}) {
 	log.SetOutput(os.Stdout)
 	logWithCaller("ERROR", msg, args...)
 	os.Exit(1)
 }
 
+// Debug logs debug messages
 func Debug(msg string, args ...interface{}) {
-	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
-	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
-	if strings.ToLower(logLevel) == traceLog || strings.ToLower(logLevel) == "debug" {
-		logWithCaller("DEBUG", msg, args...)
-	}
-
+	logMessage("DEBUG", "/dev/stdout", msg, args...)
 }
+
+// Trace logs trace messages
 func Trace(msg string, args ...interface{}) {
-	log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", "/dev/stdout")))
-	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
-	if strings.ToLower(logLevel) == traceLog {
-		logWithCaller("DEBUG", msg, args...)
+	logMessage("TRACE", "/dev/stdout", msg, args...)
+}
+
+// Determines whether the message should be logged based on log level
+func shouldLog(level, currentLevel string) bool {
+	levelOrder := map[string]int{
+		"trace": 1,
+		"debug": 2,
+		"info":  3,
+		"warn":  4,
+		"error": 5,
+		"off":   6,
 	}
 
+	current := strings.ToLower(currentLevel)
+	target := strings.ToLower(level)
+
+	return levelOrder[target] >= levelOrder[current]
 }
 
 // Helper function to format and log messages with file and line number
@@ -83,17 +98,15 @@ func logWithCaller(level, msg string, args ...interface{}) {
 		file = "unknown"
 		line = 0
 	}
-	// Log message with caller information if GOMA_LOG_LEVEL is trace
-	logLevel := util.GetStringEnv("GOMA_LOG_LEVEL", "")
-	if strings.ToLower(logLevel) != "off" {
-		if strings.ToLower(logLevel) == traceLog {
-			log.Printf("%s: %s (File: %s, Line: %d)\n", level, formattedMessage, file, line)
-		} else {
-			log.Printf("%s: %s\n", level, formattedMessage)
-		}
+
+	if getLogLevel() == traceLog {
+		log.Printf("%s: %s (File: %s, Line: %d)\n", level, formattedMessage, file, line)
+	} else {
+		log.Printf("%s: %s\n", level, formattedMessage)
 	}
 }
 
+// Determines the appropriate standard output based on the environment variable
 func getStd(out string) *os.File {
 	switch out {
 	case "/dev/stdout":
@@ -104,6 +117,10 @@ func getStd(out string) *os.File {
 		return os.Stdin
 	default:
 		return os.Stdout
-
 	}
+}
+
+// Retrieves the current log level from environment variables
+func getLogLevel() string {
+	return strings.ToLower(util.GetStringEnv("GOMA_LOG_LEVEL", ""))
 }
