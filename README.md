@@ -151,7 +151,7 @@ docker run --rm --name goma-gateway \
 - Goma Gateway health check: 
   - `/readyz`
   - `/healthz`
-- Routes health check: `/health/routes`
+- Routes health check: `/healthz/routes`
 
 
 ### 5. Simple deployment in docker compose file

@@ -30,7 +30,7 @@ gateway:
 - Goma Gateway health check:
     - `/readyz`
     - `/healthz`
-- Routes health check: `health/routes`
+- Routes health check: `healthz/routes`
 
 ### Gateway healthcheck response:
 
