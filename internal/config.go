@@ -282,6 +282,41 @@ func getBasicAuthMiddleware(input interface{}) (BasicRuleMiddleware, error) {
 	}
 	return *basicAuth, nil
 }
+func getAccessPoliciesMiddleware(input interface{}) (AccessPolicyRuleMiddleware, error) {
+	a := new(AccessPolicyRuleMiddleware)
+	var bytes []byte
+	bytes, err := yaml.Marshal(input)
+	if err != nil {
+		return AccessPolicyRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
+	}
+	err = yaml.Unmarshal(bytes, a)
+	if err != nil {
+		return AccessPolicyRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
+	}
+	if len(a.SourceRanges) == 0 {
+		return AccessPolicyRuleMiddleware{}, fmt.Errorf("empty sourceRanges")
+
+	}
+	for _, ip := range a.SourceRanges {
+		isIP, isCIDR := isIPOrCIDR(ip)
+		if isIP {
+			if !validateIPAddress(ip) {
+				return AccessPolicyRuleMiddleware{}, fmt.Errorf("invalid ip address")
+			}
+		}
+		if isCIDR {
+			if !validateCIDR(ip) {
+				return AccessPolicyRuleMiddleware{}, fmt.Errorf("invalid cidr address")
+			}
+			if validateCIDR(ip) {
+				return AccessPolicyRuleMiddleware{}, fmt.Errorf("cidr is not yet supported")
+
+			}
+		}
+
+	}
+	return *a, nil
+}
 
 // oAuthMiddleware returns OauthRulerMiddleware, error
 func oAuthMiddleware(input interface{}) (OauthRulerMiddleware, error) {

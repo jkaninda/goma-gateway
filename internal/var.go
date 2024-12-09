@@ -9,6 +9,7 @@ const AccessMiddleware = "access" // access middlewares
 const BasicAuth = "basic"         // basic authentication middlewares
 const JWTAuth = "jwt"             // JWT authentication middlewares
 const OAuth = "oauth"             // OAuth authentication middlewares
+const accessPolicy = "accessPolicy"
 
 var (
 	// Round-robin counter
