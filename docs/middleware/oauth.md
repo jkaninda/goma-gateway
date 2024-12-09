@@ -2,7 +2,7 @@
 title: OAuth auth
 layout: default
 parent: Middleware
-nav_order: 5
+nav_order: 6
 ---
 
 # OAuth middleware
