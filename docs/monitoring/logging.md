@@ -14,7 +14,13 @@ Setting the log level to trace configures the server to trace-log all the header
 
 This is helpful to confirm that certain required Headers are correctly forwarded from the reverse proxy.
 
-
+### Log Level:
+- info
+- warn
+- error
+- debug
+- trace
+- off
 
 ### When using the environment variable
 
