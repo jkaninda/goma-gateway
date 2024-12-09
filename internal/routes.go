@@ -83,11 +83,12 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	}
 	// Routes health check
 	if !gateway.DisableHealthCheckStatus {
-		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET")
+		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET") // Deprecated
+		r.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
 	}
 
 	// Health check
-	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET")
+	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET") // Deprecated
 	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
 	r.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
 	// Enable common exploits
