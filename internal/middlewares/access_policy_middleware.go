@@ -63,12 +63,17 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 	})
 }
 
-// isIPAllowed checks if a client IP matches an entry (range or single IP).
+// isIPAllowed checks if a client IP matches an entry (range, single IP or CIDR block).
 func isIPAllowed(clientIP, entry string) bool {
+	// Handle IP range
 	if strings.Contains(entry, "-") {
 		// Handle IP range
 		startIP, endIP, err := parseIPRange(entry)
 		return err == nil && ipInRange(clientIP, startIP, endIP)
+	}
+	// Handle CIDR
+	if strings.Contains(entry, "/") {
+		return ipInCIDR(clientIP, entry)
 	}
 	// Handle single IP
 	return clientIP == entry
@@ -115,4 +120,14 @@ func ipInRange(ipStr, startIP, endIP string) bool {
 		}
 	}
 	return true
+}
+
+// Check if an IP is within a CIDR block
+func ipInCIDR(ipStr, cidr string) bool {
+	ip := net.ParseIP(ipStr)
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return false
+	}
+	return ipNet.Contains(ip)
 }
