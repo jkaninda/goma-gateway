@@ -15,7 +15,7 @@
  *
  */
 
-package pkg
+package internal
 
 // Middleware defined the route middlewares
 type Middleware struct {

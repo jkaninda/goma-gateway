@@ -15,7 +15,7 @@
  *
  */
 
-package pkg
+package internal
 
 // Route defines gateway route
 type Route struct {

@@ -1,4 +1,4 @@
-package pkg
+package internal
 
 /*
 Copyright 2024 Jonas Kaninda

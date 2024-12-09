@@ -15,7 +15,7 @@
  *
  */
 
-package pkg
+package internal
 
 type Cors struct {
 	// Cors Allowed origins,
