@@ -307,10 +307,6 @@ func getAccessPoliciesMiddleware(input interface{}) (AccessPolicyRuleMiddleware,
 			if !validateCIDR(ip) {
 				return AccessPolicyRuleMiddleware{}, fmt.Errorf("invalid cidr address")
 			}
-			if validateCIDR(ip) {
-				return AccessPolicyRuleMiddleware{}, fmt.Errorf("cidr is not yet supported")
-
-			}
 		}
 
 	}

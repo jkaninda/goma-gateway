@@ -2,7 +2,7 @@
 title: JWT Middleware
 layout: default
 parent: Middleware
-nav_order: 4
+nav_order: 5
 ---
 
 

@@ -1,8 +1,8 @@
 ---
-title: Rate Limit
+title: Rate Limiting
 layout: default
 parent: Middleware
-nav_order: 6
+nav_order: 7
 ---
 
 
@@ -15,7 +15,7 @@ Example of rate limiting middleware
 ```yaml
 middlewares:
   - name: rate-limit
-    type: ratelimit #or rateLimit
+    type: rateLimit #or ratelimit
     paths:
       - /*
     rule:

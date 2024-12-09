@@ -21,6 +21,7 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net"
 	"net/http"
+	"strings"
 )
 
 type AccessPolicy struct {
@@ -30,33 +31,103 @@ type AccessPolicy struct {
 
 func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		iPs := make(map[string]struct{})
-		for _, ip := range access.SourceRanges {
-			iPs[ip] = struct{}{}
-		}
 		// Get the client's IP address
-		ip, _, err := net.SplitHostPort(getRealIP(r))
+		clientIP, _, err := net.SplitHostPort(getRealIP(r))
 		if err != nil {
 			logger.Error("Unable to parse IP address")
 			RespondWithError(w, http.StatusUnauthorized, "Unable to parse IP address")
 			return
 		}
-		// Check if the IP is in the blocklist
-		if access.Action == "DENY" {
-			if _, ok := iPs[ip]; ok {
-				logger.Error(" %s: IP address in the blocklist, access not allowed", getRealIP(r))
-				RespondWithError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
+
+		// Check IP against source ranges
+		isAllowed := access.Action != "DENY"
+		for _, entry := range access.SourceRanges {
+			if isIPAllowed(clientIP, entry) {
+				if isAllowed {
+					next.ServeHTTP(w, r)
+				} else {
+					logger.Error("%s: IP address in the blocklist, access not allowed", clientIP)
+					RespondWithError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
+				}
 				return
 			}
 		}
-		// Check if the IP is in the allowlist
-		if _, ok := iPs[ip]; !ok {
-			logger.Error("%s: IP address not allowed ", getRealIP(r))
-			RespondWithError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
-			return
-		}
-		// Continue to the next handler if the authentication is successful
-		next.ServeHTTP(w, r)
-	})
 
+		// Final response for disallowed IPs
+		if isAllowed {
+			logger.Error("%s: IP address not allowed", clientIP)
+			RespondWithError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
+		} else {
+			next.ServeHTTP(w, r)
+		}
+	})
+}
+
+// isIPAllowed checks if a client IP matches an entry (range, single IP or CIDR block).
+func isIPAllowed(clientIP, entry string) bool {
+	// Handle IP range
+	if strings.Contains(entry, "-") {
+		// Handle IP range
+		startIP, endIP, err := parseIPRange(entry)
+		return err == nil && ipInRange(clientIP, startIP, endIP)
+	}
+	// Handle CIDR
+	if strings.Contains(entry, "/") {
+		return ipInCIDR(clientIP, entry)
+	}
+	// Handle single IP
+	return clientIP == entry
+}
+
+// / Parse a range string into start and end IPs
+func parseIPRange(rangeStr string) (string, string, error) {
+	parts := strings.Split(rangeStr, "-")
+	if len(parts) != 2 {
+		return "", "", http.ErrAbortHandler
+	}
+
+	startIP := strings.TrimSpace(parts[0])
+	endIP := strings.TrimSpace(parts[1])
+
+	if net.ParseIP(startIP) == nil || net.ParseIP(endIP) == nil {
+		return "", "", http.ErrAbortHandler
+	}
+
+	return startIP, endIP, nil
+}
+
+// Check if an IP is in range
+func ipInRange(ipStr, startIP, endIP string) bool {
+	ip := net.ParseIP(ipStr)
+	start := net.ParseIP(startIP)
+	end := net.ParseIP(endIP)
+
+	if ip == nil || start == nil || end == nil {
+		return false
+	}
+
+	ipBytes := ip.To4()
+	startBytes := start.To4()
+	endBytes := end.To4()
+
+	if ipBytes == nil || startBytes == nil || endBytes == nil {
+		return false
+	}
+
+	for i := 0; i < 4; i++ {
+		if ipBytes[i] < startBytes[i] || ipBytes[i] > endBytes[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// Check if an IP is within a CIDR block
+func ipInCIDR(ipStr, cidr string) bool {
+	ip := net.ParseIP(ipStr)
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return false
+	}
+	return ipNet.Contains(ip)
 }

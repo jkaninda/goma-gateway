@@ -83,11 +83,12 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	}
 	// Routes health check
 	if !gateway.DisableHealthCheckStatus {
-		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET")
+		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET") // Deprecated
+		r.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
 	}
 
 	// Health check
-	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET")
+	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET") // Deprecated
 	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
 	r.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
 	// Enable common exploits
@@ -249,14 +250,14 @@ func attachMiddlewares(rIndex int, route Route, gateway Gateway, router *mux.Rou
 				}
 				// AccessPolicy
 				if accessPolicy == mid.Type {
-					accessPolicy, err := getAccessPoliciesMiddleware(mid.Rule)
+					a, err := getAccessPoliciesMiddleware(mid.Rule)
 					if err != nil {
 						logger.Error("Error: %v, middleware not applied", err.Error())
 					}
-					if len(accessPolicy.SourceRanges) != 0 {
+					if len(a.SourceRanges) != 0 {
 						access := middlewares.AccessPolicy{
-							SourceRanges: accessPolicy.SourceRanges,
-							Action:       accessPolicy.Action,
+							SourceRanges: a.SourceRanges,
+							Action:       a.Action,
 						}
 						router.Use(access.AccessPolicyMiddleware)
 					}
