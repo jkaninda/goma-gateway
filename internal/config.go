@@ -110,6 +110,10 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 
 // SetEnv sets environment variables
 func (gatewayServer GatewayServer) SetEnv() {
+	logLevel := os.Getenv("GOMA_LOG_LEVEL")
+	if logLevel == "" && gatewayServer.gateway.LogLevel == "" {
+		util.SetEnv("GOMA_LOG_LEVEL", "info")
+	}
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
 	util.SetEnv("GOMA_ERROR_LOG", gatewayServer.gateway.ErrorLog)
 	util.SetEnv("GOMA_ACCESS_LOG", gatewayServer.gateway.AccessLog)
@@ -136,6 +140,7 @@ func initConfig(configFile string) error {
 			WriteTimeout: 15,
 			ReadTimeout:  15,
 			IdleTimeout:  30,
+			LogLevel:     "info",
 			Routes: []Route{
 				{
 					Name:        "Example",
