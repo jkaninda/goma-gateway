@@ -105,6 +105,7 @@ type AccessListMiddleware struct {
 	Path        string
 	Destination string
 	List        []string
+	Origins     []string
 }
 
 // AuthBasic contains Basic auth configuration

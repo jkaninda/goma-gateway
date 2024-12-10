@@ -27,6 +27,7 @@ import (
 type AccessPolicy struct {
 	Action       string
 	SourceRanges []string
+	Origins      []string
 }
 
 func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handler {
@@ -44,7 +45,7 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 					next.ServeHTTP(w, r)
 				} else {
 					logger.Error("%s: IP address in the blocklist, access not allowed", clientIP)
-					RespondWithError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
+					RespondWithError(w, r, http.StatusForbidden, http.StatusText(http.StatusForbidden), access.Origins)
 				}
 				return
 			}
@@ -53,7 +54,7 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 		// Final response for disallowed IPs
 		if isAllowed {
 			logger.Error("%s: IP address not allowed", clientIP)
-			RespondWithError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
+			RespondWithError(w, r, http.StatusForbidden, http.StatusText(http.StatusForbidden), access.Origins)
 		} else {
 			next.ServeHTTP(w, r)
 		}

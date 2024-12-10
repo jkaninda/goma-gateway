@@ -52,7 +52,7 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		next.ServeHTTP(rec, r)
 		if canIntercept(rec.statusCode, intercept.Errors) {
 			logger.Error("Request to %s resulted in error with status code %d\n", r.URL.Path, rec.statusCode)
-			RespondWithError(w, rec.statusCode, http.StatusText(rec.statusCode))
+			RespondWithError(w, r, rec.statusCode, http.StatusText(rec.statusCode), intercept.Origins)
 			return
 		} else {
 			// No error: write buffered response to client

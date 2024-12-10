@@ -38,10 +38,13 @@ func allowedOrigin(origins []string, origin string) bool {
 }
 
 // RespondWithError is a helper function to handle error responses with flexible content type
-func RespondWithError(w http.ResponseWriter, statusCode int, logMessage string) {
+func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, logMessage string, origins []string) {
 	message := http.StatusText(statusCode)
 	if len(logMessage) != 0 {
 		message = logMessage
+	}
+	if allowedOrigin(origins, r.Header.Get("Origin")) {
+		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
