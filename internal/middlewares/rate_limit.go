@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"net"
 	"net/http"
 	"time"
 )
@@ -51,7 +52,11 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			clientIP := getRealIP(r)
+			// Get the client's IP address
+			clientIP, _, err := net.SplitHostPort(getRealIP(r))
+			if err != nil {
+				clientIP = getRealIP(r)
+			}
 			clientID := fmt.Sprintf("%s-%s", rl.id, clientIP) // Generate client Id, ID+ route ID
 			if rl.redisBased {
 				err := redisRateLimiter(clientID, rl.unit, rl.requests)

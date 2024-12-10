@@ -34,11 +34,8 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 		// Get the client's IP address
 		clientIP, _, err := net.SplitHostPort(getRealIP(r))
 		if err != nil {
-			logger.Error("Unable to parse IP address")
-			RespondWithError(w, http.StatusUnauthorized, "Unable to parse IP address")
-			return
+			clientIP = getRealIP(r)
 		}
-
 		// Check IP against source ranges
 		isAllowed := access.Action != "DENY"
 		for _, entry := range access.SourceRanges {
