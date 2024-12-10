@@ -84,7 +84,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 					if allowedOrigin(rl.origins, r.Header.Get("Origin")) {
 						w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 					}
-					RespondWithError(w, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusTooManyRequests))
+					RespondWithError(w, r, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusTooManyRequests), nil)
 					return
 				}
 			}

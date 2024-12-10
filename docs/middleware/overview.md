@@ -25,6 +25,8 @@ With Goma, you can create custom middleware tailored to your needs and apply the
 
 - **Access Middleware**
   - Validates user permissions or access rights for specific route paths.
+- **Access Policy Middleware**
+  - Controls route access by either `allowing` or `denying` requests based on defined rules.
 
 Middleware provides a flexible and powerful way to enhance the functionality, security, and performance of your API.
 

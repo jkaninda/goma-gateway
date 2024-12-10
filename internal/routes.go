@@ -218,8 +218,9 @@ func attachMiddlewares(rIndex int, route Route, gateway Gateway, router *mux.Rou
 				// Apply access middlewares
 				if mid.Type == AccessMiddleware {
 					blM := middlewares.AccessListMiddleware{
-						Path: route.Path,
-						List: mid.Paths,
+						Path:    route.Path,
+						List:    mid.Paths,
+						Origins: route.Cors.Origins,
 					}
 					router.Use(blM.AccessMiddleware)
 				}
@@ -258,6 +259,7 @@ func attachMiddlewares(rIndex int, route Route, gateway Gateway, router *mux.Rou
 						access := middlewares.AccessPolicy{
 							SourceRanges: a.SourceRanges,
 							Action:       a.Action,
+							Origins:      route.Cors.Origins,
 						}
 						router.Use(access.AccessPolicyMiddleware)
 					}
