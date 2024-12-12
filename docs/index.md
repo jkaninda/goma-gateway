@@ -50,7 +50,7 @@ It's designed to be straightforward and efficient, offering a rich set of featur
   - **Basic-Auth** and **OAuth** authentication mechanisms.
 - **Access Policy Middleware**
 
-  The Access Policy middleware controls route access by either `allowing` or `denying` requests based on defined rules.
+  Control route access by either `allowing` or `denying` requests based on defined rules.
 
 ### Monitoring and Performance
 - **Logging**  
