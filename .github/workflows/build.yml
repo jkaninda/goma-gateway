@@ -1,7 +1,7 @@
-name: Build
+name: Build-nightly
 on:
   push:
-    branches: ['develop']
+    branches: ['nightly']
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -26,7 +26,7 @@ jobs:
           file: "./Dockerfile"
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           build-args: |
-            appVersion=develop-${{ github.sha }}
+            appVersion=nightly
           tags: |
-            "${{vars.BUILDKIT_IMAGE}}:develop-${{ github.sha }}"
+            "${{vars.BUILDKIT_IMAGE}}:nightly"
 
