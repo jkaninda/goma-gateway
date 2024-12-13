@@ -109,63 +109,61 @@ Declarative API Gateway Management, define your routes and middleware directly i
 
 ## Usage
 
-### 1. Initialize configuration
+### 1. Initialize Configuration
 
-You can generate the configuration file using `config init --output /etc/goma/config.yml` command.
-
-The default configuration is automatically generated if any configuration file is not provided, and is available at `/etc/goma/goma.yml`
+Generate a configuration file using the following command:
 
 ```shell
-docker run --rm  --name goma-gateway \
+docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
- jkaninda/goma-gateway config init --output /etc/goma/goma.yml
+ jkaninda/goma-gateway config init --output /etc/goma/config.yml
 ```
-## 2. Check configuration
+If no file is provided, a default configuration is created at /etc/goma/goma.yml.
+
+### 2. Validate Configuration
+
+Check your configuration file for errors:
 
 ```shell
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  -p 8080:8080 \
  jkaninda/goma-gateway config check --config /etc/goma/config.yml
+
 ```
 
-### 3. Run server
+### 3. Start the Server with Custom Config
 
 ```shell
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  -p 8080:8080 \
- jkaninda/goma-gateway server
-```
-
-### 4. Start server with a custom config
-```shell
-docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- -p 8080:8080 \
- -p 8443:8443 \
  jkaninda/goma-gateway server --config /etc/goma/config.yml
 ```
-### 4. Healthcheck
+### 4. Health Checks
 
-- Goma Gateway health check: 
+Goma Gateway provides the following health check endpoints:
+- Gateway Health:
   - `/readyz`
   - `/healthz`
-- Routes health check: `/healthz/routes`
+- Routes Health: `/healthz/routes`
 
+### 5. Simple Deployment with Docker Compose
 
-### 5. Simple deployment in docker compose file
+Here’s an example of deploying Goma Gateway using Docker Compose:
 
-```yaml
+```shell
 services:
   goma-gateway:
     image: jkaninda/goma-gateway
     command: server
     ports:
       - "8080:8080"
+      - "8443:8443"
     volumes:
       - ./config:/etc/goma/
 ```
+
 
 ### 6. Kubernetes deployment
 
