@@ -51,7 +51,7 @@ kind: Middleware
 metadata:
   name: ratelimit-middleware-sample
 spec:
-    type: ratelimit
+    type: rateLimit
     paths:
       - /*
     rule:

@@ -1,12 +1,12 @@
 ---
-title: Healthcheck
+title: Health check
 layout: default
 parent: User Manual
-nav_order: 4
+nav_order: 5
 ---
 
 
-# Healthcheck
+# Route Healthcheck
 
 The proxy includes built-in health check routes, which can be easily enabled or disabled based on your requirements.
 
@@ -26,11 +26,13 @@ gateway:
             timeout: 10s
             healthyStatuses: [200,404] # Healthy statuses
 ```
+## Goma Gateway Health Checks
 
-- Goma Gateway health check:
-    - `/readyz`
-    - `/healthz`
-- Routes health check: `healthz/routes`
+Goma Gateway provides the following health check endpoints:
+- Gateway Health:
+  - `/readyz`
+  - `/healthz`
+- Routes Health: `/healthz/routes`
 
 ### Gateway healthcheck response:
 

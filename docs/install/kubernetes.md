@@ -7,42 +7,47 @@ nav_order: 4
 
 # Kubernetes Installation
 
-Goma Gateway has two types of installations: simple and advanced.
+Goma Gateway supports two installation types: **Simple Deployment** and **Advanced Deployment**.
 
 ## 1. Simple Deployment
 
-Simple deployment is to deploy Goma Gateway using Kubernetes deployment resources.
+The simple deployment uses standard Kubernetes deployment resources to run Goma Gateway.
 
-Details about how to use Goma in Kubernetes can be found on the hub.docker.com repo hosting the image: Goma.
-We also have some cool examples with [Kubernetes deployment template](https://github.com/jkaninda/goma-gateway/tree/main/examples) with built-in orchestration and scalability.
+### Deployment Guide
 
-## 1. Generate a configuration file
+- Details on using Goma Gateway in Kubernetes can be found on the [Docker Hub repository](https://hub.docker.com/r/jkaninda/goma-gateway).
+- Explore [Kubernetes deployment templates](https://github.com/jkaninda/goma-gateway/tree/main/examples) for built-in orchestration and scalability.
 
-You can generate the configuration file using `config init --output /etc/goma/config.yml` command.
+### Step 1: Generate Configuration File
 
-The default configuration is automatically generated if any configuration file is not provided, and is available at `/etc/goma/goma.yml`
+Use the following command to create a configuration file:
 
 ```shell
-docker run --rm  --name goma-gateway \
+docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  jkaninda/goma-gateway config init --output /etc/goma/config.yml
 ```
 
-## 2. Create ConfigMap
+If no configuration file is provided, Goma Gateway generates a default file at `/etc/goma/goma.yml`.
 
-```yaml
+### Step 2: Create a ConfigMap
+
+Define the configuration as a Kubernetes ConfigMap:
+```shell
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: goma-config
+name: goma-config
 data:
-  goma.yml: |
-    # Goma Gateway configurations
-    version: 1.0
-    gateway:
-      ...
+goma.yml: |
+# Goma Gateway configurations
+version: 1.0
+gateway:
+...
 ```
-## 3. Create Kubernetes deployment
+### Step 3: Deploy Goma Gateway
+
+Create a Kubernetes Deployment using the following example:
 
 ```yaml
 apiVersion: apps/v1
@@ -61,7 +66,7 @@ spec:
       containers:
         - name: goma-gateway
           image: jkaninda/goma-gateway
-          command: ["/usr/local/bin/goma","server"]
+          command: ["/usr/local/bin/goma", "server"]
           resources:
             limits:
               memory: "128Mi"
@@ -89,8 +94,9 @@ spec:
             name: goma-config
 ```
 
+
 ## 2. Advanced Deployment
 
-Advanced deployment is to deploy Goma Gateway using its Kubernetes Operator.
+The advanced deployment uses Goma Gateway’s Kubernetes Operator for more dynamic configuration management.
 
-See Operator Manual
+For detailed instructions, see the [Operator Manual](/operator-manual/installation.html).
