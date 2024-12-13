@@ -44,7 +44,7 @@ func (health Health) Check() error {
 		},
 	}
 	// Set user-agent
-	healthReq.Header.Set("User-Agent", fmt.Sprintf("Goma-Gateway/%s", util.Version))
+	healthReq.Header.Set("User-Agent", fmt.Sprintf("goma-gateway/%s", util.Version))
 	// Perform the request to the route's healthcheck
 	client := &http.Client{Transport: transport, Timeout: health.TimeOut}
 	healthResp, err := client.Do(healthReq)

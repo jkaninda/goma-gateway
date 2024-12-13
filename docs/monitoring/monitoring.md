@@ -8,9 +8,13 @@ nav_order: 1
 
 # Monitoring
 
-Goma collects and exports metrics
+Goma Gateway collects and exports metrics to help monitor the system’s performance.
 
-To enable metrics, you need to set `enableMetrics` to `true` and the metrics are available at `/metrics`
+## Enable Metrics
+
+To enable metrics collection, set the `enableMetrics` field to `true` in the configuration file. Metrics will be available at the `/metrics` endpoint.
+
+### Example Configuration:
 
 ```yaml
 version: 1.0
@@ -18,4 +22,6 @@ gateway:
   enableMetrics: true
   ...
 ```
+Once enabled, metrics can be scraped and visualized using monitoring tools like Prometheus and Grafana.
 
+For additional configuration and examples, visit the Goma Gateway Documentation.

@@ -7,44 +7,58 @@ nav_order: 4
 
 # Docker Installation
 
-Details about how to use Goma in Docker can be found on the hub.docker.com repo hosting the image: Goma.
-We also have some cool examples with [Docker Compose template](https://github.com/jkaninda/goma-gateway/tree/main/examples) with built-in orchestration and scalability.
+Run Goma Gateway easily with Docker. 
 
-## 1. Initialize configuration
+For more details, visit the [Docker Hub repository](https://hub.docker.com/r/jkaninda/goma-gateway).
 
-You can generate the configuration file using `config init --output /etc/goma/config.yml` command.
+Check out [Docker Compose templates](https://github.com/jkaninda/goma-gateway/tree/main/examples) for built-in orchestration and scalability.
 
-The default configuration is automatically generated if any configuration file is not provided, and is available at `/etc/goma/goma.yml`
+---
+
+## 1. Initialize Configuration
+
+Generate a configuration file using the following command:
 
 ```shell
-docker run --rm  --name goma-gateway \
+docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  jkaninda/goma-gateway config init --output /etc/goma/config.yml
 ```
-## 2. Check configuration
+If no file is provided, a default configuration is created at /etc/goma/goma.yml.
+
+## 2. Validate Configuration
+
+Check your configuration file for errors:
 
 ```shell
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  -p 8080:8080 \
  jkaninda/goma-gateway config check --config /etc/goma/config.yml
+
 ```
 
-### 3. Start server with a custom config
+## 3. Start the Server with Custom Config
+
 ```shell
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  -p 8080:8080 \
- jkaninda/goma-gateway server --config /config/config.yml
+ jkaninda/goma-gateway server --config /etc/goma/config.yml
 ```
-### 4. Healthcheck
+## 4. Health Checks
 
-- Goma Gateway health check: `/health/live`
-- Routes health check: `health/routes`
+Goma Gateway provides the following health check endpoints:
+- Gateway Health:
+  - `/readyz`
+  - `/healthz`
+- Routes Health: `/healthz/routes`
 
-### 5. Simple deployment in docker compose file
+## 5. Simple Deployment with Docker Compose
 
-```yaml
+Here’s an example of deploying Goma Gateway using Docker Compose:
+
+```shell
 services:
   goma-gateway:
     image: jkaninda/goma-gateway
