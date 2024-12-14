@@ -1,49 +1,56 @@
 ##### Extra Middlewares
 middlewares:
-  # Enable Basic auth authorization based
+  # Enables Basic Authentication for specified paths
   - name: extra-basic-auth
-    # Authentication types | jwt, basic, OAuth
+    # Authentication type (supported types: jwt, basic, OAuth)
     type: basic
+    # Define paths that require authentication
     paths:
       - /user
       - /admin
       - /account
+    # Authentication credentials for basic authentication
     rule:
       username: admin
       password: admin
-  # The server will return 403
+
+  # Blocks access to sensitive or restricted paths, returning a 403 Forbidden response
   - name: extra-api-forbidden-paths
+    # Middleware type for access control
     type: access
-    ## prevents access paths
+    # Define paths to restrict access
     paths:
       - /swagger-ui/*
       - /v2/swagger-ui/*
       - /api-docs/*
       - /internal/*
       - /actuator/*
-##### Extra routes
+
+##### Extra Routes
 routes:
-  # Example of a route | 1
+  # Example route configuration
   - path: /extra
-    name: Extra  # Name is optional
-    # host Domain/host based request routing
-    hosts: [] # Hosts are optional
-    ## Rewrite a request path
-    # e.g rewrite: /store to /
+    # name for the route
+    name: extra
+    # Hosts (domains) for host-based routing (optional)
+    hosts: []
+    # Rewrites the request path to a new destination path
+    # Example: rewrite "/store" to "/"
     rewrite: /
-    destination:  https://example.com
-    # Limit HTTP methods allowed for this route
+    # Defines the backend service destination for this route
+    destination: https://example.com
+    # Specifies allowed HTTP methods for this route
     methods: [POST, PUT, GET]
-    #disableHostForwarding disables proxy host forwarding
+    # Disables proxy host forwarding (if false, Host header is forwarded)
     disableHostForwarding: false
-    # Route Cors, global cors will be overridden by route
+    # Configure route-specific CORS settings (overrides global CORS)
     cors:
-      # Route Origins Cors, route will override global cors origins
+      # Define allowed origins for this route
       origins:
         - https://dev.example.com
         - http://localhost:3000
         - https://example.com
-      # Route Cors headers, route will override global cors headers
+      # Define CORS headers specific to this route
       headers:
         Access-Control-Allow-Methods: 'GET'
         Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'

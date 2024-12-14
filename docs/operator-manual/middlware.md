@@ -12,17 +12,18 @@ nav_order: 3
 A simple example of middleware
 
 ```yaml
+### Middleware Configuration
 apiVersion: gomaproj.github.io/v1beta1
 kind: Middleware
 metadata:
   name: basic-middleware-sample
 spec:
-    type: basic
-    paths:
-      - /admin/*
-    rule:
-        username: admin
-        password: admin
+  type: basic # Type of middleware (e.g., basic, jwt, etc.)
+  paths:
+    - /admin/* # Paths requiring authentication
+  rule:
+    username: admin # Basic auth username
+    password: admin # Basic auth password
 ```
 ### JWT-auth
 
@@ -79,7 +80,7 @@ spec:
       state: randomStateString
       jwtSecret: your-strong-jwt-secret | It's optional
 ```
-## Rate Limiting 
+## Rate Limiting
 
 ```yaml
 apiVersion: gomaproj.github.io/v1beta1
@@ -87,7 +88,7 @@ kind: Middleware
 metadata:
   name: ratelimit-middleware-sample
 spec:
-    type: ratelimit
+    type: rateLimit
     paths:
       - /*
     rule:

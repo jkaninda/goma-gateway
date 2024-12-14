@@ -23,8 +23,6 @@ gateway:
   #   addr: redis:6379     # Redis server address.
   #   password: password   # Redis password (optional).
 
-
-
   # Health Check Configuration
   disableHealthCheckStatus: false   # Disable overall health check status.
   disableRouteHealthCheckError: false # Disable backend route health check errors.
@@ -127,7 +125,7 @@ middlewares:
         userCountryId: Auth-UserCountryId
       params:                       # Map parameters between auth and backend requests.
         userCountryId: countryId
-
+## Block access to specified paths
   - name: api-forbidden-paths
     type: access
     paths:                          # Paths to block access.

@@ -66,8 +66,6 @@ gateway:
   writeTimeout: 15
   readTimeout: 15
   idleTimeout: 30
-  # Rate limiting
-  rateLimit: 0
   accessLog: /dev/Stdout
   errorLog: /dev/stderr
   logLevel: info

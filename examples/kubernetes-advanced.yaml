@@ -1,94 +1,109 @@
-## Example of advanced Kubernetes deployment
-## Requirements:
-#  - CRDs and the Goma Gateway Operator
-# Kubernetes Operator: https://github.com/jkaninda/goma-operator
-### Middleware
+## Example of Advanced Kubernetes Deployment
+
+### Requirements
+#- **Custom Resource Definitions (CRDs)** and the **Goma Gateway Operator**.
+#    - Kubernetes Operator: [Goma Operator](https://github.com/jkaninda/goma-operator)
+
+---
+
+### Middleware Configuration
 apiVersion: gomaproj.github.io/v1beta1
 kind: Middleware
 metadata:
   name: basic-middleware-sample
 spec:
-  type: basic
+  type: basic # Type of middleware (e.g., basic, jwt, etc.)
   paths:
-    - /admin/*
+    - /admin/* # Paths requiring authentication
   rule:
-    username: admin
-    password: admin
+    username: admin # Basic auth username
+    password: admin # Basic auth password
 ---
 ## Gateway
 apiVersion: gomaproj.github.io/v1beta1
 kind: Gateway
 metadata:
-  labels: {}
   name: gateway-sample
 spec:
-  # The version of Goma Gateway
-  # See: https://github.com/jkaninda/goma-gateway/releases
-  gatewayVersion: latest #
-  ## Server config
+  # Gateway version (use the latest release from the repository)
+  gatewayVersion: latest # https://github.com/jkaninda/goma-gateway/releases
+
+  ## Server Configuration
   server:
-    # Kubernetes tls secret name
-    tlsSecretName: '' #Optional, tls-secret
-    #Redis configs for distributed rate limiting across multiple instances
+    tlsSecretName: '' # Optional: Specify a Kubernetes TLS secret name
     redis:
-      addr: '' #Optional, redis:6379
-      password: '' #Optional, password
-    writeTimeout: 10
-    readTimeout: 15
-    idleTimeout: 30
-    logLevel: info
-    disableHealthCheckStatus: false
-    disableKeepAlive: false
-    enableMetrics: true
-  replicaCount: 1
+      addr: '' # Optional: Redis host (e.g., redis:6379)
+      password: '' # Optional: Redis password
+    writeTimeout: 10 # Request write timeout in seconds
+    readTimeout: 15  # Request read timeout in seconds
+    idleTimeout: 30  # Idle timeout in seconds
+    logLevel: info   # Logging level (e.g., info, debug, warn, error)
+    disableHealthCheckStatus: false # Enable or disable health check status
+    disableKeepAlive: false         # Enable or disable KeepAlive connections
+    enableMetrics: true             # Enable Prometheus metrics for monitoring
+
+  ## Scaling and Resource Management
+  replicaCount: 1 # Number of initial replicas
   resources:
     limits:
-      cpu: 200m
-      memory: 512Mi
+      cpu: 200m    # Maximum CPU allocation
+      memory: 512Mi # Maximum memory allocation
     requests:
-      cpu: 100m
-      memory: 128Mi
-  # Enable auto scaling
+      cpu: 100m    # Minimum CPU allocation
+      memory: 128Mi # Minimum memory allocation
   autoScaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 5
-    targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: 80
-  affinity: {}
+    enabled: true # Enable Horizontal Pod Autoscaler
+    minReplicas: 2 # Minimum number of replicas
+    maxReplicas: 5 # Maximum number of replicas
+    targetCPUUtilizationPercentage: 80 # Target CPU utilization
+    targetMemoryUtilizationPercentage: 80 # Target memory utilization
 
+  ## Node Affinity
+  affinity: {}
 ---
 ## Route
 apiVersion: gomaproj.github.io/v1beta1
 kind: Route
 metadata:
-  labels: {}
   name: route-sample
 spec:
+  # Name of the associated gateway
   gateway: gateway-sample
-  path: /
-  hosts: []
-  rewrite: /
+
+  # Route Configuration
+  path: / # URL path for the route
+  hosts: [] # Optional: Hostnames/domains for routing
+  rewrite: / # Rewrite the path (e.g., /store -> /)
   methods:
     - GET
     - POST
     - PUT
-  destination: https://example.com
-  backends: []
-  insecureSkipVerify: false
+
+  # Backend Configuration
+  destination: https://example.com # Primary destination URL
+  backends: [] # Optional: Additional backends for load balancing
+  insecureSkipVerify: false # Skip TLS verification (not recommended)
+
+  # Health Check Settings
   healthCheck:
-    path: /
-    interval: 10s
-    timeout: 10s
+    path: / # Health check endpoint
+    interval: 10s # Check interval
+    timeout: 10s # Timeout for health check
     healthyStatuses:
-      - 200
+      - 200 # HTTP status codes indicating healthy responses
       - 404
+
+  # Cross-Origin Resource Sharing (CORS) Configuration
   cors:
-    origins: []
-    headers: {}
-  rateLimit: 15
-  disableHostForwarding: true
-  blockCommonExploits: false
-  ## Middleware names
+    origins: [] # Allowed origins
+    headers: {} # custom headers
+
+  # Rate Limiting
+  rateLimit: 15 # Maximum requests per second
+
+  # Security and Middleware
+  disableHostForwarding: true # Disable forwarding of Host headers
+  blockCommonExploits: false  # Enable or disable blocking of common exploits
+  # List of middleware names
   middlewares:
     - basic-middleware-sample
