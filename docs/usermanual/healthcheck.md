@@ -2,7 +2,7 @@
 title: Health check
 layout: default
 parent: User Manual
-nav_order: 5
+nav_order: 6
 ---
 
 

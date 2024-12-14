@@ -40,13 +40,20 @@ This section outlines the available configuration options for defining routes in
     - **`origins`** (`array of strings`): A list of allowed origins for Cross-Origin Resource Sharing (CORS).
     - **`headers`** (`array of strings`): A list of custom headers to include in responses.
 
+## Error Interceptor
+- **`enabled`** (`boolean`): Determines whether the backend error interceptor is active.  
+  *Default: `false`*
+- **`contentType`** (`string`): Specifies the `Content-Type` header of the response, such as `application/json` or `text/plain`.
+- **`errors`** (`array`): A collection of error configurations defining which HTTP status codes to intercept and their corresponding custom responses.
+
+
 ## Additional Options
 
 - **`rateLimit`** (`integer`): The maximum number of requests allowed per minute.
 - **`disableHostForwarding`** (`boolean`): Disables proxy host forwarding for improved security.
-- **`interceptErrors`** (`array of integers`): A list of backend error status codes to intercept for custom handling.
 - **`blockCommonExploits`** (`boolean`): Enables or disables blocking of common exploits.
 - **`middlewares`** (`array of strings`): A list of middleware names applied to the route.
+
 
 ---
 
@@ -149,7 +156,14 @@ gateway:
         interval: 0
         timeout: 0
         healthyStatuses: [200,404]
-      interceptErrors: [403,500]
+      errorInterceptor:
+        enabled: true
+        contentType: "application/json"
+        errors:
+          - code: 401
+            body: ""
+          - code: 500
+            body: "Internal server error"
       blockCommonExploits: false
       cors: {}
       ## Middleware

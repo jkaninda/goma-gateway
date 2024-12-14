@@ -53,7 +53,8 @@ type Route struct {
 	DisableHostForwarding bool `yaml:"disableHostForwarding"`
 	DisableHostFording    bool `yaml:"disableHostFording,omitempty"` // Deprecated, renamed to disableHostForwarding
 	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors  []int                             `yaml:"interceptErrors,omitempty"` // Deprecated, replaced by InterceptErrors
+	InterceptErrors []int `yaml:"interceptErrors,omitempty"` // Deprecated, replaced by ErrorInterceptor
+	//  ErrorInterceptor handles backend error interceptor
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// BlockCommonExploits enable, disable block common exploits
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`

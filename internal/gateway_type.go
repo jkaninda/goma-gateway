@@ -55,12 +55,12 @@ type Gateway struct {
 	DisableKeepAlive bool `yaml:"disableKeepAlive,omitempty"`
 	EnableMetrics    bool `yaml:"enableMetrics,omitempty"`
 	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors  []int                             `yaml:"interceptErrors,omitempty"`
+	InterceptErrors  []int                             `yaml:"interceptErrors,omitempty"` // Deprecated, replaced by ErrorInterceptor
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// Cors holds proxy global cors
 	Cors Cors `yaml:"cors,omitempty"`
 	// ExtraRoutes additional routes from defined directory
-	ExtraRoutes ExtraRouteConfig `yaml:"extraRoutes"`
+	ExtraRoutes ExtraRouteConfig `yaml:"extraRoutes,omitempty"`
 	// Routes holds proxy routes
 	Routes []Route `yaml:"routes"`
 }
