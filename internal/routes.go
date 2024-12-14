@@ -37,21 +37,19 @@ func init() {
 // Initialize initializes the routes
 func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	gateway := gatewayServer.gateway
+	handleGatewayDeprecations(&gateway)
 	dynamicRoutes = gateway.Routes
 	dynamicMiddlewares = gatewayServer.middlewares
-	if len(gateway.ExtraRoutes.Directory) == 0 {
-		gateway.ExtraRoutes.Directory = ExtraDir
-	}
 	// Load Extra Middlewares
 	logger.Info("Loading additional configurations...")
-	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraRoutes.Directory)
+	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
 	if err == nil {
 		dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
 		logger.Info("Loaded %d additional middlewares", len(extraMiddlewares))
 
 	}
 	// Load Extra Routes
-	extraRoutes, err := loadExtraRoutes(gateway.ExtraRoutes.Directory)
+	extraRoutes, err := loadExtraRoutes(gateway.ExtraConfig.Directory)
 	if err == nil {
 		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
 		logger.Info("Loaded %d additional routes", len(extraRoutes))
