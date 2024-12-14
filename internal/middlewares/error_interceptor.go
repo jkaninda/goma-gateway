@@ -51,7 +51,7 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		next.ServeHTTP(rec, r)
 		can, message := canIntercept(rec.statusCode, intercept.Interceptor.Errors)
 		if can {
-			logger.Error("Request to %s resulted in error with status code %d\n", r.URL.Path, rec.statusCode)
+			logger.Error("Request to %s resulted in error with status code %d", r.URL.Path, rec.statusCode)
 			RespondWithError(w, r, rec.statusCode, message, intercept.Origins, intercept.Interceptor.ContentType)
 			return
 		} else {
