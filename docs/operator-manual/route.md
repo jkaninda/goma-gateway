@@ -39,7 +39,6 @@ spec:
     headers: {}
   rateLimit: 15
   disableHostFording: true
-  interceptErrors: []
   blockCommonExploits: false
   ## Middleware names
   middlewares:

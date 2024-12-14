@@ -29,7 +29,6 @@ These settings enable precise control over traffic flow and routing within your 
 - **`disableDisplayRouteOnStart`** (`boolean`): Enable or disable displaying routes during server startup.
 - **`disableKeepAlive`** (`boolean`): Enable or disable `keepAlive` for the proxy.
 - **`enableMetrics`** (`boolean`): Enable or disable server metrics collection.
-- **`interceptErrors`** (`array of integers`): List of HTTP status codes to intercept for custom handling.
 
 ### CORS Configuration
 
@@ -37,6 +36,12 @@ Customize Cross-Origin Resource Sharing (CORS) settings for the proxy:
 
 - **`origins`** (`array of strings`): List of allowed origins.
 - **`headers`** (`map[string]string`): Custom headers to include in responses.
+
+### Error Interceptor
+- **`enabled`** (`boolean`): Determines whether the backend error interceptor is active.  
+  *Default: `false`*
+- **`contentType`** (`string`): Specifies the `Content-Type` header of the response, such as `application/json` or `text/plain`.
+- **`errors`** (`array`): A collection of error configurations defining which HTTP status codes to intercept and their corresponding custom responses.
 
 ### Additional Routes
 
@@ -71,10 +76,14 @@ gateway:
   disableKeepAlive: false
   disableHealthCheckStatus: false
   blockCommonExploits: true
-  # Intercept backend errors
-  interceptErrors:
-    - 500
-    - 405
+  errorInterceptor:
+      enabled: true
+      contentType: "application/json"
+      errors:
+        - code: 401
+          body: ""
+        - code: 500
+          body: "Internal server error"
   cors:
     origins:
       - http://localhost:8080

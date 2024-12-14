@@ -35,9 +35,16 @@ data:
       # Block common exploits | detect SQL injection, and simple XSS attempts
       blockCommonExploits: false
       # interceptErrors intercepts backend errors based on defined the status codes
-      interceptErrors:
-        - 405
-        - 500
+      errorInterceptor:
+        enabled: true
+        contentType: "application/json"
+        errors:
+          - code: 401
+            body: ""
+          - code: 404
+            body: "{\"success\":false,\"code\":404,\"message\":\"Page not found\",\"data\":[]}" ## Raw JSON string     
+          - code: 500
+            body: "Internal server error"
       # - 400
       # Proxy Global HTTP Cors
       cors:

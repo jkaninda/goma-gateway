@@ -57,7 +57,6 @@ spec:
     readTimeout: 15
     idleTimeout: 30
     logLevel: info
-    disableHealthCheckStatus: false
     disableKeepAlive: false
     enableMetrics: true
   replicaCount: 1

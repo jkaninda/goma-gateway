@@ -1,195 +1,136 @@
-# Goma Gateway configurations
+# Goma Gateway Configuration File
 version: 1.0
 gateway:
-  # Proxy write timeout
-  writeTimeout: 15
-  # Proxy read timeout
-  readTimeout: 15
-  # Proxy idle timeout
-  idleTimeout: 30
-  ## SSL Certificate file
-  sslCertFile: '' #cert.pem
-  ## SSL Private Key file
-  sslKeyFile: ''#key.pem
-  # Proxy rate limit, it's In-Memory IP based
-  rateLimit: 0
-  logLevel: info # debug, trace, off
-  accessLog:    "/dev/Stdout"
-  errorLog:     "/dev/stderr"
-  #redis:
-    #addr: redis:6379
-   # password: password
-  ## Add additional routes
-  extraRoutes:
-    # path
-      directory: /etc/goma/extra
-      watch: true
-  ## Enable, disable routes health check
-  disableHealthCheckStatus: false
-  ## Returns backend route healthcheck errors
-  disableRouteHealthCheckError: false
-  # Disable display routes on start
-  disableDisplayRouteOnStart: false
-  # disableKeepAlive allows enabling and disabling KeepALive server
-  disableKeepAlive: false
-  # Block common exploits | detect SQL injection, and simple XSS attempts
-  blockCommonExploits: false
-  # interceptErrors intercepts backend errors based on defined the status codes
-  interceptErrors:
-   - 405
-   - 500
-  # - 400
-  # Proxy Global HTTP Cors
+  # Timeouts in seconds
+  writeTimeout: 15          # Maximum duration for writing to a client.
+  readTimeout: 15           # Maximum duration for reading from a client.
+  idleTimeout: 30           # Maximum duration to keep idle connections open.
+
+  # TLS Configuration
+  sslCertFile: ''           # Path to SSL Certificate file (e.g., cert.pem).
+  sslKeyFile: ''            # Path to SSL Private Key file (e.g., key.pem).
+
+  # Rate Limiting
+  rateLimit: 0              # Maximum number of requests per minute (0 = no limit, IP-based).
+
+  # Logging Configuration
+  logLevel: info            # Logging level (options: debug, trace, off).
+  accessLog: "/dev/Stdout"  # Path for access logs.
+  errorLog: "/dev/stderr"   # Path for error logs.
+
+  # Redis Configuration
+  # redis:
+  #   addr: redis:6379     # Redis server address.
+  #   password: password   # Redis password (optional).
+
+
+
+  # Health Check Configuration
+  disableHealthCheckStatus: false   # Disable overall health check status.
+  disableRouteHealthCheckError: false # Disable backend route health check errors.
+
+  # Display Options
+  disableDisplayRouteOnStart: false  # Disable route display at startup.
+  disableKeepAlive: false            # Disable Keep-Alive for the server.
+
+  # Security Features
+  blockCommonExploits: false         # Block common exploits (e.g., SQL Injection, XSS).
+
+  # Error Interception
+  errorInterceptor:
+    enabled: true                    # Enable backend error interception.
+    contentType: "application/json"  # Response Content-Type for intercepted errors.
+    errors:
+      - code: 401
+        body: ""                     # Custom response body for HTTP 401 errors.
+      - code: 404
+        body: "{\"success\":false,\"code\":404,\"message\":\"Page not found\",\"data\":[]}" # Raw JSON response for 404.
+      - code: 500
+        body: "Internal server error" # Custom response body for HTTP 500 errors.
+
+  # Cross-Origin Resource Sharing (CORS)
   cors:
-    # Global routes cors for all routes
-    origins:
+    origins:                         # Global allowed origins.
       - http://localhost:8080
       - https://example.com
-    # Global routes cors headers for all routes
-    headers:
+    headers:                         # Global allowed headers.
       Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
       Access-Control-Allow-Credentials: 'true'
       Access-Control-Max-Age: 1728000
-  ##### Define routes
+  # Additional Routes
+  extraConfig:
+    # Path for additional configuration files (e.g., routes and middleware), default /etc/goma/extra.
+    directory: /etc/goma/extra
+    watch: true                 # Enable live monitoring for changes in the directory.
+  # Route Definitions
   routes:
-    # Example of a route | 1
+    # Route Example 1
     - path: /
-      name: Public  # Name is optional
-    # host Domain/host based request routing
-      hosts: [] # Hosts are optional
-      ## Rewrite a request path
-      # e.g rewrite: /store to /
-      rewrite: /
-      destination:  https://example.com
-      # Limit HTTP methods allowed for this route
-      methods: [POST, PUT, GET]
-      #disableHostForwarding disables proxy host forwarding
-      disableHostForwarding: false
-      # Route Cors, global cors will be overridden by route
-      cors:
-        # Route Origins Cors, route will override global cors origins
+      name: Public
+      hosts: []                      # Optional host-based routing.
+      rewrite: /                     # Rewrite request paths (e.g., /store to /).
+      destination: https://example.com
+      methods: [POST, PUT, GET]      # Allowed HTTP methods for this route.
+      disableHostForwarding: false   # Disable forwarding the host header.
+      cors:                          # Route-specific CORS configuration (overrides global).
         origins:
           - https://dev.example.com
-          - http://localhost:3000
-          - https://example.com
-        # Route Cors headers, route will override global cors headers
         headers:
           Access-Control-Allow-Methods: 'GET'
-          Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
-          Access-Control-Allow-Credentials: 'true'
-          Access-Control-Max-Age: 1728000
-      ##### Apply middlewares to the route
-      ## The name must be unique
-      ## List of middleware name
-      middlewares:
+      middlewares:                   # List of middlewares for this route.
         - api-forbidden-paths
-    # Example of a route | 2
+
+    # Route Example 2
     - path: /protected
-      name:  Basic auth
+      name: Basic Auth
       rewrite: /
       destination: ''
       backends:
         - https://example.com
         - https://example2.com
-      insecureSkipVerify: true
+      insecureSkipVerify: true       # Disable SSL verification for backend connections.
       methods:
         - GET
-      # Route healthcheck
-      healthCheck:
-         path: /health/live
-         interval: 30s
-         timeout: 10s
-         healthyStatuses:
-           - 200
-           - 404
-      cors: {}
+      healthCheck:                   # Health check configuration for the route.
+        path: /health/live
+        interval: 30s
+        timeout: 10s
+        healthyStatuses:
+          - 200
+          - 404
       middlewares:
         - api-forbidden-paths
         - basic-auth
-#Defines proxy middlewares
-# middleware name must be unique
+
+# Middleware Definitions
 middlewares:
-  # Enable Basic auth authorization based
   - name: basic-auth
-    # Authentication types | jwt, basic, OAuth
-    type: basic
-    paths:
+    type: basic                     # Type of authentication (basic).
+    paths:                          # Paths to protect with authentication.
       - /user
       - /admin
       - /account
-    rule:
+    rule:                           # Authentication rules.
       username: admin
       password: admin
-  #Enables JWT authorization based on the result of a request and continues the request.
+
   - name: google-auth
-    # Authentication types | jwt, basic, OAuth
-    # jwt authorization based on the result of backend's response and continue the request when the client is authorized
-    type: jwt
-    # Paths to protect
+    type: jwt                       # JWT-based authentication.
     paths:
       - /protected-access
-      - /example-of-jwt
-      #- /* or wildcard path
     rule:
-      # This is an example URL
       url: https://www.googleapis.com/auth/userinfo.email
-      # Required headers, if not present in the request, the proxy will return 403
-      requiredHeaders:
+      requiredHeaders:              # Headers required for authorization.
         - Authorization
-    # Key: Auth request header key | Value: Next request header key
-    headers:
+      headers:                      # Map headers between auth and backend requests.
         userId: Auth-UserId
         userCountryId: Auth-UserCountryId
-    # Key: Auth request header key | Value: Next request parameter key
-    params:
-      userCountryId: countryId
-# The server will return 403
+      params:                       # Map parameters between auth and backend requests.
+        userCountryId: countryId
+
   - name: api-forbidden-paths
     type: access
-      ## prevents access paths
-    paths:
+    paths:                          # Paths to block access.
       - /swagger-ui/*
       - /v2/swagger-ui/*
       - /api-docs/*
-      - /internal/*
-      - /actuator/*
-      - name: oauth-google
-        type: oauth
-        paths:
-          - /protected
-          - /example-of-oauth
-        rule:
-          clientId: xxx
-          clientSecret: xxx
-          provider: google
-          endpoint:
-            userInfoUrl: ""
-          redirectUrl: http://localhost:8080/callback
-          redirectPath: ""
-          cookiePath: ""
-          scopes:
-            - https://www.googleapis.com/auth/userinfo.email
-            - https://www.googleapis.com/auth/userinfo.profile
-          state: randomStateString
-          jwtSecret: your-strong-jwt-secret | It's optional
-      - name: oauth-authentik
-        type: oauth
-        paths:
-          - /protected
-          - /example-of-oauth
-        rule:
-          clientId: xxx
-          clientSecret: xxx
-          provider: custom
-          endpoint:
-            authUrl: https://authentik.example.com/application/o/authorize/
-            tokenUrl: https://authentik.example.com/application/o/token/
-            userInfoUrl: https://authentik.example.com/application/o/userinfo/
-          redirectUrl: http://localhost:8080/callback
-          redirectPath: ""
-          cookiePath: ""
-          scopes:
-            - email
-            - openid
-          state: randomStateString
-          jwtSecret: your-strong-jwt-secret | It's optional
