@@ -19,6 +19,7 @@ package middlewares
 
 import (
 	"encoding/json"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"slices"
 )
@@ -38,23 +39,47 @@ func allowedOrigin(origins []string, origin string) bool {
 }
 
 // RespondWithError is a helper function to handle error responses with flexible content type
-func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, logMessage string, origins []string) {
+func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, logMessage string, origins []string, contentType string) {
+	// Set the message for the error response
 	message := http.StatusText(statusCode)
-	if len(logMessage) != 0 {
+	if len(logMessage) > 0 {
 		message = logMessage
 	}
+
+	// Set Access-Control-Allow-Origin header if the origin is allowed
 	if allowedOrigin(origins, r.Header.Get("Origin")) {
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	err := json.NewEncoder(w).Encode(ProxyResponseError{
-		Success: false,
-		Code:    statusCode,
-		Message: message,
-	})
-	if err != nil {
+	// Handle JSON content type
+	if contentType == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+
+		// If the message is valid JSON, directly write the error response
+		if isJson(message) {
+			http.Error(w, message, statusCode)
+			return
+		}
+
+		// Otherwise, write a structured JSON response
+		err := json.NewEncoder(w).Encode(ProxyResponseError{
+			Success: false,
+			Code:    statusCode,
+			Message: message,
+		})
+		// Log the error if encoding the JSON fails
+		if err != nil {
+			logger.Error("Error encoding JSON response: %v", err)
+		}
 		return
 	}
 
+	// For non-JSON responses, use http.Error for a basic text error response
+	http.Error(w, message, statusCode)
+}
+
+// isJson checks if the given string is valid JSON
+func isJson(s string) bool {
+	var js interface{}
+	err := json.Unmarshal([]byte(s), &js)
+	return err == nil
 }

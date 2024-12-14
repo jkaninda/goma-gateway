@@ -38,7 +38,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		if len(proxyRoute.methods) > 0 {
 			if !slices.Contains(proxyRoute.methods, r.Method) {
 				logger.Error("%s Method is not allowed", r.Method)
-				middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, r.Method), proxyRoute.cors.Origins)
+				middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, r.Method), proxyRoute.cors.Origins, "")
 				return
 			}
 		}
@@ -61,7 +61,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		targetURL, err := url.Parse(proxyRoute.destination)
 		if err != nil {
 			logger.Error("Error parsing backend URL: %s", err)
-			middlewares.RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil)
+			middlewares.RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, "")
 			return
 		}
 		r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))

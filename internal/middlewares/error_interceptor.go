@@ -21,7 +21,6 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"
-	"slices"
 )
 
 func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
@@ -50,13 +49,13 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		}
 		rec := newResponseRecorder(w)
 		next.ServeHTTP(rec, r)
-		if canIntercept(rec.statusCode, intercept.Errors) {
+		can, message := canIntercept(rec.statusCode, intercept.Interceptor.Errors)
+		if can {
 			logger.Error("Request to %s resulted in error with status code %d\n", r.URL.Path, rec.statusCode)
-			RespondWithError(w, r, rec.statusCode, http.StatusText(rec.statusCode), intercept.Origins)
+			RespondWithError(w, r, rec.statusCode, message, intercept.Origins, intercept.Interceptor.ContentType)
 			return
 		} else {
 			// No error: write buffered response to client
-			w.WriteHeader(rec.statusCode)
 			_, err := io.Copy(w, rec.body)
 			if err != nil {
 				return
@@ -69,6 +68,14 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 func isWebSocketRequest(r *http.Request) bool {
 	return r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Connection") == "Upgrade"
 }
-func canIntercept(code int, errors []int) bool {
-	return slices.Contains(errors, code)
+func canIntercept(code int, routeErrors []RouteError) (bool, string) {
+	for _, routeError := range routeErrors {
+		if code == routeError.Code {
+			if routeError.Body != "" {
+				return true, routeError.Body
+			}
+			return true, http.StatusText(code)
+		}
+	}
+	return false, ""
 }

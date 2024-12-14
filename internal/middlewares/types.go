@@ -121,8 +121,8 @@ type AuthBasic struct {
 
 // InterceptErrors contains backend status code errors to intercept
 type InterceptErrors struct {
-	Errors  []int
-	Origins []string
+	Interceptor RouteErrorInterceptor
+	Origins     []string
 }
 
 // responseRecorder intercepts the response body and status code
@@ -157,4 +157,14 @@ type OauthEndpoint struct {
 	AuthURL     string
 	TokenURL    string
 	UserInfoURL string
+}
+
+type RouteErrorInterceptor struct {
+	Enabled     bool         `yaml:"enabled"`
+	ContentType string       `yaml:"contentType,omitempty"`
+	Errors      []RouteError `yaml:"errors"`
+}
+type RouteError struct {
+	Code int    `yaml:"code"`
+	Body string `yaml:"body,omitempty"`
 }

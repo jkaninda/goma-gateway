@@ -144,10 +144,10 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				router.Use(pr.PrometheusMiddleware)
 			}
 			// Apply route Error interceptor middlewares
-			if len(route.InterceptErrors) != 0 {
+			if route.ErrorInterceptor.Enabled {
 				interceptErrors := middlewares.InterceptErrors{
-					Origins: route.Cors.Origins,
-					Errors:  route.InterceptErrors,
+					Interceptor: route.ErrorInterceptor,
+					Origins:     route.Cors.Origins,
 				}
 				router.Use(interceptErrors.ErrorInterceptor)
 			}
@@ -166,11 +166,11 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 
 		// Apply global Cors middlewares
 		r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
-		// Apply errorInterceptor middlewares
-		if len(gateway.InterceptErrors) != 0 {
+		// Apply global ErrorInterceptor middlewares
+		if gateway.ErrorInterceptor.Enabled {
 			interceptErrors := middlewares.InterceptErrors{
-				Errors:  gateway.InterceptErrors,
-				Origins: gateway.Cors.Origins,
+				Interceptor: gateway.ErrorInterceptor,
+				Origins:     gateway.Cors.Origins,
 			}
 			r.Use(interceptErrors.ErrorInterceptor)
 		}
