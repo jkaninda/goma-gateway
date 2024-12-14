@@ -70,7 +70,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
 	})
 	// Update Routes
-	dynamicRoutes = validateRoutes(dynamicRoutes)
+	dynamicRoutes = validateRoutes(gateway, dynamicRoutes)
 
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
@@ -163,18 +163,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 			logger.Error("Error, path is empty in route %s", route.Name)
 			logger.Error("Route path ignored: %s", route.Path)
 		}
-
 		// Apply global Cors middlewares
 		r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
-		// Apply global ErrorInterceptor middlewares
-		if gateway.ErrorInterceptor.Enabled {
-			interceptErrors := middlewares.InterceptErrors{
-				Interceptor: gateway.ErrorInterceptor,
-				Origins:     gateway.Cors.Origins,
-			}
-			r.Use(interceptErrors.ErrorInterceptor)
-		}
-
 	}
 
 	return r

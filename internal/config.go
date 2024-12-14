@@ -122,39 +122,51 @@ func (gatewayServer GatewayServer) SetEnv() {
 }
 
 // validateRoutes validates routes
-func validateRoutes(routes []Route) []Route {
+func validateRoutes(gateway Gateway, routes []Route) []Route {
 	for _, route := range routes {
-		// Checks if route name is empty
-		if len(route.Name) == 0 {
-			logger.Fatal("Route name is required")
-		}
-		// Checks if route destination and backend are empty
-		if len(route.Destination) == 0 && len(route.Backends) == 0 {
-			logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
-		}
+		validateRoute(route)
+	}
 
-	}
-	// Config deprecation
 	for i := range routes {
-		if routes[i].DisableHostFording {
-			logger.Warn("Deprecation: disableHostFording is deprecated, please rename it to disableHostForwarding")
-			routes[i].DisableHostForwarding = true
-		}
-		// ErrorInterceptor
-		if len(routes[i].InterceptErrors) != 0 {
-			logger.Warn("Route InterceptErrors is deprecated, please use errorInterceptor instead.")
-			routeErrors := []middlewares.RouteError{}
-			for _, code := range routes[i].InterceptErrors {
-				routeErrors = append(routeErrors, middlewares.RouteError{Code: code, Body: http.StatusText(code)})
-			}
-			errors := routes[i].ErrorInterceptor.Errors
-			errors = append(errors, routeErrors...)
-			routes[i].ErrorInterceptor.Enabled = true
-			routes[i].ErrorInterceptor.Errors = errors
-		}
+		handleDeprecations(&routes[i])
+		mergeGatewayErrorInterceptor(&routes[i], gateway.ErrorInterceptor)
 	}
+
 	return routes
 }
+
+func validateRoute(route Route) {
+	if len(route.Name) == 0 {
+		logger.Fatal("Route name is required")
+	}
+	if len(route.Destination) == 0 && len(route.Backends) == 0 {
+		logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
+	}
+}
+func handleDeprecations(route *Route) {
+	if route.DisableHostFording {
+		logger.Warn("Deprecation: disableHostFording is deprecated, please rename it to disableHostForwarding")
+		route.DisableHostForwarding = true
+	}
+
+	if len(route.InterceptErrors) > 0 {
+		logger.Warn("Route InterceptErrors is deprecated, please use errorInterceptor instead.")
+		for _, code := range route.InterceptErrors {
+			route.ErrorInterceptor.Errors = append(route.ErrorInterceptor.Errors, middlewares.RouteError{
+				Code: code,
+				Body: http.StatusText(code),
+			})
+		}
+		route.ErrorInterceptor.Enabled = true
+	}
+}
+func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.RouteErrorInterceptor) {
+	if gatewayInterceptor.Enabled {
+		route.ErrorInterceptor.Errors = append(route.ErrorInterceptor.Errors, gatewayInterceptor.Errors...)
+		route.ErrorInterceptor.Enabled = true
+	}
+}
+
 func GetConfigPaths() string {
 	return util.GetStringEnv("GOMA_CONFIG_FILE", ConfigFile)
 }
