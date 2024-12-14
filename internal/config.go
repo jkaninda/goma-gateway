@@ -117,8 +117,18 @@ func (gatewayServer GatewayServer) SetEnv() {
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
 	util.SetEnv("GOMA_ERROR_LOG", gatewayServer.gateway.ErrorLog)
 	util.SetEnv("GOMA_ACCESS_LOG", gatewayServer.gateway.AccessLog)
-}
 
+}
+func initRoutes(routes []Route) []Route {
+	// Config deprecation
+	for _, route := range routes {
+		if route.DisableHostFording {
+			route.DisableHostForwarding = true
+			logger.Warn("Deprecation: disableHostFording is deprecated, please rename it to disableHostForwarding")
+		}
+	}
+	return routes
+}
 func GetConfigPaths() string {
 	return util.GetStringEnv("GOMA_CONFIG_FILE", ConfigFile)
 }
@@ -154,8 +164,8 @@ func initConfig(configFile string) error {
 						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
 					},
-					DisableHostFording: true,
-					Middlewares:        []string{"block-access"},
+					DisableHostForwarding: true,
+					Middlewares:           []string{"block-access"},
 				},
 				{
 					Name: "Load balancer",

@@ -17,6 +17,7 @@ var (
 	// dynamicRoutes routes
 	dynamicRoutes       []Route
 	dynamicMiddlewares  []Middleware
+	dynamicConfig       DynamicConfig
 	RateLimitMiddleware = []string{"ratelimit", "rateLimit"} // Rate Limit middlewares
 	redisBased          = false
 )

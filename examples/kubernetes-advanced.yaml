@@ -87,7 +87,7 @@ spec:
     origins: []
     headers: {}
   rateLimit: 15
-  disableHostFording: true
+  disableHostForwarding: true
   interceptErrors: []
   blockCommonExploits: false
   ## Middleware names
