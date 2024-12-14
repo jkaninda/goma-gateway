@@ -17,6 +17,8 @@
 
 package internal
 
+import "github.com/jkaninda/goma-gateway/internal/middlewares"
+
 // Route defines gateway route
 type Route struct {
 	// Path defines route path
@@ -51,7 +53,8 @@ type Route struct {
 	DisableHostForwarding bool `yaml:"disableHostForwarding"`
 	DisableHostFording    bool `yaml:"disableHostFording,omitempty"` // Deprecated, renamed to disableHostForwarding
 	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
+	InterceptErrors  []int                             `yaml:"interceptErrors,omitempty"` // Deprecated, replaced by InterceptErrors
+	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// BlockCommonExploits enable, disable block common exploits
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	// Middlewares Defines route middlewares from Middleware names

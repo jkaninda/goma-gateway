@@ -17,6 +17,8 @@
 
 package internal
 
+import "github.com/jkaninda/goma-gateway/internal/middlewares"
+
 // Gateway contains Goma Proxy Gateway's configs
 type Gateway struct {
 	// SSLCertFile  SSL Certificate file
@@ -53,7 +55,8 @@ type Gateway struct {
 	DisableKeepAlive bool `yaml:"disableKeepAlive,omitempty"`
 	EnableMetrics    bool `yaml:"enableMetrics,omitempty"`
 	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
+	InterceptErrors  []int                             `yaml:"interceptErrors,omitempty"`
+	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// Cors holds proxy global cors
 	Cors Cors `yaml:"cors,omitempty"`
 	// ExtraRoutes additional routes from defined directory

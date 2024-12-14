@@ -28,6 +28,7 @@ import (
 	"golang.org/x/oauth2/gitlab"
 	"golang.org/x/oauth2/google"
 	"gopkg.in/yaml.v3"
+	"net/http"
 	"os"
 )
 
@@ -131,12 +132,25 @@ func validateRoutes(routes []Route) []Route {
 		if len(route.Destination) == 0 && len(route.Backends) == 0 {
 			logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
 		}
+
 	}
 	// Config deprecation
 	for i := range routes {
 		if routes[i].DisableHostFording {
 			logger.Warn("Deprecation: disableHostFording is deprecated, please rename it to disableHostForwarding")
 			routes[i].DisableHostForwarding = true
+		}
+		// ErrorInterceptor
+		if len(routes[i].InterceptErrors) != 0 {
+			logger.Warn("Route InterceptErrors is deprecated, please use errorInterceptor instead.")
+			routeErrors := []middlewares.RouteError{}
+			for _, code := range routes[i].InterceptErrors {
+				routeErrors = append(routeErrors, middlewares.RouteError{Code: code, Body: http.StatusText(code)})
+			}
+			errors := routes[i].ErrorInterceptor.Errors
+			errors = append(errors, routeErrors...)
+			routes[i].ErrorInterceptor.Enabled = true
+			routes[i].ErrorInterceptor.Errors = errors
 		}
 	}
 	return routes
@@ -190,6 +204,20 @@ func initConfig(configFile string) error {
 					Rewrite:               "/",
 					HealthCheck:           RouteHealthCheck{},
 					DisableHostForwarding: false,
+					ErrorInterceptor: middlewares.RouteErrorInterceptor{
+						Enabled:     true,
+						ContentType: applicationJson,
+						Errors: []middlewares.RouteError{
+							{
+								Code: 403,
+								Body: http.StatusText(403),
+							},
+							{
+								Code: 500,
+								Body: http.StatusText(500),
+							},
+						},
+					},
 					Cors: Cors{
 						Origins: []string{"http://localhost:3000", "https://dev.example.com"},
 						Headers: map[string]string{
