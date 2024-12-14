@@ -112,7 +112,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		// Add rate limit middlewares
 		r.Use(limiter.RateLimitMiddleware())
 	}
-	for rIndex, route := range dynamicRoutes {
+	for _, route := range dynamicRoutes {
 
 		// create route
 		router := r.PathPrefix(route.Path).Subrouter()
@@ -130,7 +130,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				cors:                  route.Cors,
 				insecureSkipVerify:    route.InsecureSkipVerify,
 			}
-			attachMiddlewares(rIndex, route, gateway, router)
+			attachMiddlewares(route, gateway, router)
 			// Apply route Cors
 			router.Use(CORSHandler(route.Cors))
 			if gateway.EnableMetrics {
@@ -170,7 +170,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 }
 
 // attachMiddlewares attach middlewares to the route
-func attachMiddlewares(rIndex int, route Route, gateway Gateway, router *mux.Router) {
+func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
 	// Apply middlewares to the route
 	for _, middleware := range route.Middlewares {
 		// Apply common exploits to the route
