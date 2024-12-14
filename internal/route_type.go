@@ -19,46 +19,53 @@ package internal
 
 import "github.com/jkaninda/goma-gateway/internal/middlewares"
 
-// Route defines gateway route
+// Route defines a gateway route configuration.
 type Route struct {
-	// Path defines route path
+	// Path specifies the route's path.
 	Path string `yaml:"path"`
-	// Name defines route name
+	// Name provides a descriptive name for the route.
 	Name string `yaml:"name"`
-	// Host Domain/host based request routing
-	// Host  string   `yaml:"host"`
-	// Hosts Domains/hosts based request routing
+	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts"`
-	// Rewrite rewrites route path to desired path
+	// Rewrite rewrites the incoming request path to a desired path.
 	//
-	// E.g. /cart to / => It will rewrite /cart path to /
+	// For example: `/cart` to `/` rewrites `/cart` to `/`.
 	Rewrite string `yaml:"rewrite"`
-	//
-	// Methods allowed method
+	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
 	Methods []string `yaml:"methods"`
-	// Destination Defines backend URL
-	Destination        string   `yaml:"destination"`
-	Backends           []string `yaml:"backends"`
-	InsecureSkipVerify bool     `yaml:"insecureSkipVerify"`
-	// HealthCheck Defines the backend is health
+	// Destination defines the primary backend URL for this route.
+	Destination string `yaml:"destination"`
+	// Backends specifies a list of backend URLs for load balancing.
+	Backends []string `yaml:"backends"`
+	// InsecureSkipVerify disables SSL/TLS verification for the backend.
+	InsecureSkipVerify bool `yaml:"insecureSkipVerify"`
+	// HealthCheck contains configuration for monitoring the health of backends.
 	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
-	// Cors contains the route cors headers
-	Cors      Cors `yaml:"cors"`
-	RateLimit int  `yaml:"rateLimit,omitempty"`
-	// DisableHostForwarding Disable X-forwarded header.
+	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
+	Cors Cors `yaml:"cors"`
+	// RateLimit specifies the maximum number of requests allowed per minute for this route.
+	RateLimit int `yaml:"rateLimit,omitempty"`
+	// DisableHostForwarding disables the forwarding of host-related headers.
 	//
-	// [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
+	// The headers affected are:
+	// - X-Forwarded-Host
+	// - X-Forwarded-For
+	// - Host
+	// - Scheme
 	//
-	// It will not match the backend route
+	// If disabled, the backend may not match routes correctly.
 	DisableHostForwarding bool `yaml:"disableHostForwarding"`
-	DisableHostFording    bool `yaml:"disableHostFording,omitempty"` // Deprecated, renamed to disableHostForwarding
-	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors []int `yaml:"interceptErrors,omitempty"` // Deprecated, replaced by ErrorInterceptor
-	//  ErrorInterceptor handles backend error interceptor
+	// DisableHostFording is deprecated and replaced by DisableHostForwarding.
+	DisableHostFording bool `yaml:"disableHostFording,omitempty"` // Deprecated
+	// InterceptErrors contains HTTP status codes for intercepting backend errors.
+	// Deprecated: Use ErrorInterceptor for more advanced error handling.
+	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
+	// ErrorInterceptor provides configuration for handling backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
-	// BlockCommonExploits enable, disable block common exploits
+	// BlockCommonExploits enables or disables blocking of common exploit patterns
+	// such as SQL injection or simple XSS attempts.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
-	// Middlewares Defines route middlewares from Middleware names
+	// Middlewares lists middleware names to apply to this route.
 	Middlewares []string `yaml:"middlewares"`
 }
 

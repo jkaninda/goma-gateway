@@ -19,52 +19,58 @@ package internal
 
 import "github.com/jkaninda/goma-gateway/internal/middlewares"
 
-// Gateway contains Goma Proxy Gateway's configs
+// Gateway contains the configuration options for the Goma Proxy Gateway.
 type Gateway struct {
-	// SSLCertFile  SSL Certificate file
-	SSLCertFile string `yaml:"sslCertFile,omitempty" env:"GOMA_SSL_CERT_FILE, overwrite"` // Deprecated, use TlsCertFile instead
-	// SSLKeyFile SSL Private key  file
-	SSLKeyFile string `yaml:"sslKeyFile,omitempty" env:"GOMA_SSL_KEY_FILE, overwrite"` // Deprecated, use TlsKeyFile instead
-	// TlsCertFile  TLS Certificate file
+	// SSLCertFile specifies the SSL certificate file.
+	// Deprecated: Use TlsCertFile instead.
+	SSLCertFile string `yaml:"sslCertFile,omitempty" env:"GOMA_SSL_CERT_FILE, overwrite"`
+	// SSLKeyFile specifies the SSL private key file.
+	// Deprecated: Use TlsKeyFile instead.
+	SSLKeyFile string `yaml:"sslKeyFile,omitempty" env:"GOMA_SSL_KEY_FILE, overwrite"`
+	// TlsCertFile specifies the TLS certificate file.
 	TlsCertFile string `yaml:"tlsCertFile" env:"GOMA_TLS_CERT_FILE, overwrite"`
-	// SSLKeyFile TLS Private key  file
+	// TlsKeyFile specifies the TLS private key file.
 	TlsKeyFile string `yaml:"tlsKeyFile" env:"GOMA_TLS_KEY_FILE, overwrite"`
-	// Redis contains redis database details
+	// Redis contains the configuration details for the Redis database.
 	Redis Redis `yaml:"redis"`
-	// WriteTimeout defines proxy write timeout
+	// WriteTimeout defines the timeout (in seconds) for writing responses to clients.
 	WriteTimeout int `yaml:"writeTimeout" env:"GOMA_WRITE_TIMEOUT, overwrite"`
-	// ReadTimeout defines proxy read timeout
+	// ReadTimeout defines the timeout (in seconds) for reading requests from clients.
 	ReadTimeout int `yaml:"readTimeout" env:"GOMA_READ_TIMEOUT, overwrite"`
-	// IdleTimeout defines proxy idle timeout
+	// IdleTimeout defines the timeout (in seconds) for idle connections.
 	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
-	// RateLimit Defines the number of request peer minutes
+	// RateLimit specifies the maximum number of requests allowed per minute.
 	RateLimit int `yaml:"rateLimit,omitempty" env:"GOMA_RATE_LIMIT, overwrite"`
-	// BlockCommonExploits enable, disable block common exploits
-	BlockCommonExploits bool   `yaml:"blockCommonExploits,omitempty"`
-	AccessLog           string `yaml:"accessLog,omitempty" env:"GOMA_ACCESS_LOG, overwrite"`
-	ErrorLog            string `yaml:"errorLog,omitempty" env:"GOMA_ERROR_LOG=, overwrite"`
-	LogLevel            string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
-
-	// DisableHealthCheckStatus enable and disable routes health check
+	// BlockCommonExploits enables or disables blocking of common exploit patterns.
+	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
+	// AccessLog specifies the file path for access logs.
+	AccessLog string `yaml:"accessLog,omitempty" env:"GOMA_ACCESS_LOG, overwrite"`
+	// ErrorLog specifies the file path for error logs.
+	ErrorLog string `yaml:"errorLog,omitempty" env:"GOMA_ERROR_LOG=, overwrite"`
+	// LogLevel defines the logging level (e.g., info, debug, trace, off).
+	LogLevel string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
+	// DisableHealthCheckStatus enables or disables health checks for routes.
 	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus,omitempty"`
-	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors
+	// DisableRouteHealthCheckError enables or disables logging of backend health check errors.
 	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError,omitempty"`
-	// Disable allows enabling and disabling displaying routes on start
+	// DisableDisplayRouteOnStart enables or disables the display of routes during server startup.
 	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart,omitempty"`
-	// DisableKeepAlive allows enabling and disabling KeepALive server
+	// DisableKeepAlive enables or disables the HTTP Keep-Alive functionality.
 	DisableKeepAlive bool `yaml:"disableKeepAlive,omitempty"`
-	EnableMetrics    bool `yaml:"enableMetrics,omitempty"`
-	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors []int `yaml:"interceptErrors,omitempty"` // Deprecated, replaced by ErrorInterceptor
-	// ErrorInterceptor intercepts backend errors
+	// EnableMetrics enables or disables server metrics collection.
+	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
+	// InterceptErrors holds the status codes to intercept backend errors.
+	// Deprecated: Use ErrorInterceptor for advanced error handling.
+	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
+	// ErrorInterceptor provides advanced error-handling configuration for intercepted backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
-	// Cors holds proxy global cors
+	// Cors defines the global Cross-Origin Resource Sharing (CORS) configuration for the gateway.
 	Cors Cors `yaml:"cors,omitempty"`
-	// ExtraRoutes additional routes from defined directory
-	ExtraRoutes ExtraRouteConfig `yaml:"extraRoutes,omitempty"` // Deprecated, replaced by ExtraConfig
-	// ExtraRoutes additional configuration
+	// ExtraRoutes specifies additional routes from a directory.
+	// Deprecated: Use ExtraConfig for a broader configuration scope.
+	ExtraRoutes ExtraRouteConfig `yaml:"extraRoutes,omitempty"`
+	// ExtraConfig provides additional configuration, including routes and middleware, from a specified directory.
 	ExtraConfig ExtraRouteConfig `yaml:"extraConfig"`
-
-	// Routes holds proxy routes
+	// Routes defines the list of proxy routes.
 	Routes []Route `yaml:"routes"`
 }
