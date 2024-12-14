@@ -178,7 +178,3 @@ type AccessPolicyRuleMiddleware struct {
 	Action       string   `yaml:"action,omitempty"` // action, ALLOW or DENY
 	SourceRanges []string `yaml:"sourceRanges"`     //  list of Ips
 }
-type DynamicConfig struct {
-	Routes      *[]Route
-	Middlewares *[]Middleware
-}

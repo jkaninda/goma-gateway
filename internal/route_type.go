@@ -19,7 +19,6 @@ package internal
 
 // Route defines gateway route
 type Route struct {
-	id string
 	// Path defines route path
 	Path string `yaml:"path"`
 	// Name defines route name

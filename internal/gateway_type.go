@@ -44,14 +44,14 @@ type Gateway struct {
 	LogLevel            string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
 
 	// DisableHealthCheckStatus enable and disable routes health check
-	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus"`
+	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus,omitempty"`
 	// DisableRouteHealthCheckError allows enabling and disabling backend healthcheck errors
 	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError,omitempty"`
 	// Disable allows enabling and disabling displaying routes on start
 	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart,omitempty"`
 	// DisableKeepAlive allows enabling and disabling KeepALive server
 	DisableKeepAlive bool `yaml:"disableKeepAlive,omitempty"`
-	EnableMetrics    bool `yaml:"enableMetrics"`
+	EnableMetrics    bool `yaml:"enableMetrics,omitempty"`
 	// InterceptErrors holds the status codes to intercept the error from backend
 	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
 	// Cors holds proxy global cors

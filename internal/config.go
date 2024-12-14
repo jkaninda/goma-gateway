@@ -119,12 +119,24 @@ func (gatewayServer GatewayServer) SetEnv() {
 	util.SetEnv("GOMA_ACCESS_LOG", gatewayServer.gateway.AccessLog)
 
 }
-func initRoutes(routes []Route) []Route {
-	// Config deprecation
+
+// validateRoutes validates routes
+func validateRoutes(routes []Route) []Route {
 	for _, route := range routes {
-		if route.DisableHostFording {
-			route.DisableHostForwarding = true
+		// Checks if route name is empty
+		if len(route.Name) == 0 {
+			logger.Fatal("Route name is required")
+		}
+		// Checks if route destination and backend are empty
+		if len(route.Destination) == 0 && len(route.Backends) == 0 {
+			logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
+		}
+	}
+	// Config deprecation
+	for i := range routes {
+		if routes[i].DisableHostFording {
 			logger.Warn("Deprecation: disableHostFording is deprecated, please rename it to disableHostForwarding")
+			routes[i].DisableHostForwarding = true
 		}
 	}
 	return routes
@@ -175,8 +187,9 @@ func initConfig(configFile string) error {
 						"https://example2.com",
 						"https://example3.com",
 					},
-					Rewrite:     "/",
-					HealthCheck: RouteHealthCheck{},
+					Rewrite:               "/",
+					HealthCheck:           RouteHealthCheck{},
+					DisableHostForwarding: false,
 					Cors: Cors{
 						Origins: []string{"http://localhost:3000", "https://dev.example.com"},
 						Headers: map[string]string{
@@ -208,6 +221,18 @@ func initConfig(configFile string) error {
 					"/swagger-ui/*",
 					"/api-docs/*",
 					"/actuator/*",
+				},
+			},
+			{
+				Name: "access-policy",
+				Type: accessPolicy,
+				Rule: AccessPolicyRuleMiddleware{
+					Action: "DENY",
+					SourceRanges: []string{
+						"10.1.10.0/16",
+						"192.168.1.25-192.168.1.100",
+						"192.168.1.115",
+					},
 				},
 			},
 		},

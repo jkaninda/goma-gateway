@@ -69,7 +69,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	sort.Slice(dynamicRoutes, func(i, j int) bool {
 		return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
 	})
-	dynamicRoutes = initRoutes(dynamicRoutes)
+	// Update Routes
+	dynamicRoutes = validateRoutes(dynamicRoutes)
 
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
@@ -102,7 +103,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	if gateway.RateLimit != 0 {
 		// Add rate limit middlewares to all routes, if defined
 		rateLimit := middlewares.RateLimit{
-			Id:         "global_rate", // Generate a unique ID for routes
+			Id:         "global_rate",
 			Unit:       "minute",
 			Requests:   gateway.RateLimit,
 			Origins:    gateway.Cors.Origins,
@@ -118,15 +119,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		// create route
 		router := r.PathPrefix(route.Path).Subrouter()
 		if len(route.Path) != 0 {
-			// Checks if route destination and backend are empty
-			if len(route.Destination) == 0 && len(route.Backends) == 0 {
-				logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
-
-			}
-			logger.Info("ID: %s", route.id)
 			if route.DisableHostForwarding {
-				logger.Info("Route %s : disabled host forwarding", route.Name)
-
+				logger.Info("Route %s: host forwarding disabled ", route.Name)
 			}
 			proxyRoute := ProxyRoute{
 				path:                  route.Path,
@@ -197,16 +191,11 @@ func attachMiddlewares(rIndex int, route Route, gateway Gateway, router *mux.Rou
 			logger.Info("Block common exploits enabled")
 			router.Use(middlewares.BlockExploitsMiddleware)
 		}
-		id := string(rune(rIndex))
-		if len(route.Name) != 0 {
-			// Use route name as ID
-			id = util.Slug(route.Name)
-		}
 		// Apply route rate limit
 		if route.RateLimit != 0 {
 			rateLimit := middlewares.RateLimit{
 				Unit:       "minute",
-				Id:         id, // Use route index as ID
+				Id:         util.Slug(route.Name),
 				Requests:   route.RateLimit,
 				Origins:    route.Cors.Origins,
 				Hosts:      route.Hosts,
@@ -241,7 +230,7 @@ func attachMiddlewares(rIndex int, route Route, gateway Gateway, router *mux.Rou
 					if rateLimitMid.RequestsPerUnit != 0 && route.RateLimit == 0 {
 						rateLimit := middlewares.RateLimit{
 							Unit:       rateLimitMid.Unit,
-							Id:         id, // Use route index as ID
+							Id:         util.Slug(route.Name),
 							Requests:   rateLimitMid.RequestsPerUnit,
 							Origins:    route.Cors.Origins,
 							Hosts:      route.Hosts,
