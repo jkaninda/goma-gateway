@@ -68,7 +68,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		r.Header.Set("X-Forwarded-For", getRealIP(r))
 		r.Header.Set("X-Real-IP", getRealIP(r))
 		// Update the headers to allow for SSL redirection
-		if proxyRoute.disableHostFording {
+		if proxyRoute.disableHostForwarding {
 			r.URL.Scheme = targetURL.Scheme
 			r.Host = targetURL.Host
 		}

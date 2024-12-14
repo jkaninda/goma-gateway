@@ -41,8 +41,8 @@ func initExtraRoute(path string) error {
 					Timeout:         "10s",
 					HealthyStatuses: []int{200, 404},
 				},
-				DisableHostFording: true,
-				Middlewares:        []string{"block-access"},
+				DisableHostForwarding: true,
+				Middlewares:           []string{"block-access"},
 			},
 			// Duplicate route name
 			{
@@ -117,8 +117,8 @@ func initConfiguration(configFile string) error {
 						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
 					},
-					DisableHostFording: true,
-					Middlewares:        []string{"block-access"},
+					DisableHostForwarding: true,
+					Middlewares:           []string{"block-access"},
 				},
 				{
 					Name: "Load balancer",

@@ -63,8 +63,8 @@ data:
           destination:  https://example.com
           # Limit HTTP methods allowed for this route
           methods: [POST, PUT, GET]
-          #disableHostFording proxy host forwarding
-          disableHostFording: false
+          #disableHostForwarding disables proxy host forwarding
+          disableHostForwarding: false
           # Route Cors, global cors will be overridden by route
           cors:
             # Route Origins Cors, route will override global cors origins

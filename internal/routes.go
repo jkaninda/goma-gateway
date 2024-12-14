@@ -69,6 +69,8 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	sort.Slice(dynamicRoutes, func(i, j int) bool {
 		return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
 	})
+	dynamicRoutes = *initRoutes(dynamicRoutes)
+
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
 
@@ -121,15 +123,20 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
 
 			}
+			logger.Info("ID: %s", route.id)
+			if route.DisableHostForwarding {
+				logger.Info("Route %s : disabled host forwarding", route.Name)
+
+			}
 			proxyRoute := ProxyRoute{
-				path:               route.Path,
-				rewrite:            route.Rewrite,
-				destination:        route.Destination,
-				backends:           route.Backends,
-				methods:            route.Methods,
-				disableHostFording: route.DisableHostFording,
-				cors:               route.Cors,
-				insecureSkipVerify: route.InsecureSkipVerify,
+				path:                  route.Path,
+				rewrite:               route.Rewrite,
+				destination:           route.Destination,
+				backends:              route.Backends,
+				methods:               route.Methods,
+				disableHostForwarding: route.DisableHostForwarding,
+				cors:                  route.Cors,
+				insecureSkipVerify:    route.InsecureSkipVerify,
 			}
 			attachMiddlewares(rIndex, route, gateway, router)
 			// Apply route Cors

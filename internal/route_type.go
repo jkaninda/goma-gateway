@@ -19,6 +19,7 @@ package internal
 
 // Route defines gateway route
 type Route struct {
+	id string
 	// Path defines route path
 	Path string `yaml:"path"`
 	// Name defines route name
@@ -43,16 +44,17 @@ type Route struct {
 	// Cors contains the route cors headers
 	Cors      Cors `yaml:"cors"`
 	RateLimit int  `yaml:"rateLimit,omitempty"`
-	// DisableHostFording Disable X-forwarded header.
+	// DisableHostForwarding Disable X-forwarded header.
 	//
 	// [X-Forwarded-Host, X-Forwarded-For, Host, Scheme ]
 	//
 	// It will not match the backend route
-	DisableHostFording bool `yaml:"disableHostFording"`
+	DisableHostForwarding bool `yaml:"disableHostForwarding"`
+	DisableHostFording    bool `yaml:"disableHostFording,omitempty"` // Deprecated, renamed to disableHostForwarding
 	// InterceptErrors holds the status codes to intercept the error from backend
-	InterceptErrors []int `yaml:"interceptErrors"`
+	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
 	// BlockCommonExploits enable, disable block common exploits
-	BlockCommonExploits bool `yaml:"blockCommonExploits"`
+	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	// Middlewares Defines route middlewares from Middleware names
 	Middlewares []string `yaml:"middlewares"`
 }

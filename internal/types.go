@@ -117,14 +117,14 @@ type GatewayServer struct {
 	middlewares []Middleware
 }
 type ProxyRoute struct {
-	path               string
-	rewrite            string
-	destination        string
-	backends           []string
-	methods            []string
-	cors               Cors
-	disableHostFording bool
-	insecureSkipVerify bool
+	path                  string
+	rewrite               string
+	destination           string
+	backends              []string
+	methods               []string
+	cors                  Cors
+	disableHostForwarding bool
+	insecureSkipVerify    bool
 }
 type HealthCheckRoute struct {
 	DisableRouteHealthCheckError bool
@@ -177,4 +177,8 @@ type ExtraRouteConfig struct {
 type AccessPolicyRuleMiddleware struct {
 	Action       string   `yaml:"action,omitempty"` // action, ALLOW or DENY
 	SourceRanges []string `yaml:"sourceRanges"`     //  list of Ips
+}
+type DynamicConfig struct {
+	Routes      *[]Route
+	Middlewares *[]Middleware
 }

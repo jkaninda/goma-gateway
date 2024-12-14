@@ -6,3 +6,16 @@ has_children: true
 ---
 
 ## Upgrade Notes
+
+## Gateway
+
+## Route
+
+- **disableHostFording**: renamed to **disableHostForwarding**
+- 
+```yaml
+
+```
+DisableHostForwarding
+
+## Middleware
