@@ -57,7 +57,7 @@ gateway:
       Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
       Access-Control-Allow-Credentials: 'true'
       Access-Control-Max-Age: 1728000
-  # Additional Routes
+  # Additional configs
   extraConfig:
     # Path for additional configuration files (e.g., routes and middleware), default /etc/goma/extra.
     directory: /etc/goma/extra

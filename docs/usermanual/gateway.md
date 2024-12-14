@@ -43,11 +43,11 @@ Customize Cross-Origin Resource Sharing (CORS) settings for the proxy:
 - **`contentType`** (`string`): Specifies the `Content-Type` header of the response, such as `application/json` or `text/plain`.
 - **`errors`** (`array`): A collection of error configurations defining which HTTP status codes to intercept and their corresponding custom responses.
 
-### Additional Routes
+### Extra Config
 
-Define custom routes for additional flexibility:
+Define custom routes and middlewares for greater flexibility:
 
-- **`directory`** (`string`): Directory path for serving extra routes.
+- **`directory`** (`string`): The directory path where additional route and middleware configuration files are stored.
 - **`watch`** (`boolean`): Watch the directory for changes and update routes dynamically.
 
 ### Routes
@@ -93,8 +93,8 @@ gateway:
       Access-Control-Allow-Credentials: "true"
       Access-Control-Allow-Headers: Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id
       Access-Control-Max-Age: "1728000"
-  ## Add additional routes
-  extraRoutes:
+  ## extra config for additional configuration files (e.g., routes and middleware).
+  extraConfig:
     # path
     directory: /etc/goma/extra
     watch: true

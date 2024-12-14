@@ -176,6 +176,16 @@ func InitConfig(configFile string) error {
 	return initConfig(configFile)
 
 }
+func handleGatewayDeprecations(gateway *Gateway) {
+	if len(gateway.ExtraConfig.Directory) == 0 {
+		gateway.ExtraConfig.Directory = ExtraDir
+	}
+	if len(gateway.ExtraRoutes.Directory) > 0 {
+		logger.Warn("Deprecation: extraRoutes is deprecated, please rename it to extraConfig.")
+		gateway.ExtraConfig.Directory = gateway.ExtraRoutes.Directory
+	}
+
+}
 
 // initConfig initializes configs
 func initConfig(configFile string) error {
