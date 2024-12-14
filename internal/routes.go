@@ -69,7 +69,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	sort.Slice(dynamicRoutes, func(i, j int) bool {
 		return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
 	})
-	dynamicRoutes = *initRoutes(dynamicRoutes)
+	dynamicRoutes = initRoutes(dynamicRoutes)
 
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
