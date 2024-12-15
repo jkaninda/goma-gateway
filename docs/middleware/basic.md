@@ -8,23 +8,38 @@ nav_order: 4
 
 # Basic Auth Middleware
 
+Basic-auth middleware secures route paths by requiring a username and password for access.
 
-Basic-auth middleware protects route paths.
+## Key Features
+- Rule: To block all subpaths of a route, append /* to the path explicitly.
 
-Example of basic-auth middleware
+- Tip: Always test configurations thoroughly in a staging environment before applying them to production.
+
+
+### Example: Basic-Auth Middleware Configuration
+The following example demonstrates how to configure basic-auth middleware:
 
 ```yaml
 middlewares:
   - name: basic-auth
     type: basic
     paths:
-      - /admin/*
+      - /admin # Blocks only /admin
+      - /admin/*  # Explicitly blocks /admin and all subpaths
     rule:
       username: admin
       password: admin
 
 ```
-### Apply basic-auth middleware to the route
+### Explanation:
+
+- `/admin`: Requires authentication for the exact path /admin.
+- `/admin/*`: The path /admin and all its subpaths (e.g., /admin/settings) require authentication due to the /* wildcard.
+- `rule`: Specifies the username and password required for authentication.
+
+
+### Applying Basic-Auth Middleware to a Route
+Here’s how to attach the basic-auth middleware to a route:
 
 ```yaml
   routes:
@@ -41,6 +56,8 @@ middlewares:
 
 ## Advanced Kubernetes deployment
 
+To deploy the basic-auth middleware in a Kubernetes environment, use the following example:
+
 ```yaml
 apiVersion: gomaproj.github.io/v1beta1
 kind: Middleware
@@ -49,8 +66,11 @@ metadata:
 spec:
     type: basic
     paths:
-      - /admin/*
+      - /admin # Blocks only /admin
+      - /admin/*  # Explicitly blocks /admin and all subpaths
     rule:
       username: admin
       password: admin
 ```
+
+By following these guidelines, you can effectively use basic-auth middleware to protect your application routes.

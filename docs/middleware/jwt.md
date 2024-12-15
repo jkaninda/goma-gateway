@@ -26,6 +26,12 @@ The JWT middleware restricts access to routes, similar to BasicAuth, by authoriz
 3. **Nginx Inspiration**  
    Its behavior is comparable to `ngx_http_auth_request_module` in Nginx. 
 
+### Key Features
+- `Rule`: To block all subpaths of a route, append /* to the path explicitly.
+- `Header Mapping`: Map headers between authentication response and backend request to customize the data flow.
+- `Parameter Mapping`: Map query parameters between authentication response and backend request to customize the data flow.
+- `Environment Testing`: Always test configurations in a staging environment before deploying to production.
+
 Here's an example Nginx configuration:
 
 ```
@@ -77,8 +83,8 @@ middlewares:
     type: jwt
     # Paths to protect
     paths:
-      - /protected-access
-      - /example-of-jwt
+      - /admin/*
+      - /account/*
       # - /* for wildcard paths
     rule:
       # URL of the backend authentication service

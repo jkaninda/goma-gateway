@@ -8,20 +8,24 @@ nav_order: 7
 
 ### RateLimit middleware
 
-The RateLimit middleware ensures that services will receive a fair number of requests, and allows one to define what fair is.
+The RateLimit middleware helps manage the number of requests that services receive, ensuring fair usage according to specified limits. 
+
+This middleware applies to the entire route, eliminating the need to specify individual path fields.
 
 Example of rate limiting middleware
 
 ```yaml
 middlewares:
   - name: rate-limit
-    type: rateLimit #or ratelimit
-    paths:
-      - /*
+    type: rateLimit # or ratelimit
     rule:
-      unit: minute # or hour
-      requestsPerUnit: 60
+      unit: minute          # or hour
+      requestsPerUnit: 60    # Maximum number of requests per unit of time
 ```
+### Parameters:
+
+- `unit`: The time period used for rate limiting. Can be set to either `minute` or `hour`.
+- `requestsPerUnit`: The maximum number of requests allowed per time unit
 
 Example of route rate limiting middleware
 
