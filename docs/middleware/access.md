@@ -27,7 +27,7 @@ The following example demonstrates how to define blocked paths using the access 
   paths:
     - /swagger-ui       # Blocks only /swagger-ui
     - /v2/swagger-ui    # Blocks only /v2/swagger-ui
-    - /api-docs/*       # Explicitly blocks /api-docs and 
+    - /api-docs/*       # Explicitly blocks /api-docs and all subpaths
 ```
 ### Explanation:
 
