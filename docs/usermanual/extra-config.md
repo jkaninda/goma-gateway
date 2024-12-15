@@ -62,7 +62,6 @@ routes:
     cors:
       origins: []
       headers: {}
-    rateLimit: 60  # Requests per minute.
     disableHostForwarding: true
     blockCommonExploits: false
     middlewares:
@@ -88,7 +87,6 @@ routes:
       headers: {}
     rateLimit: 60
     disableHostForwarding: true
-    interceptErrors: [404, 401]
     blockCommonExploits: false
     middlewares:
       - auth-middleware  # List of middlewares for this route.

@@ -27,6 +27,8 @@ type Route struct {
 	Name string `yaml:"name"`
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts"`
+	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
+	Cors Cors `yaml:"cors"`
 	// Rewrite rewrites the incoming request path to a desired path.
 	//
 	// For example: `/cart` to `/` rewrites `/cart` to `/`.
@@ -41,8 +43,6 @@ type Route struct {
 	InsecureSkipVerify bool `yaml:"insecureSkipVerify"`
 	// HealthCheck contains configuration for monitoring the health of backends.
 	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
-	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
-	Cors Cors `yaml:"cors"`
 	// RateLimit specifies the maximum number of requests allowed per minute for this route.
 	RateLimit int `yaml:"rateLimit,omitempty"`
 	// DisableHostForwarding disables the forwarding of host-related headers.

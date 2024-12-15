@@ -34,15 +34,6 @@ routes:
     name: extra
     # Hosts (domains) for host-based routing (optional)
     hosts: []
-    # Rewrites the request path to a new destination path
-    # Example: rewrite "/store" to "/"
-    rewrite: /
-    # Defines the backend service destination for this route
-    destination: https://example.com
-    # Specifies allowed HTTP methods for this route
-    methods: [POST, PUT, GET]
-    # Disables proxy host forwarding (if false, Host header is forwarded)
-    disableHostForwarding: false
     # Configure route-specific CORS settings (overrides global CORS)
     cors:
       # Define allowed origins for this route
@@ -56,3 +47,13 @@ routes:
         Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
         Access-Control-Allow-Credentials: 'true'
         Access-Control-Max-Age: 1728000
+    # Rewrites the request path to a new destination path
+    # Example: rewrite "/store" to "/"
+    rewrite: /
+    # Defines the backend service destination for this route
+    destination: https://example.com
+    # Specifies allowed HTTP methods for this route
+    methods: [POST, PUT, GET]
+    # Disables proxy host forwarding (if false, Host header is forwarded)
+    disableHostForwarding: false
+

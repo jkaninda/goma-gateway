@@ -164,6 +164,9 @@ func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.R
 	if gatewayInterceptor.Enabled {
 		route.ErrorInterceptor.Errors = append(route.ErrorInterceptor.Errors, gatewayInterceptor.Errors...)
 		route.ErrorInterceptor.Enabled = true
+		if route.ErrorInterceptor.ContentType == "" {
+			route.ErrorInterceptor.ContentType = gatewayInterceptor.ContentType
+		}
 	}
 }
 

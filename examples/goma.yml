@@ -10,8 +10,6 @@ gateway:
   sslCertFile: ''           # Path to SSL Certificate file (e.g., cert.pem).
   sslKeyFile: ''            # Path to SSL Private Key file (e.g., key.pem).
 
-  # Rate Limiting
-  rateLimit: 0              # Maximum number of requests per minute (0 = no limit, IP-based).
 
   # Logging Configuration
   logLevel: info            # Logging level (options: debug, trace, off).
