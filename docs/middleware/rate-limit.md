@@ -56,8 +56,6 @@ metadata:
   name: ratelimit-middleware-sample
 spec:
     type: rateLimit
-    paths:
-      - /*
     rule:
       unit: minute # or hour
       requestsPerUnit: 60
