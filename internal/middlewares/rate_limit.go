@@ -28,14 +28,12 @@ import (
 func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			contentType := r.Header.Get("Content-Type")
+
 			if !rl.Allow() {
 				logger.Error("Too many requests from IP: %s %s %s", getRealIP(r), r.URL, r.UserAgent())
 				// Rate limit exceeded, return a 429 Too Many Requests response
-				w.WriteHeader(http.StatusTooManyRequests)
-				_, err := w.Write([]byte(fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusTooManyRequests)))
-				if err != nil {
-					return
-				}
+				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusForbidden), nil, contentType)
 				return
 			}
 			// Proceed to the next handler if requests limit is not exceeded
@@ -57,6 +55,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			if err != nil {
 				clientIP = getRealIP(r)
 			}
+			contentType := r.Header.Get("Content-Type")
 			clientID := fmt.Sprintf("%s-%s", rl.id, clientIP) // Generate client Id, ID+ route ID
 			if rl.redisBased {
 				err := redisRateLimiter(clientID, rl.unit, rl.requests)
@@ -84,7 +83,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 					if allowedOrigin(rl.origins, r.Header.Get("Origin")) {
 						w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 					}
-					RespondWithError(w, r, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusTooManyRequests), nil, "")
+					RespondWithError(w, r, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusTooManyRequests), nil, contentType)
 					return
 				}
 			}

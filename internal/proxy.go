@@ -34,11 +34,12 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("%s %s %s %s", r.Method, getRealIP(r), r.URL.Path, r.UserAgent())
 		logger.Trace("Request params: %s", r.URL.RawQuery)
+		contentType := r.Header.Get("Content-Type")
 		// Check Method if is allowed
 		if len(proxyRoute.methods) > 0 {
 			if !slices.Contains(proxyRoute.methods, r.Method) {
 				logger.Error("%s Method is not allowed", r.Method)
-				middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, r.Method), proxyRoute.cors.Origins, "")
+				middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, r.Method), proxyRoute.cors.Origins, contentType)
 				return
 			}
 		}
@@ -61,7 +62,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		targetURL, err := url.Parse(proxyRoute.destination)
 		if err != nil {
 			logger.Error("Error parsing backend URL: %s", err)
-			middlewares.RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, "")
+			middlewares.RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, contentType)
 			return
 		}
 		r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))

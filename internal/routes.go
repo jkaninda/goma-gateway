@@ -98,7 +98,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		r.Use(middlewares.BlockExploitsMiddleware)
 	}
 	// check if RateLimit is set
-	if gateway.RateLimit != 0 {
+	if gateway.RateLimit > 0 {
 		// Add rate limit middlewares to all routes, if defined
 		rateLimit := middlewares.RateLimit{
 			Id:         "global_rate",

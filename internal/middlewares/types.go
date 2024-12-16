@@ -79,8 +79,8 @@ type TokenRateLimiter struct {
 // ProxyResponseError represents the structure of the JSON error response
 type ProxyResponseError struct {
 	Success bool   `json:"success"`
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Status  int    `json:"status"`
+	Error   string `json:"error"`
 }
 
 // JwtAuth  stores JWT configuration

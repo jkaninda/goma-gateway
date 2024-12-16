@@ -27,10 +27,11 @@ import (
 // AccessMiddleware checks if the request path is forbidden and returns 403 Forbidden
 func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
 		for _, block := range blockList.List {
 			if isPathBlocked(r.URL.Path, util.ParseURLPath(blockList.Path+block)) {
 				logger.Error("%s: %s access forbidden", getRealIP(r), r.URL.Path)
-				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d you do not have permission to access this resource", http.StatusForbidden), blockList.Origins, "")
+				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d you do not have permission to access this resource", http.StatusForbidden), blockList.Origins, contentType)
 				return
 			}
 		}

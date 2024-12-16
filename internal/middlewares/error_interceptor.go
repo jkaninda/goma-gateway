@@ -42,6 +42,11 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 // ErrorInterceptor Middleware intercepts backend errors
 func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType := intercept.Interceptor.ContentType
+		if contentType == "" {
+			contentType = r.Header.Get("Content-Type")
+		}
+
 		// Check if the connection is a WebSocket
 		if isWebSocketRequest(r) {
 			next.ServeHTTP(w, r)
@@ -52,7 +57,7 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		can, message := canIntercept(rec.statusCode, intercept.Interceptor.Errors)
 		if can {
 			logger.Error("%s %s resulted in error with status code %d", r.Method, r.URL.Path, rec.statusCode)
-			RespondWithError(w, r, rec.statusCode, message, intercept.Origins, intercept.Interceptor.ContentType)
+			RespondWithError(w, r, rec.statusCode, message, intercept.Origins, contentType)
 			return
 		} else {
 			// No error: write buffered response to client
