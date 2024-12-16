@@ -197,7 +197,6 @@ func initConfig(configFile string) error {
 			WriteTimeout: 15,
 			ReadTimeout:  15,
 			IdleTimeout:  30,
-			LogLevel:     "info",
 			Routes: []Route{
 				{
 					Name:        "Example",
