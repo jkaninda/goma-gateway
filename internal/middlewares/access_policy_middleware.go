@@ -37,6 +37,8 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 		if err != nil {
 			clientIP = getRealIP(r)
 		}
+		contentType := r.Header.Get("Content-Type")
+
 		// Check IP against source ranges
 		isAllowed := access.Action != "DENY"
 		for _, entry := range access.SourceRanges {
@@ -45,7 +47,7 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 					next.ServeHTTP(w, r)
 				} else {
 					logger.Error("%s: IP address in the blocklist, access not allowed", clientIP)
-					RespondWithError(w, r, http.StatusForbidden, http.StatusText(http.StatusForbidden), access.Origins, "")
+					RespondWithError(w, r, http.StatusForbidden, http.StatusText(http.StatusForbidden), access.Origins, contentType)
 				}
 				return
 			}
@@ -54,7 +56,7 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 		// Final response for disallowed IPs
 		if isAllowed {
 			logger.Error("%s: IP address not allowed", clientIP)
-			RespondWithError(w, r, http.StatusForbidden, http.StatusText(http.StatusForbidden), access.Origins, "")
+			RespondWithError(w, r, http.StatusForbidden, http.StatusText(http.StatusForbidden), access.Origins, contentType)
 		} else {
 			next.ServeHTTP(w, r)
 		}

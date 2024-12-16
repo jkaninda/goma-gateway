@@ -19,7 +19,9 @@ package middlewares
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"html"
 	"net/http"
 	"slices"
 )
@@ -45,7 +47,7 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 	if len(logMessage) > 0 {
 		message = logMessage
 	}
-
+	w.WriteHeader(statusCode)
 	// Set Access-Control-Allow-Origin header if the origin is allowed
 	if allowedOrigin(origins, r.Header.Get("Origin")) {
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
@@ -63,12 +65,27 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 		// Otherwise, write a structured JSON response
 		err := json.NewEncoder(w).Encode(ProxyResponseError{
 			Success: false,
-			Code:    statusCode,
-			Message: message,
+			Status:  statusCode,
+			Error:   message,
 		})
 		// Log the error if encoding the JSON fails
 		if err != nil {
 			logger.Error("Error encoding JSON response: %v", err)
+		}
+		return
+	}
+	// Handle XML content type
+	if contentType == "application/xhtml+xml" {
+		w.Header().Set("Content-Type", "application/xhtml+xml")
+		xmlResponse := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+			<error>
+				<success>false</success>
+				<status>%d</status>
+				<error>%s</error>
+			</error>`, statusCode, html.EscapeString(message))
+		_, err := w.Write([]byte(xmlResponse))
+		if err != nil {
+			logger.Error("Error writing XML response: %v", err)
 		}
 		return
 	}
