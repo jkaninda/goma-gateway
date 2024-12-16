@@ -26,7 +26,6 @@ import (
 const sqlPatterns = `(?i)(union|select|drop|insert|delete|update|create|alter|exec|;|--)`
 const traversalPatterns = `\.\./`
 const xssPatterns = `(?i)<script|onerror|onload`
-const applicationJson = "application/json"
 
 var (
 	Rdb     *redis.Client
