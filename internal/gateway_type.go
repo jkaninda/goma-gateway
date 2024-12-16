@@ -32,7 +32,7 @@ type Gateway struct {
 	// TlsKeyFile specifies the TLS private key file.
 	TlsKeyFile string `yaml:"tlsKeyFile" env:"GOMA_TLS_KEY_FILE, overwrite"`
 	// Redis contains the configuration details for the Redis database.
-	Redis Redis `yaml:"redis"`
+	Redis Redis `yaml:"redis,omitempty"`
 	// WriteTimeout defines the timeout (in seconds) for writing responses to clients.
 	WriteTimeout int `yaml:"writeTimeout" env:"GOMA_WRITE_TIMEOUT, overwrite"`
 	// ReadTimeout defines the timeout (in seconds) for reading requests from clients.

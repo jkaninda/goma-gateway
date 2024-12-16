@@ -49,6 +49,8 @@ aux_links:
     - https://github.com/jkaninda/goma-gateway
 
 nav_external_links:
+  - title: CRD Reference
+    url: https://doc.crds.dev/github.com/jkaninda/goma-operator
   - title: GitHub Repository
     url: https://github.com/jkaninda/goma-gateway
 
