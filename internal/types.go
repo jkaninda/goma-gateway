@@ -27,6 +27,10 @@ type BasicRuleMiddleware struct {
 	Password string `yaml:"password"`
 }
 
+type AddPrefixRuleMiddleware struct {
+	Prefix string `yaml:"prefix"`
+}
+
 // JWTRuleMiddleware authentication using HTTP GET method
 //
 // JWTRuleMiddleware contains the authentication details

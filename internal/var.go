@@ -5,19 +5,24 @@ const ExtraDir = ConfigDir + "extra"
 const ConfigFile = "/etc/goma/goma.yml"                        // Default configuration file
 const accessControlAllowOrigin = "Access-Control-Allow-Origin" // Cors
 const gatewayName = "Goma Gateway"
-const AccessMiddleware = "access" // access middlewares
-const BasicAuth = "basic"         // basic authentication middlewares
-const JWTAuth = "jwt"             // JWT authentication middlewares
-const OAuth = "oauth"             // OAuth authentication middlewares
-const accessPolicy = "accessPolicy"
 const applicationJson = "application/json"
+
+// Middlewares type
+const (
+	AccessMiddleware = "access" // access middlewares
+	BasicAuth        = "basic"  // basic authentication middlewares
+	JWTAuth          = "jwt"    // JWT authentication middlewares
+	OAuth            = "oauth"  // OAuth authentication middlewares
+	accessPolicy     = "accessPolicy"
+	addPrefix        = "addPrefix"
+	rateLimit        = "rateLimit"
+)
 
 var (
 	// Round-robin counter
 	counter uint32
 	// dynamicRoutes routes
-	dynamicRoutes       []Route
-	dynamicMiddlewares  []Middleware
-	RateLimitMiddleware = []string{"ratelimit", "rateLimit"} // Rate Limit middlewares
-	redisBased          = false
+	dynamicRoutes      []Route
+	dynamicMiddlewares []Middleware
+	redisBased         = false
 )

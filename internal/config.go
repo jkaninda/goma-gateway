@@ -369,36 +369,26 @@ func getBasicAuthMiddleware(input interface{}) (BasicRuleMiddleware, error) {
 	}
 	return *basicAuth, nil
 }
-func getAccessPoliciesMiddleware(input interface{}) (AccessPolicyRuleMiddleware, error) {
-	a := new(AccessPolicyRuleMiddleware)
-	var bytes []byte
-	bytes, err := yaml.Marshal(input)
-	if err != nil {
-		return AccessPolicyRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
-	err = yaml.Unmarshal(bytes, a)
-	if err != nil {
-		return AccessPolicyRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
+func (a *AccessPolicyRuleMiddleware) validate() error {
 	if len(a.SourceRanges) == 0 {
-		return AccessPolicyRuleMiddleware{}, fmt.Errorf("empty sourceRanges")
+		return fmt.Errorf("empty sourceRanges")
 
 	}
 	for _, ip := range a.SourceRanges {
 		isIP, isCIDR := isIPOrCIDR(ip)
 		if isIP {
 			if !validateIPAddress(ip) {
-				return AccessPolicyRuleMiddleware{}, fmt.Errorf("invalid ip address")
+				return fmt.Errorf("invalid ip address")
 			}
 		}
 		if isCIDR {
 			if !validateCIDR(ip) {
-				return AccessPolicyRuleMiddleware{}, fmt.Errorf("invalid cidr address")
+				return fmt.Errorf("invalid cidr address")
 			}
 		}
 
 	}
-	return *a, nil
+	return nil
 }
 
 // oAuthMiddleware returns OauthRulerMiddleware, error

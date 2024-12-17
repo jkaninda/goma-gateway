@@ -19,12 +19,13 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/pkg/copier"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"slices"
 	"sort"
+	"strings"
 )
 
 // init initializes prometheus metrics
@@ -193,24 +194,24 @@ func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
 			// Add rate limit middlewares
 			router.Use(limiter.RateLimitMiddleware())
 		}
-		if len(middleware) != 0 {
+		if len(middleware) > 0 {
 			// Get Access middlewares if it does exist
 			mid, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
 			if err != nil {
 				logger.Error("Error: %v", err.Error())
 			} else {
+				switch mid.Type {
 				// Apply access middlewares
-				if mid.Type == AccessMiddleware {
+				case AccessMiddleware:
 					blM := middlewares.AccessListMiddleware{
 						Path:    route.Path,
 						List:    mid.Paths,
 						Origins: route.Cors.Origins,
 					}
 					router.Use(blM.AccessMiddleware)
-				}
 
-				// Apply Rate limit middleware
-				if slices.Contains(RateLimitMiddleware, mid.Type) {
+					// Apply Rate limit middleware
+				case rateLimit, strings.ToLower(rateLimit):
 					rateLimitMid, err := rateLimitMiddleware(mid.Rule)
 					if err != nil {
 						logger.Error("Error: %v", err.Error())
@@ -229,15 +230,19 @@ func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
 						limiter := rateLimit.NewRateLimiterWindow()
 						// Apply rate limiter middlewares
 						router.Use(limiter.RateLimitMiddleware())
-
 					}
-
-				}
-				// AccessPolicy
-				if accessPolicy == mid.Type {
-					a, err := getAccessPoliciesMiddleware(mid.Rule)
+					// Apply AccessPolicy
+				case accessPolicy:
+					a := AccessPolicyRuleMiddleware{}
+					err = copier.Copy(&mid.Rule, &a)
 					if err != nil {
 						logger.Error("Error: %v, middleware not applied", err.Error())
+						continue
+					}
+					ok := a.validate()
+					if ok != nil {
+						logger.Error("Error: %v, middleware not applied", err)
+						continue
 					}
 					if len(a.SourceRanges) != 0 {
 						access := middlewares.AccessPolicy{
@@ -247,21 +252,25 @@ func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
 						}
 						router.Use(access.AccessPolicyMiddleware)
 					}
+					// Apply AddPrefix
+				case addPrefix:
+					a := AddPrefixRuleMiddleware{}
+					err = copier.Copy(&mid.Rule, &a)
+					if err != nil {
+						logger.Error("Error: %v, middleware not applied", err.Error())
+						continue
+					}
+					logger.Info("Prefix: %s", a.Prefix)
+					add := middlewares.AddPrefix{
+						Prefix: a.Prefix,
+					}
+					router.Use(add.AddPrefixMiddleware)
+
 				}
+				// Attach authentication middleware
+				attachAuthMiddlewares(route, mid, gateway, router)
 
 			}
-
-			// Get route authentication middlewares if it does exist
-			routeMiddleware, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
-			if err != nil {
-				// Error: middlewares not found
-				logger.Error("Error: %v", err.Error())
-			} else {
-				attachAuthMiddlewares(route, routeMiddleware, gateway, router)
-			}
-		} else {
-			logger.Error("Error, middlewares path is empty")
-			logger.Error("Middleware ignored")
 		}
 	}
 

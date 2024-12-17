@@ -56,7 +56,6 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 				RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), jwtAuth.Origins, contentType)
 				return
 			}
-			logger.Trace("JWT Auth response headers: %v", authReq.Header)
 			// Copy headers from the original request to the new request
 			for name, values := range r.Header {
 				for _, value := range values {
@@ -106,7 +105,6 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 // AuthMiddleware checks for the Authorization header and verifies the credentials
 func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Trace("Basic-Auth request headers: %v", r.Header)
 		contentType := r.Header.Get("Content-Type")
 		if isProtectedPath(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
 			// Get the Authorization header

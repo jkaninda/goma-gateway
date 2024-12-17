@@ -89,6 +89,8 @@ func MergeSlices(slice1, slice2 []string) []string {
 }
 
 // ParseURLPath removes duplicated [//]
+//
+// Ensures the path starts with a single leading slash
 func ParseURLPath(urlPath string) string {
 	// Replace any double slashes with a single slash
 	urlPath = strings.ReplaceAll(urlPath, "//", "/")
