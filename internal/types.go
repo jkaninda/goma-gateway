@@ -26,7 +26,10 @@ type BasicRuleMiddleware struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 }
-
+type ForwardAuthRuleMiddleware struct {
+	URL                 string            `yaml:"url"`
+	AuthResponseHeaders map[string]string `yaml:"authResponseHeaders"`
+}
 type AddPrefixRuleMiddleware struct {
 	Prefix string `yaml:"prefix"`
 }

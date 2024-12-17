@@ -126,10 +126,10 @@ func allowedOrigin(origins []string, origin string) bool {
 }
 
 // callbackHandler handles oauth callback
-func (oauth *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r *http.Request) {
-	oauthConfig := oauth2Config(oauth)
+func (oauthRuler *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r *http.Request) {
+	oauthConfig := oauth2Config(oauthRuler)
 	// Verify the state to protect against CSRF
-	if r.URL.Query().Get("state") != oauth.State {
+	if r.URL.Query().Get("state") != oauthRuler.State {
 		http.Error(w, "Invalid state", http.StatusBadRequest)
 		return
 	}
@@ -143,14 +143,14 @@ func (oauth *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r *htt
 	}
 
 	// Get user info from the token
-	userInfo, err := oauth.getUserInfo(token)
+	userInfo, err := oauthRuler.getUserInfo(token)
 	if err != nil {
 		logger.Error("Error getting user info: %v", err)
 		http.Error(w, "Error getting user info: ", http.StatusInternalServerError)
 		return
 	}
 	// Generate JWT with user's email
-	jwtToken, err := createJWT(userInfo.Email, oauth.JWTSecret)
+	jwtToken, err := createJWT(userInfo.Email, oauthRuler.JWTSecret)
 	if err != nil {
 		logger.Error("Error creating JWT: %v", err)
 		http.Error(w, "Error creating JWT ", http.StatusInternalServerError)
@@ -160,9 +160,9 @@ func (oauth *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r *htt
 	http.SetCookie(w, &http.Cookie{
 		Name:  "goma.oauth",
 		Value: jwtToken,
-		Path:  oauth.CookiePath,
+		Path:  oauthRuler.CookiePath,
 	})
 
 	// Redirect to the home page or another protected route
-	http.Redirect(w, r, oauth.RedirectPath, http.StatusSeeOther)
+	http.Redirect(w, r, oauthRuler.RedirectPath, http.StatusSeeOther)
 }

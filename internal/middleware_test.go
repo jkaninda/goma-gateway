@@ -17,6 +17,8 @@ limitations under the License.
 */
 import (
 	"fmt"
+	"github.com/jkaninda/goma-gateway/pkg/copier"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"
@@ -114,23 +116,31 @@ func TestReadMiddleware(t *testing.T) {
 		switch middleware.Type {
 		case BasicAuth:
 			log.Println("Basic auth")
-			basicAuth, err := getBasicAuthMiddleware(middleware.Rule)
-			if err != nil {
-				log.Fatalln("error:", err)
+			basicAuth := BasicRuleMiddleware{}
+			if err := copier.Copy(&middleware.Rule, &basicAuth); err != nil {
+				t.Fatalf("Error: %v", err.Error())
 			}
 			log.Printf("Username: %s and password: %s\n", basicAuth.Username, basicAuth.Password)
 		case JWTAuth:
 			log.Println("JWT auth")
-			jwt, err := getJWTMiddleware(middleware.Rule)
+			jwt := &JWTRuleMiddleware{}
+			if err := copier.Copy(&middleware.Rule, jwt); err != nil {
+				t.Fatalf("Error: %v", err.Error())
+			}
+			err := jwt.validate()
 			if err != nil {
-				log.Fatalln("error:", err)
+				logger.Error("Error: %s", err.Error())
 			}
 			log.Printf("JWT authentification URL is %s\n", jwt.URL)
 		case OAuth:
 			log.Println("OAuth auth")
-			oauth, err := oAuthMiddleware(middleware.Rule)
+			oauth := &OauthRulerMiddleware{}
+			if err := copier.Copy(&middleware.Rule, oauth); err != nil {
+				t.Fatalf("Error: %v, middleware not applied", err.Error())
+			}
+			err := oauth.validate()
 			if err != nil {
-				log.Fatalln("error:", err)
+				t.Fatalf("Error: %s", err.Error())
 			}
 			log.Printf("OAuth authentification:  provider %s\n", oauth.Provider)
 		case AccessMiddleware:

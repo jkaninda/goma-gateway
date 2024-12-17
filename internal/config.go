@@ -314,62 +314,32 @@ func (Gateway) Setup(conf string) *Gateway {
 }
 
 // rateLimitMiddleware returns RateLimitRuleMiddleware, error
-func rateLimitMiddleware(input interface{}) (RateLimitRuleMiddleware, error) {
-	rateLimit := new(RateLimitRuleMiddleware)
-	var bytes []byte
-	bytes, err := yaml.Marshal(input)
-	if err != nil {
-		return RateLimitRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
-	err = yaml.Unmarshal(bytes, rateLimit)
-	if err != nil {
-		return RateLimitRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
+func (rateLimit RateLimitRuleMiddleware) validate() error {
 	if rateLimit.RequestsPerUnit == 0 {
-		return RateLimitRuleMiddleware{}, fmt.Errorf("requests per unit not defined")
+		return fmt.Errorf("requests per unit not defined")
 
 	}
-	return *rateLimit, nil
+	return nil
 }
 
-// getJWTMiddleware returns JWTRuleMiddleware,error
-func getJWTMiddleware(input interface{}) (JWTRuleMiddleware, error) {
-	jWTRuler := new(JWTRuleMiddleware)
-	var bytes []byte
-	bytes, err := yaml.Marshal(input)
-	if err != nil {
-		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
-	err = yaml.Unmarshal(bytes, jWTRuler)
-	if err != nil {
-		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
-	if jWTRuler.URL == "" {
-		return JWTRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty url in jwt auth middlewares")
+// validate validates JWTRuleMiddleware
+func (jwt JWTRuleMiddleware) validate() error {
+	if jwt.URL == "" {
+		return fmt.Errorf("error parsing yaml: empty url in jwt auth middlewares")
 
 	}
-	return *jWTRuler, nil
+	return nil
 }
 
 // getBasicAuthMiddleware returns BasicRuleMiddleware,error
-func getBasicAuthMiddleware(input interface{}) (BasicRuleMiddleware, error) {
-	basicAuth := new(BasicRuleMiddleware)
-	var bytes []byte
-	bytes, err := yaml.Marshal(input)
-	if err != nil {
-		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
-	err = yaml.Unmarshal(bytes, basicAuth)
-	if err != nil {
-		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
+func (basicAuth BasicRuleMiddleware) validate() error {
 	if basicAuth.Username == "" || basicAuth.Password == "" {
-		return BasicRuleMiddleware{}, fmt.Errorf("error parsing yaml: empty username/password in %s middlewares", basicAuth)
+		return fmt.Errorf("error parsing yaml: empty username/password in %s middlewares", basicAuth)
 
 	}
-	return *basicAuth, nil
+	return nil
 }
-func (a *AccessPolicyRuleMiddleware) validate() error {
+func (a AccessPolicyRuleMiddleware) validate() error {
 	if len(a.SourceRanges) == 0 {
 		return fmt.Errorf("empty sourceRanges")
 
@@ -392,22 +362,12 @@ func (a *AccessPolicyRuleMiddleware) validate() error {
 }
 
 // oAuthMiddleware returns OauthRulerMiddleware, error
-func oAuthMiddleware(input interface{}) (OauthRulerMiddleware, error) {
-	oauthRuler := new(OauthRulerMiddleware)
-	var bytes []byte
-	bytes, err := yaml.Marshal(input)
-	if err != nil {
-		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
-	err = yaml.Unmarshal(bytes, oauthRuler)
-	if err != nil {
-		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: %v", err)
-	}
+func (oauthRuler *OauthRulerMiddleware) validate() error {
 	if oauthRuler.ClientID == "" || oauthRuler.ClientSecret == "" || oauthRuler.RedirectURL == "" {
-		return OauthRulerMiddleware{}, fmt.Errorf("error parsing yaml: empty clientId/secretId in %s middlewares", oauthRuler)
+		return fmt.Errorf("error parsing yaml: empty clientId/secretId in %s middlewares", oauthRuler)
 
 	}
-	return *oauthRuler, nil
+	return nil
 }
 func oauthRulerMiddleware(oauth middlewares.Oauth) *OauthRulerMiddleware {
 	return &OauthRulerMiddleware{

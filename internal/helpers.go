@@ -55,11 +55,11 @@ func getRealIP(r *http.Request) string {
 }
 
 // getUserInfo returns struct of UserInfo
-func (oauth *OauthRulerMiddleware) getUserInfo(token *oauth2.Token) (UserInfo, error) {
-	oauthConfig := oauth2Config(oauth)
+func (oauthRuler *OauthRulerMiddleware) getUserInfo(token *oauth2.Token) (UserInfo, error) {
+	oauthConfig := oauth2Config(oauthRuler)
 	// Call the user info endpoint with the token
 	client := oauthConfig.Client(context.Background(), token)
-	resp, err := client.Get(oauth.Endpoint.UserInfoURL)
+	resp, err := client.Get(oauthRuler.Endpoint.UserInfoURL)
 	if err != nil {
 		return UserInfo{}, err
 	}

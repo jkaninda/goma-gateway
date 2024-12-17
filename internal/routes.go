@@ -170,119 +170,145 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 
 }
 
-// attachMiddlewares attach middlewares to the route
+// attachMiddlewares attaches middlewares to the route
 func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
-	// Apply middlewares to the route
-	for _, middleware := range route.Middlewares {
-		// Apply common exploits to the route
-		// Enable common exploits
-		if route.BlockCommonExploits {
-			logger.Info("Block common exploits enabled")
-			router.Use(middlewares.BlockExploitsMiddleware)
-		}
-		// Apply route rate limit
-		if route.RateLimit != 0 {
-			rateLimit := middlewares.RateLimit{
-				Unit:       "minute",
-				Id:         util.Slug(route.Name),
-				Requests:   route.RateLimit,
-				Origins:    route.Cors.Origins,
-				Hosts:      route.Hosts,
-				RedisBased: redisBased,
-			}
-			limiter := rateLimit.NewRateLimiterWindow()
-			// Add rate limit middlewares
-			router.Use(limiter.RateLimitMiddleware())
-		}
-		if len(middleware) > 0 {
-			// Get Access middlewares if it does exist
-			mid, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
-			if err != nil {
-				logger.Error("Error: %v", err.Error())
-			} else {
-				switch mid.Type {
-				// Apply access middlewares
-				case AccessMiddleware:
-					blM := middlewares.AccessListMiddleware{
-						Path:    route.Path,
-						List:    mid.Paths,
-						Origins: route.Cors.Origins,
-					}
-					router.Use(blM.AccessMiddleware)
-
-					// Apply Rate limit middleware
-				case rateLimit, strings.ToLower(rateLimit):
-					rateLimitMid, err := rateLimitMiddleware(mid.Rule)
-					if err != nil {
-						logger.Error("Error: %v", err.Error())
-					}
-					if rateLimitMid.RequestsPerUnit != 0 && route.RateLimit == 0 {
-						rateLimit := middlewares.RateLimit{
-							Unit:       rateLimitMid.Unit,
-							Id:         util.Slug(route.Name),
-							Requests:   rateLimitMid.RequestsPerUnit,
-							Origins:    route.Cors.Origins,
-							Hosts:      route.Hosts,
-							RedisBased: redisBased,
-							PathBased:  true,
-							Paths:      util.AddPrefixPath(route.Path, mid.Paths),
-						}
-						limiter := rateLimit.NewRateLimiterWindow()
-						// Apply rate limiter middlewares
-						router.Use(limiter.RateLimitMiddleware())
-					}
-					// Apply AccessPolicy
-				case accessPolicy:
-					a := AccessPolicyRuleMiddleware{}
-					err = copier.Copy(&mid.Rule, &a)
-					if err != nil {
-						logger.Error("Error: %v, middleware not applied", err.Error())
-						continue
-					}
-					ok := a.validate()
-					if ok != nil {
-						logger.Error("Error: %v, middleware not applied", err)
-						continue
-					}
-					if len(a.SourceRanges) != 0 {
-						access := middlewares.AccessPolicy{
-							SourceRanges: a.SourceRanges,
-							Action:       a.Action,
-							Origins:      route.Cors.Origins,
-						}
-						router.Use(access.AccessPolicyMiddleware)
-					}
-					// Apply AddPrefix
-				case addPrefix:
-					a := AddPrefixRuleMiddleware{}
-					err = copier.Copy(&mid.Rule, &a)
-					if err != nil {
-						logger.Error("Error: %v, middleware not applied", err.Error())
-						continue
-					}
-					logger.Info("Prefix: %s", a.Prefix)
-					add := middlewares.AddPrefix{
-						Prefix: a.Prefix,
-					}
-					router.Use(add.AddPrefixMiddleware)
-
-				}
-				// Attach authentication middleware
-				attachAuthMiddlewares(route, mid, gateway, router)
-
-			}
-		}
+	if route.BlockCommonExploits {
+		logger.Info("Block common exploits enabled")
+		router.Use(middlewares.BlockExploitsMiddleware)
 	}
 
+	applyRateLimit(route, router)
+
+	for _, middleware := range route.Middlewares {
+		if len(middleware) == 0 {
+			continue
+		}
+
+		mid, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
+		if err != nil {
+			logger.Error("Error: %v", err.Error())
+			continue
+		}
+
+		applyMiddlewareByType(mid, route, gateway, router)
+	}
+}
+
+func applyRateLimit(route Route, router *mux.Router) {
+	if route.RateLimit == 0 {
+		return
+	}
+
+	rateLimit := middlewares.RateLimit{
+		Unit:       "minute",
+		Id:         util.Slug(route.Name),
+		Requests:   route.RateLimit,
+		Origins:    route.Cors.Origins,
+		Hosts:      route.Hosts,
+		RedisBased: redisBased,
+	}
+	limiter := rateLimit.NewRateLimiterWindow()
+	router.Use(limiter.RateLimitMiddleware())
+}
+
+func applyMiddlewareByType(mid Middleware, route Route, gateway Gateway, router *mux.Router) {
+	switch mid.Type {
+	case AccessMiddleware:
+		applyAccessMiddleware(mid, route, router)
+	case rateLimit, strings.ToLower(rateLimit):
+		applyRateLimitMiddleware(mid, route, router)
+	case accessPolicy:
+		applyAccessPolicyMiddleware(mid, route, router)
+	case addPrefix:
+		applyAddPrefixMiddleware(mid, router)
+	}
+
+	attachAuthMiddlewares(route, mid, gateway, router)
+}
+
+func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
+	blM := middlewares.AccessListMiddleware{
+		Path:    route.Path,
+		List:    mid.Paths,
+		Origins: route.Cors.Origins,
+	}
+	router.Use(blM.AccessMiddleware)
+}
+
+func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
+	rateLimitMid := &RateLimitRuleMiddleware{}
+	if err := copier.Copy(&mid.Rule, rateLimitMid); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := rateLimitMid.validate(); err != nil {
+		logger.Error("Error: %v", err.Error())
+		return
+	}
+
+	if rateLimitMid.RequestsPerUnit != 0 && route.RateLimit == 0 {
+		rateLimit := middlewares.RateLimit{
+			Unit:       rateLimitMid.Unit,
+			Id:         util.Slug(route.Name),
+			Requests:   rateLimitMid.RequestsPerUnit,
+			Origins:    route.Cors.Origins,
+			Hosts:      route.Hosts,
+			RedisBased: redisBased,
+			PathBased:  true,
+			Paths:      util.AddPrefixPath(route.Path, mid.Paths),
+		}
+		limiter := rateLimit.NewRateLimiterWindow()
+		router.Use(limiter.RateLimitMiddleware())
+	}
+}
+
+func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router) {
+	a := &AccessPolicyRuleMiddleware{}
+	if err := copier.Copy(&mid.Rule, a); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := a.validate(); err != nil {
+		logger.Error("Error: %v, middleware not applied", err)
+		return
+	}
+
+	if len(a.SourceRanges) > 0 {
+		access := middlewares.AccessPolicy{
+			SourceRanges: a.SourceRanges,
+			Action:       a.Action,
+			Origins:      route.Cors.Origins,
+		}
+		router.Use(access.AccessPolicyMiddleware)
+	}
+}
+
+func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
+	a := AddPrefixRuleMiddleware{}
+	if err := copier.Copy(&mid.Rule, &a); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	logger.Info("Prefix: %s", a.Prefix)
+	add := middlewares.AddPrefix{
+		Prefix: a.Prefix,
+	}
+	router.Use(add.AddPrefixMiddleware)
 }
 
 func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gateway, r *mux.Router) {
 	// Check Authentication middleware types
 	switch routeMiddleware.Type {
 	case BasicAuth:
-		basicAuth, err := getBasicAuthMiddleware(routeMiddleware.Rule)
+		basicAuth := BasicRuleMiddleware{}
+		if err := copier.Copy(&routeMiddleware.Rule, &basicAuth); err != nil {
+			logger.Error("Error: %v, middleware not applied", err.Error())
+			return
+		}
+		err := basicAuth.validate()
 		if err != nil {
 			logger.Error("Error: %s", err.Error())
+			return
 		} else {
 			authBasic := middlewares.AuthBasic{
 				Path:     route.Path,
@@ -297,9 +323,15 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 			r.Use(CORSHandler(route.Cors))
 		}
 	case JWTAuth:
-		jwt, err := getJWTMiddleware(routeMiddleware.Rule)
+		jwt := &JWTRuleMiddleware{}
+		if err := copier.Copy(&routeMiddleware.Rule, jwt); err != nil {
+			logger.Error("Error: %v, middleware not applied", err.Error())
+			return
+		}
+		err := jwt.validate()
 		if err != nil {
 			logger.Error("Error: %s", err.Error())
+			return
 		} else {
 			jwtAuth := middlewares.JwtAuth{
 				Path:            route.Path,
@@ -316,9 +348,15 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 
 		}
 	case OAuth:
-		oauth, err := oAuthMiddleware(routeMiddleware.Rule)
+		oauth := &OauthRulerMiddleware{}
+		if err := copier.Copy(&routeMiddleware.Rule, oauth); err != nil {
+			logger.Error("Error: %v, middleware not applied", err.Error())
+			return
+		}
+		err := oauth.validate()
 		if err != nil {
 			logger.Error("Error: %s", err.Error())
+			return
 		} else {
 			redirectURL := "/callback" + route.Path
 			if oauth.RedirectURL != "" {
