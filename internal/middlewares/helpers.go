@@ -47,7 +47,6 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 	if len(logMessage) > 0 {
 		message = logMessage
 	}
-	w.WriteHeader(statusCode)
 	// Set Access-Control-Allow-Origin header if the origin is allowed
 	if allowedOrigin(origins, r.Header.Get("Origin")) {
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
@@ -62,6 +61,7 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 			return
 		}
 
+		w.WriteHeader(statusCode)
 		// Otherwise, write a structured JSON response
 		err := json.NewEncoder(w).Encode(ProxyResponseError{
 			Success: false,
@@ -76,6 +76,7 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 	}
 	// Handle XML content type
 	if contentType == "application/xhtml+xml" {
+		w.WriteHeader(statusCode)
 		w.Header().Set("Content-Type", "application/xhtml+xml")
 		xmlResponse := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 			<error>
