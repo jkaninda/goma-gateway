@@ -323,19 +323,20 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 		if err != nil {
 			logger.Error("Error: %s", err.Error())
 			return
-		} else {
-			authBasic := middlewares.AuthBasic{
-				Path:     route.Path,
-				Paths:    routeMiddleware.Paths,
-				Username: basicAuth.Username,
-				Password: basicAuth.Password,
-				Headers:  nil,
-				Params:   nil,
-			}
-			// Apply JWT authentication middlewares
-			r.Use(authBasic.AuthMiddleware)
-			r.Use(CORSHandler(route.Cors))
 		}
+		authBasic := middlewares.AuthBasic{
+			Path:     route.Path,
+			Paths:    routeMiddleware.Paths,
+			Username: basicAuth.Username,
+			Password: basicAuth.Password,
+			Headers:  nil,
+			Params:   nil,
+		}
+
+		// Apply JWT authentication middlewares
+		r.Use(authBasic.AuthMiddleware)
+		r.Use(CORSHandler(route.Cors))
+
 	case JWTAuth:
 		jwt := &JWTRuleMiddleware{}
 		if err := copier.Copy(&routeMiddleware.Rule, jwt); err != nil {
@@ -346,21 +347,20 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 		if err != nil {
 			logger.Error("Error: %s", err.Error())
 			return
-		} else {
-			jwtAuth := middlewares.JwtAuth{
-				Path:            route.Path,
-				Paths:           routeMiddleware.Paths,
-				AuthURL:         jwt.URL,
-				RequiredHeaders: jwt.RequiredHeaders,
-				Headers:         jwt.Headers,
-				Params:          jwt.Params,
-				Origins:         gateway.Cors.Origins,
-			}
-			// Apply JWT authentication middlewares
-			r.Use(jwtAuth.AuthMiddleware)
-			r.Use(CORSHandler(route.Cors))
-
 		}
+		jwtAuth := middlewares.JwtAuth{
+			Path:            route.Path,
+			Paths:           routeMiddleware.Paths,
+			AuthURL:         jwt.URL,
+			RequiredHeaders: jwt.RequiredHeaders,
+			Headers:         jwt.Headers,
+			Params:          jwt.Params,
+			Origins:         gateway.Cors.Origins,
+		}
+		// Apply JWT authentication middlewares
+		r.Use(jwtAuth.AuthMiddleware)
+		r.Use(CORSHandler(route.Cors))
+
 	case OAuth:
 		oauth := &OauthRulerMiddleware{}
 		if err := copier.Copy(&routeMiddleware.Rule, oauth); err != nil {
@@ -371,44 +371,45 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 		if err != nil {
 			logger.Error("Error: %s", err.Error())
 			return
-		} else {
-			redirectURL := "/callback" + route.Path
-			if oauth.RedirectURL != "" {
-				redirectURL = oauth.RedirectURL
-			}
-			amw := middlewares.Oauth{
-				Path:         route.Path,
-				Paths:        routeMiddleware.Paths,
-				ClientID:     oauth.ClientID,
-				ClientSecret: oauth.ClientSecret,
-				RedirectURL:  redirectURL,
-				Scopes:       oauth.Scopes,
-				Endpoint: middlewares.OauthEndpoint{
-					AuthURL:     oauth.Endpoint.AuthURL,
-					TokenURL:    oauth.Endpoint.TokenURL,
-					UserInfoURL: oauth.Endpoint.UserInfoURL,
-				},
-				State:     oauth.State,
-				Origins:   gateway.Cors.Origins,
-				JWTSecret: oauth.JWTSecret,
-				Provider:  oauth.Provider,
-			}
-			oauthRuler := oauthRulerMiddleware(amw)
-			// Check if a cookie path is defined
-			if oauthRuler.CookiePath == "" {
-				oauthRuler.CookiePath = route.Path
-			}
-			// Check if a RedirectPath is defined
-			if oauthRuler.RedirectPath == "" {
-				oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
-			}
-			if oauthRuler.Provider == "" {
-				oauthRuler.Provider = "custom"
-			}
-			r.Use(amw.AuthMiddleware)
-			r.Use(CORSHandler(route.Cors))
-			r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods("GET")
 		}
+
+		redirectURL := "/callback" + route.Path
+		if oauth.RedirectURL != "" {
+			redirectURL = oauth.RedirectURL
+		}
+		amw := middlewares.Oauth{
+			Path:         route.Path,
+			Paths:        routeMiddleware.Paths,
+			ClientID:     oauth.ClientID,
+			ClientSecret: oauth.ClientSecret,
+			RedirectURL:  redirectURL,
+			Scopes:       oauth.Scopes,
+			Endpoint: middlewares.OauthEndpoint{
+				AuthURL:     oauth.Endpoint.AuthURL,
+				TokenURL:    oauth.Endpoint.TokenURL,
+				UserInfoURL: oauth.Endpoint.UserInfoURL,
+			},
+			State:     oauth.State,
+			Origins:   gateway.Cors.Origins,
+			JWTSecret: oauth.JWTSecret,
+			Provider:  oauth.Provider,
+		}
+		oauthRuler := oauthRulerMiddleware(amw)
+		// Check if a cookie path is defined
+		if oauthRuler.CookiePath == "" {
+			oauthRuler.CookiePath = route.Path
+		}
+		// Check if a RedirectPath is defined
+		if oauthRuler.RedirectPath == "" {
+			oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
+		}
+		if oauthRuler.Provider == "" {
+			oauthRuler.Provider = "custom"
+		}
+		r.Use(amw.AuthMiddleware)
+		r.Use(CORSHandler(route.Cors))
+		r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods("GET")
+
 	default:
 		if !doesExist(routeMiddleware.Type) {
 			logger.Error("Unknown middlewares type %s", routeMiddleware.Type)
