@@ -33,6 +33,10 @@ type ForwardAuthRuleMiddleware struct {
 type AddPrefixRuleMiddleware struct {
 	Prefix string `yaml:"prefix"`
 }
+type RedirectRegexRuleMiddleware struct {
+	Pattern     string `yaml:"pattern"`
+	Replacement string `yaml:"replacement"`
+}
 
 // JWTRuleMiddleware authentication using HTTP GET method
 //

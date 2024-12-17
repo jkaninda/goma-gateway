@@ -19,38 +19,30 @@ package middlewares
 
 import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"github.com/jkaninda/goma-gateway/util"
 	"net/http"
-	"strings"
+	"regexp"
 )
 
-type AddPrefix struct {
-	Prefix string
-	Path   string
+type RedirectRegex struct {
+	Pattern     string
+	Replacement string
 }
 
-// AddPrefixMiddleware updates the path of a request before forwarding it.
-func (p *AddPrefix) AddPrefixMiddleware(next http.Handler) http.Handler {
+// RedirectRegexMiddleware updates the path of a request before forwarding it.
+func (regex *RedirectRegex) RedirectRegexMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if p.Prefix == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		// Update the request path
-		originalPath := r.URL.Path
-		// Log the prefix addition process
-		logger.Debug("Adding prefix to the route")
 
-		// Build the new path
-		newPath := p.Prefix
-		// Append the original path
-		if !strings.HasSuffix(p.Path, "/") {
-			newPath += strings.TrimPrefix(r.URL.Path, "/")
-		}
-		r.URL.Path = util.ParseURLPath(newPath)
-		// Log the path rewrite
-		logger.Debug("Rewriting Path from %s to %s", originalPath, r.URL.Path)
-		// Proceed to the next handler
+		re := regexp.MustCompile(regex.Pattern)
+		originalURL := r.URL.Path
+
+		// Rewrite the path
+		rewrittenURL := re.ReplaceAllString(originalURL, regex.Replacement)
+		r.URL.Path = rewrittenURL
+
+		// Ensure the URL is properly formatted
+		r.URL.RawPath = rewrittenURL
+
+		logger.Debug("Rewriting URL from %s to %s", originalURL, rewrittenURL)
 		next.ServeHTTP(w, r)
 	})
 }

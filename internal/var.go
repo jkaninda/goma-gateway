@@ -16,6 +16,7 @@ const (
 	accessPolicy     = "accessPolicy"
 	addPrefix        = "addPrefix"
 	rateLimit        = "rateLimit"
+	redirectRegex    = "redirectRegex"
 )
 
 var (
