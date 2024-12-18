@@ -327,6 +327,7 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 		authBasic := middlewares.AuthBasic{
 			Path:     route.Path,
 			Paths:    routeMiddleware.Paths,
+			Users:    basicAuth.Users,
 			Username: basicAuth.Username,
 			Password: basicAuth.Password,
 			Headers:  nil,

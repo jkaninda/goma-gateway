@@ -19,6 +19,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/copier"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"gopkg.in/yaml.v3"
@@ -174,4 +175,21 @@ func getMiddlewares(t *testing.T) []Middleware {
 		t.Fatalf("Unable to parse config file %s", configFile)
 	}
 	return *c
+}
+
+func TestValidatePassword(t *testing.T) {
+	plainPassword := "password"
+	bcryptHashedPassword := "$2y$05$Sd/9X/7mphttqqFeBwDz9.WVjU4/urVroHlY3RPXiDDHBIEWojoQm" //  bcrypt hash
+	md5HashedPassword := "$apr1$4rM/A28O$Fg37b.l/Ja1OfH8mBA5Ua."                           //  md5crypt hash
+	sha1HashedPassword := "{SHA}W6ph5Mm5Pz8GgiULbPgzG37mj9g="                              //  SHA1 hash
+
+	valid, err := middlewares.ValidatePassword(plainPassword, bcryptHashedPassword)
+	fmt.Printf("BCrypt valid: %v, Error: %v\n", valid, err)
+
+	valid, err = middlewares.ValidatePassword(plainPassword, md5HashedPassword)
+	fmt.Printf("MD5 valid: %v, Error: %v\n", valid, err)
+
+	valid, err = middlewares.ValidatePassword(plainPassword, sha1HashedPassword)
+	fmt.Printf("SHA1 valid: %v, Error: %v\n", valid, err)
+
 }

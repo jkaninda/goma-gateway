@@ -113,6 +113,8 @@ type AuthBasic struct {
 	// Route path
 	Path     string
 	Paths    []string
+	Realm    string
+	Users    []string `yaml:"users"`
 	Username string
 	Password string
 	Headers  map[string]string
