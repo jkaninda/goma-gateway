@@ -31,7 +31,7 @@ func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.H
 		for _, block := range blockList.List {
 			if isPathBlocked(r.URL.Path, util.ParseURLPath(blockList.Path+block)) {
 				logger.Error("%s: %s access forbidden", getRealIP(r), r.URL.Path)
-				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d you do not have permission to access this resource", http.StatusForbidden), blockList.Origins, contentType)
+				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), blockList.Origins, contentType)
 				return
 			}
 		}

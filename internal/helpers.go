@@ -26,6 +26,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 )
 
 // printRoute prints routes
@@ -43,14 +44,27 @@ func printRoute(routes []Route) {
 	fmt.Println(t.Render())
 }
 
-// getRealIP gets user real IP
+// getRealIP extracts the real IP address of the client from the HTTP request.
 func getRealIP(r *http.Request) string {
+	// Check the X-Forwarded-For header for the client IP.
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// Take the first IP in the comma-separated list.
+		if ips := strings.Split(xff, ","); len(ips) > 0 {
+			return strings.TrimSpace(ips[0])
+		}
+	}
+
+	// Check the X-Real-IP header as a fallback.
 	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return strings.TrimSpace(ip)
+	}
+
+	// Use the remote address if headers are not set.
+	if ip, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		return ip
 	}
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		return ip
-	}
+
+	// Return the raw remote address as a last resort.
 	return r.RemoteAddr
 }
 

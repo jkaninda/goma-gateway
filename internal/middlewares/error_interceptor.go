@@ -18,6 +18,7 @@ package middlewares
  */
 import (
 	"bytes"
+	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"
@@ -79,7 +80,7 @@ func canIntercept(code int, routeErrors []RouteError) (bool, string) {
 			if routeError.Body != "" {
 				return true, routeError.Body
 			}
-			return true, http.StatusText(code)
+			return true, fmt.Sprintf("%d %s", code, http.StatusText(code))
 		}
 	}
 	return false, ""
