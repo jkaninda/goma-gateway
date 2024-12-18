@@ -1,29 +1,31 @@
+/*
+ * Copyright 2024 Jonas Kaninda
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 package internal
 
-/*
-Copyright 2024 Jonas Kaninda
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 import (
 	"fmt"
+	"github.com/jkaninda/goma-gateway/pkg/copier"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 	"testing"
 )
-
-const MidName = "google-jwt"
 
 var rules = []string{"fake", "jwt", "google-jwt"}
 
@@ -114,23 +116,31 @@ func TestReadMiddleware(t *testing.T) {
 		switch middleware.Type {
 		case BasicAuth:
 			log.Println("Basic auth")
-			basicAuth, err := getBasicAuthMiddleware(middleware.Rule)
-			if err != nil {
-				log.Fatalln("error:", err)
+			basicAuth := BasicRuleMiddleware{}
+			if err := copier.Copy(&middleware.Rule, &basicAuth); err != nil {
+				t.Fatalf("Error: %v", err.Error())
 			}
 			log.Printf("Username: %s and password: %s\n", basicAuth.Username, basicAuth.Password)
 		case JWTAuth:
 			log.Println("JWT auth")
-			jwt, err := getJWTMiddleware(middleware.Rule)
+			jwt := &JWTRuleMiddleware{}
+			if err := copier.Copy(&middleware.Rule, jwt); err != nil {
+				t.Fatalf("Error: %v", err.Error())
+			}
+			err := jwt.validate()
 			if err != nil {
-				log.Fatalln("error:", err)
+				logger.Error("Error: %s", err.Error())
 			}
 			log.Printf("JWT authentification URL is %s\n", jwt.URL)
 		case OAuth:
 			log.Println("OAuth auth")
-			oauth, err := oAuthMiddleware(middleware.Rule)
+			oauth := &OauthRulerMiddleware{}
+			if err := copier.Copy(&middleware.Rule, oauth); err != nil {
+				t.Fatalf("Error: %v, middleware not applied", err.Error())
+			}
+			err := oauth.validate()
 			if err != nil {
-				log.Fatalln("error:", err)
+				t.Fatalf("Error: %s", err.Error())
 			}
 			log.Printf("OAuth authentification:  provider %s\n", oauth.Provider)
 		case AccessMiddleware:

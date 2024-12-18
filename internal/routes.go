@@ -19,12 +19,13 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/pkg/copier"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"slices"
 	"sort"
+	"strings"
 )
 
 // init initializes prometheus metrics
@@ -116,7 +117,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 
 		// create route
 		router := r.PathPrefix(route.Path).Subrouter()
-		if len(route.Path) != 0 {
+		if len(route.Path) > 0 {
 			if route.DisableHostForwarding {
 				logger.Info("Route %s: host forwarding disabled ", route.Name)
 			}
@@ -169,185 +170,246 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 
 }
 
-// attachMiddlewares attach middlewares to the route
+// attachMiddlewares attaches middlewares to the route
 func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
-	// Apply middlewares to the route
-	for _, middleware := range route.Middlewares {
-		// Apply common exploits to the route
-		// Enable common exploits
-		if route.BlockCommonExploits {
-			logger.Info("Block common exploits enabled")
-			router.Use(middlewares.BlockExploitsMiddleware)
-		}
-		// Apply route rate limit
-		if route.RateLimit != 0 {
-			rateLimit := middlewares.RateLimit{
-				Unit:       "minute",
-				Id:         util.Slug(route.Name),
-				Requests:   route.RateLimit,
-				Origins:    route.Cors.Origins,
-				Hosts:      route.Hosts,
-				RedisBased: redisBased,
-			}
-			limiter := rateLimit.NewRateLimiterWindow()
-			// Add rate limit middlewares
-			router.Use(limiter.RateLimitMiddleware())
-		}
-		if len(middleware) != 0 {
-			// Get Access middlewares if it does exist
-			mid, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
-			if err != nil {
-				logger.Error("Error: %v", err.Error())
-			} else {
-				// Apply access middlewares
-				if mid.Type == AccessMiddleware {
-					blM := middlewares.AccessListMiddleware{
-						Path:    route.Path,
-						List:    mid.Paths,
-						Origins: route.Cors.Origins,
-					}
-					router.Use(blM.AccessMiddleware)
-				}
-
-				// Apply Rate limit middleware
-				if slices.Contains(RateLimitMiddleware, mid.Type) {
-					rateLimitMid, err := rateLimitMiddleware(mid.Rule)
-					if err != nil {
-						logger.Error("Error: %v", err.Error())
-					}
-					if rateLimitMid.RequestsPerUnit != 0 && route.RateLimit == 0 {
-						rateLimit := middlewares.RateLimit{
-							Unit:       rateLimitMid.Unit,
-							Id:         util.Slug(route.Name),
-							Requests:   rateLimitMid.RequestsPerUnit,
-							Origins:    route.Cors.Origins,
-							Hosts:      route.Hosts,
-							RedisBased: redisBased,
-							PathBased:  true,
-							Paths:      util.AddPrefixPath(route.Path, mid.Paths),
-						}
-						limiter := rateLimit.NewRateLimiterWindow()
-						// Apply rate limiter middlewares
-						router.Use(limiter.RateLimitMiddleware())
-
-					}
-
-				}
-				// AccessPolicy
-				if accessPolicy == mid.Type {
-					a, err := getAccessPoliciesMiddleware(mid.Rule)
-					if err != nil {
-						logger.Error("Error: %v, middleware not applied", err.Error())
-					}
-					if len(a.SourceRanges) != 0 {
-						access := middlewares.AccessPolicy{
-							SourceRanges: a.SourceRanges,
-							Action:       a.Action,
-							Origins:      route.Cors.Origins,
-						}
-						router.Use(access.AccessPolicyMiddleware)
-					}
-				}
-
-			}
-
-			// Get route authentication middlewares if it does exist
-			routeMiddleware, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
-			if err != nil {
-				// Error: middlewares not found
-				logger.Error("Error: %v", err.Error())
-			} else {
-				attachAuthMiddlewares(route, routeMiddleware, gateway, router)
-			}
-		} else {
-			logger.Error("Error, middlewares path is empty")
-			logger.Error("Middleware ignored")
-		}
+	if route.BlockCommonExploits {
+		logger.Info("Block common exploits enabled")
+		router.Use(middlewares.BlockExploitsMiddleware)
 	}
 
+	applyRateLimit(route, router)
+
+	for _, middleware := range route.Middlewares {
+		if len(middleware) == 0 {
+			continue
+		}
+
+		mid, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
+		if err != nil {
+			logger.Error("Error: %v", err.Error())
+			continue
+		}
+
+		applyMiddlewareByType(mid, route, gateway, router)
+	}
+}
+
+func applyRateLimit(route Route, router *mux.Router) {
+	if route.RateLimit == 0 {
+		return
+	}
+
+	rateLimit := middlewares.RateLimit{
+		Unit:       "minute",
+		Id:         util.Slug(route.Name),
+		Requests:   route.RateLimit,
+		Origins:    route.Cors.Origins,
+		Hosts:      route.Hosts,
+		RedisBased: redisBased,
+	}
+	limiter := rateLimit.NewRateLimiterWindow()
+	router.Use(limiter.RateLimitMiddleware())
+}
+
+func applyMiddlewareByType(mid Middleware, route Route, gateway Gateway, router *mux.Router) {
+	switch mid.Type {
+	case AccessMiddleware:
+		applyAccessMiddleware(mid, route, router)
+	case rateLimit, strings.ToLower(rateLimit):
+		applyRateLimitMiddleware(mid, route, router)
+	case accessPolicy:
+		applyAccessPolicyMiddleware(mid, route, router)
+	case addPrefix:
+		applyAddPrefixMiddleware(mid, router)
+	case redirectRegex:
+		applyRedirectRegexMiddleware(mid, router)
+
+	}
+
+	attachAuthMiddlewares(route, mid, gateway, router)
+}
+
+func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
+	blM := middlewares.AccessListMiddleware{
+		Path:    route.Path,
+		List:    mid.Paths,
+		Origins: route.Cors.Origins,
+	}
+	router.Use(blM.AccessMiddleware)
+}
+
+func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
+	rateLimitMid := &RateLimitRuleMiddleware{}
+	if err := copier.Copy(&mid.Rule, rateLimitMid); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := rateLimitMid.validate(); err != nil {
+		logger.Error("Error: %v", err.Error())
+		return
+	}
+
+	if rateLimitMid.RequestsPerUnit != 0 && route.RateLimit == 0 {
+		rateLimit := middlewares.RateLimit{
+			Unit:       rateLimitMid.Unit,
+			Id:         util.Slug(route.Name),
+			Requests:   rateLimitMid.RequestsPerUnit,
+			Origins:    route.Cors.Origins,
+			Hosts:      route.Hosts,
+			RedisBased: redisBased,
+			PathBased:  true,
+			Paths:      util.AddPrefixPath(route.Path, mid.Paths),
+		}
+		limiter := rateLimit.NewRateLimiterWindow()
+		router.Use(limiter.RateLimitMiddleware())
+	}
+}
+
+func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router) {
+	a := &AccessPolicyRuleMiddleware{}
+	if err := copier.Copy(&mid.Rule, a); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := a.validate(); err != nil {
+		logger.Error("Error: %v, middleware not applied", err)
+		return
+	}
+
+	if len(a.SourceRanges) > 0 {
+		access := middlewares.AccessPolicy{
+			SourceRanges: a.SourceRanges,
+			Action:       a.Action,
+			Origins:      route.Cors.Origins,
+		}
+		router.Use(access.AccessPolicyMiddleware)
+	}
+}
+
+func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
+	a := AddPrefixRuleMiddleware{}
+	if err := copier.Copy(&mid.Rule, &a); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	add := middlewares.AddPrefix{
+		Prefix: a.Prefix,
+	}
+	router.Use(add.AddPrefixMiddleware)
+}
+func applyRedirectRegexMiddleware(mid Middleware, router *mux.Router) {
+	a := RedirectRegexRuleMiddleware{}
+	if err := copier.Copy(&mid.Rule, &a); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	add := middlewares.RedirectRegex{
+		Pattern:     a.Pattern,
+		Replacement: a.Replacement,
+	}
+	router.Use(add.RedirectRegexMiddleware)
 }
 
 func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gateway, r *mux.Router) {
 	// Check Authentication middleware types
 	switch routeMiddleware.Type {
 	case BasicAuth:
-		basicAuth, err := getBasicAuthMiddleware(routeMiddleware.Rule)
-		if err != nil {
-			logger.Error("Error: %s", err.Error())
-		} else {
-			authBasic := middlewares.AuthBasic{
-				Path:     route.Path,
-				Paths:    routeMiddleware.Paths,
-				Username: basicAuth.Username,
-				Password: basicAuth.Password,
-				Headers:  nil,
-				Params:   nil,
-			}
-			// Apply JWT authentication middlewares
-			r.Use(authBasic.AuthMiddleware)
-			r.Use(CORSHandler(route.Cors))
+		basicAuth := BasicRuleMiddleware{}
+		if err := copier.Copy(&routeMiddleware.Rule, &basicAuth); err != nil {
+			logger.Error("Error: %v, middleware not applied", err.Error())
+			return
 		}
-	case JWTAuth:
-		jwt, err := getJWTMiddleware(routeMiddleware.Rule)
+		err := basicAuth.validate()
 		if err != nil {
 			logger.Error("Error: %s", err.Error())
-		} else {
-			jwtAuth := middlewares.JwtAuth{
-				Path:            route.Path,
-				Paths:           routeMiddleware.Paths,
-				AuthURL:         jwt.URL,
-				RequiredHeaders: jwt.RequiredHeaders,
-				Headers:         jwt.Headers,
-				Params:          jwt.Params,
-				Origins:         gateway.Cors.Origins,
-			}
-			// Apply JWT authentication middlewares
-			r.Use(jwtAuth.AuthMiddleware)
-			r.Use(CORSHandler(route.Cors))
+			return
+		}
+		authBasic := middlewares.AuthBasic{
+			Path:     route.Path,
+			Paths:    routeMiddleware.Paths,
+			Username: basicAuth.Username,
+			Password: basicAuth.Password,
+			Headers:  nil,
+			Params:   nil,
+		}
 
+		// Apply JWT authentication middlewares
+		r.Use(authBasic.AuthMiddleware)
+		r.Use(CORSHandler(route.Cors))
+
+	case JWTAuth:
+		jwt := &JWTRuleMiddleware{}
+		if err := copier.Copy(&routeMiddleware.Rule, jwt); err != nil {
+			logger.Error("Error: %v, middleware not applied", err.Error())
+			return
 		}
-	case OAuth:
-		oauth, err := oAuthMiddleware(routeMiddleware.Rule)
+		err := jwt.validate()
 		if err != nil {
 			logger.Error("Error: %s", err.Error())
-		} else {
-			redirectURL := "/callback" + route.Path
-			if oauth.RedirectURL != "" {
-				redirectURL = oauth.RedirectURL
-			}
-			amw := middlewares.Oauth{
-				Path:         route.Path,
-				Paths:        routeMiddleware.Paths,
-				ClientID:     oauth.ClientID,
-				ClientSecret: oauth.ClientSecret,
-				RedirectURL:  redirectURL,
-				Scopes:       oauth.Scopes,
-				Endpoint: middlewares.OauthEndpoint{
-					AuthURL:     oauth.Endpoint.AuthURL,
-					TokenURL:    oauth.Endpoint.TokenURL,
-					UserInfoURL: oauth.Endpoint.UserInfoURL,
-				},
-				State:     oauth.State,
-				Origins:   gateway.Cors.Origins,
-				JWTSecret: oauth.JWTSecret,
-				Provider:  oauth.Provider,
-			}
-			oauthRuler := oauthRulerMiddleware(amw)
-			// Check if a cookie path is defined
-			if oauthRuler.CookiePath == "" {
-				oauthRuler.CookiePath = route.Path
-			}
-			// Check if a RedirectPath is defined
-			if oauthRuler.RedirectPath == "" {
-				oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
-			}
-			if oauthRuler.Provider == "" {
-				oauthRuler.Provider = "custom"
-			}
-			r.Use(amw.AuthMiddleware)
-			r.Use(CORSHandler(route.Cors))
-			r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods("GET")
+			return
 		}
+		jwtAuth := middlewares.JwtAuth{
+			Path:            route.Path,
+			Paths:           routeMiddleware.Paths,
+			AuthURL:         jwt.URL,
+			RequiredHeaders: jwt.RequiredHeaders,
+			Headers:         jwt.Headers,
+			Params:          jwt.Params,
+			Origins:         gateway.Cors.Origins,
+		}
+		// Apply JWT authentication middlewares
+		r.Use(jwtAuth.AuthMiddleware)
+		r.Use(CORSHandler(route.Cors))
+
+	case OAuth:
+		oauth := &OauthRulerMiddleware{}
+		if err := copier.Copy(&routeMiddleware.Rule, oauth); err != nil {
+			logger.Error("Error: %v, middleware not applied", err.Error())
+			return
+		}
+		err := oauth.validate()
+		if err != nil {
+			logger.Error("Error: %s", err.Error())
+			return
+		}
+
+		redirectURL := "/callback" + route.Path
+		if oauth.RedirectURL != "" {
+			redirectURL = oauth.RedirectURL
+		}
+		amw := middlewares.Oauth{
+			Path:         route.Path,
+			Paths:        routeMiddleware.Paths,
+			ClientID:     oauth.ClientID,
+			ClientSecret: oauth.ClientSecret,
+			RedirectURL:  redirectURL,
+			Scopes:       oauth.Scopes,
+			Endpoint: middlewares.OauthEndpoint{
+				AuthURL:     oauth.Endpoint.AuthURL,
+				TokenURL:    oauth.Endpoint.TokenURL,
+				UserInfoURL: oauth.Endpoint.UserInfoURL,
+			},
+			State:     oauth.State,
+			Origins:   gateway.Cors.Origins,
+			JWTSecret: oauth.JWTSecret,
+			Provider:  oauth.Provider,
+		}
+		oauthRuler := oauthRulerMiddleware(amw)
+		// Check if a cookie path is defined
+		if oauthRuler.CookiePath == "" {
+			oauthRuler.CookiePath = route.Path
+		}
+		// Check if a RedirectPath is defined
+		if oauthRuler.RedirectPath == "" {
+			oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
+		}
+		if oauthRuler.Provider == "" {
+			oauthRuler.Provider = "custom"
+		}
+		r.Use(amw.AuthMiddleware)
+		r.Use(CORSHandler(route.Cors))
+		r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods("GET")
+
 	default:
 		if !doesExist(routeMiddleware.Type) {
 			logger.Error("Unknown middlewares type %s", routeMiddleware.Type)

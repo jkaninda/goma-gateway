@@ -18,6 +18,7 @@
 package middlewares
 
 import (
+	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net"
 	"net/http"
@@ -47,7 +48,7 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 					next.ServeHTTP(w, r)
 				} else {
 					logger.Error("%s: IP address in the blocklist, access not allowed", clientIP)
-					RespondWithError(w, r, http.StatusForbidden, http.StatusText(http.StatusForbidden), access.Origins, contentType)
+					RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), access.Origins, contentType)
 				}
 				return
 			}
@@ -56,7 +57,7 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 		// Final response for disallowed IPs
 		if isAllowed {
 			logger.Error("%s: IP address not allowed", clientIP)
-			RespondWithError(w, r, http.StatusForbidden, http.StatusText(http.StatusForbidden), access.Origins, contentType)
+			RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), access.Origins, contentType)
 		} else {
 			next.ServeHTTP(w, r)
 		}

@@ -18,6 +18,7 @@ package middlewares
  */
 import (
 	"bytes"
+	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"
@@ -54,12 +55,13 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 		}
 		rec := newResponseRecorder(w)
 		next.ServeHTTP(rec, r)
-		can, message := canIntercept(rec.statusCode, intercept.Interceptor.Errors)
-		if can {
-			logger.Error("%s %s resulted in error with status code %d", r.Method, r.URL.Path, rec.statusCode)
+		ok, message := canIntercept(rec.statusCode, intercept.Interceptor.Errors)
+		if ok {
+			logger.Error(`%s - "%s %s" %d resulted with error`, getRealIP(r), r.Method, r.URL.Path, rec.statusCode)
 			RespondWithError(w, r, rec.statusCode, message, intercept.Origins, contentType)
 			return
 		} else {
+			logger.Info(`%s -  "%s %s %s" %d`, getRealIP(r), r.Method, r.URL.Path, r.UserAgent(), rec.statusCode)
 			// No error: write buffered response to client
 			_, err := io.Copy(w, rec.body)
 			if err != nil {
@@ -79,7 +81,7 @@ func canIntercept(code int, routeErrors []RouteError) (bool, string) {
 			if routeError.Body != "" {
 				return true, routeError.Body
 			}
-			return true, http.StatusText(code)
+			return true, fmt.Sprintf("%d %s", code, http.StatusText(code))
 		}
 	}
 	return false, ""
