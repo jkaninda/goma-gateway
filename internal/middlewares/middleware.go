@@ -144,7 +144,6 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 			}
 
 			if len(basicAuth.Users) > 0 {
-				logger.Info("Using users")
 				// Decode the credentials
 				if !validateCredentials(pair, basicAuth.Users) {
 					logger.Error("Error, wrong credentials")
