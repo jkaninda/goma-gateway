@@ -19,7 +19,6 @@ package internal
 
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
 	"os"
 )
@@ -31,7 +30,7 @@ func initExtraRoute(path string) error {
 		Routes: []Route{
 			{
 				Name:        "Extra1",
-				Path:        "/",
+				Path:        "/extra",
 				Methods:     []string{"GET"},
 				Destination: "https://extra-example.com",
 				Rewrite:     "/",
@@ -47,7 +46,7 @@ func initExtraRoute(path string) error {
 			// Duplicate route name
 			{
 				Name: "Load balancer",
-				Path: "/protected",
+				Path: "/extra-protected",
 				Backends: []string{
 					"https://example.com",
 					"https://example2.com",
@@ -72,105 +71,6 @@ func initExtraRoute(path string) error {
 		return fmt.Errorf("serializing configuration %v\n", err.Error())
 	}
 	err = os.WriteFile(fmt.Sprintf("%s/extra.yaml", path), yamlData, 0644)
-	if err != nil {
-		return fmt.Errorf("unable to write config file %s\n", err)
-	}
-	return nil
-}
-
-// initConfig initializes configs
-func initConfiguration(configFile string) error {
-	conf := &GatewayConfig{
-		Version: util.ConfigVersion,
-		GatewayConfig: Gateway{
-			WriteTimeout:                 15,
-			ReadTimeout:                  15,
-			IdleTimeout:                  30,
-			AccessLog:                    "/dev/Stdout",
-			ErrorLog:                     "/dev/stderr",
-			DisableRouteHealthCheckError: false,
-			DisableDisplayRouteOnStart:   false,
-			RateLimit:                    0,
-			InterceptErrors:              []int{405, 500},
-			ExtraRoutes: ExtraRouteConfig{
-				Directory: extraRoutePath,
-				Watch:     false,
-			},
-			Cors: Cors{
-				Origins: []string{"http://localhost:8080", "https://example.com"},
-				Headers: map[string]string{
-					"Access-Control-Allow-Headers":     "Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers",
-					"Access-Control-Allow-Credentials": "true",
-					"Access-Control-Max-Age":           "1728000",
-				},
-			},
-			Routes: []Route{
-				{
-					Name:        "Example",
-					Path:        "/",
-					Methods:     []string{"GET"},
-					Destination: "https://example.com",
-					Rewrite:     "/",
-					HealthCheck: RouteHealthCheck{
-						Path:            "/",
-						Interval:        "30s",
-						Timeout:         "10s",
-						HealthyStatuses: []int{200, 404},
-					},
-					DisableHostForwarding: true,
-					Middlewares:           []string{"block-access"},
-				},
-				{
-					Name: "Load balancer",
-					Path: "/protected",
-					Backends: []string{
-						"https://example.com",
-						"https://example2.com",
-						"https://example3.com",
-					},
-					Rewrite:     "/",
-					HealthCheck: RouteHealthCheck{},
-					Cors: Cors{
-						Origins: []string{"http://localhost:3000", "https://dev.example.com"},
-						Headers: map[string]string{
-							"Access-Control-Allow-Headers":     "Origin, Authorization",
-							"Access-Control-Allow-Credentials": "true",
-							"Access-Control-Max-Age":           "1728000",
-						},
-					},
-					Middlewares: []string{"basic-auth", "block-access"},
-				},
-			},
-		},
-		Middlewares: []Middleware{
-			{
-				Name: "basic-auth",
-				Type: BasicAuth,
-				Paths: []string{
-					"/*",
-				},
-				Rule: BasicRuleMiddleware{
-					Username: "admin",
-					Password: "admin",
-				},
-			},
-			{
-				Name: "block-access",
-				Type: AccessMiddleware,
-				Paths: []string{
-					"/swagger-ui/*",
-					"/v2/swagger-ui/*",
-					"/api-docs/*",
-					"/actuator/*",
-				},
-			},
-		},
-	}
-	yamlData, err := yaml.Marshal(&conf)
-	if err != nil {
-		return fmt.Errorf("serializing configuration %v\n", err.Error())
-	}
-	err = os.WriteFile(configFile, yamlData, 0644)
 	if err != nil {
 		return fmt.Errorf("unable to write config file %s\n", err)
 	}
