@@ -117,7 +117,7 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 
 		// create route
 		router := r.PathPrefix(route.Path).Subrouter()
-		if len(route.Path) != 0 {
+		if len(route.Path) > 0 {
 			if route.DisableHostForwarding {
 				logger.Info("Route %s: host forwarding disabled ", route.Name)
 			}
