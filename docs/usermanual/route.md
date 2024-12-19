@@ -21,7 +21,7 @@ This section outlines the available configuration options for defining routes in
 - **`name`** (`string`): A unique name for the route.
 - **`hosts`** (`list of strings`): A list of allowed hostnames for the route.
 - **`rewrite`** (`string`): Updates the incoming route path to a specified new path.
-   - For more advanced use cases involving pattern matching or regular expressions, consider using the `regexRewrite` middleware instead.
+   - For more advanced use cases involving pattern matching or regular expressions, consider using the `redirectRegex` middleware instead.
 - **`methods`** (`array of strings`): A list of allowed HTTP methods (e.g., `GET`, `POST`).
 - **`destination`** (`string`): The backend endpoint for the route.
 - **`backends`** (`list of strings`): A list of backend services for load balancing.
