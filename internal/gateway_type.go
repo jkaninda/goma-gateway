@@ -40,7 +40,7 @@ type Gateway struct {
 	// IdleTimeout defines the timeout (in seconds) for idle connections.
 	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
 	// RateLimit specifies the maximum number of requests allowed per minute.
-	RateLimit int `yaml:"rateLimit,omitempty" env:"GOMA_RATE_LIMIT, overwrite"`
+	RateLimit int `yaml:"rateLimit,omitempty" env:"GOMA_RATE_LIMIT, overwrite"` // Deprecated
 	// BlockCommonExploits enables or disables blocking of common exploit patterns.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	// AccessLog specifies the file path for access logs.

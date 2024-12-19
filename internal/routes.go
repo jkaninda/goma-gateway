@@ -150,6 +150,13 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				}
 				router.Use(interceptErrors.ErrorInterceptor)
 			}
+			// Enable route bot detection
+			if route.EnableBotDetection {
+				logger.Info("Route %s: Bot detection enabled", route.Name)
+				bot := middlewares.BotDetection{}
+				router.Use(bot.BotDetectionMiddleware)
+
+			}
 			if len(route.Hosts) != 0 {
 				for _, host := range route.Hosts {
 					router.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())

@@ -31,3 +31,22 @@ var (
 	Rdb     *redis.Client
 	limiter *redis_rate.Limiter
 )
+
+// List of known bot user agents
+var botUserAgents = []string{
+	"Googlebot",
+	"Bingbot",
+	"Slurp",
+	"Yahoo",
+	"YandexBot",
+	"Yeti",
+	"AhrefsBot",
+	"SemrushBot",
+	"DotBot",
+	"Exabot",
+	"facebot",
+	"ia_archiver",
+	"MJ12bot",
+	"Bytespider",
+	"archive.org_bot",
+}

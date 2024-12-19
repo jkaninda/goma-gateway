@@ -44,7 +44,7 @@ type Route struct {
 	// HealthCheck contains configuration for monitoring the health of backends.
 	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
 	// RateLimit specifies the maximum number of requests allowed per minute for this route.
-	RateLimit int `yaml:"rateLimit,omitempty"`
+	RateLimit int `yaml:"rateLimit,omitempty"` // Deprecated
 	// DisableHostForwarding disables the forwarding of host-related headers.
 	//
 	// The headers affected are:
@@ -65,6 +65,7 @@ type Route struct {
 	// BlockCommonExploits enables or disables blocking of common exploit patterns
 	// such as SQL injection or simple XSS attempts.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
+	EnableBotDetection  bool `yaml:"enableBotDetection,omitempty"`
 	// Middlewares lists middleware names to apply to this route.
 	Middlewares []string `yaml:"middlewares"`
 }
