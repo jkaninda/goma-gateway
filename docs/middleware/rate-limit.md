@@ -12,7 +12,7 @@ The RateLimit middleware helps manage the number of requests that services recei
 
 This middleware applies to the entire route, eliminating the need to specify individual path fields.
 
-Example of rate limiting middleware
+Example of a rate limiting middleware
 
 ```yaml
 middlewares:
@@ -26,26 +26,6 @@ middlewares:
 
 - `unit`: The time period used for rate limiting. Can be set to either `minute` or `hour`.
 - `requestsPerUnit`: The maximum number of requests allowed per time unit
-
-Example of route rate limiting middleware
-
-```yaml
-version: 0.1.7
-gateway:
-  routes:
-    - name: Example
-      rateLimit: 60 # per minute
-```
-
-Example of global rate limiting middleware
-
-```yaml
-version: 0.1.7
-gateway:
-  rateLimit: 60 # per minute
-  routes:
-    - name: Example
-```
 
 ## Advanced Kubernetes deployment
 

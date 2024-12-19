@@ -20,7 +20,8 @@ This section outlines the available configuration options for defining routes in
 - **`path`** (`string`): The route path (e.g., `/api/v1/resource`).
 - **`name`** (`string`): A unique name for the route.
 - **`hosts`** (`list of strings`): A list of allowed hostnames for the route.
-- **`rewrite`** (`string`): Rewrites the incoming route path to a new path.
+- **`rewrite`** (`string`): Updates the incoming route path to a specified new path.
+   - For more advanced use cases involving pattern matching or regular expressions, consider using the `regexRewrite` middleware instead.
 - **`methods`** (`array of strings`): A list of allowed HTTP methods (e.g., `GET`, `POST`).
 - **`destination`** (`string`): The backend endpoint for the route.
 - **`backends`** (`list of strings`): A list of backend services for load balancing.
@@ -66,7 +67,7 @@ gateway:
   routes:
     - name: Example
       path: /store/cart
-      rewrite: /cart
+      rewrite: /cart # You can use RegexRewrite middleware for more complex rewrites
       destination:  http://cart-service:8080
       cors: {}
 ```
@@ -82,7 +83,6 @@ gateway:
   routes:
     - name: Example
       path: /store/cart
-      rewrite: /cart
       destination:  http://cart-service:8080
       methods: [PATCH, GET]
       cors: {}
@@ -102,7 +102,6 @@ gateway:
   routes:
     - name: Example
       path: /store/cart
-      rewrite: /cart
       destination:  http://cart-service:8080
       methods: [PATCH, GET]
       healthCheck:
@@ -196,7 +195,6 @@ gateway:
         interval: 0
         timeout: 0
         healthyStatuses: [200,404]
-      interceptErrors: [403,500]
       blockCommonExploits: false
       cors: {}
       ## Middleware
