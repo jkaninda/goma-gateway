@@ -217,7 +217,6 @@ func ValidatePassword(plainPassword, hashedPassword string) (bool, error) {
 
 	default:
 		// Unsupported or plaintext
-		//return false, errors.New("unsupported or invalid password format")
 		return validatePlainText(plainPassword, hashedPassword)
 	}
 }
