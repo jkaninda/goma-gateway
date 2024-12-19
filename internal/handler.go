@@ -65,7 +65,7 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 
 // HealthCheckHandler handles health check of routes
 func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Debug("%s %s %s %s", r.Method, r.RemoteAddr, r.URL, r.UserAgent())
+	logger.Info(`%s - "%s %s %s"`, getRealIP(r), r.Method, r.URL.Path, r.UserAgent())
 	healthRoutes := healthCheckRoutes(heathRoute.Routes)
 	wg := sync.WaitGroup{}
 	wg.Add(len(healthRoutes))
@@ -101,7 +101,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 	}
 }
 func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("%s %s %s %s", r.Method, r.RemoteAddr, r.URL, r.UserAgent())
+	logger.Info(`%s - "%s %s %s"`, getRealIP(r), r.Method, r.URL.Path, r.UserAgent())
 	response := HealthCheckRouteResponse{
 		Name:   "Service Gateway",
 		Status: "healthy",

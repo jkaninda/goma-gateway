@@ -25,8 +25,8 @@ import (
 type BasicRuleMiddleware struct {
 	Realm    string   `yaml:"realm,omitempty"`
 	Users    []string `yaml:"users"`
-	Username string   `yaml:"username,omitempty"` // Deprecated
-	Password string   `yaml:"password,omitempty"` // Deprecated
+	Username string   `yaml:"username,omitempty"` // Deprecated, use Users
+	Password string   `yaml:"password,omitempty"` // Deprecated, use Users
 }
 type ForwardAuthRuleMiddleware struct {
 	URL                 string            `yaml:"url"`

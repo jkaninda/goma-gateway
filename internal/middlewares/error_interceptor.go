@@ -61,7 +61,7 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 			RespondWithError(w, r, rec.statusCode, message, intercept.Origins, contentType)
 			return
 		} else {
-			logger.Info(`%s -  "%s %s %s" %d`, getRealIP(r), r.Method, r.URL.Path, r.UserAgent(), rec.statusCode)
+			// logger.Info(`%s -  "%s %s %s" %d`, getRealIP(r), r.Method, r.URL.Path, r.UserAgent(), rec.statusCode)
 			// No error: write buffered response to client
 			_, err := io.Copy(w, rec.body)
 			if err != nil {
