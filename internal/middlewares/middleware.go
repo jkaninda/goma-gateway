@@ -114,7 +114,6 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 		contentType := r.Header.Get("Content-Type")
 		realm := basicAuth.Realm
 		if realm == "" {
-			//realm = "Authorization Required"
 			realm = "Restricted"
 		}
 		if isProtectedPath(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
