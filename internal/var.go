@@ -17,7 +17,6 @@ const (
 	addPrefix        = "addPrefix"
 	rateLimit        = "rateLimit"
 	redirectRegex    = "redirectRegex"
-	botDetection     = "botDetection"
 )
 
 var (

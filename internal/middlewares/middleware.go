@@ -217,8 +217,14 @@ func ValidatePassword(plainPassword, hashedPassword string) (bool, error) {
 
 	default:
 		// Unsupported or plaintext
-		return false, errors.New("unsupported or invalid password format")
+		//return false, errors.New("unsupported or invalid password format")
+		return validatePlainText(plainPassword, hashedPassword)
 	}
+}
+
+// Validate PlainText
+func validatePlainText(plainPassword, password string) (bool, error) {
+	return subtle.ConstantTimeCompare([]byte(plainPassword), []byte(password)) == 1, nil
 }
 
 // Validate MD5 (Apache MD5Crypt format)
