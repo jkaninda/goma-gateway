@@ -23,7 +23,7 @@ import (
 )
 
 type BasicRuleMiddleware struct {
-	Realm    string   `yaml:"realm"`
+	Realm    string   `yaml:"realm,omitempty"`
 	Users    []string `yaml:"users"`
 	Username string   `yaml:"username,omitempty"` // Deprecated
 	Password string   `yaml:"password,omitempty"` // Deprecated
@@ -116,12 +116,6 @@ type GatewayConfig struct {
 	Middlewares []Middleware `yaml:"middlewares"`
 }
 
-// ErrorResponse represents the structure of the JSON error response
-type ErrorResponse struct {
-	Success bool   `json:"success"`
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
 type GatewayServer struct {
 	ctx         context.Context
 	configFile  string

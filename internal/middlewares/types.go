@@ -167,6 +167,7 @@ type RouteErrorInterceptor struct {
 	Errors      []RouteError `yaml:"errors"`
 }
 type RouteError struct {
-	Code int    `yaml:"code"`
-	Body string `yaml:"body,omitempty"`
+	Code   int    `yaml:"code,omitempty"` // Deprecated
+	Status int    `yaml:"status"`
+	Body   string `yaml:"body,omitempty"`
 }

@@ -178,7 +178,7 @@ func validateCredentials(parts []string, users []string) bool {
 	logger.Debug("Validating credentials")
 	username := parts[0]
 	password := parts[1]
-	for _, user := range users {
+	for index, user := range users {
 		u := strings.SplitN(user, ":", 2)
 		if len(parts) != 2 {
 			logger.Info("User %s is invalid", user)
@@ -187,7 +187,11 @@ func validateCredentials(parts []string, users []string) bool {
 		ok, err := ValidatePassword(password, u[1])
 		if err != nil {
 			logger.Error("Error validating password: %v", err)
-			return false
+			if len(users) == index {
+				return false
+
+			}
+			continue
 		}
 		if u[0] == username && ok {
 			return true

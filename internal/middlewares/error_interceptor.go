@@ -75,13 +75,13 @@ func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handle
 func isWebSocketRequest(r *http.Request) bool {
 	return r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Connection") == "Upgrade"
 }
-func canIntercept(code int, routeErrors []RouteError) (bool, string) {
+func canIntercept(status int, routeErrors []RouteError) (bool, string) {
 	for _, routeError := range routeErrors {
-		if code == routeError.Code {
+		if status == routeError.Status || status == routeError.Code {
 			if routeError.Body != "" {
 				return true, routeError.Body
 			}
-			return true, fmt.Sprintf("%d %s", code, http.StatusText(code))
+			return true, fmt.Sprintf("%d %s", status, http.StatusText(status))
 		}
 	}
 	return false, ""
