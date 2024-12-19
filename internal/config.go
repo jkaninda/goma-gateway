@@ -334,7 +334,9 @@ func (jwt JWTRuleMiddleware) validate() error {
 // validate validates BasicRuleMiddleware
 func (basicAuth BasicRuleMiddleware) validate() error {
 	user := fmt.Sprintf("%s:%s", basicAuth.Username, basicAuth.Password)
-	basicAuth.Users = append(basicAuth.Users, user)
+	if user != "" {
+		basicAuth.Users = append(basicAuth.Users, user)
+	}
 	if len(basicAuth.Users) == 0 {
 		return fmt.Errorf("empty users in basic auth middlewares")
 	}
