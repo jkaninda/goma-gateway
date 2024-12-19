@@ -147,10 +147,10 @@ func handleDeprecations(route *Route) {
 
 	if len(route.InterceptErrors) > 0 {
 		logger.Warn("Route InterceptErrors is deprecated, please use errorInterceptor instead.")
-		for _, code := range route.InterceptErrors {
+		for _, status := range route.InterceptErrors {
 			route.ErrorInterceptor.Errors = append(route.ErrorInterceptor.Errors, middlewares.RouteError{
-				Code: code,
-				Body: http.StatusText(code),
+				Status: status,
+				Body:   http.StatusText(status),
 			})
 		}
 		route.ErrorInterceptor.Enabled = true
@@ -229,12 +229,12 @@ func initConfig(configFile string) error {
 						ContentType: applicationJson,
 						Errors: []middlewares.RouteError{
 							{
-								Code: 403,
-								Body: http.StatusText(403),
+								Status: 403,
+								Body:   http.StatusText(403),
 							},
 							{
-								Code: 500,
-								Body: http.StatusText(500),
+								Status: 500,
+								Body:   http.StatusText(500),
 							},
 						},
 					},

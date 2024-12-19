@@ -27,15 +27,20 @@ middlewares:
       - /admin # Blocks only /admin
       - /admin/*  # Explicitly blocks /admin and all subpaths
     rule:
-      username: admin
-      password: admin
+      realm: your-realm # Optional
+      users:
+        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
+        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
+        - admin:admin # Plaintext password
+      # username: admin # Deprecated
+      # password: admin # Deprecated
 
 ```
 ### Explanation:
 
 - `/admin`: Requires authentication for the exact path /admin.
 - `/admin/*`: The path /admin and all its subpaths (e.g., /admin/settings) require authentication due to the /* wildcard.
-- `rule`: Specifies the username and password required for authentication.
+- `rule`: Specifies the users required for authentication.
 
 
 ### Applying Basic-Auth Middleware to a Route

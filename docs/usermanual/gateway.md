@@ -19,7 +19,6 @@ These settings enable precise control over traffic flow and routing within your 
 - **`writeTimeout`** (`integer`): Timeout for writing responses (in seconds).
 - **`readTimeout`** (`integer`): Timeout for reading requests (in seconds).
 - **`idleTimeout`** (`integer`): Timeout for idle connections (in seconds).
-- **`rateLimit`** (`integer`): Global rate limiting for the proxy.
 - **`blockCommonExploits`** (`boolean`): Enable or disable blocking of common exploits.
 - **`accessLog`** (`string`, default: `/dev/stdout`): Path for access logs.
 - **`errorLog`** (`string`, default: `/dev/stderr`): Path for error logs.

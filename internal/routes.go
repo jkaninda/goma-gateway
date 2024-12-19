@@ -19,7 +19,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/pkg/copier"
+	"github.com/jkaninda/goma-gateway/pkg/converter"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus"
@@ -150,6 +150,13 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 				}
 				router.Use(interceptErrors.ErrorInterceptor)
 			}
+			// Enable route bot detection
+			if route.EnableBotDetection {
+				logger.Info("Route %s: Bot detection enabled", route.Name)
+				bot := middlewares.BotDetection{}
+				router.Use(bot.BotDetectionMiddleware)
+
+			}
 			if len(route.Hosts) != 0 {
 				for _, host := range route.Hosts {
 					router.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
@@ -240,7 +247,7 @@ func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
 
 func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 	rateLimitMid := &RateLimitRuleMiddleware{}
-	if err := copier.Copy(&mid.Rule, rateLimitMid); err != nil {
+	if err := converter.Convert(&mid.Rule, rateLimitMid); err != nil {
 		logger.Error("Error: %v, middleware not applied", err.Error())
 		return
 	}
@@ -267,7 +274,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 
 func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router) {
 	a := &AccessPolicyRuleMiddleware{}
-	if err := copier.Copy(&mid.Rule, a); err != nil {
+	if err := converter.Convert(&mid.Rule, a); err != nil {
 		logger.Error("Error: %v, middleware not applied", err.Error())
 		return
 	}
@@ -288,7 +295,7 @@ func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router
 
 func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
 	a := AddPrefixRuleMiddleware{}
-	if err := copier.Copy(&mid.Rule, &a); err != nil {
+	if err := converter.Convert(&mid.Rule, &a); err != nil {
 		logger.Error("Error: %v, middleware not applied", err.Error())
 		return
 	}
@@ -299,7 +306,7 @@ func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
 }
 func applyRedirectRegexMiddleware(mid Middleware, router *mux.Router) {
 	a := RedirectRegexRuleMiddleware{}
-	if err := copier.Copy(&mid.Rule, &a); err != nil {
+	if err := converter.Convert(&mid.Rule, &a); err != nil {
 		logger.Error("Error: %v, middleware not applied", err.Error())
 		return
 	}
@@ -315,7 +322,7 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 	switch routeMiddleware.Type {
 	case BasicAuth:
 		basicAuth := BasicRuleMiddleware{}
-		if err := copier.Copy(&routeMiddleware.Rule, &basicAuth); err != nil {
+		if err := converter.Convert(&routeMiddleware.Rule, &basicAuth); err != nil {
 			logger.Error("Error: %v, middleware not applied", err.Error())
 			return
 		}
@@ -327,6 +334,8 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 		authBasic := middlewares.AuthBasic{
 			Path:     route.Path,
 			Paths:    routeMiddleware.Paths,
+			Realm:    basicAuth.Realm,
+			Users:    basicAuth.Users,
 			Username: basicAuth.Username,
 			Password: basicAuth.Password,
 			Headers:  nil,
@@ -339,7 +348,7 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 
 	case JWTAuth:
 		jwt := &JWTRuleMiddleware{}
-		if err := copier.Copy(&routeMiddleware.Rule, jwt); err != nil {
+		if err := converter.Convert(&routeMiddleware.Rule, jwt); err != nil {
 			logger.Error("Error: %v, middleware not applied", err.Error())
 			return
 		}
@@ -363,7 +372,7 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 
 	case OAuth:
 		oauth := &OauthRulerMiddleware{}
-		if err := copier.Copy(&routeMiddleware.Rule, oauth); err != nil {
+		if err := converter.Convert(&routeMiddleware.Rule, oauth); err != nil {
 			logger.Error("Error: %v, middleware not applied", err.Error())
 			return
 		}

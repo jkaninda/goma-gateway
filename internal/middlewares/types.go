@@ -113,6 +113,8 @@ type AuthBasic struct {
 	// Route path
 	Path     string
 	Paths    []string
+	Realm    string
+	Users    []string `yaml:"users"`
 	Username string
 	Password string
 	Headers  map[string]string
@@ -165,6 +167,7 @@ type RouteErrorInterceptor struct {
 	Errors      []RouteError `yaml:"errors"`
 }
 type RouteError struct {
-	Code int    `yaml:"code"`
-	Body string `yaml:"body,omitempty"`
+	Code   int    `yaml:"code,omitempty"` // Deprecated
+	Status int    `yaml:"status"`
+	Body   string `yaml:"body,omitempty"`
 }

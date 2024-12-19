@@ -49,9 +49,9 @@ This section outlines the available configuration options for defining routes in
 
 ## Additional Options
 
-- **`rateLimit`** (`integer`): The maximum number of requests allowed per minute.
 - **`disableHostForwarding`** (`boolean`): Disables proxy host forwarding for improved security.
 - **`blockCommonExploits`** (`boolean`): Enables or disables blocking of common exploits.
+- **`enableBotDetection`** (`boolean`): Enables or disables bot detection, protect route from bots by blocking requests from known bots.
 - **`middlewares`** (`array of strings`): A list of middleware names applied to the route.
 
 

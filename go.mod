@@ -11,6 +11,7 @@ require (
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/cobra v1.8.1
+	golang.org/x/crypto v0.31.0
 	golang.org/x/oauth2 v0.24.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -19,7 +20,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.6.5
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
 )
 
 require (
