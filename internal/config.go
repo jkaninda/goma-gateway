@@ -337,6 +337,7 @@ func (basicAuth BasicRuleMiddleware) validate() error {
 		if len(basicAuth.Users) == 0 {
 			return fmt.Errorf("username or password not defined in basic auth middlewares")
 		}
+		return nil
 	}
 
 	if len(basicAuth.Users) == 0 {
