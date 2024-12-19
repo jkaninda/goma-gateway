@@ -3,7 +3,6 @@ module github.com/jkaninda/goma-gateway
 go 1.23.2
 
 require (
-	github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible

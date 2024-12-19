@@ -15,7 +15,7 @@
  *
  */
 
-package copier
+package converter
 
 import (
 	"encoding/json"
@@ -23,8 +23,8 @@ import (
 	"reflect"
 )
 
-// Copy converts an interface{} to a target struct
-func Copy(input interface{}, output interface{}) error {
+// Convert converts an interface{} to a target struct
+func Convert(input interface{}, output interface{}) error {
 	// Ensure output is a pointer to a struct
 	val := reflect.ValueOf(output)
 	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {

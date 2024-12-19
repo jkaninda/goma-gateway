@@ -112,6 +112,11 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
+		realm := basicAuth.Realm
+		if realm == "" {
+			//realm = "Authorization Required"
+			realm = "Restricted"
+		}
 		if isProtectedPath(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
 			// Get the Authorization header
 			authHeader := r.Header.Get("Authorization")
@@ -147,14 +152,14 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 				// Decode the credentials
 				if !validateCredentials(pair, basicAuth.Users) {
 					logger.Error("Error, wrong credentials")
-					w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, realm))
 					RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), nil, contentType)
 					return
 				}
 
 			} else {
 				if pair[0] != basicAuth.Username || pair[1] != basicAuth.Password {
-					w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, realm))
 					RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), nil, contentType)
 					return
 				}
@@ -249,7 +254,6 @@ func generateMD5Hash(password, hash string) (string, error) {
 	}
 	salt := parts[2]
 
-	// This is a simplified version and might not be fully compatible with Apache's htpasswd MD5 hashing
 	h := md5.New()
 	h.Write([]byte(password + salt))
 	md5Hash := "$apr1$" + salt + "$" + base64.StdEncoding.EncodeToString(h.Sum(nil))

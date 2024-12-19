@@ -20,7 +20,7 @@ package internal
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/pkg/copier"
+	"github.com/jkaninda/goma-gateway/pkg/converter"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"gopkg.in/yaml.v3"
 	"log"
@@ -118,14 +118,14 @@ func TestReadMiddleware(t *testing.T) {
 		case BasicAuth:
 			log.Println("Basic auth")
 			basicAuth := BasicRuleMiddleware{}
-			if err := copier.Copy(&middleware.Rule, &basicAuth); err != nil {
+			if err := converter.Convert(&middleware.Rule, &basicAuth); err != nil {
 				t.Fatalf("Error: %v", err.Error())
 			}
 			log.Printf("Username: %s and password: %s\n", basicAuth.Username, basicAuth.Password)
 		case JWTAuth:
 			log.Println("JWT auth")
 			jwt := &JWTRuleMiddleware{}
-			if err := copier.Copy(&middleware.Rule, jwt); err != nil {
+			if err := converter.Convert(&middleware.Rule, jwt); err != nil {
 				t.Fatalf("Error: %v", err.Error())
 			}
 			err := jwt.validate()
@@ -136,7 +136,7 @@ func TestReadMiddleware(t *testing.T) {
 		case OAuth:
 			log.Println("OAuth auth")
 			oauth := &OauthRulerMiddleware{}
-			if err := copier.Copy(&middleware.Rule, oauth); err != nil {
+			if err := converter.Convert(&middleware.Rule, oauth); err != nil {
 				t.Fatalf("Error: %v, middleware not applied", err.Error())
 			}
 			err := oauth.validate()
@@ -156,10 +156,10 @@ func TestReadMiddleware(t *testing.T) {
 }
 
 func TestFoundMiddleware(t *testing.T) {
-	middlewares := getMiddlewares(t)
-	middleware, err := GetMiddleware("jwt", middlewares)
+	m := getMiddlewares(t)
+	middleware, err := GetMiddleware("jwt", m)
 	if err != nil {
-		t.Errorf("Error getting middlewares %v", err)
+		t.Errorf("Error getting m %v", err)
 	}
 	fmt.Println(middleware.Type)
 }
