@@ -35,4 +35,4 @@ In this example:
 - To ensure requests have a consistent prefix before reaching the backend services.
 - To manage routing for services with path-based prefixes.
 
-For scenarios requiring more complex URL modifications, consider using middleware like `RegexRewrite`.
+For scenarios requiring more complex URL modifications, consider using middleware like `RedirectRegex`.

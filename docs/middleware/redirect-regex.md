@@ -1,15 +1,15 @@
 ---
-title: RegexRewrite
+title: RedirectRegex
 layout: default
 parent: Middleware
 nav_order: 9
 ---
 
 
-### RegexRewrite middleware
-The `RegexRewrite` middleware allows dynamic rewriting of URL paths using regular expressions. It is ideal for complex rewrite rules that cannot be handled by simple string-based rewrites.
+### RedirectRegex middleware
+The `redirectRegex` middleware allows dynamic rewriting of URL paths using regular expressions. It is ideal for complex rewrite rules that cannot be handled by simple string-based rewrites.
 ## How It Works:
-- **Interception**: The `RegexRewrite` middleware intercepts incoming requests and evaluates the URL path.
+- **Interception**: The `redirectRegex` middleware intercepts incoming requests and evaluates the URL path.
 - **Pattern Matching**: The middleware checks the path against a specified regular expression (`pattern`).
 - **Rewrite Action**: If the pattern matches, the middleware rewrites the path using the provided `replacement`.
 
@@ -32,7 +32,7 @@ In this example:
 - The matched portion after `/oldpath/` is captured and referenced in the replacement as `$1`.
 - The resulting path is rewritten to `/newpath/{captured_segment}`.
 
-### When to Use RegexRewrite
+### When to Use RedirectRegex
 - 
 - When simple rewrites (like those handled by the `rewrite` property) are insufficient.
 - When you need to handle dynamic path segments or complex patterns.
