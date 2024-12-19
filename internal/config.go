@@ -331,11 +331,16 @@ func (jwt JWTRuleMiddleware) validate() error {
 	return nil
 }
 
-// getBasicAuthMiddleware returns BasicRuleMiddleware,error
+// validate validates BasicRuleMiddleware
 func (basicAuth BasicRuleMiddleware) validate() error {
 	if basicAuth.Username == "" || basicAuth.Password == "" {
-		return fmt.Errorf("error parsing yaml: empty username/password in %s middlewares", basicAuth)
+		if len(basicAuth.Users) == 0 {
+			return fmt.Errorf("username or password not defined in basic auth middlewares")
+		}
+	}
 
+	if len(basicAuth.Users) == 0 {
+		return fmt.Errorf("empty users in basic auth middlewares")
 	}
 	return nil
 }
