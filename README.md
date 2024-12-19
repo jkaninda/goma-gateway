@@ -75,8 +75,11 @@ It's designed to be straightforward and efficient, offering a rich set of featur
   - Support for **JWT** with client authorization based on request results.
   - **Basic-Auth** and **OAuth** authentication mechanisms.
 - **Access Policy Middleware**
-
-   Control route access by either `allowing` or `denying` requests based on defined rules.
+    - Control route access by either `allowing` or `denying` requests based on defined rules.
+- **Regex Support for URL Rewriting**
+    - Rewrite URL paths using regex patterns.
+- **Bot Detection Middleware**
+    - Protect your route from bots by blocking requests from known bots.
 
 ### Monitoring and Performance
 - **Logging**  
