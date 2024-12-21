@@ -11,8 +11,10 @@ middlewares:
       - /account
     # Authentication credentials for basic authentication
     rule:
-      username: admin
-      password: admin
+      realm: Restricted
+      users:
+        - admin:$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO
+        - admin:admin
 
   # Blocks access to sensitive or restricted paths, returning a 403 Forbidden response
   - name: extra-api-forbidden-paths

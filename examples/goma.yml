@@ -37,11 +37,11 @@ gateway:
     enabled: true                    # Enable backend error interception.
     contentType: "application/json"  # Response Content-Type for intercepted errors.
     errors:
-      - code: 401
+      - status: 401
         body: ""                     # Custom response body for HTTP 401 errors.
-      - code: 404
-        body: "{\"success\":false,\"code\":404,\"message\":\"Page not found\",\"data\":[]}" # Raw JSON response for 404.
-      - code: 500
+      - status: 404
+        body: "{\"success\":false,\"status\":404,\"message\":\"Page not found\",\"data\":[]}" # Raw JSON response for 404.
+      - status: 500
         body: "Internal server error" # Custom response body for HTTP 500 errors.
 
   # Cross-Origin Resource Sharing (CORS)
@@ -85,8 +85,11 @@ gateway:
         - https://example.com
         - https://example2.com
       insecureSkipVerify: true       # Disable SSL verification for backend connections.
+      ## Allowed HTTP Methods
       methods:
         - GET
+        - PATCH
+        - OPTIONS
       healthCheck:                   # Health check configuration for the route.
         path: /health/live
         interval: 30s
@@ -103,12 +106,14 @@ middlewares:
   - name: basic-auth
     type: basic                     # Type of authentication (basic).
     paths:                          # Paths to protect with authentication.
-      - /user
-      - /admin
-      - /account
+      - /user   # Blocks only /user path
+      - /admin/* # Explicitly blocks /admin and all subpaths
+      - /account # Blocks only /account path
     rule:                           # Authentication rules.
-      username: admin
-      password: admin
+      realm: Restricted # Realm for basic authentication.
+      users: # List of users for basic authentication. Format: username:password or username:$2y$05$hash (bcrypt) or admin:{SHA}hash (SHA1)
+        - admin:$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO
+        - admin:admin
 
   - name: google-auth
     type: jwt                       # JWT-based authentication.
