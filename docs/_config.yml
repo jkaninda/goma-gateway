@@ -16,8 +16,10 @@
 title: Goma Gateway
 email: hi@jonaskaninda.com
 description: >- # this means to ignore newlines until "baseurl:"
-  Goma Gateway is a lightweight API Gateway and Reverse Proxy.
-  
+  Goma Gateway is a lightweight, high-performance API Gateway written in Go.
+  It supports domain-based routing, reverse proxy, WebSocket, rate limiting, and authentication middleware.
+  With real-time monitoring, and load balancing, Goma simplifies modern API management with flexibility and ease.
+
 baseurl: "" # the subpath of your site, e.g. /blog
 url: ""#"jkaninda.github.io/goma-gateway/" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username: jonaskaninda
