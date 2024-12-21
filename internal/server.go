@@ -31,7 +31,7 @@ import (
 func (gatewayServer GatewayServer) Start() error {
 	logger.Info("Initializing routes...")
 	router := gatewayServer.Initialize()
-	logger.Debug("Routes count=%d, Middlewares count=%d", len(gatewayServer.gateway.Routes), len(gatewayServer.middlewares))
+	logger.Debug("Routes count=%d, Middlewares count=%d", len(dynamicRoutes), len(dynamicMiddlewares))
 	gatewayServer.initRedis()
 	defer gatewayServer.closeRedis()
 

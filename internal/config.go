@@ -201,9 +201,8 @@ func initConfig(configFile string) error {
 				{
 					Name:        "Example",
 					Path:        "/",
-					Methods:     []string{"GET"},
+					Methods:     []string{"GET", "PATCH", "OPTIONS"},
 					Destination: "https://example.com",
-					Rewrite:     "/",
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
 						Interval:        "30s",
@@ -222,7 +221,6 @@ func initConfig(configFile string) error {
 						"https://example3.com",
 					},
 					Rewrite:               "/",
-					HealthCheck:           RouteHealthCheck{},
 					DisableHostForwarding: false,
 					ErrorInterceptor: middlewares.RouteErrorInterceptor{
 						Enabled:     true,
@@ -230,11 +228,14 @@ func initConfig(configFile string) error {
 						Errors: []middlewares.RouteError{
 							{
 								Status: 403,
-								Body:   http.StatusText(403),
+								Body:   "403 Forbidden",
+							},
+							{
+								Status: 404,
+								Body:   "{\"error\": \"404 Not Found\"}",
 							},
 							{
 								Status: 500,
-								Body:   http.StatusText(500),
 							},
 						},
 					},
@@ -258,8 +259,11 @@ func initConfig(configFile string) error {
 					"/*",
 				},
 				Rule: BasicRuleMiddleware{
-					Username: "admin",
-					Password: "admin",
+					Realm: "Restricted",
+					Users: []string{
+						"admin:$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO",
+						"admin:admin",
+					},
 				},
 			},
 			{
