@@ -34,10 +34,13 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			if !validateHeaders(r, jwtAuth.RequiredHeaders, jwtAuth.Origins, w, r, contentType) {
 				return
 			}
-			if !authenticateRequest(jwtAuth.AuthURL, r, w, r, jwtAuth.Origins, contentType) {
+			// Authenticate the request
+			authenticated, authResp := authenticateRequest(jwtAuth.AuthURL, r, w, r, jwtAuth.Origins, contentType)
+			if !authenticated {
 				return
 			}
-			injectHeadersAndParams(r, jwtAuth.Headers, jwtAuth.Params)
+			// Inject headers and parameters
+			injectHeadersAndParams(jwtAuth, r, authResp)
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -59,27 +62,31 @@ func validateHeaders(r *http.Request, requiredHeaders []string, origins []string
 }
 
 // authenticateRequest authenticates the request using the authURL
-func authenticateRequest(authURL string, r *http.Request, w http.ResponseWriter, req *http.Request, origins []string, contentType string) bool {
+func authenticateRequest(authURL string, r *http.Request, w http.ResponseWriter, req *http.Request, origins []string, contentType string) (bool, *http.Response) {
 	parsedURL, err := url.Parse(authURL)
 	if err != nil {
 		logger.Error("Error parsing auth URL: %v", err)
 		RespondWithError(w, req, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), origins, contentType)
-		return false
+		return false, &http.Response{StatusCode: http.StatusInternalServerError}
 	}
 	authReq, err := http.NewRequest("GET", parsedURL.String(), nil)
 	if err != nil {
 		logger.Error("Proxy error creating authentication request: %v", err)
 		RespondWithError(w, req, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), origins, contentType)
-		return false
+		return false, &http.Response{StatusCode: http.StatusInternalServerError}
 	}
 	copyHeadersAndCookies(r, authReq)
 	client := &http.Client{}
 	authResp, err := client.Do(authReq)
 	if err != nil || authResp.StatusCode != http.StatusOK {
-		logger.Debug("%s %s %s %s", r.Method, getRealIP(r), r.URL, r.UserAgent())
-		logger.Debug("Proxy authentication error")
+		if err != nil {
+			logger.Error("Proxy error authenticating request: %v", err)
+
+		} else {
+			logger.Error("Unauthorized access to %s, proxy authentication resulted with status code: %d ", r.URL.Path, authResp.StatusCode)
+		}
 		RespondWithError(w, req, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), origins, contentType)
-		return false
+		return false, authResp
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -87,7 +94,7 @@ func authenticateRequest(authURL string, r *http.Request, w http.ResponseWriter,
 			logger.Error("Error closing response body: %v", err)
 		}
 	}(authResp.Body)
-	return true
+	return true, authResp
 }
 
 // copyHeadersAndCookies copies headers and cookies from the source request to the destination request
@@ -102,16 +109,22 @@ func copyHeadersAndCookies(src *http.Request, dest *http.Request) {
 	}
 }
 
-// injectHeadersAndParams injects headers and parameters into the request
-func injectHeadersAndParams(r *http.Request, headers map[string]string, params map[string]string) {
-	for k, v := range headers {
-		r.Header.Set(v, r.Header.Get(k))
-	}
-	if params != nil {
-		query := r.URL.Query()
-		for k, v := range params {
-			query.Set(v, r.Header.Get(k))
+// injectHeadersAndParams injects headers and parameters from the authentication response into the request.
+// It updates the request headers and query parameters based on the provided JwtAuth configuration.
+func injectHeadersAndParams(jwtAuth JwtAuth, r *http.Request, authResp *http.Response) {
+	// Inject headers from the authentication response into the current request's headers.
+	if jwtAuth.Headers != nil {
+		for k, v := range jwtAuth.Headers {
+			r.Header.Set(v, authResp.Header.Get(k))
 		}
-		r.URL.RawQuery = query.Encode()
 	}
+
+	// Inject query parameters from the authentication response headers into the current request's URL.
+	query := r.URL.Query()
+	if jwtAuth.Params != nil {
+		for k, v := range jwtAuth.Params {
+			query.Set(v, authResp.Header.Get(k))
+		}
+	}
+	r.URL.RawQuery = query.Encode()
 }

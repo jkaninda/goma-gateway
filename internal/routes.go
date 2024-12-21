@@ -113,68 +113,71 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 		// Add rate limit middlewares
 		r.Use(limiter.RateLimitMiddleware())
 	}
+	// Handle routes
 	for _, route := range dynamicRoutes {
-
-		// create route
-		router := r.PathPrefix(route.Path).Subrouter()
-		if len(route.Path) > 0 {
-			if route.DisableHostForwarding {
-				logger.Info("Route %s: host forwarding disabled ", route.Name)
-			}
-			proxyRoute := ProxyRoute{
-				path:                  route.Path,
-				rewrite:               route.Rewrite,
-				destination:           route.Destination,
-				backends:              route.Backends,
-				methods:               route.Methods,
-				disableHostForwarding: route.DisableHostForwarding,
-				cors:                  route.Cors,
-				insecureSkipVerify:    route.InsecureSkipVerify,
-			}
-			attachMiddlewares(route, gateway, router)
-			// Apply route Cors
-			router.Use(CORSHandler(route.Cors))
-			if gateway.EnableMetrics {
-				pr := metrics.PrometheusRoute{
-					Name: route.Name,
-					Path: route.Path,
-				}
-				// Prometheus endpoint
-				router.Use(pr.PrometheusMiddleware)
-			}
-			// Apply route Error interceptor middlewares
-			if route.ErrorInterceptor.Enabled {
-				interceptErrors := middlewares.InterceptErrors{
-					Interceptor: route.ErrorInterceptor,
-					Origins:     route.Cors.Origins,
-				}
-				router.Use(interceptErrors.ErrorInterceptor)
-			}
-			// Enable route bot detection
-			if route.EnableBotDetection {
-				logger.Info("Route %s: Bot detection enabled", route.Name)
-				bot := middlewares.BotDetection{}
-				router.Use(bot.BotDetectionMiddleware)
-
-			}
-			if len(route.Hosts) != 0 {
-				for _, host := range route.Hosts {
-					router.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
-				}
-			} else {
-				router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
-			}
-
-		} else {
-			logger.Error("Error, path is empty in route %s", route.Name)
-			logger.Error("Route path ignored: %s", route.Path)
-		}
-		// Apply global Cors middlewares
-		r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
+		handleRoute(route, gateway, r)
 	}
 
 	return r
 
+}
+
+// handleRoute handles the configuration and middleware attachment for a single route
+func handleRoute(route Route, gateway Gateway, r *mux.Router) {
+	// create route
+	router := r.PathPrefix(route.Path).Subrouter()
+	if len(route.Path) > 0 {
+		if route.DisableHostForwarding {
+			logger.Info("Route %s: host forwarding disabled ", route.Name)
+		}
+		proxyRoute := ProxyRoute{
+			path:                  route.Path,
+			rewrite:               route.Rewrite,
+			destination:           route.Destination,
+			backends:              route.Backends,
+			methods:               route.Methods,
+			disableHostForwarding: route.DisableHostForwarding,
+			cors:                  route.Cors,
+			insecureSkipVerify:    route.InsecureSkipVerify,
+		}
+		attachMiddlewares(route, gateway, router)
+		// Apply route Cors
+		router.Use(CORSHandler(route.Cors))
+		if gateway.EnableMetrics {
+			pr := metrics.PrometheusRoute{
+				Name: route.Name,
+				Path: route.Path,
+			}
+			// Prometheus endpoint
+			router.Use(pr.PrometheusMiddleware)
+		}
+		// Apply route Error interceptor middlewares
+		if route.ErrorInterceptor.Enabled {
+			interceptErrors := middlewares.InterceptErrors{
+				Interceptor: route.ErrorInterceptor,
+				Origins:     route.Cors.Origins,
+			}
+			router.Use(interceptErrors.ErrorInterceptor)
+		}
+		// Enable route bot detection
+		if route.EnableBotDetection {
+			logger.Info("Route %s: Bot detection enabled", route.Name)
+			bot := middlewares.BotDetection{}
+			router.Use(bot.BotDetectionMiddleware)
+		}
+		if len(route.Hosts) != 0 {
+			for _, host := range route.Hosts {
+				router.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
+			}
+		} else {
+			router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
+		}
+	} else {
+		logger.Error("Error, path is empty in route %s", route.Name)
+		logger.Error("Route path ignored: %s", route.Path)
+	}
+	// Apply global Cors middlewares
+	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
 }
 
 // attachMiddlewares attaches middlewares to the route
@@ -183,7 +186,7 @@ func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
 		logger.Info("Block common exploits enabled")
 		router.Use(middlewares.BlockExploitsMiddleware)
 	}
-
+	// Apply route rate limit // Deprecated
 	applyRateLimit(route, router)
 
 	for _, middleware := range route.Middlewares {
@@ -197,6 +200,7 @@ func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
 			continue
 		}
 
+		// Apply middlewares by type
 		applyMiddlewareByType(mid, route, gateway, router)
 	}
 }
@@ -232,7 +236,7 @@ func applyMiddlewareByType(mid Middleware, route Route, gateway Gateway, router 
 		applyRedirectRegexMiddleware(mid, router)
 
 	}
-
+	// Attach Auth middlewares
 	attachAuthMiddlewares(route, mid, gateway, router)
 }
 
