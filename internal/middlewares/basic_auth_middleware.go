@@ -131,6 +131,7 @@ func ValidatePassword(plainPassword, hashedPassword string) (bool, error) {
 
 	case strings.HasPrefix(hashedPassword, "$apr1$"):
 		// MD5 (Apache-specific format)
+		// TODO: Implement a proper MD5Crypt algorithm
 		return validateMD5Crypt(plainPassword, hashedPassword)
 
 	case strings.HasPrefix(hashedPassword, "{SHA}"):
@@ -151,6 +152,7 @@ func validatePlainText(plainPassword, password string) (bool, error) {
 // Validate MD5 (Apache MD5Crypt format)
 func validateMD5Crypt(plainPassword, hashedPassword string) (bool, error) {
 	// MD5 hash (Apache variant)
+	// TODO: Implement a proper MD5Crypt algorithm
 	if md5Hash, err := generateMD5Hash(plainPassword, hashedPassword); err == nil {
 		return md5Hash == hashedPassword, nil
 	} else {

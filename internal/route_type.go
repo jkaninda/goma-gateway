@@ -28,11 +28,11 @@ type Route struct {
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
-	Cors Cors `yaml:"cors"`
+	Cors Cors `yaml:"cors,omitempty"`
 	// Rewrite rewrites the incoming request path to a desired path.
 	//
 	// For example: `/cart` to `/` rewrites `/cart` to `/`.
-	Rewrite string `yaml:"rewrite"`
+	Rewrite string `yaml:"rewrite,omitempty"`
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
 	Methods []string `yaml:"methods"`
 	// Destination defines the primary backend URL for this route.
@@ -42,7 +42,7 @@ type Route struct {
 	// InsecureSkipVerify disables SSL/TLS verification for the backend.
 	InsecureSkipVerify bool `yaml:"insecureSkipVerify"`
 	// HealthCheck contains configuration for monitoring the health of backends.
-	HealthCheck RouteHealthCheck `yaml:"healthCheck"`
+	HealthCheck RouteHealthCheck `yaml:"healthCheck,omitempty"`
 	// RateLimit specifies the maximum number of requests allowed per minute for this route.
 	RateLimit int `yaml:"rateLimit,omitempty"` // Deprecated
 	// DisableHostForwarding disables the forwarding of host-related headers.

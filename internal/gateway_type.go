@@ -70,7 +70,7 @@ type Gateway struct {
 	// Deprecated: Use ExtraConfig for a broader configuration scope.
 	ExtraRoutes ExtraRouteConfig `yaml:"extraRoutes,omitempty"`
 	// ExtraConfig provides additional configuration, including routes and middleware, from a specified directory.
-	ExtraConfig ExtraRouteConfig `yaml:"extraConfig"`
+	ExtraConfig ExtraRouteConfig `yaml:"extraConfig,omitempty"`
 	// Routes defines the list of proxy routes.
 	Routes []Route `yaml:"routes"`
 }
