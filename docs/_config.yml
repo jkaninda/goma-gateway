@@ -19,7 +19,7 @@ description: >- # this means to ignore newlines until "baseurl:"
   Goma Gateway is a lightweight API Gateway and Reverse Proxy.
   
 baseurl: "" # the subpath of your site, e.g. /blog
-url: "jkaninda.github.io/goma-gateway/" # the base hostname & protocol for your site, e.g. http://example.com
+url: ""#"jkaninda.github.io/goma-gateway/" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username: jonaskaninda
 github_username:  jkaninda
 
