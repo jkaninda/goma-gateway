@@ -221,7 +221,6 @@ func initConfig(configFile string) error {
 						"https://example3.com",
 					},
 					Rewrite:               "/",
-					HealthCheck:           RouteHealthCheck{},
 					DisableHostForwarding: false,
 					ErrorInterceptor: middlewares.RouteErrorInterceptor{
 						Enabled:     true,
