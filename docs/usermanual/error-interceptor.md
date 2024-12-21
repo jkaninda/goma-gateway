@@ -23,7 +23,7 @@ The Error Interceptor allows custom handling of backend error responses by inter
 
 Each entry in the `errors` array defines an individual error handling rule with the following properties:
 
-- **`code`** (`integer`): The HTTP status code to intercept (e.g., `404`, `500`).
+- **`status`** (`integer`): The HTTP status code to intercept (e.g., `404`, `500`).
 - **`body`** (`string`): The custom response body to return. This can be a plain string or a raw JSON string.
 
 ### Example of Route Error Interceptor
@@ -47,11 +47,11 @@ gateway:
         enabled: true
         contentType: "application/json"
         errors:
-          - code: 401
+          - status: 401
             body: ""
-          - code: 404
-            body: "{\"success\":false,\"code\":404,\"message\":\"Page not found\",\"data\":[]}" ## Raw JSON string     
-          - code: 500
+          - status: 404
+            body: "{\"success\":false,\"status\":404,\"message\":\"Page not found\",\"data\":[]}" ## Raw JSON string     
+          - status: 500
             body: "Internal server error"
       blockCommonExploits: false
       cors: {}
