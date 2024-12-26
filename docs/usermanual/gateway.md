@@ -72,7 +72,15 @@ gateway:
   disableDisplayRouteOnStart: false
   disableKeepAlive: false
   disableHealthCheckStatus: false
-  blockCommonExploits: false
+  blockCommonExploits: true
+  errorInterceptor:
+      enabled: true
+      contentType: "application/json"
+      errors:
+        - status: 401
+          body: ""
+        - status: 500
+          body: "Internal server error"
   cors:
     origins:
       - http://localhost:8080
