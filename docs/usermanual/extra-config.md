@@ -104,11 +104,16 @@ middlewares:
     type: basic  # Authentication type (options: basic, jwt, OAuth).
     paths:
       - /user
-      - /admin
+      - /admin/*
       - /account
     rule:
-      username: admin
-      password: admin
+      realm: your-realm # Optional
+      users:
+        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
+        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
+        - admin:admin # Plaintext password
+      # username: admin # Deprecated
+      # password: admin # Deprecated
 
   # Access control middleware to block specific paths.
   - name: extra-api-forbidden-paths
