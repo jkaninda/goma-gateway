@@ -72,7 +72,7 @@ gateway:
   disableDisplayRouteOnStart: false
   disableKeepAlive: false
   disableHealthCheckStatus: false
-  blockCommonExploits: true
+  blockCommonExploits: false
   errorInterceptor:
       enabled: true
       contentType: "application/json"
