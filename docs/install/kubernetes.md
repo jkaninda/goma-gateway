@@ -99,4 +99,4 @@ spec:
 
 The advanced deployment uses Goma Gateway’s Kubernetes Operator for more dynamic configuration management.
 
-For detailed instructions, see the [Operator Manual](/goma-gateway/operator-manual/installation.html).
+For detailed instructions, see the [Operator Manual](/operator-manual/installation.html).
