@@ -51,7 +51,7 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 	return rec.body.Write(data)
 }
 
-// / ProxyHandlerErrorInterceptor intercepts responses based on the status code
+// ProxyHandlerErrorInterceptor intercepts responses based on the status code
 func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Determine the content type
@@ -69,10 +69,14 @@ func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Hand
 		// Record the response for interception
 		rec := newResponseRecorder(w)
 		next.ServeHTTP(rec, r)
-
+		// Delete server header
+		rec.Header().Del("Server")
+		rec.Header().Set("Proxied-By", gatewayName)
 		// No interception logic needed
 		if !errorInterceptor.Enabled || len(errorInterceptor.Errors) == 0 {
 			logger.Info("completed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), r.UserAgent())
+			// Set the recorded status code
+			w.WriteHeader(rec.statusCode)
 			_, _ = io.Copy(w, rec.body)
 			return
 		}
@@ -86,6 +90,8 @@ func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Hand
 
 		// No error, write the response to the client
 		logger.Info("completed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), r.UserAgent())
+		// Set the recorded status code
+		w.WriteHeader(rec.statusCode)
 		_, _ = io.Copy(w, rec.body)
 	})
 }
