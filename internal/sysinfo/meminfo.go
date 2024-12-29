@@ -18,7 +18,6 @@
 package sysinfo
 
 import (
-	"fmt"
 	"runtime"
 )
 
@@ -33,12 +32,6 @@ type MemInfo struct {
 func (m MemInfo) GetInfo() (error, MemInfo) {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-
-	fmt.Printf("Alloc: %v KB\n", memStats.Alloc/1024)
-	fmt.Printf("TotalAlloc: %v KB\n", memStats.TotalAlloc/1024)
-	fmt.Printf("Sys: %v KB\n", memStats.Sys/1024)
-	fmt.Printf("NumGC: %v\n", memStats.NumGC)
-
 	return nil, MemInfo{
 		MemTotal:      memStats.Sys,
 		MemTotalAlloc: memStats.TotalAlloc,
