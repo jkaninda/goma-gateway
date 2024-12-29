@@ -17,65 +17,11 @@ package middlewares
  *
  */
 import (
-	"bytes"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"io"
 	"net/http"
 )
 
-func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
-	return &responseRecorder{
-		ResponseWriter: w,
-		statusCode:     http.StatusOK,
-		body:           &bytes.Buffer{},
-	}
-}
-
-func (rec *responseRecorder) WriteHeader(code int) {
-	rec.statusCode = code
-}
-
-func (rec *responseRecorder) Write(data []byte) (int, error) {
-	return rec.body.Write(data)
-}
-
-// ErrorInterceptor Middleware intercepts backend errors
-func (intercept InterceptErrors) ErrorInterceptor(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contentType := intercept.Interceptor.ContentType
-		if contentType == "" {
-			contentType = r.Header.Get("Content-Type")
-		}
-
-		// Check if the connection is a WebSocket
-		if isWebSocketRequest(r) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		rec := newResponseRecorder(w)
-		next.ServeHTTP(rec, r)
-		ok, message := canIntercept(rec.statusCode, intercept.Interceptor.Errors)
-		if ok {
-			logger.Error(`%s - "%s %s" %d resulted with error`, getRealIP(r), r.Method, r.URL.Path, rec.statusCode)
-			RespondWithError(w, r, rec.statusCode, message, intercept.Origins, contentType)
-			return
-		} else {
-			// logger.Info(`%s -  "%s %s %s" %d`, getRealIP(r), r.Method, r.URL.Path, r.UserAgent(), rec.statusCode)
-			// No error: write buffered response to client
-			_, err := io.Copy(w, rec.body)
-			if err != nil {
-				return
-			}
-
-		}
-
-	})
-}
-func isWebSocketRequest(r *http.Request) bool {
-	return r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Connection") == "Upgrade"
-}
-func canIntercept(status int, routeErrors []RouteError) (bool, string) {
+func CanIntercept(status int, routeErrors []RouteError) (bool, string) {
 	for _, routeError := range routeErrors {
 		if status == routeError.Status || status == routeError.Code {
 			if routeError.Body != "" {

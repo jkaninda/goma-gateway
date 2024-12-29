@@ -19,6 +19,7 @@ package internal
 
 import (
 	"context"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"time"
 )
 
@@ -184,4 +185,10 @@ type ExtraRouteConfig struct {
 type AccessPolicyRuleMiddleware struct {
 	Action       string   `yaml:"action,omitempty"` // action, ALLOW or DENY
 	SourceRanges []string `yaml:"sourceRanges"`     //  list of Ips
+}
+type ProxyHandlerErrorInterceptor struct {
+	Enabled     bool
+	ContentType string
+	Errors      []middlewares.RouteError
+	Origins     []string
 }

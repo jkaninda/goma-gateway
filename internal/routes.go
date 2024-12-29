@@ -151,14 +151,17 @@ func handleRoute(route Route, gateway Gateway, r *mux.Router) {
 			// Prometheus endpoint
 			router.Use(pr.PrometheusMiddleware)
 		}
-		// Apply route Error interceptor middlewares
-		if route.ErrorInterceptor.Enabled {
-			interceptErrors := middlewares.InterceptErrors{
-				Interceptor: route.ErrorInterceptor,
-				Origins:     route.Cors.Origins,
-			}
-			router.Use(interceptErrors.ErrorInterceptor)
+
+		// Apply Proxy Handler
+		// Custom error handler for proxy errors
+		proxyHandler := ProxyHandlerErrorInterceptor{
+			Enabled:     route.ErrorInterceptor.Enabled,
+			ContentType: route.ErrorInterceptor.ContentType,
+			Errors:      route.ErrorInterceptor.Errors,
+			Origins:     route.Cors.Origins,
 		}
+		router.Use(proxyHandler.proxyHandler)
+
 		// Enable route bot detection
 		if route.EnableBotDetection {
 			logger.Info("Route %s: Bot detection enabled", route.Name)
