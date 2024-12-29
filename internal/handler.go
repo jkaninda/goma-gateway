@@ -56,6 +56,7 @@ func CORSHandler(cors Cors) mux.MiddlewareFunc {
 // ProxyErrorHandler catches backend errors and returns a custom response
 func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	logger.Error("Proxy error: %v", err)
+	logger.Error("failed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, http.StatusText(http.StatusBadGateway), r.UserAgent())
 	w.WriteHeader(http.StatusBadGateway)
 	_, err = w.Write([]byte(fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway))))
 	if err != nil {
@@ -65,7 +66,7 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 
 // HealthCheckHandler handles health check of routes
 func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info(`%s - "%s %s %s"`, getRealIP(r), r.Method, r.URL.Path, r.UserAgent())
+	logger.Info("completed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), http.StatusOK, http.StatusText(http.StatusOK), r.UserAgent())
 	healthRoutes := healthCheckRoutes(heathRoute.Routes)
 	wg := sync.WaitGroup{}
 	wg.Add(len(healthRoutes))
@@ -101,7 +102,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 	}
 }
 func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info(`%s - "%s %s %s"`, getRealIP(r), r.Method, r.URL.Path, r.UserAgent())
+	logger.Info("completed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), http.StatusOK, http.StatusText(http.StatusOK), r.UserAgent())
 	response := HealthCheckRouteResponse{
 		Name:   "Service Gateway",
 		Status: "healthy",

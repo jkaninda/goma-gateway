@@ -37,34 +37,34 @@ func logMessage(level, defaultOutput, msg string, args ...interface{}) {
 
 // Info logs informational messages
 func Info(msg string, args ...interface{}) {
-	logMessage("INFO", "/dev/stdout", msg, args...)
+	logMessage("info", "/dev/stdout", msg, args...)
 }
 
 // Warn logs warning messages
 func Warn(msg string, args ...interface{}) {
-	logMessage("WARN", "/dev/stdout", msg, args...)
+	logMessage("warn", "/dev/stdout", msg, args...)
 }
 
 // Error logs error messages
 func Error(msg string, args ...interface{}) {
-	logMessage("ERROR", "/dev/stderr", msg, args...)
+	logMessage("error", "/dev/stderr", msg, args...)
 }
 
 // Fatal logs fatal errors and exits the program
 func Fatal(msg string, args ...interface{}) {
 	log.SetOutput(os.Stdout)
-	logWithCaller("ERROR", msg, args...)
+	logWithCaller("error", msg, args...)
 	os.Exit(1)
 }
 
 // Debug logs debug messages
 func Debug(msg string, args ...interface{}) {
-	logMessage("DEBUG", "/dev/stdout", msg, args...)
+	logMessage("debug", "/dev/stdout", msg, args...)
 }
 
 // Trace logs trace messages
 func Trace(msg string, args ...interface{}) {
-	logMessage("TRACE", "/dev/stdout", msg, args...)
+	logMessage("trace", "/dev/stdout", msg, args...)
 }
 
 // Determines whether the message should be logged based on log level

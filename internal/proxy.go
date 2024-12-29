@@ -32,7 +32,7 @@ import (
 // ProxyHandler proxies requests to the backend
 func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger.Info(`%s - "%s %s %s"`, getRealIP(r), r.Method, r.URL.Path, r.UserAgent())
+		logger.Debug("started %s %s for %s %s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
 		logger.Trace("Request params: %s", r.URL.RawQuery)
 		contentType := r.Header.Get("Content-Type")
 		// Check Method if is allowed

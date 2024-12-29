@@ -18,8 +18,6 @@
 package middlewares
 
 import (
-	"bytes"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -127,12 +125,6 @@ type InterceptErrors struct {
 	Origins     []string
 }
 
-// responseRecorder intercepts the response body and status code
-type responseRecorder struct {
-	http.ResponseWriter
-	statusCode int
-	body       *bytes.Buffer
-}
 type Oauth struct {
 	// Route path
 	Path string
