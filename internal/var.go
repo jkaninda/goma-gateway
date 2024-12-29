@@ -1,5 +1,7 @@
 package internal
 
+import "time"
+
 const ConfigDir = "/etc/goma/" // Default configuration file
 const ExtraDir = ConfigDir + "extra"
 const ConfigFile = "/etc/goma/goma.yml"                        // Default configuration file
@@ -26,4 +28,5 @@ var (
 	dynamicRoutes      []Route
 	dynamicMiddlewares []Middleware
 	redisBased         = false
+	startTime          = time.Now()
 )
