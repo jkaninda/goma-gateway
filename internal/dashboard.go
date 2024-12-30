@@ -49,13 +49,13 @@ type APIMiddleware struct {
 	Rule  interface{} `json:"rule"`
 }
 type Overview struct {
-	RouteCnt      int               `json:"routeCnt"`
-	MiddlewareCnt int               `json:"middlewareCnt"`
-	GoroutineCnt  int               `json:"goroutineCnt"`
-	MemInfo       MemInfo           `json:"memInfo"`
-	CpuInfo       []sysinfo.CPUInfo `json:"cpuInfo"`
-	Uptime        string            `json:"uptime"`
-	SysUptime     string            `json:"sysUptime"`
+	RouteTotal      int               `json:"routeTotal"`
+	MiddlewareTotal int               `json:"middlewareTotal"`
+	GoroutineTotal  int               `json:"goroutineTotal"`
+	MemInfo         MemInfo           `json:"memInfo"`
+	CpuInfo         []sysinfo.CPUInfo `json:"cpuInfo"`
+	Uptime          string            `json:"uptime"`
+	SysUptime       string            `json:"sysUptime"`
 }
 
 type MemInfo struct {
@@ -114,12 +114,12 @@ func overviewHandler(w http.ResponseWriter, r *http.Request) {
 	cpuInfo := sysinfo.NewCPUInfo()
 	_, cpus := cpuInfo.GetInfo()
 
-	goroutineCnt := runtime.NumGoroutine()
+	goroutineTotal := runtime.NumGoroutine()
 
 	ov := Overview{
-		RouteCnt:      len(dynamicRoutes),
-		MiddlewareCnt: len(dynamicMiddlewares),
-		GoroutineCnt:  goroutineCnt,
+		RouteTotal:      len(dynamicRoutes),
+		MiddlewareTotal: len(dynamicMiddlewares),
+		GoroutineTotal:  goroutineTotal,
 		MemInfo: MemInfo{
 			MemTotal:      util.ConvertBytes(memStats.MemTotal),
 			MemFree:       util.ConvertBytes(memStats.MemFree),
@@ -131,8 +131,8 @@ func overviewHandler(w http.ResponseWriter, r *http.Request) {
 		Uptime:    fmt.Sprintf("%v", appUptime),
 		SysUptime: fmt.Sprintf("%v", uptime),
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(ov)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -141,8 +141,8 @@ func overviewHandler(w http.ResponseWriter, r *http.Request) {
 }
 func routeHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Info("api: %s %s for %s %s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(dynamicRoutes)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -160,8 +160,8 @@ func middlewareHandler(w http.ResponseWriter, r *http.Request) {
 			Rule:  "***",
 		})
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(apiMiddlewares)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
