@@ -49,15 +49,16 @@ func (gatewayServer GatewayServer) Start() error {
 	// Start HTTP/HTTPS servers
 	gatewayServer.startServers(httpServer, httpsServer, listenWithTLS)
 
+	dashboardServer := NewDashboardServer(gatewayServer.assets)
+
 	// Start Dashboard Server
 	if gatewayServer.gateway.Dashboard.Enabled {
 		logger.Info("Dashboard enabled")
-		apiServer := NewApiServerServer(gatewayServer.assets)
-		apiServer.Serve()
+		dashboardServer.Serve()
 	}
 
 	// Handle graceful shutdown
-	return gatewayServer.shutdown(httpServer, httpsServer, listenWithTLS)
+	return gatewayServer.shutdown(httpServer, httpsServer, dashboardServer.server, listenWithTLS)
 }
 
 func (gatewayServer GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
@@ -89,7 +90,7 @@ func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Se
 	}
 }
 
-func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server, listenWithTLS bool) error {
+func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer, dashboardServer *http.Server, listenWithTLS bool) error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -105,6 +106,11 @@ func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server
 	if listenWithTLS {
 		if err := httpsServer.Shutdown(shutdownCtx); err != nil {
 			logger.Error("Error shutting down HTTPS server: %v", err)
+		}
+	}
+	if gatewayServer.gateway.Dashboard.Enabled {
+		if err := dashboardServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("Error shutting down Dashboard server: %v", err)
 		}
 	}
 	return nil

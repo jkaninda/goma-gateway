@@ -20,6 +20,7 @@ package internal
 import (
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/sysinfo"
@@ -68,11 +69,11 @@ type MemInfo struct {
 type CPUInfo struct {
 	Usage float64 `json:"cpuUsage"`
 }
-type APIServer struct {
+type DashboardServer struct {
 	server *http.Server
 }
 
-func NewApiServerServer(assets embed.FS) APIServer {
+func NewDashboardServer(assets embed.FS) DashboardServer {
 	router := mux.NewRouter()
 	router.HandleFunc("/api/overview", overviewHandler).Methods("GET")
 	router.HandleFunc("/api/routes", routeHandler).Methods("GET")
@@ -82,7 +83,7 @@ func NewApiServerServer(assets embed.FS) APIServer {
 		log.Fatal(err)
 	}
 	router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.FS(serverRoot))))
-	return APIServer{&http.Server{
+	return DashboardServer{&http.Server{
 		Addr:         ":81",
 		Handler:      router,
 		ReadTimeout:  10 * time.Second,
@@ -91,11 +92,10 @@ func NewApiServerServer(assets embed.FS) APIServer {
 	},
 	}
 }
-func (apiServer APIServer) Serve() {
+func (apiServer DashboardServer) Serve() {
 	logger.Info("Starting Dashboard server on 0.0.0.0:81")
 	go func() {
-		err := apiServer.server.ListenAndServe()
-		if err != nil {
+		if err := apiServer.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("error starting Dashboard server %v", err)
 		}
 	}()
