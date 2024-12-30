@@ -17,6 +17,7 @@ limitations under the License.
 */
 import (
 	"context"
+	"embed"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
@@ -31,6 +32,9 @@ import (
 	"net/http"
 	"os"
 )
+
+//go:embed all:build
+var assets embed.FS
 
 // Config reads config file and returns Gateway
 func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewayServer, error) {
@@ -47,6 +51,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 		}
 		return &GatewayServer{
 			ctx:         ctx,
+			assets:      assets,
 			configFile:  configFile,
 			version:     c.Version,
 			gateway:     c.GatewayConfig,

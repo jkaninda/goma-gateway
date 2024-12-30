@@ -18,6 +18,7 @@
 package internal
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -25,6 +26,8 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/shirou/gopsutil/v3/host"
+	"io/fs"
+	"log"
 	"net/http"
 	"runtime"
 	"time"
@@ -65,32 +68,40 @@ type MemInfo struct {
 type CPUInfo struct {
 	Usage float64 `json:"cpuUsage"`
 }
+type APIServer struct {
+	server *http.Server
+}
 
-func NewServer() {
+func NewApiServerServer(assets embed.FS) APIServer {
 	router := mux.NewRouter()
-	router.HandleFunc("/dashboard", dashboardHandler).Methods("GET")
 	router.HandleFunc("/api/overview", overviewHandler).Methods("GET")
 	router.HandleFunc("/api/routes", routeHandler).Methods("GET")
 	router.HandleFunc("/api/middlewares", middlewareHandler).Methods("GET")
+	serverRoot, err := fs.Sub(assets, "build")
+	if err != nil {
+		log.Fatal(err)
+	}
+	router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.FS(serverRoot))))
+	return APIServer{&http.Server{
+		Addr:         ":81",
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  15 * time.Second,
+	},
+	}
+}
+func (apiServer APIServer) Serve() {
+	logger.Info("Starting Dashboard server on 0.0.0.0:81")
 	go func() {
-		err := http.ListenAndServe(":81", router)
+		err := apiServer.server.ListenAndServe()
 		if err != nil {
-			logger.Fatal("error starting server %v", err)
-			return
+			logger.Fatal("error starting Dashboard server %v", err)
 		}
 	}()
-
-}
-
-func dashboardHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte("Hello, World!"))
-	if err != nil {
-		return
-	}
-
 }
 func overviewHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Info("api: %s %s for %s %s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
 	uptimeSeconds, err := host.Uptime()
 	if err != nil {
 		logger.Error("Error fetching uptime: %v", err)
@@ -121,6 +132,7 @@ func overviewHandler(w http.ResponseWriter, r *http.Request) {
 		SysUptime: fmt.Sprintf("%v", uptime),
 	}
 	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(ov)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -128,7 +140,9 @@ func overviewHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 func routeHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Info("api: %s %s for %s %s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
 	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(dynamicRoutes)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -136,6 +150,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 func middlewareHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Info("api: %s %s for %s %s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
 	apiMiddlewares := []APIMiddleware{}
 	for _, m := range dynamicMiddlewares {
 		apiMiddlewares = append(apiMiddlewares, APIMiddleware{
@@ -146,6 +161,7 @@ func middlewareHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(apiMiddlewares)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

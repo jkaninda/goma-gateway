@@ -13,3 +13,4 @@ tests
 configs
 /config
 compose.yaml
+build

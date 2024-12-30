@@ -19,6 +19,7 @@ package internal
 
 import (
 	"context"
+	"embed"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"time"
 )
@@ -118,6 +119,7 @@ type GatewayConfig struct {
 }
 
 type GatewayServer struct {
+	assets      embed.FS
 	ctx         context.Context
 	configFile  string
 	version     string

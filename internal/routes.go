@@ -73,12 +73,6 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
-
-	// Dashboard
-	if gateway.Dashboard.Enabled {
-		logger.Info("Dashboard enabled")
-		NewServer()
-	}
 	r := mux.NewRouter()
 	heath := HealthCheckRoute{
 		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,

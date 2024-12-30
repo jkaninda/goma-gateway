@@ -49,6 +49,13 @@ func (gatewayServer GatewayServer) Start() error {
 	// Start HTTP/HTTPS servers
 	gatewayServer.startServers(httpServer, httpsServer, listenWithTLS)
 
+	// Start Dashboard Server
+	if gatewayServer.gateway.Dashboard.Enabled {
+		logger.Info("Dashboard enabled")
+		apiServer := NewApiServerServer(gatewayServer.assets)
+		apiServer.Serve()
+	}
+
 	// Handle graceful shutdown
 	return gatewayServer.shutdown(httpServer, httpsServer, listenWithTLS)
 }

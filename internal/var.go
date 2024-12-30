@@ -1,6 +1,8 @@
 package internal
 
-import "time"
+import (
+	"time"
+)
 
 const ConfigDir = "/etc/goma/" // Default configuration file
 const ExtraDir = ConfigDir + "extra"
