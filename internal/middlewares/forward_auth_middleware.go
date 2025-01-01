@@ -103,11 +103,6 @@ func authCopyHeadersAndCookies(f ForwardAuth, src *http.Request, dest *http.Requ
 			}
 		}
 	}
-	//for name, values := range src.Header {
-	//	for _, value := range values {
-	//		dest.Header.Set(name, value)
-	//	}
-	//}
 	for _, cookie := range src.Cookies() {
 		dest.AddCookie(cookie)
 	}
