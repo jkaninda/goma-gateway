@@ -17,6 +17,7 @@ const (
 	addPrefix        = "addPrefix"
 	rateLimit        = "rateLimit"
 	redirectRegex    = "redirectRegex"
+	forwardAuth      = "forwardAuth"
 )
 
 var (

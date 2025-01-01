@@ -335,6 +335,15 @@ func (jwt JWTRuleMiddleware) validate() error {
 	return nil
 }
 
+// validate validates JWTRuleMiddleware
+func (f ForwardAuthRuleMiddleware) validate() error {
+	if f.AuthEndpoint == "" {
+		return fmt.Errorf("error parsing yaml: empty url in jwt auth middlewares")
+
+	}
+	return nil
+}
+
 // validate validates BasicRuleMiddleware
 func (basicAuth BasicRuleMiddleware) validate() error {
 	user := fmt.Sprintf("%s:%s", basicAuth.Username, basicAuth.Password)

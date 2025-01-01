@@ -163,3 +163,16 @@ type RouteError struct {
 	Status int    `yaml:"status"`
 	Body   string `yaml:"body,omitempty"`
 }
+
+type ForwardAuth struct {
+	Path                        string
+	Paths                       []string
+	SkipInsecureVerify          bool
+	AuthRequestHeaders          []string
+	AddAuthCookiesToResponse    []string
+	AuthResponseHeaders         []string
+	AuthResponseHeadersAsParams []string
+	TrustForwardHeaders         bool
+	AuthURL                     string
+	Origins                     []string
+}
