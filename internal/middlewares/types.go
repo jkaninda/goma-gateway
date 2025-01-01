@@ -172,7 +172,8 @@ type ForwardAuth struct {
 	AddAuthCookiesToResponse    []string
 	AuthResponseHeaders         []string
 	AuthResponseHeadersAsParams []string
-	TrustForwardHeaders         bool
 	AuthURL                     string
+	AuthSignIn                  string
+	EnableHostForwarding        bool
 	Origins                     []string
 }

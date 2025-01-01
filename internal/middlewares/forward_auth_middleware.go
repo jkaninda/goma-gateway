@@ -29,17 +29,40 @@ import (
 // AuthMiddleware authenticates the client using JWT
 //
 // authorization based on the result of backend's response and continue the request when the client is authorized
-func (jwtAuth ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
+func (auth ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
-		if isProtectedPath(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
+		if isProtectedPath(r.URL.Path, auth.Path, auth.Paths) {
 			// Authenticate the request
-			authenticated, authResponse := authRequest(jwtAuth, r, w, r, contentType)
+			authenticated, authResponse := authRequest(auth, w, r, contentType)
 			if !authenticated {
+				if authResponse.StatusCode == http.StatusUnauthorized && auth.AuthSignIn != "" {
+					// Redirect to the sign in page
+					redirectURL := auth.AuthSignIn
+					// Check if the redirect URL already has query parameters
+					if strings.Contains(redirectURL, "?") {
+						// Step 1: Get the current URL
+						currentURL := fmt.Sprintf("%s://%s%s", scheme(r), r.Host, r.URL.RequestURI())
+
+						// Step 2: Encode the current URL as a query parameter (ref)
+						encodedRef := url.QueryEscape(currentURL)
+						redirectURL = fmt.Sprintf("%s%s", redirectURL, encodedRef)
+					}
+					logger.Info("Redirecting to sign in page: %s", redirectURL)
+					// Redirect to the sign in page
+					http.Redirect(w, r, redirectURL, http.StatusFound)
+					return
+				}
+				RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), auth.Origins, contentType)
 				return
 			}
 			// Inject headers and parameters
-			authInjectHeadersAndParams(jwtAuth, r, authResponse)
+			authInjectHeadersAndParams(auth, r, authResponse)
+
+			// Copy cookies from the authentication response to the response
+			for _, cookie := range authResponse.Cookies() {
+				http.SetCookie(w, cookie)
+			}
 
 		}
 		next.ServeHTTP(w, r)
@@ -47,7 +70,7 @@ func (jwtAuth ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 }
 
 // authRequest authenticates the request using the authURL
-func authRequest(f ForwardAuth, r *http.Request, w http.ResponseWriter, req *http.Request, contentType string) (bool, *http.Response) {
+func authRequest(f ForwardAuth, w http.ResponseWriter, req *http.Request, contentType string) (bool, *http.Response) {
 	parsedURL, err := url.Parse(f.AuthURL)
 	if err != nil {
 		logger.Error("Error parsing auth URL: %v", err)
@@ -60,8 +83,9 @@ func authRequest(f ForwardAuth, r *http.Request, w http.ResponseWriter, req *htt
 		RespondWithError(w, req, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), f.Origins, contentType)
 		return false, &http.Response{StatusCode: http.StatusInternalServerError}
 	}
+	authReq.Header.Set("Host", req.Host)
 	// Copy headers and cookies from the original request to the authentication request
-	authCopyHeadersAndCookies(f, r, authReq)
+	authCopyHeadersAndCookies(f, req, authReq)
 	// Create custom transport with TLS configuration
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -75,9 +99,8 @@ func authRequest(f ForwardAuth, r *http.Request, w http.ResponseWriter, req *htt
 			logger.Error("Proxy error authenticating request: %v", err)
 
 		} else {
-			logger.Error("Unauthorized access to %s, proxy authentication resulted with status code: %d ", r.URL.Path, authResp.StatusCode)
+			logger.Error("Unauthorized access to %s, proxy authentication resulted with status code: %d ", req.URL.Path, authResp.StatusCode)
 		}
-		RespondWithError(w, req, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), f.Origins, contentType)
 		return false, authResp
 	}
 	defer func(Body io.ReadCloser) {
@@ -91,11 +114,15 @@ func authRequest(f ForwardAuth, r *http.Request, w http.ResponseWriter, req *htt
 
 // copyHeadersAndCookies copies headers and cookies from the source request to the destination request
 func authCopyHeadersAndCookies(f ForwardAuth, src *http.Request, dest *http.Request) {
-	if f.TrustForwardHeaders {
-		dest.Header.Set("X-Forwarded-Host", src.Header.Get("Host"))
-		dest.Header.Set("X-Forwarded-For", getRealIP(src))
-		dest.Header.Set("X-Real-IP", getRealIP(src))
+	dest.Header.Set("X-Forwarded-Host", src.Host)
+	dest.Header.Set("X-Forwarded-For", getRealIP(src))
+	dest.Header.Set("X-Real-IP", getRealIP(src))
+	dest.Header.Set("X-Original-URL", fmt.Sprintf("%s://%s%s", scheme(src), src.Host, src.URL.RequestURI()))
+	// Forward the host from the source request to the destination request
+	if f.EnableHostForwarding {
+		dest.Host = src.Host
 	}
+	// Copy headers from the source request to the destination request
 	if f.AuthRequestHeaders != nil {
 		for _, header := range f.AuthRequestHeaders {
 			if src.Header.Get(header) != "" {

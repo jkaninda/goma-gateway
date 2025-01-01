@@ -337,7 +337,7 @@ func (jwt JWTRuleMiddleware) validate() error {
 
 // validate validates JWTRuleMiddleware
 func (f ForwardAuthRuleMiddleware) validate() error {
-	if f.AuthEndpoint == "" {
+	if f.AuthURL == "" {
 		return fmt.Errorf("error parsing yaml: empty url in jwt auth middlewares")
 
 	}

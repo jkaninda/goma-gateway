@@ -388,13 +388,14 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 			return
 		}
 		auth := middlewares.ForwardAuth{
-			AuthURL:                     fAuth.AuthEndpoint,
+			AuthURL:                     fAuth.AuthURL,
+			AuthSignIn:                  fAuth.AuthSignIn,
+			EnableHostForwarding:        fAuth.EnableHostForwarding,
 			SkipInsecureVerify:          fAuth.SkipInsecureVerify,
 			AuthRequestHeaders:          fAuth.AuthRequestHeaders,
 			AuthResponseHeaders:         fAuth.AuthResponseHeaders,
 			AuthResponseHeadersAsParams: fAuth.AuthResponseHeadersAsParams,
 			AddAuthCookiesToResponse:    fAuth.AddAuthCookiesToResponse,
-			TrustForwardHeaders:         fAuth.TrustForwardHeaders,
 			Path:                        route.Path,
 			Paths:                       routeMiddleware.Paths,
 			Origins:                     route.Cors.Origins,
