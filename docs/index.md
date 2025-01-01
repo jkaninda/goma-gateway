@@ -46,7 +46,7 @@ It's designed to be straightforward and efficient, offering a rich set of featur
   - Identify basic cross-site scripting (XSS) attempts.
 
 - **Authentication Middleware**
-  - Support for **JWT** with client authorization based on request results.
+  - Support for **ForwardAuth** with client authorization based on request results.
   - **Basic-Auth** and **OAuth** authentication mechanisms.
 - **Access Policy Middleware**
   - Control route access by either `allowing` or `denying` requests based on defined rules.
