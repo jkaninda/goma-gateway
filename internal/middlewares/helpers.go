@@ -129,3 +129,11 @@ func isJson(s string) bool {
 	err := json.Unmarshal([]byte(s), &js)
 	return err == nil
 }
+
+// Helper function to determine the scheme (http or https)
+func scheme(r *http.Request) string {
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}

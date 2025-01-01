@@ -371,12 +371,38 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 			RequiredHeaders: jwt.RequiredHeaders,
 			Headers:         jwt.Headers,
 			Params:          jwt.Params,
-			Origins:         gateway.Cors.Origins,
+			Origins:         route.Cors.Origins,
 		}
 		// Apply JWT authentication middlewares
 		r.Use(jwtAuth.AuthMiddleware)
 		r.Use(CORSHandler(route.Cors))
-
+	case forwardAuth:
+		fAuth := &ForwardAuthRuleMiddleware{}
+		if err := converter.Convert(&routeMiddleware.Rule, fAuth); err != nil {
+			logger.Error("Error: %v, middleware not applied", err.Error())
+			return
+		}
+		err := fAuth.validate()
+		if err != nil {
+			logger.Error("Error: %s", err.Error())
+			return
+		}
+		auth := middlewares.ForwardAuth{
+			AuthURL:                     fAuth.AuthURL,
+			AuthSignIn:                  fAuth.AuthSignIn,
+			EnableHostForwarding:        fAuth.EnableHostForwarding,
+			SkipInsecureVerify:          fAuth.SkipInsecureVerify,
+			AuthRequestHeaders:          fAuth.AuthRequestHeaders,
+			AuthResponseHeaders:         fAuth.AuthResponseHeaders,
+			AuthResponseHeadersAsParams: fAuth.AuthResponseHeadersAsParams,
+			AddAuthCookiesToResponse:    fAuth.AddAuthCookiesToResponse,
+			Path:                        route.Path,
+			Paths:                       routeMiddleware.Paths,
+			Origins:                     route.Cors.Origins,
+		}
+		// Apply JWT authentication middlewares
+		r.Use(auth.AuthMiddleware)
+		r.Use(CORSHandler(route.Cors))
 	case OAuth:
 		oauth := &OauthRulerMiddleware{}
 		if err := converter.Convert(&routeMiddleware.Rule, oauth); err != nil {

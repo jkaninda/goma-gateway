@@ -20,11 +20,7 @@ gateway:
   writeTimeout: 15
   readTimeout: 15
   idleTimeout: 30
-  rateLimit: 60 # peer minute
-  blockCommonExploits: false
-  accessLog: /dev/Stdout
-  errorLog: /dev/stderr
-  logLevel: ''
+  logLevel: info
   ## Redis connexion for distributed rate limiting; when using multiple instances | It's optional
   redis:
     addr: redis:6379
