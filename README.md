@@ -34,7 +34,7 @@ Architecture:
 - [Github](https://github.com/jkaninda/goma-gateway)
 - [Kubernetes operator](https://github.com/jkaninda/goma-operator)
 
-### [Documentation](https://jkaninda.github.io/goma-gateway)
+### [Documentation](https://gomagateway.com/)
 
 
 ## Features
