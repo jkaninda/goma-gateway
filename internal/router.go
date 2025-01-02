@@ -29,8 +29,9 @@ import (
 
 type Router interface {
 	AddRoute(route Route)
+	AddRoutes(router2 Router)
 	Mux() http.Handler
-	UpdateHandler(http.Handler)
+	UpdateHandler(Gateway)
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 
@@ -40,16 +41,26 @@ type router struct {
 	sync.RWMutex
 }
 
+func (r *router) AddRoutes(rt Router) {
+	// Add routes to the router
+	for _, route := range dynamicRoutes {
+		rt.AddRoute(route)
+	}
+}
+
 func (r *router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	r.RLock()
 	defer r.RUnlock()
 	r.mux.ServeHTTP(writer, request)
 }
 
-func (r *router) UpdateHandler(handler http.Handler) {
-	r.Lock()
-	defer r.Unlock()
-	r.mux = handler.(*mux.Router)
+func (r *router) UpdateHandler(gateway Gateway) {
+	// Create new router
+	r.mux = mux.NewRouter().StrictSlash(gateway.EnableStrictSlash)
+	// Add global handler, metrics and health check
+	gateway.addGlobalHandler(r.mux)
+	// Add routes
+	r.AddRoutes(r)
 }
 
 // AddRoute adds a route to the router
@@ -118,19 +129,13 @@ func (r *router) AddRoute(route Route) {
 func (r *router) Mux() http.Handler {
 	return r.mux
 }
-
-// NewRouter creates a new router
-func (gateway Gateway) NewRouter() Router {
-	rt := &router{
-		mux:           mux.NewRouter().StrictSlash(gateway.EnableStrictSlash),
-		enableMetrics: gateway.EnableMetrics,
-	}
-	r := rt.mux
+func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
+	r := mux
 	heath := HealthCheckRoute{
 		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,
 		Routes:                       dynamicRoutes,
 	}
-	if rt.enableMetrics {
+	if gateway.EnableMetrics {
 		logger.Info("Metrics enabled")
 		// Prometheus endpoint
 		r.Path("/metrics").Handler(promhttp.Handler())
@@ -140,7 +145,6 @@ func (gateway Gateway) NewRouter() Router {
 		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET") // Deprecated
 		r.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
 	}
-
 	// Health check
 	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET") // Deprecated
 	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
@@ -168,5 +172,14 @@ func (gateway Gateway) NewRouter() Router {
 
 	// Apply global Cors middlewares
 	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
+}
+
+// NewRouter creates a new router
+func (gateway Gateway) NewRouter() Router {
+	rt := &router{
+		mux:           mux.NewRouter().StrictSlash(gateway.EnableStrictSlash),
+		enableMetrics: gateway.EnableMetrics,
+	}
+	gateway.addGlobalHandler(rt.mux)
 	return rt
 }

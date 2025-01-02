@@ -22,7 +22,7 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 )
 
-func (gatewayServer GatewayServer) watchExtraConfig() {
+func (gatewayServer GatewayServer) watchExtraConfig(r Router) {
 	// Create a new watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -51,9 +51,9 @@ func (gatewayServer GatewayServer) watchExtraConfig() {
 					logger.Info("Modified file: %s", event.Name)
 					// Update configuration
 					logger.Info("Reloading configuration...")
-					handler := gatewayServer.Initialize()
+					gatewayServer.Initialize()
 					// Update the routes
-					handler.UpdateHandler(handler)
+					r.UpdateHandler(gatewayServer.gateway)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {

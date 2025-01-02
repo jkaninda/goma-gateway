@@ -36,13 +36,12 @@ func init() {
 }
 
 // Initialize initializes the routes
-func (gatewayServer GatewayServer) Initialize() Router {
+func (gatewayServer GatewayServer) Initialize() {
 	gateway := gatewayServer.gateway
 	handleGatewayDeprecations(&gateway)
 	dynamicRoutes = gateway.Routes
 	dynamicMiddlewares = gatewayServer.middlewares
 	// Load Extra Middlewares
-	logger.Info("Loading additional configurations...")
 	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
 	if err == nil {
 		dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
@@ -73,16 +72,6 @@ func (gatewayServer GatewayServer) Initialize() Router {
 
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
-
-	// Create router
-	newRouter := gateway.NewRouter()
-
-	// Add routes to the router
-	for _, route := range dynamicRoutes {
-		newRouter.AddRoute(route)
-	}
-	// Create a DynamicHandler with the initial handler
-	return newRouter
 }
 
 // attachMiddlewares attaches middlewares to the route
