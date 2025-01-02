@@ -1,5 +1,5 @@
 ---
-title: ForwardAuth Middleware
+title: ForwardAuth
 layout: default
 parent: Middleware
 nav_order: 5
@@ -72,17 +72,17 @@ middlewares:
       # Authentication cookies to include in the response
       addAuthCookiesToResponse:
         - X-Auth-UserId
-        - X-Auth-UserCountryId
-        - X-Auth-BusinessId
-      
+        - X-Token
       # Map authentication response headers to request headers
       authResponseHeaders:
         - "auth_userId: X-Auth-UserId" # Custom mapping
-        - "auth_businessId: X-Auth-BusinessId" # Direct mapping
+        - X-Auth-UserCountryId # Direct mapping
+        - X-Token # Direct mapping
       
       # Map authentication response headers to request parameters
       authResponseHeadersAsParams:
         - "X-Auth-UserId: userId" # Custom mapping
+        - X-Token:token # Custom mapping
         - X-Auth-UserCountryId # Direct mapping
 ```
 
