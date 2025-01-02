@@ -57,6 +57,10 @@ type Gateway struct {
 	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart,omitempty"`
 	// DisableKeepAlive enables or disables the HTTP Keep-Alive functionality.
 	DisableKeepAlive bool `yaml:"disableKeepAlive,omitempty"`
+	// EnableStrictSlash enables or disables strict routing and trailing slashes.
+	//
+	// When enabled, the router will match the path with or without a trailing slash.
+	EnableStrictSlash bool `yaml:"enableStrictSlash,omitempty"`
 	// EnableMetrics enables or disables server metrics collection.
 	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
 	// InterceptErrors holds the status codes to intercept backend errors.
