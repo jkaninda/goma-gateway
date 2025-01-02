@@ -59,7 +59,10 @@ func TestStart(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	gatewayServer.Initialize()
+	err = gatewayServer.Initialize()
+	if err != nil {
+		return
+	}
 	go func() {
 		err = gatewayServer.Start()
 		if err != nil {
