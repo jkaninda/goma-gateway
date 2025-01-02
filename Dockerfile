@@ -16,8 +16,6 @@ ENV TZ=UTC
 ARG WORKDIR="/etc/goma"
 ARG EXTRADIR="${WORKDIR}/extra"
 ARG appVersion=""
-ARG user="goma"
-ARG userID="1001"
 LABEL author="Jonas Kaninda"
 LABEL version=${appVersion}
 LABEL github="github.com/jkaninda/goma-gateway"
@@ -25,9 +23,7 @@ LABEL github="github.com/jkaninda/goma-gateway"
 RUN mkdir -p ${WORKDIR} ${EXTRADIR} && \
      chmod a+rw ${WORKDIR} ${EXTRADIR}
 COPY --from=build /app/goma /usr/local/bin/goma
-RUN chmod a+x /usr/local/bin/goma && \
-    ln -s /usr/local/bin/goma /usr/bin/goma
-RUN addgroup -S ${user} && adduser -S -u ${userID} -G ${user} ${user}
+RUN chmod a+x /usr/local/bin/goma
 RUN apk --update add --no-cache tzdata ca-certificates curl
 EXPOSE 8080 8443
 WORKDIR $WORKDIR
