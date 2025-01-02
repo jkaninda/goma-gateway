@@ -54,6 +54,10 @@ func (gateway Gateway) NewRouter() Router {
 // AddRoutes adds multiple routes from another router.
 func (r *router) AddRoutes(rt Router) {
 	for _, route := range dynamicRoutes {
+		if route.Disabled {
+			logger.Info("Proxies Route %s is disabled", route.Name)
+			continue
+		}
 		rt.AddRoute(route)
 	}
 }

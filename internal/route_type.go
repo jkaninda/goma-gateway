@@ -23,6 +23,8 @@ import "github.com/jkaninda/goma-gateway/internal/middlewares"
 type Route struct {
 	// Path specifies the route's path.
 	Path string `yaml:"path"`
+	// Disabled specifies whether the route is disabled.
+	Disabled bool `yaml:"disabled"`
 	// Name provides a descriptive name for the route.
 	Name string `yaml:"name"`
 	// Hosts lists domains or hosts for request routing.
