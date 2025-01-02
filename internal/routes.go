@@ -24,7 +24,6 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus"
-	"net/http"
 	"sort"
 	"strings"
 )
@@ -37,7 +36,7 @@ func init() {
 }
 
 // Initialize initializes the routes
-func (gatewayServer GatewayServer) Initialize() http.Handler {
+func (gatewayServer GatewayServer) Initialize() *DynamicHandler {
 	gateway := gatewayServer.gateway
 	handleGatewayDeprecations(&gateway)
 	dynamicRoutes = gateway.Routes
@@ -82,7 +81,8 @@ func (gatewayServer GatewayServer) Initialize() http.Handler {
 	for _, route := range dynamicRoutes {
 		newRouter.AddRoute(route)
 	}
-	return newRouter.Mux()
+	// Create a DynamicHandler with the initial handler
+	return NewDynamicHandler(newRouter.Mux())
 }
 
 // attachMiddlewares attaches middlewares to the route
