@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
 	"io"
 	"net"
@@ -38,10 +39,12 @@ func printRoute(routes []Route) {
 			t.AppendRow(table.Row{route.Name, route.Disabled, route.Path, route.Rewrite, fmt.Sprintf("backends: [%d]", len(route.Backends))})
 
 		} else {
-			t.AppendRow(table.Row{route.Name, route.Disabled, route.Path, route.Rewrite, route.Destination})
+			t.AppendRow(table.Row{route.Name, route.Disabled, route.Path, route.Rewrite, util.TruncateText(route.Destination, 25)})
 		}
 	}
 	fmt.Println(t.Render())
+	// print text and limit to 15 characters
+	fmt.Println("Total routes: ", len(routes))
 }
 
 // getRealIP extracts the real IP address of the client from the HTTP request.
