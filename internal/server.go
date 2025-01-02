@@ -47,8 +47,11 @@ func (gatewayServer GatewayServer) Start() error {
 		printRoute(dynamicRoutes)
 	}
 	// Watch for changes
-	go gatewayServer.watchExtraConfig(newRouter)
+	if gatewayServer.gateway.ExtraConfig.Watch {
+		logger.Info("Dynamic configuration watch enabled")
+		go gatewayServer.watchExtraConfig(newRouter)
 
+	}
 	httpServer := gatewayServer.createServer(":8080", newRouter, nil)
 	httpsServer := gatewayServer.createServer(":8443", newRouter, tlsConfig)
 
