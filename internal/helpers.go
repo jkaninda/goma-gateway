@@ -43,8 +43,6 @@ func printRoute(routes []Route) {
 		}
 	}
 	fmt.Println(t.Render())
-	// print text and limit to 15 characters
-	fmt.Println("Total routes: ", len(routes))
 }
 
 // getRealIP extracts the real IP address of the client from the HTTP request.
