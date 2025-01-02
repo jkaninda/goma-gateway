@@ -1,5 +1,3 @@
-package internal
-
 /*
 Copyright 2024 Jonas Kaninda
 
@@ -15,6 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+package internal
+
 import (
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
@@ -23,7 +24,7 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
 	"sort"
 	"strings"
 )
@@ -36,7 +37,7 @@ func init() {
 }
 
 // Initialize initializes the routes
-func (gatewayServer GatewayServer) Initialize() *mux.Router {
+func (gatewayServer GatewayServer) Initialize() http.Handler {
 	gateway := gatewayServer.gateway
 	handleGatewayDeprecations(&gateway)
 	dynamicRoutes = gateway.Routes
@@ -74,117 +75,18 @@ func (gatewayServer GatewayServer) Initialize() *mux.Router {
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
 
-	r := mux.NewRouter()
-	heath := HealthCheckRoute{
-		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,
-		Routes:                       dynamicRoutes,
-	}
-	if gateway.EnableMetrics {
-		// Prometheus endpoint
-		r.Path("/metrics").Handler(promhttp.Handler())
-	}
-	// Routes health check
-	if !gateway.DisableHealthCheckStatus {
-		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET") // Deprecated
-		r.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
-	}
+	// Create router
+	newRouter := gateway.NewRouter()
 
-	// Health check
-	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET") // Deprecated
-	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
-	r.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
-	// Enable common exploits
-	if gateway.BlockCommonExploits {
-		logger.Info("Block common exploits enabled")
-		r.Use(middlewares.BlockExploitsMiddleware)
-	}
-	// check if RateLimit is set
-	if gateway.RateLimit > 0 {
-		// Add rate limit middlewares to all routes, if defined
-		rateLimit := middlewares.RateLimit{
-			Id:         "global_rate",
-			Unit:       "minute",
-			Requests:   gateway.RateLimit,
-			Origins:    gateway.Cors.Origins,
-			Hosts:      []string{},
-			RedisBased: redisBased,
-		}
-		limiter := rateLimit.NewRateLimiterWindow()
-		// Add rate limit middlewares
-		r.Use(limiter.RateLimitMiddleware())
-	}
-	// Handle routes
+	// Add routes to the router
 	for _, route := range dynamicRoutes {
-		handleRoute(route, gateway, r)
+		newRouter.AddRoute(route)
 	}
-
-	return r
-
-}
-
-// handleRoute handles the configuration and middleware attachment for a single route
-func handleRoute(route Route, gateway Gateway, r *mux.Router) {
-	// create route
-	router := r.PathPrefix(route.Path).Subrouter()
-	if len(route.Path) > 0 {
-		if route.DisableHostForwarding {
-			logger.Info("Route %s: host forwarding disabled ", route.Name)
-		}
-		proxyRoute := ProxyRoute{
-			path:                  route.Path,
-			rewrite:               route.Rewrite,
-			destination:           route.Destination,
-			backends:              route.Backends,
-			methods:               route.Methods,
-			disableHostForwarding: route.DisableHostForwarding,
-			cors:                  route.Cors,
-			insecureSkipVerify:    route.InsecureSkipVerify,
-		}
-		attachMiddlewares(route, gateway, router)
-		// Apply route Cors
-		router.Use(CORSHandler(route.Cors))
-		if gateway.EnableMetrics {
-			pr := metrics.PrometheusRoute{
-				Name: route.Name,
-				Path: route.Path,
-			}
-			// Prometheus endpoint
-			router.Use(pr.PrometheusMiddleware)
-		}
-
-		// Apply Proxy Handler
-		// Custom error handler for proxy errors
-		proxyHandler := ProxyHandlerErrorInterceptor{
-			Enabled:     route.ErrorInterceptor.Enabled,
-			ContentType: route.ErrorInterceptor.ContentType,
-			Errors:      route.ErrorInterceptor.Errors,
-			Origins:     route.Cors.Origins,
-		}
-		router.Use(proxyHandler.proxyHandler)
-
-		// Enable route bot detection
-		if route.EnableBotDetection {
-			logger.Info("Route %s: Bot detection enabled", route.Name)
-			bot := middlewares.BotDetection{}
-			router.Use(bot.BotDetectionMiddleware)
-		}
-		if len(route.Hosts) != 0 {
-			for _, host := range route.Hosts {
-				router.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
-			}
-		} else {
-			router.PathPrefix("").Handler(proxyRoute.ProxyHandler())
-		}
-	} else {
-		logger.Error("Error, path is empty in route %s", route.Name)
-		logger.Error("Route path ignored: %s", route.Path)
-	}
-	// Apply global Cors middlewares
-	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
+	return newRouter.Mux()
 }
 
 // attachMiddlewares attaches middlewares to the route
-func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
+func attachMiddlewares(route Route, router *mux.Router) {
 	if route.BlockCommonExploits {
 		logger.Info("Block common exploits enabled")
 		router.Use(middlewares.BlockExploitsMiddleware)
@@ -204,7 +106,7 @@ func attachMiddlewares(route Route, gateway Gateway, router *mux.Router) {
 		}
 
 		// Apply middlewares by type
-		applyMiddlewareByType(mid, route, gateway, router)
+		applyMiddlewareByType(mid, route, router)
 	}
 }
 
@@ -225,7 +127,7 @@ func applyRateLimit(route Route, router *mux.Router) {
 	router.Use(limiter.RateLimitMiddleware())
 }
 
-func applyMiddlewareByType(mid Middleware, route Route, gateway Gateway, router *mux.Router) {
+func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 	switch mid.Type {
 	case AccessMiddleware:
 		applyAccessMiddleware(mid, route, router)
@@ -240,7 +142,7 @@ func applyMiddlewareByType(mid Middleware, route Route, gateway Gateway, router 
 
 	}
 	// Attach Auth middlewares
-	attachAuthMiddlewares(route, mid, gateway, router)
+	attachAuthMiddlewares(route, mid, router)
 }
 
 func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
@@ -324,7 +226,7 @@ func applyRedirectRegexMiddleware(mid Middleware, router *mux.Router) {
 	router.Use(add.RedirectRegexMiddleware)
 }
 
-func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gateway, r *mux.Router) {
+func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Router) {
 	// Check Authentication middleware types
 	switch routeMiddleware.Type {
 	case BasicAuth:
@@ -432,7 +334,7 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, gateway Gate
 				UserInfoURL: oauth.Endpoint.UserInfoURL,
 			},
 			State:     oauth.State,
-			Origins:   gateway.Cors.Origins,
+			Origins:   route.Cors.Origins,
 			JWTSecret: oauth.JWTSecret,
 			Provider:  oauth.Provider,
 		}
