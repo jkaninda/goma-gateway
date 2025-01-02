@@ -22,6 +22,7 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 )
 
+// watchExtraConfig watches the extra configuration directory for changes
 func (gatewayServer GatewayServer) watchExtraConfig(r Router) {
 	// Create a new watcher
 	watcher, err := fsnotify.NewWatcher()
