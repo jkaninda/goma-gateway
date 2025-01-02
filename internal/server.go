@@ -30,7 +30,10 @@ import (
 // Start / Start starts the server
 func (gatewayServer GatewayServer) Start() error {
 	logger.Info("Initializing routes...")
-	gatewayServer.Initialize()
+	err := gatewayServer.Initialize()
+	if err != nil {
+		logger.Fatal("Failed to initialize routes: %v", err)
+	}
 	// Create router
 	newRouter := gatewayServer.gateway.NewRouter()
 	newRouter.AddRoutes(newRouter)

@@ -36,7 +36,7 @@ func init() {
 }
 
 // Initialize initializes the routes
-func (gatewayServer GatewayServer) Initialize() {
+func (gatewayServer GatewayServer) Initialize() error {
 	gateway := gatewayServer.gateway
 	handleGatewayDeprecations(&gateway)
 	dynamicRoutes = gateway.Routes
@@ -58,7 +58,7 @@ func (gatewayServer GatewayServer) Initialize() {
 	// Check configs
 	err = checkConfig(dynamicRoutes, dynamicMiddlewares)
 	if err != nil {
-		logger.Fatal("Error: %v", err)
+		return err
 	}
 	if len(gateway.Redis.Addr) != 0 {
 		redisBased = true
@@ -72,6 +72,7 @@ func (gatewayServer GatewayServer) Initialize() {
 
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
+	return nil
 }
 
 // attachMiddlewares attaches middlewares to the route

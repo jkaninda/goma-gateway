@@ -51,14 +51,19 @@ func (gatewayServer GatewayServer) watchExtraConfig(r Router) {
 				if !ok {
 					return
 				}
-				// Check if the event is a write event
+				// Check if the event is a writing event
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					logger.Info("Modified file: %s", event.Name)
 					// Update configuration
 					logger.Info("Reloading configuration...")
-					gatewayServer.Initialize()
-					// Update the routes
-					r.UpdateHandler(gatewayServer.gateway)
+					err = gatewayServer.Initialize()
+					if err != nil {
+						logger.Error("Failed to reload configuration: %v", err)
+					} else {
+						// Update the routes
+						r.UpdateHandler(gatewayServer.gateway)
+					}
+
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
