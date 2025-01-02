@@ -41,122 +41,131 @@ type router struct {
 	sync.RWMutex
 }
 
+// NewRouter creates a new router instance.
+func (gateway Gateway) NewRouter() Router {
+	rt := &router{
+		mux:           mux.NewRouter().StrictSlash(gateway.EnableStrictSlash),
+		enableMetrics: gateway.EnableMetrics,
+	}
+	gateway.addGlobalHandler(rt.mux)
+	return rt
+}
+
+// AddRoutes adds multiple routes from another router.
 func (r *router) AddRoutes(rt Router) {
-	// Add routes to the router
 	for _, route := range dynamicRoutes {
 		rt.AddRoute(route)
 	}
 }
 
+// ServeHTTP handles incoming HTTP requests.
 func (r *router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	r.RLock()
 	defer r.RUnlock()
 	r.mux.ServeHTTP(writer, request)
 }
 
+// UpdateHandler updates the router's handler based on the gateway configuration.
 func (r *router) UpdateHandler(gateway Gateway) {
-	// Create new router
 	r.mux = mux.NewRouter().StrictSlash(gateway.EnableStrictSlash)
-	// Add global handler, metrics and health check
 	gateway.addGlobalHandler(r.mux)
-	// Add routes
 	r.AddRoutes(r)
+	logger.Info("Configuration reloaded")
 }
 
-// AddRoute adds a route to the router
+// AddRoute adds a single route to the router.
 func (r *router) AddRoute(route Route) {
 	r.Lock()
 	defer r.Unlock()
-	// create route Router
-	rRouter := r.mux.PathPrefix(route.Path).Subrouter()
-	if len(route.Path) > 0 {
-		if route.DisableHostForwarding {
-			logger.Info("Route %s: host forwarding disabled ", route.Name)
-		}
-		proxyRoute := ProxyRoute{
-			path:                  route.Path,
-			rewrite:               route.Rewrite,
-			destination:           route.Destination,
-			backends:              route.Backends,
-			methods:               route.Methods,
-			disableHostForwarding: route.DisableHostForwarding,
-			cors:                  route.Cors,
-			insecureSkipVerify:    route.InsecureSkipVerify,
-		}
-		attachMiddlewares(route, rRouter)
 
-		// Apply route Cors
-		rRouter.Use(CORSHandler(route.Cors))
-		if r.enableMetrics {
-			pr := metrics.PrometheusRoute{
-				Name: route.Name,
-				Path: route.Path,
-			}
-			// Prometheus endpoint
-			rRouter.Use(pr.PrometheusMiddleware)
-		}
-
-		// Apply Proxy Handler
-		// Custom error handler for proxy errors
-		proxyHandler := ProxyHandlerErrorInterceptor{
-			Enabled:     route.ErrorInterceptor.Enabled,
-			ContentType: route.ErrorInterceptor.ContentType,
-			Errors:      route.ErrorInterceptor.Errors,
-			Origins:     route.Cors.Origins,
-		}
-		rRouter.Use(proxyHandler.proxyHandler)
-
-		// Enable route bot detection
-		if route.EnableBotDetection {
-			logger.Info("Route %s: Bot detection enabled", route.Name)
-			bot := middlewares.BotDetection{}
-			rRouter.Use(bot.BotDetectionMiddleware)
-		}
-		if len(route.Hosts) != 0 {
-			for _, host := range route.Hosts {
-				rRouter.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
-			}
-		} else {
-			rRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())
-		}
-	} else {
+	if len(route.Path) == 0 {
 		logger.Error("Error, path is empty in route %s", route.Name)
 		logger.Error("Route path ignored: %s", route.Path)
+		return
+	}
+
+	rRouter := r.mux.PathPrefix(route.Path).Subrouter()
+	if route.DisableHostForwarding {
+		logger.Info("Route %s: host forwarding disabled", route.Name)
+	}
+
+	proxyRoute := ProxyRoute{
+		path:                  route.Path,
+		rewrite:               route.Rewrite,
+		destination:           route.Destination,
+		backends:              route.Backends,
+		methods:               route.Methods,
+		disableHostForwarding: route.DisableHostForwarding,
+		cors:                  route.Cors,
+		insecureSkipVerify:    route.InsecureSkipVerify,
+	}
+
+	attachMiddlewares(route, rRouter)
+	rRouter.Use(CORSHandler(route.Cors))
+
+	if r.enableMetrics {
+		pr := metrics.PrometheusRoute{
+			Name: route.Name,
+			Path: route.Path,
+		}
+		rRouter.Use(pr.PrometheusMiddleware)
+	}
+
+	proxyHandler := ProxyHandlerErrorInterceptor{
+		Enabled:     route.ErrorInterceptor.Enabled,
+		ContentType: route.ErrorInterceptor.ContentType,
+		Errors:      route.ErrorInterceptor.Errors,
+		Origins:     route.Cors.Origins,
+	}
+	rRouter.Use(proxyHandler.proxyHandler)
+
+	if route.EnableBotDetection {
+		logger.Info("Route %s: Bot detection enabled", route.Name)
+		bot := middlewares.BotDetection{}
+		rRouter.Use(bot.BotDetectionMiddleware)
+	}
+
+	if len(route.Hosts) != 0 {
+		for _, host := range route.Hosts {
+			rRouter.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
+		}
+	} else {
+		rRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())
 	}
 }
 
-// Mux returns the router mux
+// Mux returns the underlying mux router.
 func (r *router) Mux() http.Handler {
 	return r.mux
 }
+
+// addGlobalHandler configures global handlers and middlewares for the router.
 func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
-	r := mux
 	heath := HealthCheckRoute{
 		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,
 		Routes:                       dynamicRoutes,
 	}
+
 	if gateway.EnableMetrics {
 		logger.Info("Metrics enabled")
-		// Prometheus endpoint
-		r.Path("/metrics").Handler(promhttp.Handler())
+		mux.Path("/metrics").Handler(promhttp.Handler())
 	}
-	// Routes health check
+
 	if !gateway.DisableHealthCheckStatus {
-		r.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET") // Deprecated
-		r.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
+		mux.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET") // Deprecated
+		mux.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
 	}
-	// Health check
-	r.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET") // Deprecated
-	r.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
-	r.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
-	// Enable common exploits
+
+	mux.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET") // Deprecated
+	mux.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
+	mux.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
+
 	if gateway.BlockCommonExploits {
 		logger.Info("Block common exploits enabled")
-		r.Use(middlewares.BlockExploitsMiddleware)
+		mux.Use(middlewares.BlockExploitsMiddleware)
 	}
-	// check if RateLimit is set
+
 	if gateway.RateLimit > 0 {
-		// Add rate limit middlewares to all routes, if defined
 		rLimit := middlewares.RateLimit{
 			Id:         "global_rate",
 			Unit:       "minute",
@@ -166,20 +175,8 @@ func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
 			RedisBased: redisBased,
 		}
 		limiter := rLimit.NewRateLimiterWindow()
-		// Add rate limit middlewares
-		r.Use(limiter.RateLimitMiddleware())
+		mux.Use(limiter.RateLimitMiddleware())
 	}
 
-	// Apply global Cors middlewares
-	r.Use(CORSHandler(gateway.Cors)) // Apply CORS middlewares
-}
-
-// NewRouter creates a new router
-func (gateway Gateway) NewRouter() Router {
-	rt := &router{
-		mux:           mux.NewRouter().StrictSlash(gateway.EnableStrictSlash),
-		enableMetrics: gateway.EnableMetrics,
-	}
-	gateway.addGlobalHandler(rt.mux)
-	return rt
+	mux.Use(CORSHandler(gateway.Cors))
 }

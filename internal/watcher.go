@@ -29,7 +29,12 @@ func (gatewayServer GatewayServer) watchExtraConfig(r Router) {
 		logger.Error("Failed to create watcher: %v", err)
 		return
 	}
-	defer watcher.Close()
+	defer func(watcher *fsnotify.Watcher) {
+		err = watcher.Close()
+		if err != nil {
+			logger.Fatal("Failed to close watcher: %v", err)
+		}
+	}(watcher)
 	// Specify the directory to watch
 	directory := gatewayServer.gateway.ExtraConfig.Directory
 	// Add the directory to the watcher

@@ -3,7 +3,7 @@ package internal
 import (
 	"context"
 	"log"
-	"net/http/httptest"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -59,16 +59,7 @@ func TestStart(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	route := gatewayServer.Initialize()
-	assertResponseBody := func(t *testing.T, s *httptest.Server) {
-		resp, err := s.Client().Get(s.URL + "/readyz")
-		if err != nil {
-			t.Fatalf("unexpected error getting from server: %v", err)
-		}
-		if resp.StatusCode != 200 {
-			t.Fatalf("expected a status code of 200, got %v", resp.StatusCode)
-		}
-	}
+	gatewayServer.Initialize()
 	go func() {
 		err = gatewayServer.Start()
 		if err != nil {
@@ -77,10 +68,29 @@ func TestStart(t *testing.T) {
 		}
 	}()
 
-	t.Run("httpServer", func(t *testing.T) {
-		s := httptest.NewServer(route)
-		defer s.Close()
-		assertResponseBody(t, s)
-	})
+	// Test health check
+
+	resp, err := makeRequest("http://localhost:8080/readyz")
+	if err != nil {
+		t.Fatalf("Error making request: %s", err.Error())
+	}
+	assertResponse(t, resp, http.StatusOK)
+
 	ctx.Done()
+}
+
+func assertResponse(t *testing.T, resp *http.Response, status int) {
+	// assert response
+	if resp.StatusCode != status {
+		t.Fatalf("expected status code %d, got %d", status, resp.StatusCode)
+	}
+	log.Println("Response status code:", resp.StatusCode)
+}
+
+func makeRequest(url string) (*http.Response, error) {
+	response, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }
