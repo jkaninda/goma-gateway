@@ -41,10 +41,10 @@ func (auth ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 					redirectURL := auth.AuthSignIn
 					// Check if the redirect URL already has query parameters
 					if strings.Contains(redirectURL, "?") {
-						// Step 1: Get the current URL
+						// Get the current URL
 						currentURL := fmt.Sprintf("%s://%s%s", scheme(r), r.Host, r.URL.RequestURI())
 
-						// Step 2: Encode the current URL as a query parameter (ref)
+						// Encode the current URL as a query parameter
 						encodedRef := url.QueryEscape(currentURL)
 						redirectURL = fmt.Sprintf("%s%s", redirectURL, encodedRef)
 					}
