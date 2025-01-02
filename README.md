@@ -105,6 +105,10 @@ It's designed to be straightforward and efficient, offering a rich set of featur
 - **HTTP Method Restrictions**  
   Limit HTTP methods for specific routes to enhance control.
 
+- **Configure using K8s Custom Resource Definitions (CRD)**
+    - Kubernetes operator-focused CRDs (gateway, route, and middleware configuration)
+    - Define your gateways, routes, and middleware directly in code for seamless configuration.
+
 Declarative API Gateway Management, define your routes and middleware directly in code for seamless configuration.
 
 
