@@ -197,6 +197,10 @@ func initConfig(configFile string) error {
 			WriteTimeout: 15,
 			ReadTimeout:  15,
 			IdleTimeout:  30,
+			ExtraConfig: ExtraRouteConfig{
+				Directory: ExtraDir,
+				Watch:     false,
+			},
 			Routes: []Route{
 				{
 					Name:        "Example",
