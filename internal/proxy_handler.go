@@ -74,7 +74,7 @@ func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Hand
 		rec.Header().Set("Proxied-By", gatewayName)
 		// No interception logic needed
 		if !errorInterceptor.Enabled || len(errorInterceptor.Errors) == 0 {
-			logger.Info("completed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), r.UserAgent())
+			logger.Info("completed %s %s for %s %d %s host: %s %s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), r.Host, r.UserAgent())
 			// Set the recorded status code
 			w.WriteHeader(rec.statusCode)
 			_, _ = io.Copy(w, rec.body)
@@ -83,7 +83,7 @@ func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Hand
 
 		// Check if the response should be intercepted
 		if ok, message := middlewares.CanIntercept(rec.statusCode, errorInterceptor.Errors); ok {
-			logger.Error("failed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), r.UserAgent())
+			logger.Error("failed %s %s for %s %d %s host: %s %s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), r.Host, r.UserAgent())
 			middlewares.RespondWithError(w, r, rec.statusCode, message, errorInterceptor.Origins, contentType)
 			return
 		}

@@ -30,8 +30,14 @@ type BasicRuleMiddleware struct {
 	Password string   `yaml:"password,omitempty"` // Deprecated, use Users
 }
 type ForwardAuthRuleMiddleware struct {
-	URL                 string            `yaml:"url"`
-	AuthResponseHeaders map[string]string `yaml:"authResponseHeaders"`
+	AuthURL                     string   `yaml:"authUrl"`
+	AuthSignIn                  string   `yaml:"authSignIn,omitempty"`
+	EnableHostForwarding        bool     `yaml:"enableHostForwarding,omitempty"`
+	SkipInsecureVerify          bool     `yaml:"skipInsecureVerify,omitempty"`
+	AuthRequestHeaders          []string `yaml:"authRequestHeaders,omitempty"`
+	AddAuthCookiesToResponse    []string `yaml:"addAuthCookiesToResponse,omitempty"`
+	AuthResponseHeaders         []string `yaml:"authResponseHeaders,omitempty"`
+	AuthResponseHeadersAsParams []string `yaml:"authResponseHeadersAsParams,omitempty"`
 }
 type AddPrefixRuleMiddleware struct {
 	Prefix string `yaml:"prefix"`
