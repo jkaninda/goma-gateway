@@ -43,7 +43,7 @@ func (gatewayServer GatewayServer) Start() error {
 		printRoute(dynamicRoutes)
 	}
 	// Watch for changes
-	gatewayServer.watchExtraConfig()
+	go gatewayServer.watchExtraConfig()
 
 	httpServer := gatewayServer.createServer(":8080", dynamicHandler, nil)
 	httpsServer := gatewayServer.createServer(":8443", dynamicHandler, tlsConfig)

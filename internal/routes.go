@@ -36,7 +36,7 @@ func init() {
 }
 
 // Initialize initializes the routes
-func (gatewayServer GatewayServer) Initialize() *DynamicHandler {
+func (gatewayServer GatewayServer) Initialize() Router {
 	gateway := gatewayServer.gateway
 	handleGatewayDeprecations(&gateway)
 	dynamicRoutes = gateway.Routes
@@ -82,7 +82,7 @@ func (gatewayServer GatewayServer) Initialize() *DynamicHandler {
 		newRouter.AddRoute(route)
 	}
 	// Create a DynamicHandler with the initial handler
-	return NewDynamicHandler(newRouter.Mux())
+	return newRouter
 }
 
 // attachMiddlewares attaches middlewares to the route

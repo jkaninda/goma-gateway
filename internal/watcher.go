@@ -53,7 +53,7 @@ func (gatewayServer GatewayServer) watchExtraConfig() {
 					logger.Info("Reloading configuration...")
 					handler := gatewayServer.Initialize()
 					// Update the routes
-					handler.UpdateHandler(handler.handler)
+					handler.UpdateHandler(handler)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {

@@ -30,39 +30,26 @@ import (
 type Router interface {
 	AddRoute(route Route)
 	Mux() http.Handler
-}
-
-type DynamicHandler struct {
-	mu      sync.RWMutex
-	handler http.Handler
-}
-
-// NewDynamicHandler initializes a new DynamicHandler with an initial http.Handler.
-func NewDynamicHandler(initialHandler http.Handler) *DynamicHandler {
-	return &DynamicHandler{
-		handler: initialHandler,
-	}
-}
-
-// ServeHTTP implements the http.Handler interface.
-func (dh *DynamicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	dh.mu.RLock()
-	defer dh.mu.RUnlock()
-	dh.handler.ServeHTTP(w, r)
-}
-
-// UpdateHandler safely updates the current http.Handler.
-func (dh *DynamicHandler) UpdateHandler(newHandler http.Handler) {
-	logger.Info("Updating handler")
-	dh.mu.Lock()
-	defer dh.mu.Unlock()
-	dh.handler = newHandler
+	UpdateHandler(http.Handler)
+	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 
 type router struct {
 	mux           *mux.Router
 	enableMetrics bool
-	sync.Mutex
+	sync.RWMutex
+}
+
+func (r *router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	r.RLock()
+	defer r.RUnlock()
+	r.mux.ServeHTTP(writer, request)
+}
+
+func (r *router) UpdateHandler(handler http.Handler) {
+	r.Lock()
+	defer r.Unlock()
+	r.mux = handler.(*mux.Router)
 }
 
 // AddRoute adds a route to the router
