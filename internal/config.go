@@ -199,7 +199,7 @@ func initConfig(configFile string) error {
 			IdleTimeout:  30,
 			ExtraConfig: ExtraRouteConfig{
 				Directory: ExtraDir,
-				Watch:     true,
+				Watch:     false,
 			},
 			Routes: []Route{
 				{
