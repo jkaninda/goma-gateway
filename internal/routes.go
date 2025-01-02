@@ -24,7 +24,6 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus"
-	"net/http"
 	"sort"
 	"strings"
 )
@@ -37,13 +36,12 @@ func init() {
 }
 
 // Initialize initializes the routes
-func (gatewayServer GatewayServer) Initialize() http.Handler {
+func (gatewayServer GatewayServer) Initialize() error {
 	gateway := gatewayServer.gateway
 	handleGatewayDeprecations(&gateway)
 	dynamicRoutes = gateway.Routes
 	dynamicMiddlewares = gatewayServer.middlewares
 	// Load Extra Middlewares
-	logger.Info("Loading additional configurations...")
 	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
 	if err == nil {
 		dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
@@ -60,7 +58,7 @@ func (gatewayServer GatewayServer) Initialize() http.Handler {
 	// Check configs
 	err = checkConfig(dynamicRoutes, dynamicMiddlewares)
 	if err != nil {
-		logger.Fatal("Error: %v", err)
+		return err
 	}
 	if len(gateway.Redis.Addr) != 0 {
 		redisBased = true
@@ -74,15 +72,7 @@ func (gatewayServer GatewayServer) Initialize() http.Handler {
 
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes)
-
-	// Create router
-	newRouter := gateway.NewRouter()
-
-	// Add routes to the router
-	for _, route := range dynamicRoutes {
-		newRouter.AddRoute(route)
-	}
-	return newRouter.Mux()
+	return nil
 }
 
 // attachMiddlewares attaches middlewares to the route

@@ -25,6 +25,8 @@ type Route struct {
 	Path string `yaml:"path" json:"path"`
 	// Name provides a descriptive name for the route.
 	Name string `yaml:"name" json:"name"`
+	// Disabled specifies whether the route is disabled.
+	Disabled bool `yaml:"disabled" json:"disabled"`
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts" json:"hosts"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.

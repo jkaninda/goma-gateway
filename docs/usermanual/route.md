@@ -19,6 +19,7 @@ This section outlines the available configuration options for defining routes in
 
 - **`path`** (`string`): The route path (e.g., `/api/v1/resource`).
 - **`name`** (`string`): A unique name for the route.
+- **`disabled`** (`boolean`): Disables the route, the route will not be proxied.
 - **`hosts`** (`list of strings`): A list of allowed hostnames for the route.
 - **`rewrite`** (`string`): Updates the incoming route path to a specified new path.
    - For more advanced use cases involving pattern matching or regular expressions, consider using the `redirectRegex` middleware instead.

@@ -73,6 +73,10 @@ It's designed to be straightforward and efficient, offering a rich set of featur
 - **Support for Multiple Route Configuration Files**  
   Organize routes across multiple `.yml` or `.yaml` files.
 
+- **Support dynamic configuration reload**
+  - Reload configuration without restarting the server.
+  - Enable or disable routes dynamically, with zero downtime.
+
 - **TLS Support**  
   Ensure secure communication with TLS integration.
 

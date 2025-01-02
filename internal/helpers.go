@@ -32,13 +32,13 @@ import (
 // printRoute prints routes
 func printRoute(routes []Route) {
 	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Name", "Path", "Rewrite", "Destination"})
+	t.AppendHeader(table.Row{"Name", "Disabled", "Path", "Rewrite", "Destination"})
 	for _, route := range routes {
 		if len(route.Backends) != 0 {
-			t.AppendRow(table.Row{route.Name, route.Path, route.Rewrite, fmt.Sprintf("backends: [%d]", len(route.Backends))})
+			t.AppendRow(table.Row{route.Name, route.Disabled, route.Path, route.Rewrite, fmt.Sprintf("backends: [%d]", len(route.Backends))})
 
 		} else {
-			t.AppendRow(table.Row{route.Name, route.Path, route.Rewrite, route.Destination})
+			t.AppendRow(table.Row{route.Name, route.Disabled, route.Path, route.Rewrite, route.Destination})
 		}
 	}
 	fmt.Println(t.Render())
