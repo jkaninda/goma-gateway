@@ -117,6 +117,7 @@ func authCopyHeadersAndCookies(f ForwardAuth, src *http.Request, dest *http.Requ
 	dest.Header.Set("X-Forwarded-Host", src.Host)
 	dest.Header.Set("X-Forwarded-For", getRealIP(src))
 	dest.Header.Set("X-Real-IP", getRealIP(src))
+	dest.Header.Set("User-Agent", src.UserAgent())
 	dest.Header.Set("X-Original-URL", fmt.Sprintf("%s://%s%s", scheme(src), src.Host, src.URL.RequestURI()))
 	// Forward the host from the source request to the destination request
 	if f.EnableHostForwarding {
