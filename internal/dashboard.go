@@ -57,6 +57,7 @@ type Overview struct {
 	CpuInfo         []sysinfo.CPUInfo `json:"cpuInfo"`
 	Uptime          string            `json:"uptime"`
 	SysUptime       string            `json:"sysUptime"`
+	Version         string            `json:"version"`
 }
 
 type MemInfo struct {
@@ -130,6 +131,7 @@ func overviewHandler(w http.ResponseWriter, r *http.Request) {
 		CpuInfo:   cpus,
 		Uptime:    fmt.Sprintf("%v", appUptime),
 		SysUptime: fmt.Sprintf("%v", uptime),
+		Version:   util.Version,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

@@ -184,3 +184,9 @@ func ConvertBytes(bytes uint64) string {
 		return fmt.Sprintf("%d bytes", bytes)
 	}
 }
+func TruncateText(text string, limit int) string {
+	if len(text) > limit {
+		return text[:limit] + "..."
+	}
+	return text
+}
