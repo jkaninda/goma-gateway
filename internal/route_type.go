@@ -23,17 +23,19 @@ import "github.com/jkaninda/goma-gateway/internal/middlewares"
 type Route struct {
 	// Path specifies the route's path.
 	Path string `yaml:"path"`
-	// Disabled specifies whether the route is disabled.
-	Disabled bool `yaml:"disabled"`
+	// Rewrite rewrites the incoming request path to a desired path.
+	//
+	// For example, `/cart` to `/` rewrites `/cart` to `/`.
 	// Name provides a descriptive name for the route.
 	Name string `yaml:"name"`
+	// Route order priority
+	Priority int `yaml:"priority,omitempty"`
+	// Disabled specifies whether the route is disabled.
+	Disabled bool `yaml:"disabled"`
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
-	Cors Cors `yaml:"cors,omitempty"`
-	// Rewrite rewrites the incoming request path to a desired path.
-	//
-	// For example: `/cart` to `/` rewrites `/cart` to `/`.
+	Cors    Cors   `yaml:"cors,omitempty"`
 	Rewrite string `yaml:"rewrite,omitempty"`
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
 	Methods []string `yaml:"methods"`
