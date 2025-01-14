@@ -70,8 +70,10 @@ func (gatewayServer GatewayServer) Initialize() error {
 	// Update Routes
 	dynamicRoutes = validateRoutes(gateway, dynamicRoutes)
 
-	// Routes background healthcheck
-	routesHealthCheck(dynamicRoutes)
+	if !reloaded {
+		// Routes background healthcheck
+		routesHealthCheck(dynamicRoutes, stopChan)
+	}
 	return nil
 }
 

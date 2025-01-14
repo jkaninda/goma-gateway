@@ -42,9 +42,8 @@ kind: Gateway
 metadata:
    name: gateway-sample
 spec:
-   # Gateway version (use the latest release from the repository)
-   gatewayVersion: latest # https://github.com/jkaninda/goma-gateway/releases
-
+   # Goma Gateway image (default: jkaninda/goma-gateway)
+   imageName: jkaninda/goma-gateway:latest # https://github.com/jkaninda/goma-gateway/releases
    ## Server Configuration
    server:
       tlsSecretName: '' # Optional: Specify a Kubernetes TLS secret name

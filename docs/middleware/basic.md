@@ -32,9 +32,6 @@ middlewares:
         - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
         - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
         - admin:admin # Plaintext password
-      # username: admin # Deprecated
-      # password: admin # Deprecated
-
 ```
 ### Explanation:
 
@@ -74,8 +71,11 @@ spec:
       - /admin # Blocks only /admin
       - /admin/*  # Explicitly blocks /admin and all subpaths
     rule:
-      username: admin
-      password: admin
+      realm: your-realm # Optional
+      users:
+        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
+        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
+        - admin:admin # Plaintext password
 ```
 
 By following these guidelines, you can effectively use basic-auth middleware to protect your application routes.
