@@ -100,8 +100,11 @@ func (health Health) createHealthCheckJob() error {
 		logger.Info("Route health check ignored")
 		return fmt.Errorf("health check interval is invalid: %s", interval)
 	}
+
 	// Create a new cron instance
 	c := cron.New()
+
+	// Add the health check function to the cron scheduler
 	_, err := c.AddFunc(expression, func() {
 		err := health.Check()
 		if err != nil {
@@ -113,8 +116,11 @@ func (health Health) createHealthCheckJob() error {
 	if err != nil {
 		return err
 	}
+
 	// Start the cron scheduler
 	c.Start()
+
+	// Ensure the cron scheduler is stopped when the function exits
 	defer c.Stop()
 	select {}
 }
@@ -123,7 +129,7 @@ func (health Health) createHealthCheckJob() error {
 func healthCheckRoutes(routes []Route) []Health {
 	var healthRoutes []Health
 	for _, route := range routes {
-		if len(route.HealthCheck.Path) != 0 {
+		if len(route.HealthCheck.Path) != 0 && !route.Disabled {
 			timeout, _ := util.ParseDuration("")
 			if len(route.HealthCheck.Timeout) > 0 {
 				d1, err1 := util.ParseDuration(route.HealthCheck.Timeout)
