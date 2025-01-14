@@ -28,4 +28,5 @@ var (
 	dynamicMiddlewares []Middleware
 	redisBased         = false
 	stopChan           = make(chan struct{})
+	reloaded           = false
 )

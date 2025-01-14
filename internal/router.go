@@ -57,9 +57,13 @@ func (r *router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 // UpdateHandler updates the router's handler based on the gateway configuration.
 func (r *router) UpdateHandler(gateway Gateway) {
 	close(stopChan)
+	reloaded = true
 	r.mux = mux.NewRouter().StrictSlash(gateway.EnableStrictSlash)
 	gateway.addGlobalHandler(r.mux)
 	r.AddRoutes(r)
+	stopChan = make(chan struct{})
+	// Routes background healthcheck
+	routesHealthCheck(dynamicRoutes, stopChan)
 	logger.Info("Configuration reloaded")
 }
 

@@ -1,5 +1,3 @@
-package internal
-
 /*
 Copyright 2024 Jonas Kaninda
 
@@ -15,6 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+package internal
+
 import (
 	"crypto/tls"
 	"fmt"
@@ -27,47 +28,78 @@ import (
 	"slices"
 )
 
+// Check checks route heath check
 func (health Health) Check() error {
+	// Parse the health check URL
 	healthCheckURL, err := url.Parse(health.URL)
 	if err != nil {
-		return fmt.Errorf("error parsing HealthCheck URL: %v ", err)
+		return fmt.Errorf("error parsing HealthCheck URL: %v", err)
 	}
-	// Create a new request for the route
-	healthReq, err := http.NewRequest("GET", healthCheckURL.String(), nil)
+
+	// Create the HTTP request
+	healthReq, err := health.createHealthCheckRequest(healthCheckURL)
 	if err != nil {
-		return fmt.Errorf("error route %s: creating HealthCheck request: %v ", health.Name, err)
+		return fmt.Errorf("error creating HealthCheck request for route %s: %v", health.Name, err)
 	}
-	// Create custom transport with TLS configuration
+
+	// Create the HTTP client with custom transport
+	client := health.createHTTPClient()
+
+	// Perform the HTTP request
+	healthResp, err := client.Do(healthReq)
+	if err != nil {
+		logger.Debug("Error performing HealthCheck request for route %s: %v", health.Name, err)
+		return fmt.Errorf("error performing HealthCheck request: %v", err)
+	}
+	defer health.closeResponseBody(healthResp.Body)
+
+	// Validate the response status code
+	if err := health.validateStatusCode(healthResp.StatusCode); err != nil {
+		logger.Debug("Health check failed for route %s: %v", health.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+// createHealthCheckRequest creates an HTTP request for the health check
+func (health Health) createHealthCheckRequest(healthCheckURL *url.URL) (*http.Request, error) {
+	req, err := http.NewRequest("GET", healthCheckURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", fmt.Sprintf("goma-gateway/%s", util.Version))
+	return req, nil
+}
+
+// createHTTPClient creates an HTTP client with custom transport and timeout
+func (health Health) createHTTPClient() *http.Client {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: health.InsecureSkipVerify, // Skip SSL certificate verification
 		},
 	}
-	// Set user-agent
-	healthReq.Header.Set("User-Agent", fmt.Sprintf("goma-gateway/%s", util.Version))
-	// Perform the request to the route's healthcheck
-	client := &http.Client{Transport: transport, Timeout: health.TimeOut}
-	healthResp, err := client.Do(healthReq)
-	if err != nil {
-		logger.Debug("Error route %s: performing HealthCheck request: %v ", health.Name, err)
-		return fmt.Errorf("error  performing HealthCheck request: %v ", err)
+	return &http.Client{
+		Transport: transport,
+		Timeout:   health.TimeOut,
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			logger.Debug("Error performing HealthCheck request: %v ", err)
-		}
-	}(healthResp.Body)
+}
+
+// closeResponseBody closes the response body and logs any errors
+func (health Health) closeResponseBody(body io.ReadCloser) {
+	if err := body.Close(); err != nil {
+		logger.Debug("Error closing HealthCheck response body: %v", err)
+	}
+}
+
+// validateStatusCode checks if the response status code is healthy
+func (health Health) validateStatusCode(statusCode int) error {
 	if len(health.HealthyStatuses) > 0 {
-		if !slices.Contains(health.HealthyStatuses, healthResp.StatusCode) {
-			logger.Debug("Error: Route %s: health check failed with status code %d", health.Name, healthResp.StatusCode)
-			return fmt.Errorf("health check failed with status code %d", healthResp.StatusCode)
+		if !slices.Contains(health.HealthyStatuses, statusCode) {
+			return fmt.Errorf("health check failed with status code %d", statusCode)
 		}
-	} else {
-		if healthResp.StatusCode >= 400 {
-			logger.Debug("Error: Route %s: health check failed with status code %d", health.Name, healthResp.StatusCode)
-			return fmt.Errorf("health check failed with status code %d", healthResp.StatusCode)
-		}
+	} else if statusCode >= 400 {
+		return fmt.Errorf("health check failed with status code %d", statusCode)
 	}
 	return nil
 }
@@ -79,7 +111,7 @@ func routesHealthCheck(routes []Route, stopChan chan struct{}) {
 			for {
 				select {
 				case <-stopChan:
-					logger.Info("Stopping health check for route: %s", health.Name)
+					logger.Debug("Stopping health check for route: %s", health.Name)
 					return
 				default:
 					err := health.createHealthCheckJob(stopChan)
@@ -87,8 +119,6 @@ func routesHealthCheck(routes []Route, stopChan chan struct{}) {
 						logger.Error("Error creating healthcheck job: %v ", err)
 						return
 					}
-					// Sleep for a while before running the health check again
-					//time.Sleep(time.Second * 10) // Adjust the duration as needed
 				}
 			}
 		}(health)
@@ -133,11 +163,9 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 	defer c.Stop()
 
 	// Wait for a stop signal on the stopChan
-	select {
-	case <-stopChan:
-		logger.Info("Stopping health check job for route: %s", health.Name)
-		return nil
-	}
+	<-stopChan
+	logger.Debug("Stopping health check job for route: %s", health.Name)
+	return nil
 }
 
 // healthCheckRoutes creates and returns []Health
@@ -159,6 +187,7 @@ func healthCheckRoutes(routes []Route) []Health {
 						Name:               fmt.Sprintf("%s - [%d]", route.Name, index),
 						URL:                backend + route.HealthCheck.Path,
 						TimeOut:            timeout,
+						Interval:           route.HealthCheck.Interval,
 						HealthyStatuses:    route.HealthCheck.HealthyStatuses,
 						InsecureSkipVerify: route.InsecureSkipVerify,
 					}
@@ -170,6 +199,7 @@ func healthCheckRoutes(routes []Route) []Health {
 					Name:               route.Name,
 					URL:                route.Destination + route.HealthCheck.Path,
 					TimeOut:            timeout,
+					Interval:           route.HealthCheck.Interval,
 					HealthyStatuses:    route.HealthCheck.HealthyStatuses,
 					InsecureSkipVerify: route.InsecureSkipVerify,
 				}
