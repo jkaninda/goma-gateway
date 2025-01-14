@@ -73,27 +73,36 @@ func (health Health) Check() error {
 }
 
 // routesHealthCheck creates healthcheck job
-func routesHealthCheck(routes []Route) {
+func routesHealthCheck(routes []Route, stopChan chan struct{}) {
 	for _, health := range healthCheckRoutes(routes) {
-		go func() {
-			err := health.createHealthCheckJob()
-			if err != nil {
-				logger.Error("Error creating healthcheck job: %v ", err)
-				return
+		go func(health Health) {
+			for {
+				select {
+				case <-stopChan:
+					logger.Info("Stopping health check for route: %s", health.Name)
+					return
+				default:
+					err := health.createHealthCheckJob(stopChan)
+					if err != nil {
+						logger.Error("Error creating healthcheck job: %v ", err)
+						return
+					}
+					// Sleep for a while before running the health check again
+					//time.Sleep(time.Second * 10) // Adjust the duration as needed
+				}
 			}
-
-		}()
-
+		}(health)
 	}
 }
 
-// createHealthCheckJob create healthcheck job
-func (health Health) createHealthCheckJob() error {
+// createHealthCheckJob creates a health check job and stops it when a signal is received on stopChan
+func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 	interval := "30s"
 	if len(health.Interval) > 0 {
 		interval = health.Interval
 	}
-	// create cron expression
+
+	// Create cron expression
 	expression := fmt.Sprintf("@every %s", interval)
 	if !util.IsValidCronExpression(expression) {
 		logger.Error("Health check interval is invalid: %s", interval)
@@ -122,7 +131,13 @@ func (health Health) createHealthCheckJob() error {
 
 	// Ensure the cron scheduler is stopped when the function exits
 	defer c.Stop()
-	select {}
+
+	// Wait for a stop signal on the stopChan
+	select {
+	case <-stopChan:
+		logger.Info("Stopping health check job for route: %s", health.Name)
+		return nil
+	}
 }
 
 // healthCheckRoutes creates and returns []Health

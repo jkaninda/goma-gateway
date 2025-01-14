@@ -70,8 +70,10 @@ func (gatewayServer GatewayServer) Initialize() error {
 	// Update Routes
 	dynamicRoutes = validateRoutes(gateway, dynamicRoutes)
 
+	logger.Info("Health check")
+	stopChan = make(chan struct{})
 	// Routes background healthcheck
-	routesHealthCheck(dynamicRoutes)
+	routesHealthCheck(dynamicRoutes, stopChan)
 	return nil
 }
 

@@ -27,4 +27,5 @@ var (
 	dynamicRoutes      []Route
 	dynamicMiddlewares []Middleware
 	redisBased         = false
+	stopChan           = make(chan struct{})
 )
