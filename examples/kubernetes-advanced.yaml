@@ -3,6 +3,7 @@
 ### Requirements
 #- **Custom Resource Definitions (CRDs)** and the **Goma Gateway Operator**.
 #    - Kubernetes Operator: [Goma Operator](https://github.com/jkaninda/goma-operator)
+#    - CRD doc: https://doc.crds.dev/github.com/jkaninda/goma-operator
 
 ---
 
@@ -12,12 +13,16 @@ kind: Middleware
 metadata:
   name: basic-middleware-sample
 spec:
-  type: basic # Type of middleware (e.g., basic, jwt, etc.)
+  type: basic
   paths:
-    - /admin/* # Paths requiring authentication
+    - /admin # Blocks only /admin
+    - /admin/*  # Explicitly blocks /admin and all subpaths
   rule:
-    username: admin # Basic auth username
-    password: admin # Basic auth password
+    realm: your-realm # Optional
+    users:
+      - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
+      - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
+      - admin:admin # Plaintext password
 ---
 ## Gateway
 apiVersion: gomaproj.github.io/v1beta1
@@ -25,9 +30,8 @@ kind: Gateway
 metadata:
   name: gateway-sample
 spec:
-  # Gateway version (use the latest release from the repository)
-  gatewayVersion: latest # https://github.com/jkaninda/goma-gateway/releases
-
+  # Goma Gateway image
+  imageName: jkaninda/goma-gateway:latest # https://github.com/jkaninda/goma-gateway/releases
   ## Server Configuration
   server:
     tlsSecretName: '' # Optional: Specify a Kubernetes TLS secret name
@@ -69,7 +73,7 @@ metadata:
 spec:
   # Name of the associated gateway
   gateway: gateway-sample
-
+  disabled: false                # Disabled specifies whether the route is disabled, the route will not be proxied.
   # Route Configuration
   path: / # URL path for the route
   hosts: [] # Optional: Hostnames/domains for routing
@@ -97,9 +101,6 @@ spec:
   cors:
     origins: [] # Allowed origins
     headers: {} # custom headers
-
-  # Rate Limiting
-  rateLimit: 15 # Maximum requests per second
 
   # Security and Middleware
   disableHostForwarding: true # Disable forwarding of Host headers

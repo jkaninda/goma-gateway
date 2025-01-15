@@ -1,8 +1,6 @@
 package internal
 
-import (
-	"time"
-)
+import "time"
 
 const ConfigDir = "/etc/goma/" // Default configuration file
 const ExtraDir = ConfigDir + "extra"
@@ -21,6 +19,7 @@ const (
 	addPrefix        = "addPrefix"
 	rateLimit        = "rateLimit"
 	redirectRegex    = "redirectRegex"
+	rewriteRegex     = "rewriteRegex"
 	forwardAuth      = "forwardAuth"
 )
 
@@ -31,5 +30,7 @@ var (
 	dynamicRoutes      []Route
 	dynamicMiddlewares []Middleware
 	redisBased         = false
+	stopChan           = make(chan struct{})
+	reloaded           = false
 	startTime          = time.Now()
 )

@@ -12,26 +12,71 @@ nav_order: 3
 A simple example of middleware
 
 ```yaml
-### Middleware Configuration
 apiVersion: gomaproj.github.io/v1beta1
 kind: Middleware
 metadata:
   name: basic-middleware-sample
 spec:
-  type: basic # Type of middleware (e.g., basic, jwt, etc.)
+  type: basic
   paths:
-    - /admin/* # Paths requiring authentication
+    - /admin # Blocks only /admin
+    - /admin/*  # Explicitly blocks /admin and all subpaths
   rule:
-    username: admin # Basic auth username
-    password: admin # Basic auth password
+    realm: your-realm # Optional
+    users:
+      - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
+      - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
+      - admin:admin # Plaintext password
 ```
-### JWT-auth
+---
+### ForwardAuth Middleware
 
 ```yaml
+apiVersion: gomaproj.github.io/v1beta1
+kind: Middleware
+metadata:
+  name: forwardAuth
+spec:
+    type: forwardAuth
+    paths:
+      - /admin # Blocks only /admin
+      - /admin/*  # Explicitly blocks /admin and all subpaths
+    rule:
+      # URL of the backend authentication service
+      authUrl: http://authentication-service:8080/auth/verify
 
+      # Redirect URL when response status is 401
+      authSignIn: http://authentication-service:8080/auth/signin
+
+      # Skip SSL certificate verification
+      skipInsecureVerify: true
+
+      # Forward the original Host header
+      enableHostForwarding: true
+
+      # Headers to include in the authentication request
+      authRequestHeaders:
+        - Authorization
+        - X-Auth-UserId
+
+      # Authentication cookies to include in the response
+      addAuthCookiesToResponse:
+        - X-Auth-UserId
+        - X-Token
+      # Map authentication response headers to request headers
+      authResponseHeaders:
+        - "auth_userId: X-Auth-UserId" # Custom mapping
+        - X-Auth-UserCountryId # Direct mapping
+        - X-Token # Direct mapping
+
+      # Map authentication response headers to request parameters
+      authResponseHeadersAsParams:
+        - "X-Auth-UserId: userId" # Custom mapping
+        - X-Token:token # Custom mapping
+        - X-Auth-UserCountryId # Direct mapping
 ```
-
-### Access
+---
+### Access Middleware
 
 ```yaml
 apiVersion: gomaproj.github.io/v1beta1
@@ -48,7 +93,8 @@ spec:
       - /internal/*
       - /actuator/*
 ```
-## OAuth2
+
+## OAuth Middleware
 
 ```yaml
 apiVersion: gomaproj.github.io/v1beta1
@@ -80,6 +126,7 @@ spec:
       state: randomStateString
       jwtSecret: your-strong-jwt-secret | It's optional
 ```
+---
 ## Rate Limiting
 
 ```yaml
