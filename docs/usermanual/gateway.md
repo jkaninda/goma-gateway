@@ -60,8 +60,8 @@ Define the main routes for the Gateway, enabling routing logic for incoming requ
 ```yaml
 version: 1.0
 gateway:
-  sslCertFile: /etc/goma/cert.pem
-  sslKeyFile: /etc/goma/key.pem
+  tlsCertFile: /etc/goma/cert.pem
+  tlsKeyFile: /etc/goma/key.pem
   writeTimeout: 15
   readTimeout: 15
   idleTimeout: 30
