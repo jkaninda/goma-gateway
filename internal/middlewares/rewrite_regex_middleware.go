@@ -23,13 +23,13 @@ import (
 	"regexp"
 )
 
-type RedirectRegex struct {
+type RewriteRegex struct {
 	Pattern     string
 	Replacement string
 }
 
-// RedirectRegexMiddleware updates the path of a request before forwarding it.
-func (regex *RedirectRegex) RedirectRegexMiddleware(next http.Handler) http.Handler {
+// RewriteRegexMiddleware updates the path of a request before forwarding it.
+func (regex *RewriteRegex) RewriteRegexMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		re := regexp.MustCompile(regex.Pattern)

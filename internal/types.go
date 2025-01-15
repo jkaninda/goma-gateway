@@ -42,7 +42,7 @@ type ForwardAuthRuleMiddleware struct {
 type AddPrefixRuleMiddleware struct {
 	Prefix string `yaml:"prefix"`
 }
-type RedirectRegexRuleMiddleware struct {
+type RewriteRegexRuleMiddleware struct {
 	Pattern     string `yaml:"pattern"`
 	Replacement string `yaml:"replacement"`
 }

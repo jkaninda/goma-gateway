@@ -129,8 +129,8 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 		applyAccessPolicyMiddleware(mid, route, router)
 	case addPrefix:
 		applyAddPrefixMiddleware(mid, router)
-	case redirectRegex:
-		applyRedirectRegexMiddleware(mid, router)
+	case redirectRegex, rewriteRegex:
+		applyRewriteRegexMiddleware(mid, router)
 
 	}
 	// Attach Auth middlewares
@@ -205,17 +205,17 @@ func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
 	}
 	router.Use(add.AddPrefixMiddleware)
 }
-func applyRedirectRegexMiddleware(mid Middleware, router *mux.Router) {
-	a := RedirectRegexRuleMiddleware{}
+func applyRewriteRegexMiddleware(mid Middleware, router *mux.Router) {
+	a := RewriteRegexRuleMiddleware{}
 	if err := converter.Convert(&mid.Rule, &a); err != nil {
 		logger.Error("Error: %v, middleware not applied", err.Error())
 		return
 	}
-	add := middlewares.RedirectRegex{
+	add := middlewares.RewriteRegex{
 		Pattern:     a.Pattern,
 		Replacement: a.Replacement,
 	}
-	router.Use(add.RedirectRegexMiddleware)
+	router.Use(add.RewriteRegexMiddleware)
 }
 
 func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Router) {
