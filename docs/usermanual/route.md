@@ -19,10 +19,10 @@ This section outlines the available configuration options for defining routes in
 
 - **`path`** (`string`): The route path (e.g., `/api/v1/resource`).
 - **`name`** (`string`): A unique name for the route.
-- **`disabled`** (`boolean`): Disables the route, the route will not be proxied.
+- **`disabled`** (`boolean`): Disabled specifies whether the route is disabled, the route will not be proxied.
 - **`hosts`** (`list of strings`): A list of allowed hostnames for the route.
 - **`rewrite`** (`string`): Updates the incoming route path to a specified new path.
-   - For more advanced use cases involving pattern matching or regular expressions, consider using the `redirectRegex` middleware instead.
+   - For more advanced use cases involving pattern matching or regular expressions, consider using the `rewriteRegex` middleware instead.
 - **`methods`** (`array of strings`): A list of allowed HTTP methods (e.g., `GET`, `POST`).
 - **`destination`** (`string`): The backend endpoint for the route.
 - **`backends`** (`list of strings`): A list of backend services for load balancing.
@@ -83,6 +83,7 @@ gateway:
   ...
   routes:
     - name: Example
+      disabled: false # Disabled specifies whether the route is disabled, the route will not be proxied.
       path: /store/cart
       destination:  http://cart-service:8080
       methods: [PATCH, GET]
@@ -107,8 +108,8 @@ gateway:
       methods: [PATCH, GET]
       healthCheck:
         path: "/health/live"
-        interval: 0
-        timeout: 0
+        interval: 30s
+        timeout: 5s
         healthyStatuses: [200,404]
       cors: {}
 ```
@@ -128,8 +129,8 @@ gateway:
       methods: []
       healthCheck:
         path: "/health/live"
-        interval: 0
-        timeout: 0
+        interval: 30s
+        timeout: 5s
         healthyStatuses: [200,404]
       cors: {}
       ## Middleware
@@ -153,8 +154,8 @@ gateway:
       methods: []
       healthCheck:
         path: "/health/live"
-        interval: 0
-        timeout: 0
+        interval: 30s
+        timeout: 5s
         healthyStatuses: [200,404]
       errorInterceptor:
         enabled: true
@@ -193,8 +194,8 @@ gateway:
       methods: []
       healthCheck:
         path: "/health/live"
-        interval: 0
-        timeout: 0
+        interval: 30s
+        timeout: 10s
         healthyStatuses: [200,404]
       blockCommonExploits: false
       cors: {}

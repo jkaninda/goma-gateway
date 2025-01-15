@@ -68,6 +68,7 @@ data:
         # Route Example 1
         - path: /
           name: Public
+          disabled: false                # Disables the route, the route will not be proxied.
           hosts: []                      # Optional host-based routing.
           rewrite: /                     # Rewrite request paths (e.g., /store to /).
           destination: https://example.com
@@ -84,6 +85,7 @@ data:
         # Route Example 2
         - path: /protected
           name: Basic Auth
+          disabled: false                # Disables the route, the route will not be proxied.
           rewrite: /
           destination: ''
           backends:
