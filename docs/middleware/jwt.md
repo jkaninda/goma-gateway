@@ -10,6 +10,7 @@ nav_order: 10
 
 The JWT middleware restricts access to routes, similar to BasicAuth, by authorizing users based on JSON Web Tokens (JWTs).
 
+For more advanced use cases, consider using the `forwardAuth` middleware instead.
 ---
 
 #### How It Works
