@@ -31,8 +31,8 @@ func (gatewayServer GatewayServer) initRedis() {
 }
 
 func (gatewayServer GatewayServer) closeRedis() {
-	if middlewares.Rdb != nil {
-		if err := middlewares.Rdb.Close(); err != nil {
+	if middlewares.RedisClient != nil {
+		if err := middlewares.RedisClient.Close(); err != nil {
 			logger.Error("Error closing Redis: %v", err)
 		}
 	}
