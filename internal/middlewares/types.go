@@ -102,7 +102,7 @@ type AuthenticationMiddleware struct {
 type AccessListMiddleware struct {
 	Path        string
 	Destination string
-	List        []string
+	Paths       []string
 	Origins     []string
 }
 

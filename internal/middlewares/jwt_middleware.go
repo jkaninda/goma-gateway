@@ -30,7 +30,7 @@ import (
 func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
-		if isProtectedPath(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
+		if isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
 			if !validateHeaders(r, jwtAuth.RequiredHeaders, jwtAuth.Origins, w, r, contentType) {
 				return
 			}
