@@ -180,7 +180,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
 	blM := middlewares.AccessListMiddleware{
 		Path:    route.Path,
-		List:    mid.Paths,
+		Paths:   mid.Paths,
 		Origins: route.Cors.Origins,
 	}
 	router.Use(blM.AccessMiddleware)

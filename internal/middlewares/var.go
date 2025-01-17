@@ -32,7 +32,7 @@ var (
 	limiter     *redis_rate.Limiter
 )
 
-// List of known bot user agents
+// Paths of known bot user agents
 var botUserAgents = []string{
 	"Googlebot",
 	"Bingbot",

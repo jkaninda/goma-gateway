@@ -153,6 +153,8 @@ func checkRegexMatch(input string, patterns []string) (bool, string, error) {
 	}
 	return false, "", nil
 }
+
+// isPathMatching checks if the urlPath matches any regex pattern from the list.
 func isPathMatching(urlPath, prefix string, paths []string) bool {
 	// Check if the string matches any pattern
 	matched, _, err := checkRegexMatch(urlPath, paths)
@@ -160,22 +162,17 @@ func isPathMatching(urlPath, prefix string, paths []string) bool {
 		logger.Error("Error:", err)
 	}
 	if matched {
-		logger.Info("Regex: Matched")
 		return true
 	}
 	// Check without route prefix
 	for _, path := range paths {
 		if isMatchingPath(urlPath, util.ParseURLPath(path)) {
-			logger.Info("Path: Matched")
-
 			return true
 		}
 		continue
 	}
 	// Check with route prefix
 	for _, path := range paths {
-		logger.Info("Path Prefix: Matched")
-
 		return isMatchingPath(urlPath, util.ParseURLPath(prefix+path))
 
 	}

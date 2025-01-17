@@ -28,12 +28,11 @@ import (
 func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
-		for _, block := range blockList.List {
-			if isMatchingPath(r.URL.Path, util.ParseURLPath(blockList.Path+block)) {
-				logger.Error("%s: %s access forbidden", getRealIP(r), r.URL.Path)
-				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), blockList.Origins, contentType)
-				return
-			}
+		if isPathMatching(r.URL.Path, blockList.Path, blockList.Paths) {
+			logger.Error("%s: %s access forbidden", getRealIP(r), r.URL.Path)
+			RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), blockList.Origins, contentType)
+			return
+
 		}
 		next.ServeHTTP(w, r)
 	})
