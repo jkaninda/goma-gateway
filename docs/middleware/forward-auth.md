@@ -39,6 +39,17 @@ The **ForwardAuth middleware** delegates authorization to a backend service, det
 - **`AuthResponseHeaders`**: Maps headers from the authentication service response to request headers. Custom mappings can be defined using the format `"auth_header: request_header"`.
 - **`AuthResponseHeadersAsParams`**: Copies authentication service response headers into request parameters. Custom parameter names can be defined using the format `"header: parameter"`.
 
+### Forwarded headers
+
+The following headers are automatically forwarded:
+
+- `X-Forwarded-Host`
+- `X-Forwarded-For`
+- `X-Real-IP`
+- `User-Agent`
+- `X-Original-URL`
+- `Host`
+
 ---
 
 ### Example Configuration
@@ -87,6 +98,45 @@ middlewares:
 ```
 
 ---
+### Example  forwardAuth with Authentik
+
+```yaml
+
+version: "1.0"
+gateway:
+    writeTimeout: 10
+    readTimeout: 15
+    idleTimeout: 30
+    logLevel: info
+    routes:
+        - path: /
+          name: my-app
+          disabled: false
+          destination: https://example.com
+          # Protect the route with forwardAuth
+          middlewares:
+            - example-forward-auth
+        - path: /outpost.goauthentik.io
+          name: authentik-outpost
+          disabled: false
+          destination: http://authentik-outpost:9000
+          cors: {}
+          # all requests to /outpost.goauthentik.io must be accessible without authentication
+          middlewares: []
+    middlewares:
+        - name: example-forward-auth
+          type: forwardAuth
+          paths:
+            - /* # Explicitly blocks / and all subpaths
+            - /admin # Blocks only /admin
+            - /admin/*  # Explicitly blocks /admin and all subpaths
+          rule:
+            authUrl: http://authentik.company:9000:9000/outpost.goauthentik.io/auth/nginx
+            # forward 
+            authSignIn: https://authentik.company:9000/outpost.goauthentik.io/start?rd=
+            enableHostForwarding: true
+            skipInsecureVerify: false
+```
 
 ### Notes
 

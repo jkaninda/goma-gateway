@@ -21,9 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/util"
 	"html"
 	"net"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -136,4 +138,53 @@ func scheme(r *http.Request) string {
 		return "https"
 	}
 	return "http"
+}
+
+// checkRegexMatch checks if the given string matches any regex pattern from the list.
+func checkRegexMatch(input string, patterns []string) (bool, string, error) {
+	for _, pattern := range patterns {
+		matcher, err := regexp.Compile(pattern)
+		if err != nil {
+			return false, "", fmt.Errorf("invalid regex pattern: %s, error: %w", pattern, err)
+		}
+		if matcher.MatchString(input) {
+			return true, pattern, nil
+		}
+	}
+	return false, "", nil
+}
+
+// isPathMatching checks if the urlPath matches any regex pattern or static path from the list.
+func isPathMatching(urlPath, prefix string, paths []string) bool {
+	// Check if the string matches any regex pattern
+	if matched, _, err := checkRegexMatch(urlPath, paths); err == nil && matched {
+		return true
+	} else if err != nil {
+		logger.Error("Error: %v", err.Error())
+	}
+
+	// Check without and with the route prefix
+	for _, path := range paths {
+		if isMatchingPath(urlPath, path) || isMatchingPath(urlPath, util.ParseURLPath(prefix+path)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Helper function to determine if the request path is blocked
+func isMatchingPath(requestPath, blockedPath string) bool {
+	// Handle exact match
+	if requestPath == blockedPath {
+		return true
+	}
+	// Handle wildcard match (e.g., /admin/* should block /admin and any subpath)
+	if strings.HasSuffix(blockedPath, "/*") {
+		basePath := strings.TrimSuffix(blockedPath, "/*")
+		if strings.HasPrefix(requestPath, basePath) {
+			return true
+		}
+	}
+	return false
 }

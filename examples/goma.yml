@@ -118,18 +118,43 @@ middlewares:
         - admin:admin
 
   - name: google-auth
-    type: jwt                       # JWT-based authentication.
+    type: forwardAuth
     paths:
-      - /protected-access
+      - /protected-access/*
+      - /admin/*
     rule:
-      url: https://www.googleapis.com/auth/userinfo.email
-      requiredHeaders:              # Headers required for authorization.
+      # URL of the backend authentication service
+      authUrl: http://authentication-service:8080/auth/verify
+
+      # Redirect URL when response status is 401
+      authSignIn: http://authentication-service:8080/auth/signin
+
+      # Skip SSL certificate verification
+      skipInsecureVerify: true
+
+      # Forward the original Host header
+      enableHostForwarding: true
+
+      # Headers to include in the authentication request
+      authRequestHeaders:
         - Authorization
-      headers:                      # Map headers between auth and backend requests.
-        userId: Auth-UserId
-        userCountryId: Auth-UserCountryId
-      params:                       # Map parameters between auth and backend requests.
-        userCountryId: countryId
+        - X-Auth-UserId
+
+      # Authentication cookies to include in the response
+      addAuthCookiesToResponse:
+        - X-Auth-UserId
+        - X-Token
+      # Map authentication response headers to request headers
+      authResponseHeaders:
+        - "auth_userId: X-Auth-UserId" # Custom mapping
+        - X-Auth-UserCountryId # Direct mapping
+        - X-Token # Direct mapping
+
+      # Map authentication response headers to request parameters
+      authResponseHeadersAsParams:
+        - "X-Auth-UserId: userId" # Custom mapping
+        - X-Token:token # Custom mapping
+        - X-Auth-UserCountryId # Direct mapping
 ## Block access to specified paths
   - name: api-forbidden-paths
     type: access

@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"sort"
 	"strings"
+	"time"
 )
 
 // init initializes prometheus metrics
@@ -131,16 +132,54 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 		applyAddPrefixMiddleware(mid, router)
 	case redirectRegex, rewriteRegex:
 		applyRewriteRegexMiddleware(mid, router)
+	case httpCache:
+		applyHttpCacheMiddleware(route, mid, router)
 
 	}
 	// Attach Auth middlewares
 	attachAuthMiddlewares(route, mid, router)
 }
 
+func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
+	httpCacheMid := &httpCacheRule{}
+	if err := converter.Convert(&mid.Rule, httpCacheMid); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if httpCacheMid.MaxTtl == 0 {
+		httpCacheMid.MaxTtl = 300
+	}
+	mLimit := int64(0)
+	m, err := util.ConvertToBytes(httpCacheMid.MemoryLimit)
+	if err == nil {
+		mLimit = m
+	}
+	ttl := httpCacheMid.MaxTtl * int64(time.Second)
+
+	redisCache := &middlewares.RedisCache{}
+	if redisBased {
+		redisCache = middlewares.NewRedisCache(time.Duration(ttl))
+	}
+	cache := middlewares.NewCache(mLimit)
+	httpCacheM := middlewares.HttpCache{
+		Path:                     route.Path,
+		Name:                     util.Slug(route.Name),
+		Paths:                    mid.Paths,
+		Cache:                    cache,
+		TTL:                      time.Duration(ttl),
+		RedisCache:               redisCache,
+		RedisBased:               redisBased,
+		DisableCacheStatusHeader: httpCacheMid.DisableCacheStatusHeader,
+		ExcludedResponseCodes:    httpCacheMid.ExcludedResponseCodes,
+	}
+	r.Use(httpCacheM.CacheMiddleware)
+
+}
+
 func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
 	blM := middlewares.AccessListMiddleware{
 		Path:    route.Path,
-		List:    mid.Paths,
+		Paths:   mid.Paths,
 		Origins: route.Cors.Origins,
 	}
 	router.Use(blM.AccessMiddleware)
@@ -158,7 +197,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 	}
 
 	if rateLimitMid.RequestsPerUnit != 0 && route.RateLimit == 0 {
-		rateLimit := middlewares.RateLimit{
+		rt := middlewares.RateLimit{
 			Unit:       rateLimitMid.Unit,
 			Id:         util.Slug(route.Name),
 			Requests:   rateLimitMid.RequestsPerUnit,
@@ -168,7 +207,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 			PathBased:  true,
 			Paths:      util.AddPrefixPath(route.Path, mid.Paths),
 		}
-		limiter := rateLimit.NewRateLimiterWindow()
+		limiter := rt.NewRateLimiterWindow()
 		router.Use(limiter.RateLimitMiddleware())
 	}
 }

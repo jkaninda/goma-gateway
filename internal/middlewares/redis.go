@@ -42,9 +42,10 @@ func redisRateLimiter(clientIP, unit string, rate int) error {
 	return nil
 }
 func InitRedis(addr, password string) {
-	Rdb = redis.NewClient(&redis.Options{
+	RedisClient = redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: password,
+		DB:       0,
 	})
-	limiter = redis_rate.NewLimiter(Rdb)
+	limiter = redis_rate.NewLimiter(RedisClient)
 }
