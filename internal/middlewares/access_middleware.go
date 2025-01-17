@@ -29,7 +29,7 @@ func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.H
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
 		for _, block := range blockList.List {
-			if isPathBlocked(r.URL.Path, util.ParseURLPath(blockList.Path+block)) {
+			if isMatchingPath(r.URL.Path, util.ParseURLPath(blockList.Path+block)) {
 				logger.Error("%s: %s access forbidden", getRealIP(r), r.URL.Path)
 				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), blockList.Origins, contentType)
 				return
@@ -40,7 +40,7 @@ func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.H
 }
 
 // Helper function to determine if the request path is blocked
-func isPathBlocked(requestPath, blockedPath string) bool {
+func isMatchingPath(requestPath, blockedPath string) bool {
 	// Handle exact match
 	if requestPath == blockedPath {
 		return true
@@ -56,7 +56,7 @@ func isPathBlocked(requestPath, blockedPath string) bool {
 }
 func isProtectedPath(urlPath, prefix string, paths []string) bool {
 	for _, path := range paths {
-		return isPathBlocked(urlPath, util.ParseURLPath(prefix+path))
+		return isMatchingPath(urlPath, util.ParseURLPath(prefix+path))
 	}
 	return false
 }

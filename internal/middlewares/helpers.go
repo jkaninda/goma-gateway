@@ -21,9 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/util"
 	"html"
 	"net"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -136,4 +138,46 @@ func scheme(r *http.Request) string {
 		return "https"
 	}
 	return "http"
+}
+
+// checkRegexMatch checks if the given string matches any regex pattern from the list.
+func checkRegexMatch(input string, patterns []string) (bool, string, error) {
+	for _, pattern := range patterns {
+		matcher, err := regexp.Compile(pattern)
+		if err != nil {
+			return false, "", fmt.Errorf("invalid regex pattern: %s, error: %w", pattern, err)
+		}
+		if matcher.MatchString(input) {
+			return true, pattern, nil
+		}
+	}
+	return false, "", nil
+}
+func isPathMatching(urlPath, prefix string, paths []string) bool {
+	// Check if the string matches any pattern
+	matched, _, err := checkRegexMatch(urlPath, paths)
+	if err != nil {
+		logger.Error("Error:", err)
+	}
+	if matched {
+		logger.Info("Regex: Matched")
+		return true
+	}
+	// Check without route prefix
+	for _, path := range paths {
+		if isMatchingPath(urlPath, util.ParseURLPath(path)) {
+			logger.Info("Path: Matched")
+
+			return true
+		}
+		continue
+	}
+	// Check with route prefix
+	for _, path := range paths {
+		logger.Info("Path Prefix: Matched")
+
+		return isMatchingPath(urlPath, util.ParseURLPath(prefix+path))
+
+	}
+	return false
 }
