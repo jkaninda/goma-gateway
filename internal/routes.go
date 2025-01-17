@@ -146,9 +146,8 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 		logger.Error("Error: %v, middleware not applied", err.Error())
 		return
 	}
-	if err := httpCacheMid.validate(); err != nil {
-		logger.Error("Error: %v", err.Error())
-		return
+	if httpCacheMid.MaxTtl == 0 {
+		httpCacheMid.MaxTtl = 300
 	}
 	mLimit := int64(0)
 	m, err := util.ConvertToBytes(httpCacheMid.MemoryLimit)
