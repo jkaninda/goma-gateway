@@ -133,14 +133,14 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 	case redirectRegex, rewriteRegex:
 		applyRewriteRegexMiddleware(mid, router)
 	case httpCache:
-		applyHttpCacheMiddleware(mid, router)
+		applyHttpCacheMiddleware(route, mid, router)
 
 	}
 	// Attach Auth middlewares
 	attachAuthMiddlewares(route, mid, router)
 }
 
-func applyHttpCacheMiddleware(mid Middleware, r *mux.Router) {
+func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 	httpCacheMid := &httpCacheRule{}
 	if err := converter.Convert(&mid.Rule, httpCacheMid); err != nil {
 		logger.Error("Error: %v, middleware not applied", err.Error())
@@ -150,14 +150,21 @@ func applyHttpCacheMiddleware(mid Middleware, r *mux.Router) {
 		logger.Error("Error: %v", err.Error())
 		return
 	}
-	cache := middlewares.NewCache()
+	mLimit := int64(0)
+	m, err := util.ConvertToBytes(httpCacheMid.MemoryLimit)
+	if err == nil {
+		mLimit = m
+	}
+	cache := middlewares.NewCache(mLimit)
 	ttl := httpCacheMid.MaxTtl * int64(time.Second)
 	httpCacheM := middlewares.HttpCache{
+		Path:                     route.Path,
+		Name:                     util.Slug(route.Name),
+		Paths:                    mid.Paths,
 		Cache:                    cache,
 		TTL:                      time.Duration(ttl),
 		DisableCacheStatusHeader: httpCacheMid.DisableCacheStatusHeader,
 		ExcludedResponseCodes:    httpCacheMid.ExcludedResponseCodes,
-		MemoryLimit:              httpCacheMid.MemoryLimit,
 	}
 	r.Use(httpCacheM.CacheMiddleware)
 
@@ -184,7 +191,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 	}
 
 	if rateLimitMid.RequestsPerUnit != 0 && route.RateLimit == 0 {
-		rateLimit := middlewares.RateLimit{
+		rt := middlewares.RateLimit{
 			Unit:       rateLimitMid.Unit,
 			Id:         util.Slug(route.Name),
 			Requests:   rateLimitMid.RequestsPerUnit,
@@ -194,7 +201,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 			PathBased:  true,
 			Paths:      util.AddPrefixPath(route.Path, mid.Paths),
 		}
-		limiter := rateLimit.NewRateLimiterWindow()
+		limiter := rt.NewRateLimiterWindow()
 		router.Use(limiter.RateLimitMiddleware())
 	}
 }
