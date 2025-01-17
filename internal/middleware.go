@@ -3,10 +3,16 @@ package internal
 import (
 	"errors"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/pkg/converter"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
 	"os"
 	"slices"
 	"strings"
+	"time"
 )
 
 func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error) {
@@ -21,7 +27,7 @@ func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error)
 }
 
 func doesExist(tyName string) bool {
-	middlewareList := []string{BasicAuth, JWTAuth, AccessMiddleware, accessPolicy, addPrefix, rateLimit, strings.ToLower(rateLimit), redirectRegex, forwardAuth, rewriteRegex}
+	middlewareList := []string{BasicAuth, JWTAuth, AccessMiddleware, accessPolicy, addPrefix, rateLimit, strings.ToLower(rateLimit), redirectRegex, forwardAuth, rewriteRegex, httpCache}
 	return slices.Contains(middlewareList, tyName)
 }
 func GetMiddleware(rule string, middlewares []Middleware) (Middleware, error) {
@@ -76,4 +82,292 @@ func findDuplicateMiddlewareNames(middlewares []Middleware) []string {
 		}
 	}
 	return duplicates
+}
+func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
+	switch mid.Type {
+	case AccessMiddleware:
+		applyAccessMiddleware(mid, route, router)
+	case rateLimit, strings.ToLower(rateLimit):
+		applyRateLimitMiddleware(mid, route, router)
+	case accessPolicy:
+		applyAccessPolicyMiddleware(mid, route, router)
+	case addPrefix:
+		applyAddPrefixMiddleware(mid, router)
+	case redirectRegex, rewriteRegex:
+		applyRewriteRegexMiddleware(mid, router)
+	case httpCache:
+		applyHttpCacheMiddleware(route, mid, router)
+
+	}
+	// Attach Auth middlewares
+	attachAuthMiddlewares(route, mid, router)
+}
+
+func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
+	httpCacheMid := &httpCacheRule{}
+	if err := converter.Convert(&mid.Rule, httpCacheMid); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if httpCacheMid.MaxTtl == 0 {
+		httpCacheMid.MaxTtl = 300
+	}
+	mLimit := int64(0)
+	m, err := util.ConvertToBytes(httpCacheMid.MemoryLimit)
+	if err == nil {
+		mLimit = m
+	}
+	ttl := httpCacheMid.MaxTtl * int64(time.Second)
+
+	redisCache := &middlewares.RedisCache{}
+	if redisBased {
+		redisCache = middlewares.NewRedisCache(time.Duration(ttl))
+	}
+	cache := middlewares.NewCache(mLimit)
+	httpCacheM := middlewares.HttpCache{
+		Path:                     route.Path,
+		Name:                     util.Slug(route.Name),
+		Paths:                    mid.Paths,
+		Cache:                    cache,
+		TTL:                      time.Duration(ttl),
+		RedisCache:               redisCache,
+		RedisBased:               redisBased,
+		DisableCacheStatusHeader: httpCacheMid.DisableCacheStatusHeader,
+		ExcludedResponseCodes:    httpCacheMid.ExcludedResponseCodes,
+	}
+	r.Use(httpCacheM.CacheMiddleware)
+
+}
+
+func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
+	blM := middlewares.AccessListMiddleware{
+		Path:    route.Path,
+		Paths:   mid.Paths,
+		Origins: route.Cors.Origins,
+	}
+	router.Use(blM.AccessMiddleware)
+}
+
+func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
+	rateLimitMid := &RateLimitRuleMiddleware{}
+	if err := converter.Convert(&mid.Rule, rateLimitMid); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := rateLimitMid.validate(); err != nil {
+		logger.Error("Error: %v", err.Error())
+		return
+	}
+
+	if rateLimitMid.RequestsPerUnit != 0 && route.RateLimit == 0 {
+		rt := middlewares.RateLimit{
+			Unit:       rateLimitMid.Unit,
+			Id:         util.Slug(route.Name),
+			Requests:   rateLimitMid.RequestsPerUnit,
+			Origins:    route.Cors.Origins,
+			Hosts:      route.Hosts,
+			RedisBased: redisBased,
+			PathBased:  true,
+			Paths:      util.AddPrefixPath(route.Path, mid.Paths),
+		}
+		limiter := rt.NewRateLimiterWindow()
+		router.Use(limiter.RateLimitMiddleware())
+	}
+}
+
+func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router) {
+	a := &AccessPolicyRuleMiddleware{}
+	if err := converter.Convert(&mid.Rule, a); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := a.validate(); err != nil {
+		logger.Error("Error: %v, middleware not applied", err)
+		return
+	}
+
+	if len(a.SourceRanges) > 0 {
+		access := middlewares.AccessPolicy{
+			SourceRanges: a.SourceRanges,
+			Action:       a.Action,
+			Origins:      route.Cors.Origins,
+		}
+		router.Use(access.AccessPolicyMiddleware)
+	}
+}
+
+func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
+	a := AddPrefixRuleMiddleware{}
+	if err := converter.Convert(&mid.Rule, &a); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	add := middlewares.AddPrefix{
+		Prefix: a.Prefix,
+	}
+	router.Use(add.AddPrefixMiddleware)
+}
+func applyRewriteRegexMiddleware(mid Middleware, router *mux.Router) {
+	a := RewriteRegexRuleMiddleware{}
+	if err := converter.Convert(&mid.Rule, &a); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	add := middlewares.RewriteRegex{
+		Pattern:     a.Pattern,
+		Replacement: a.Replacement,
+	}
+	router.Use(add.RewriteRegexMiddleware)
+}
+
+func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Router) {
+	// Validate and apply middleware based on type
+	switch routeMiddleware.Type {
+	case BasicAuth:
+		applyBasicAuthMiddleware(route, routeMiddleware, r)
+	case JWTAuth:
+		applyJWTAuthMiddleware(route, routeMiddleware, r)
+	case forwardAuth:
+		applyForwardAuthMiddleware(route, routeMiddleware, r)
+	case OAuth:
+		applyOAuthMiddleware(route, routeMiddleware, r)
+	default:
+		if !doesExist(routeMiddleware.Type) {
+			logger.Error("Unknown middleware type %s", routeMiddleware.Type)
+		}
+	}
+}
+
+// applyBasicAuthMiddleware applies Basic Authentication middleware
+func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+	basicAuth := BasicRuleMiddleware{}
+	if err := converter.Convert(&routeMiddleware.Rule, &basicAuth); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := basicAuth.validate(); err != nil {
+		logger.Error("Error: %s", err.Error())
+		return
+	}
+
+	authBasic := middlewares.AuthBasic{
+		Path:     route.Path,
+		Paths:    routeMiddleware.Paths,
+		Realm:    basicAuth.Realm,
+		Users:    basicAuth.Users,
+		Username: basicAuth.Username,
+		Password: basicAuth.Password,
+		Headers:  nil,
+		Params:   nil,
+	}
+
+	r.Use(authBasic.AuthMiddleware)
+	r.Use(CORSHandler(route.Cors))
+}
+
+// applyJWTAuthMiddleware applies JWT Authentication middleware
+func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+	jwt := &JWTRuleMiddleware{}
+	if err := converter.Convert(&routeMiddleware.Rule, jwt); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := jwt.validate(); err != nil {
+		logger.Error("Error: %s", err.Error())
+		return
+	}
+
+	jwtAuth := middlewares.JwtAuth{
+		Path:            route.Path,
+		Paths:           routeMiddleware.Paths,
+		AuthURL:         jwt.URL,
+		RequiredHeaders: jwt.RequiredHeaders,
+		Headers:         jwt.Headers,
+		Params:          jwt.Params,
+		Origins:         route.Cors.Origins,
+	}
+
+	r.Use(jwtAuth.AuthMiddleware)
+	r.Use(CORSHandler(route.Cors))
+}
+
+// applyForwardAuthMiddleware applies Forward Authentication middleware
+func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+	fAuth := &ForwardAuthRuleMiddleware{}
+	if err := converter.Convert(&routeMiddleware.Rule, fAuth); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := fAuth.validate(); err != nil {
+		logger.Error("Error: %s", err.Error())
+		return
+	}
+
+	auth := middlewares.ForwardAuth{
+		AuthURL:                     fAuth.AuthURL,
+		AuthSignIn:                  fAuth.AuthSignIn,
+		EnableHostForwarding:        fAuth.EnableHostForwarding,
+		SkipInsecureVerify:          fAuth.SkipInsecureVerify,
+		AuthRequestHeaders:          fAuth.AuthRequestHeaders,
+		AuthResponseHeaders:         fAuth.AuthResponseHeaders,
+		AuthResponseHeadersAsParams: fAuth.AuthResponseHeadersAsParams,
+		AddAuthCookiesToResponse:    fAuth.AddAuthCookiesToResponse,
+		Path:                        route.Path,
+		Paths:                       routeMiddleware.Paths,
+		Origins:                     route.Cors.Origins,
+	}
+
+	r.Use(auth.AuthMiddleware)
+	r.Use(CORSHandler(route.Cors))
+}
+
+// applyOAuthMiddleware applies OAuth Authentication middleware
+func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+	oauth := &OauthRulerMiddleware{}
+	if err := converter.Convert(&routeMiddleware.Rule, oauth); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := oauth.validate(); err != nil {
+		logger.Error("Error: %s", err.Error())
+		return
+	}
+
+	redirectURL := "/callback" + route.Path
+	if oauth.RedirectURL != "" {
+		redirectURL = oauth.RedirectURL
+	}
+
+	amw := middlewares.Oauth{
+		Path:         route.Path,
+		Paths:        routeMiddleware.Paths,
+		ClientID:     oauth.ClientID,
+		ClientSecret: oauth.ClientSecret,
+		RedirectURL:  redirectURL,
+		Scopes:       oauth.Scopes,
+		Endpoint: middlewares.OauthEndpoint{
+			AuthURL:     oauth.Endpoint.AuthURL,
+			TokenURL:    oauth.Endpoint.TokenURL,
+			UserInfoURL: oauth.Endpoint.UserInfoURL,
+		},
+		State:     oauth.State,
+		Origins:   route.Cors.Origins,
+		JWTSecret: oauth.JWTSecret,
+		Provider:  oauth.Provider,
+	}
+
+	oauthRuler := oauthRulerMiddleware(amw)
+	if oauthRuler.CookiePath == "" {
+		oauthRuler.CookiePath = route.Path
+	}
+	if oauthRuler.RedirectPath == "" {
+		oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
+	}
+	if oauthRuler.Provider == "" {
+		oauthRuler.Provider = "custom"
+	}
+
+	r.Use(amw.AuthMiddleware)
+	r.Use(CORSHandler(route.Cors))
+	r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods("GET")
 }

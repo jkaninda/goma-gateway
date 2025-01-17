@@ -32,7 +32,7 @@ import (
 func (auth ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
-		if isProtectedPath(r.URL.Path, auth.Path, auth.Paths) {
+		if isPathMatching(r.URL.Path, auth.Path, auth.Paths) {
 			// Authenticate the request
 			authenticated, authResponse := authRequest(auth, w, r, contentType)
 			if !authenticated {
