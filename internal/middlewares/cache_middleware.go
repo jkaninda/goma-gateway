@@ -18,6 +18,7 @@
 package middlewares
 
 import (
+	"context"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
@@ -31,13 +32,20 @@ type HttpCache struct {
 	// Path, route path
 	Path string
 	// Name, route name
-	Name  string
-	Cache *Cache
-	TTL   time.Duration
+	Name       string
+	Cache      *Cache
+	RedisCache *RedisCache
+	TTL        time.Duration
 	// Paths, middlewares paths
 	Paths                    []string
+	RedisBased               bool
 	DisableCacheStatusHeader bool
 	ExcludedResponseCodes    []int
+}
+
+// RedisCache is a wrapper around the Redis client.
+type RedisCache struct {
+	ttl time.Duration
 }
 
 // responseRecorder helps capture the response.
@@ -78,6 +86,13 @@ func NewCache(memoryLimit int64) *Cache {
 	return &Cache{
 		data:        make(map[string]*CacheItem),
 		memoryLimit: memoryLimit,
+	}
+}
+
+// NewRedisCache initializes a Redis client and returns a RedisCache.
+func NewRedisCache(ttl time.Duration) *RedisCache {
+	return &RedisCache{
+		ttl: ttl,
 	}
 }
 
@@ -133,10 +148,33 @@ func (c *Cache) evictOldest() {
 	}
 }
 
+// Get retrieves a cached response from Redis.
+func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, string, bool) {
+	val, err := RedisClient.HGetAll(ctx, key).Result()
+	if err != nil || len(val) == 0 {
+		return nil, "", false
+	}
+	return []byte(val["response"]), val["contentType"], true
+}
+
+// Set stores a response in Redis with an expiration time.
+func (r *RedisCache) Set(ctx context.Context, key string, response []byte, contentType string) error {
+	data := map[string]interface{}{
+		"response":    response,
+		"contentType": contentType,
+	}
+	err := RedisClient.HSet(ctx, key, data).Err()
+	if err != nil {
+		return err
+	}
+	return RedisClient.Expire(ctx, key, r.ttl).Err()
+}
+
 // CacheMiddleware adds caching to HTTP handlers.
 func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cacheKey := fmt.Sprintf("%s-%s", h.Name, r.URL.Path)
+		ctx := r.Context()
 
 		// Check if the path is eligible for caching
 		if !isPathCacheEnabled(r.URL.Path, h.Path, h.Paths) {
@@ -144,13 +182,21 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Attempt to retrieve response from the cache
-		if cachedItem, found := h.Cache.Get(cacheKey); found {
-			logger.Info("Response found in the cache")
-			writeCachedResponse(w, *cachedItem, h.TTL, h.DisableCacheStatusHeader)
-			return
-		}
+		if h.RedisBased {
+			if response, contentType, found := h.RedisCache.Get(ctx, cacheKey); found {
+				logger.Debug("Redis: Response found in the cache")
+				writeCachedResponse(w, contentType, response, h.TTL, h.DisableCacheStatusHeader)
+				return
+			}
+		} else {
+			// Attempt to retrieve response from the cache
+			if cachedItem, found := h.Cache.Get(cacheKey); found {
+				logger.Debug("Response found in the cache")
+				writeCachedResponse(w, cachedItem.ContentType, cachedItem.Response, h.TTL, h.DisableCacheStatusHeader)
+				return
+			}
 
+		}
 		logger.Info("Response not found in the cache")
 
 		// Capture the response
@@ -163,8 +209,19 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Cache the response
-		h.Cache.Set(cacheKey, recorder.body, recorder.Header().Get("Content-Type"), h.TTL)
+		if h.RedisBased {
+			// Cache the response.
+			logger.Debug("Save response in Redis")
+			err := h.RedisCache.Set(ctx, cacheKey, recorder.body, recorder.Header().Get("Content-Type"))
+			if err != nil {
+				logger.Error("Error redis cache: %v", err.Error())
+				return
+			}
+		} else {
+			// Cache the response
+			h.Cache.Set(cacheKey, recorder.body, recorder.Header().Get("Content-Type"), h.TTL)
+		}
+
 		if !h.DisableCacheStatusHeader {
 			w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.TTL.Seconds())))
 		}
@@ -172,13 +229,13 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 }
 
 // writeCachedResponse writes a cached response to the client.
-func writeCachedResponse(w http.ResponseWriter, cachedItem CacheItem, ttl time.Duration, disableCacheStatusHeader bool) {
-	w.Header().Set("Content-Type", cachedItem.ContentType)
+func writeCachedResponse(w http.ResponseWriter, contentType string, response []byte, ttl time.Duration, disableCacheStatusHeader bool) {
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Proxied-By", "Goma Gateway")
 	if !disableCacheStatusHeader {
 		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(ttl.Seconds())))
 	}
-	_, err := w.Write(cachedItem.Response)
+	_, err := w.Write(response)
 	if err != nil {
 		logger.Error("Failed to write cached response: %v", err)
 	}
