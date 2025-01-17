@@ -331,10 +331,9 @@ func (rateLimit RateLimitRuleMiddleware) validate() error {
 }
 
 // validate, validates httpCacheRule, returns error
-func (h httpCacheRule) validate() error {
+func (h *httpCacheRule) validate() error {
 	if h.MaxTtl == 0 {
-		return fmt.Errorf("maxTtl not defined")
-
+		h.MaxTtl = 300
 	}
 	return nil
 }

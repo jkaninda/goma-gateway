@@ -151,6 +151,7 @@ func (c *Cache) evictOldest() {
 func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, string, bool) {
 	val, err := RedisClient.HGetAll(ctx, key).Result()
 	if err != nil || len(val) == 0 {
+		logger.Error("Error Redis cache: %v", err)
 		return nil, "", false
 	}
 	return []byte(val["response"]), val["contentType"], true
