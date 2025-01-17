@@ -154,27 +154,37 @@ func checkRegexMatch(input string, patterns []string) (bool, string, error) {
 	return false, "", nil
 }
 
-// isPathMatching checks if the urlPath matches any regex pattern from the list.
+// isPathMatching checks if the urlPath matches any regex pattern or static path from the list.
 func isPathMatching(urlPath, prefix string, paths []string) bool {
-	// Check if the string matches any pattern
-	matched, _, err := checkRegexMatch(urlPath, paths)
-	if err != nil {
+	// Check if the string matches any regex pattern
+	if matched, _, err := checkRegexMatch(urlPath, paths); err == nil && matched {
+		return true
+	} else if err != nil {
 		logger.Error("Error: %v", err.Error())
 	}
-	if matched {
-		return true
-	}
-	// Check without route prefix
+
+	// Check without and with the route prefix
 	for _, path := range paths {
-		if isMatchingPath(urlPath, util.ParseURLPath(path)) {
+		if isMatchingPath(urlPath, path) || isMatchingPath(urlPath, util.ParseURLPath(prefix+path)) {
 			return true
 		}
-		continue
 	}
-	// Check with route prefix
-	for _, path := range paths {
-		return isMatchingPath(urlPath, util.ParseURLPath(prefix+path))
 
+	return false
+}
+
+// Helper function to determine if the request path is blocked
+func isMatchingPath(requestPath, blockedPath string) bool {
+	// Handle exact match
+	if requestPath == blockedPath {
+		return true
+	}
+	// Handle wildcard match (e.g., /admin/* should block /admin and any subpath)
+	if strings.HasSuffix(blockedPath, "/*") {
+		basePath := strings.TrimSuffix(blockedPath, "/*")
+		if strings.HasPrefix(requestPath, basePath) {
+			return true
+		}
 	}
 	return false
 }

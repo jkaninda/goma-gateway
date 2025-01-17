@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -35,32 +34,6 @@ func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.H
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-// Helper function to determine if the request path is blocked
-func isMatchingPath(requestPath, blockedPath string) bool {
-	// Handle exact match
-	if requestPath == blockedPath {
-		return true
-	}
-	// Handle wildcard match (e.g., /admin/* should block /admin and any subpath)
-	if strings.HasSuffix(blockedPath, "/*") {
-		basePath := strings.TrimSuffix(blockedPath, "/*")
-		if strings.HasPrefix(requestPath, basePath) {
-			return true
-		}
-	}
-	return false
-}
-
-// NewRateLimiter creates a new requests limiter with the specified refill requests and token capacity
-func NewRateLimiter(maxTokens int, refillRate time.Duration) *TokenRateLimiter {
-	return &TokenRateLimiter{
-		tokens:     maxTokens,
-		maxTokens:  maxTokens,
-		refillRate: refillRate,
-		lastRefill: time.Now(),
-	}
 }
 
 // Allow checks if a request is allowed based on the current token bucket
