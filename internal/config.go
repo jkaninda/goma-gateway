@@ -330,14 +330,6 @@ func (rateLimit RateLimitRuleMiddleware) validate() error {
 	return nil
 }
 
-// validate, validates httpCacheRule, returns error
-func (h *httpCacheRule) validate() error {
-	if h.MaxTtl == 0 {
-		h.MaxTtl = 300
-	}
-	return nil
-}
-
 // validate validates JWTRuleMiddleware
 func (jwt JWTRuleMiddleware) validate() error {
 	if jwt.URL == "" {

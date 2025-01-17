@@ -203,13 +203,11 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 					return
 				}
 			} else {
-				// Attempt to retrieve response from the cache
 				if cachedItem, found := h.Cache.Get(cacheKey); found {
-					logger.Debug("Response found in the cache")
+					logger.Debug("Memory: Response found in the cache")
 					writeCachedResponse(w, cachedItem.ContentType, cachedItem.Response, h.TTL, h.DisableCacheStatusHeader)
 					return
 				}
-
 			}
 		}
 
@@ -223,53 +221,56 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Handle cache invalidation and caching based on the request method and response status
 		if h.RedisBased {
-			// Invalidate cache for POST, PUT, DELETE on success
-			if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 300) || (rec.statusCode >= 300 && rec.statusCode < 400) {
-				h.RedisCache.mu.Lock()
-				if err := RedisClient.Del(ctx, cacheKey).Err(); err != nil {
-					logger.Error("Failed to invalidate cache for key %s: %v", cacheKey, err)
-				}
-				logger.Debug("Redis: Cache invalidated: Status: %d", rec.statusCode)
-				h.RedisCache.mu.Unlock()
-				return
-			}
-			// Cache GET responses with 2xx or 3xx status codes
-			if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
-				// Cache the response.
-				err := h.RedisCache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type"))
-				if err != nil {
-					logger.Error("Error redis cache: %v", err.Error())
-					return
-				}
-				if !h.DisableCacheStatusHeader {
-					w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.TTL.Seconds())))
-				}
-				logger.Debug("Redis: Response saved")
-			}
+			h.handleRedisCache(ctx, cacheKey, r, rec)
 		} else {
-			// Invalidate cache for POST, PUT, DELETE on success
-			if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 300) || (rec.statusCode >= 300 && rec.statusCode < 400) {
-				h.Cache.mu.Lock()
-				h.Cache.Delete(cacheKey)
-				logger.Debug("Memory: Cache invalidated: Status: %d", rec.statusCode)
-				h.RedisCache.mu.Unlock()
-				return
-			}
-			// Cache GET responses with 2xx or 3xx status codes
-			if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
-				// Cache the response
-				h.Cache.Set(cacheKey, rec.body, rec.Header().Get("Content-Type"), h.TTL)
-				if !h.DisableCacheStatusHeader {
-					w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.TTL.Seconds())))
-				}
-				logger.Debug("Memory: Response saved")
-
-			}
-
+			h.handleMemoryCache(cacheKey, r, rec)
 		}
-
 	})
+}
+
+// handleRedisCache handles Redis-based caching logic
+func (h HttpCache) handleRedisCache(ctx context.Context, cacheKey string, r *http.Request, rec *responseRecorder) {
+	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
+		h.RedisCache.mu.Lock()
+		defer h.RedisCache.mu.Unlock()
+		if err := RedisClient.Del(ctx, cacheKey).Err(); err != nil {
+			logger.Error("Failed to invalidate cache for key %s: %v", cacheKey, err)
+		}
+		logger.Debug("Redis: Cache invalidated: Status: %d", rec.statusCode)
+		return
+	}
+
+	if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
+		if err := h.RedisCache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type")); err != nil {
+			logger.Error("Error redis cache: %v", err.Error())
+			return
+		}
+		if !h.DisableCacheStatusHeader {
+			rec.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.TTL.Seconds())))
+		}
+		logger.Debug("Redis: Response saved")
+	}
+}
+
+// handleMemoryCache handles in-memory caching logic
+func (h HttpCache) handleMemoryCache(cacheKey string, r *http.Request, rec *responseRecorder) {
+	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
+		h.Cache.mu.Lock()
+		defer h.Cache.mu.Unlock()
+		h.Cache.Delete(cacheKey)
+		logger.Debug("Memory: Cache invalidated: Status: %d", rec.statusCode)
+		return
+	}
+
+	if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
+		h.Cache.Set(cacheKey, rec.body, rec.Header().Get("Content-Type"), h.TTL)
+		if !h.DisableCacheStatusHeader {
+			rec.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.TTL.Seconds())))
+		}
+		logger.Debug("Memory: Response saved")
+	}
 }
 
 // writeCachedResponse writes a cached response to the client.
