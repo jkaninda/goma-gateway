@@ -159,7 +159,7 @@ func isPathMatching(urlPath, prefix string, paths []string) bool {
 	// Check if the string matches any pattern
 	matched, _, err := checkRegexMatch(urlPath, paths)
 	if err != nil {
-		logger.Error("Error:", err)
+		logger.Error("Error: %v", err.Error())
 	}
 	if matched {
 		return true

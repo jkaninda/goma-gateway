@@ -18,7 +18,6 @@ limitations under the License.
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"github.com/jkaninda/goma-gateway/util"
 	"net/http"
 	"strings"
 	"time"
@@ -50,12 +49,6 @@ func isMatchingPath(requestPath, blockedPath string) bool {
 		if strings.HasPrefix(requestPath, basePath) {
 			return true
 		}
-	}
-	return false
-}
-func isProtectedPath(urlPath, prefix string, paths []string) bool {
-	for _, path := range paths {
-		return isMatchingPath(urlPath, util.ParseURLPath(prefix+path))
 	}
 	return false
 }
