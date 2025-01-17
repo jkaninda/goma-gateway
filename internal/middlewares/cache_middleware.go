@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"github.com/jkaninda/goma-gateway/util"
 	"net/http"
 	"slices"
 	"sync"
@@ -177,7 +176,7 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 
 		// Check if the path is eligible for caching
-		if !isPathCacheEnabled(r.URL.Path, h.Path, h.Paths) {
+		if !isPathMatching(r.URL.Path, h.Path, h.Paths) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -239,12 +238,6 @@ func writeCachedResponse(w http.ResponseWriter, contentType string, response []b
 	if err != nil {
 		logger.Error("Failed to write cached response: %v", err)
 	}
-}
-func isPathCacheEnabled(urlPath, prefix string, paths []string) bool {
-	for _, path := range paths {
-		return isPathBlocked(urlPath, util.ParseURLPath(prefix+path))
-	}
-	return false
 }
 
 // isExcludedResponseCode checks if a status code is in the excluded list.
