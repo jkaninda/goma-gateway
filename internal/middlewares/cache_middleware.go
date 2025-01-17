@@ -182,26 +182,31 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if h.RedisBased {
-			if response, contentType, found := h.RedisCache.Get(ctx, cacheKey); found {
-				logger.Debug("Redis: Response found in the cache")
-				writeCachedResponse(w, contentType, response, h.TTL, h.DisableCacheStatusHeader)
-				return
-			}
-		} else {
-			// Attempt to retrieve response from the cache
-			if cachedItem, found := h.Cache.Get(cacheKey); found {
-				logger.Debug("Response found in the cache")
-				writeCachedResponse(w, cachedItem.ContentType, cachedItem.Response, h.TTL, h.DisableCacheStatusHeader)
-				return
-			}
+		// Only cache GET requests
+		if r.Method == http.MethodGet {
+			if h.RedisBased {
+				if response, contentType, found := h.RedisCache.Get(ctx, cacheKey); found {
+					logger.Debug("Redis: Response found in the cache")
+					writeCachedResponse(w, contentType, response, h.TTL, h.DisableCacheStatusHeader)
+					return
+				}
+			} else {
+				// Attempt to retrieve response from the cache
+				if cachedItem, found := h.Cache.Get(cacheKey); found {
+					logger.Debug("Response found in the cache")
+					writeCachedResponse(w, cachedItem.ContentType, cachedItem.Response, h.TTL, h.DisableCacheStatusHeader)
+					return
+				}
 
+			}
 		}
 		logger.Info("Response not found in the cache")
 
 		// Capture the response
 		recorder := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(recorder, r)
+
+		logger.Warn("STATUS CODE: %d", recorder.statusCode)
 
 		// Check if the response code is excluded from caching
 		if isExcludedResponseCode(recorder.statusCode, h.ExcludedResponseCodes) {
