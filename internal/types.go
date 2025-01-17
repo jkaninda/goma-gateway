@@ -198,3 +198,9 @@ type ProxyHandlerErrorInterceptor struct {
 	Errors      []middlewares.RouteError
 	Origins     []string
 }
+type httpCacheRule struct {
+	MaxTtl                   int64  `yaml:"maxTtl"`
+	DisableCacheStatusHeader bool   `yaml:"disableCacheStatusHeader,omitempty"`
+	ExcludedResponseCodes    []int  `yaml:"excludedResponseCodes,omitempty"`
+	MemoryLimit              string `yaml:"memoryLimit,omitempty"`
+}

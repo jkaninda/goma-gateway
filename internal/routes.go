@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"sort"
 	"strings"
+	"time"
 )
 
 // init initializes prometheus metrics
@@ -131,10 +132,35 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 		applyAddPrefixMiddleware(mid, router)
 	case redirectRegex, rewriteRegex:
 		applyRewriteRegexMiddleware(mid, router)
+	case httpCache:
+		applyHttpCacheMiddleware(mid, router)
 
 	}
 	// Attach Auth middlewares
 	attachAuthMiddlewares(route, mid, router)
+}
+
+func applyHttpCacheMiddleware(mid Middleware, r *mux.Router) {
+	httpCacheMid := &httpCacheRule{}
+	if err := converter.Convert(&mid.Rule, httpCacheMid); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if err := httpCacheMid.validate(); err != nil {
+		logger.Error("Error: %v", err.Error())
+		return
+	}
+	cache := middlewares.NewCache()
+	ttl := httpCacheMid.MaxTtl * int64(time.Second)
+	httpCacheM := middlewares.HttpCache{
+		Cache:                    cache,
+		TTL:                      time.Duration(ttl),
+		DisableCacheStatusHeader: httpCacheMid.DisableCacheStatusHeader,
+		ExcludedResponseCodes:    httpCacheMid.ExcludedResponseCodes,
+		MemoryLimit:              httpCacheMid.MemoryLimit,
+	}
+	r.Use(httpCacheM.CacheMiddleware)
+
 }
 
 func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
