@@ -236,6 +236,7 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 				//h.RedisCache.mu.Unlock()
 				return
 			}
+			// Cache GET responses with 2xx or 3xx status codes
 			if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
 				// Cache the response.
 				err := h.RedisCache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type"))
@@ -257,7 +258,7 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 				//h.RedisCache.mu.Unlock()
 				return
 			}
-
+			// Cache GET responses with 2xx or 3xx status codes
 			if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
 				// Cache the response
 				h.Cache.Set(cacheKey, rec.body, rec.Header().Get("Content-Type"), h.TTL)
