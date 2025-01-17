@@ -45,6 +45,7 @@ type HttpCache struct {
 // RedisCache is a wrapper around the Redis client.
 type RedisCache struct {
 	ttl time.Duration
+	mu  sync.RWMutex
 }
 
 // responseRecorder helps capture the response.
@@ -151,7 +152,10 @@ func (c *Cache) evictOldest() {
 func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, string, bool) {
 	val, err := RedisClient.HGetAll(ctx, key).Result()
 	if err != nil || len(val) == 0 {
-		logger.Error("Error Redis cache: %v", err)
+		if err != nil {
+			logger.Error("Error Redis cache: %v", err)
+
+		}
 		return nil, "", false
 	}
 	return []byte(val["response"]), val["contentType"], true
@@ -168,6 +172,14 @@ func (r *RedisCache) Set(ctx context.Context, key string, response []byte, conte
 		return err
 	}
 	return RedisClient.Expire(ctx, key, r.ttl).Err()
+}
+
+// Delete removes a cached response from the memory cache.
+func (c *Cache) Delete(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.data, key)
 }
 
 // CacheMiddleware adds caching to HTTP handlers.
@@ -200,31 +212,48 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 
 			}
 		}
-		logger.Info("Response not found in the cache")
 
 		// Capture the response
-		recorder := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
-		next.ServeHTTP(recorder, r)
+		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
+		next.ServeHTTP(rec, r)
 
-		logger.Warn("STATUS CODE: %d", recorder.statusCode)
+		logger.Warn("STATUS CODE: %d", rec.statusCode)
 
 		// Check if the response code is excluded from caching
-		if isExcludedResponseCode(recorder.statusCode, h.ExcludedResponseCodes) {
-			logger.Info("Status code %d is excluded from caching", recorder.statusCode)
+		if isExcludedResponseCode(rec.statusCode, h.ExcludedResponseCodes) {
+			logger.Info("Status code %d is excluded from caching", rec.statusCode)
 			return
 		}
 
 		if h.RedisBased {
+			// Invalidate cache for POST, PUT, DELETE on success
+			if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
+				h.RedisCache.mu.Lock()
+				if err := RedisClient.Del(ctx, cacheKey).Err(); err != nil {
+					logger.Error("Failed to invalidate cache for key %s: %v", cacheKey, err)
+				}
+				logger.Debug("Cache invalidated: Status: %d", rec.statusCode)
+				h.RedisCache.mu.Unlock()
+			}
+
 			// Cache the response.
 			logger.Debug("Save response in Redis")
-			err := h.RedisCache.Set(ctx, cacheKey, recorder.body, recorder.Header().Get("Content-Type"))
+			err := h.RedisCache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type"))
 			if err != nil {
 				logger.Error("Error redis cache: %v", err.Error())
 				return
 			}
 		} else {
+			// Invalidate cache for POST, PUT, DELETE on success
+			if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
+				h.Cache.mu.Lock()
+				h.Cache.Delete(cacheKey)
+				logger.Debug("Cache invalidated: Status: %d", rec.statusCode)
+				h.RedisCache.mu.Unlock()
+			}
+
 			// Cache the response
-			h.Cache.Set(cacheKey, recorder.body, recorder.Header().Get("Content-Type"), h.TTL)
+			h.Cache.Set(cacheKey, rec.body, rec.Header().Get("Content-Type"), h.TTL)
 		}
 
 		if !h.DisableCacheStatusHeader {
