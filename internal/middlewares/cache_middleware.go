@@ -217,8 +217,6 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(rec, r)
 
-		logger.Warn("STATUS CODE: %d", rec.statusCode)
-
 		// Check if the response code is excluded from caching
 		if isExcludedResponseCode(rec.statusCode, h.ExcludedResponseCodes) {
 			logger.Info("Status code %d is excluded from caching", rec.statusCode)
@@ -228,12 +226,12 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 		if h.RedisBased {
 			// Invalidate cache for POST, PUT, DELETE on success
 			if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 300) || (rec.statusCode >= 300 && rec.statusCode < 400) {
-				//h.RedisCache.mu.Lock()
+				h.RedisCache.mu.Lock()
 				if err := RedisClient.Del(ctx, cacheKey).Err(); err != nil {
 					logger.Error("Failed to invalidate cache for key %s: %v", cacheKey, err)
 				}
 				logger.Debug("Redis: Cache invalidated: Status: %d", rec.statusCode)
-				//h.RedisCache.mu.Unlock()
+				h.RedisCache.mu.Unlock()
 				return
 			}
 			// Cache GET responses with 2xx or 3xx status codes
@@ -252,10 +250,10 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 		} else {
 			// Invalidate cache for POST, PUT, DELETE on success
 			if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 300) || (rec.statusCode >= 300 && rec.statusCode < 400) {
-				//h.Cache.mu.Lock()
+				h.Cache.mu.Lock()
 				h.Cache.Delete(cacheKey)
 				logger.Debug("Memory: Cache invalidated: Status: %d", rec.statusCode)
-				//h.RedisCache.mu.Unlock()
+				h.RedisCache.mu.Unlock()
 				return
 			}
 			// Cache GET responses with 2xx or 3xx status codes
