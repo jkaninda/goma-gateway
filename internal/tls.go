@@ -24,27 +24,73 @@ import (
 )
 
 func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
-	loadAndWarn := func(cert, key string, warnMsg string) (*tls.Config, bool, error) {
+	tlsConfig := loadTLS()
+	cert, err := loadGatewayCertificate(gatewayServer)
+	if err == nil {
+		tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
+	}
+	if tlsConfig != nil {
+		return tlsConfig, true, nil
+	}
+	return nil, false, fmt.Errorf("failed to load TLS config")
+
+}
+
+// loadTLS loads TLS Certificate
+func loadCert(cert, key string) (tls.Certificate, error) {
+	if cert == "" && key == "" {
+		return tls.Certificate{}, fmt.Errorf("no certificate or key file provided")
+	}
+	serverCert, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return serverCert, nil
+}
+
+func loadTLS() *tls.Config {
+	cfg := &tls.Config{}
+	for _, route := range dynamicRoutes {
+		if len(route.TLS.Keys) > 0 {
+			for _, key := range route.TLS.Keys {
+				if key.Key == "" && key.Cert == "" {
+					logger.Error("Error tls: no certificate or key file provided for route: %s", route.Name)
+					continue
+				}
+				certificate, err := loadCert(key.Cert, key.Key)
+				if err != nil {
+					logger.Error("Error loading server certificate: %v", err)
+					continue
+				}
+				cfg.Certificates = append(cfg.Certificates, certificate)
+			}
+		}
+
+	}
+	return cfg
+}
+func loadGatewayCertificate(gatewayServer GatewayServer) (tls.Certificate, error) {
+	loadAndWarn := func(cert, key string, warnMsg string) (tls.Certificate, error) {
 		if len(cert) != 0 || len(key) != 0 {
 			if warnMsg != "" {
 				logger.Warn("sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead")
 			}
-			tlsConfig, err := loadTLS(cert, key)
+			certificate, err := loadCert(cert, key)
 			if err != nil {
-				return nil, false, fmt.Errorf("failed to load TLS config: %w", err)
+				logger.Error("Error loading server certificate: %v", err)
 			}
-			return tlsConfig, true, nil
+			return certificate, nil
 		}
-		return nil, false, nil
+		return tls.Certificate{}, nil
 	}
 	// Check deprecated fields
-	tlsConfig, loaded, err := loadAndWarn(
+	certificate, err := loadAndWarn(
 		gatewayServer.gateway.SSLCertFile,
 		gatewayServer.gateway.SSLKeyFile,
 		"Warn",
 	)
-	if loaded || err != nil {
-		return tlsConfig, loaded, err
+	if err != nil {
+		return certificate, err
 	}
 
 	// Check new fields
@@ -53,20 +99,4 @@ func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
 		gatewayServer.gateway.TlsKeyFile,
 		"",
 	)
-}
-
-// loadTLS loads TLS Certificate
-func loadTLS(cert, key string) (*tls.Config, error) {
-	if cert == "" && key == "" {
-		return nil, fmt.Errorf("no certificate or key file provided")
-	}
-	serverCert, err := tls.LoadX509KeyPair(cert, key)
-	if err != nil {
-		logger.Error("Error loading server certificate: %v", err)
-		return nil, err
-	}
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{serverCert},
-	}
-	return tlsConfig, nil
 }

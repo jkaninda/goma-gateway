@@ -70,6 +70,7 @@ type Route struct {
 	// such as SQL injection or simple XSS attempts.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	EnableBotDetection  bool `yaml:"enableBotDetection,omitempty"`
+	TLS                 TLS  `yaml:"tls"`
 	// Middlewares lists middleware names to apply to this route.
 	Middlewares []string `yaml:"middlewares"`
 }
@@ -81,4 +82,12 @@ type ExtraRoute struct {
 type ExtraMiddleware struct {
 	// Routes holds proxy routes
 	Middlewares []Middleware `yaml:"middlewares"`
+}
+
+type TLS struct {
+	Keys []TLSKey `yaml:"keys,omitempty"`
+}
+type TLSKey struct {
+	Cert string `yaml:"cert"`
+	Key  string `yaml:"key"`
 }
