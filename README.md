@@ -115,24 +115,28 @@ It's designed to be straightforward and efficient, offering a rich set of featur
   - **Cache Invalidation**: Implement strategies to invalidate stale cache entries (e.g., time-based or event-based invalidation).
 
 ### Configuration and Flexibility
+
 - **Support for Multiple Route and Middleware Configuration Files**  
-  Organize routes across multiple `.yml` or `.yaml` files.
+  Easily organize and manage routes by splitting them across multiple `.yml` or `.yaml` files for improved maintainability and clarity.
 
-- **Support dynamic configuration reload**  
-  - Reload configuration without restarting the server.
-  - Enable or disable routes dynamically, with zero downtime.
+- **Dynamic Configuration Reload**
+  - Reload configurations seamlessly without server restarts, ensuring uninterrupted service.
+  - Dynamically enable or disable routes with zero downtime, allowing for flexible, real-time adjustments.
 
-- **TLS Support**  
-  Ensure secure communication with TLS integration.
+- **TLS Integration**  
+  Secure communication through built-in TLS support, enhancing data protection and user trust.
 
 - **HTTP Method Restrictions**  
-  Limit HTTP methods for specific routes to enhance control.
+  Enforce HTTP method restrictions on specific routes, providing granular control and improved security.
 
-- **Configure using K8s Custom Resource Definitions (CRD)**
-    - Kubernetes operator-focused CRDs (gateway, route, and middleware configuration)
-    - Define your gateways, routes, and middleware directly in code for seamless configuration.
+- **Kubernetes CRD Integration**
+  - Leverage Kubernetes-native Custom Resource Definitions (CRDs) for streamlined management of gateways, routes, and middleware.
+  - Define and configure gateways, routes, and middleware directly within Kubernetes manifests for seamless operator-focused workflows.
 
-Declarative API Gateway Management, define your routes and middleware directly in code for seamless configuration.
+- **Declarative API Gateway Management**  
+  Adopt a declarative approach to API gateway management, enabling you to:
+  - Define routes and middleware programmatically for consistent, code-driven configuration.
+  - Integrate GitOps workflows to version control your gateway configurations, ensuring traceable and automated deployments.
 
 
 ----
