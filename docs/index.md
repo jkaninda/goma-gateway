@@ -56,18 +56,37 @@ It's designed to be straightforward and efficient, offering a rich set of featur
   - Protect your route from bots by blocking requests from known bots.
 
 ### Monitoring and Performance
-- **Logging**  
-  Comprehensive request and response logging.
 
-- **Metrics**  
-  Gather insights and monitor performance metrics.
+#### **Logging**
+- **Comprehensive Logging**: Implement detailed logging for all incoming requests and outgoing responses.
+- **Log Levels**: Support multiple log levels (e.g., INFO, DEBUG, ERROR) to capture varying degrees of detail.
 
-- **Rate Limiting**
-  - **In-Memory Rate Limiting**: Client IP-based request throttling.
-  - **Distributed Rate Limiting**: Leverage Redis for scalable, client IP-based rate limits.
+### **Metrics**
+- **Performance Monitoring**: Collect and analyze key performance metrics such as response times, error rates, and throughput.
+- **Real-Time Dashboards**: Integrate with monitoring tools (e.g., Prometheus, Grafana) to visualize metrics in real-time.
 
-- **Load Balancing**  
-  Use a round-robin algorithm for efficient load distribution.
+#### **Rate Limiting**
+- **In-Memory Rate Limiting**:
+  - Throttle requests based on client IP addresses using in-memory storage.
+  - Suitable for single-instance applications or low-traffic scenarios.
+- **Distributed Rate Limiting**:
+  - Use Redis for scalable, client IP-based rate limiting across multiple application instances.
+  - Configure rate limits (e.g., requests per minute) to prevent abuse and ensure fair usage.
+
+#### **Load Balancing**
+- **Round-Robin Algorithm**: Distribute incoming requests evenly across backend servers to ensure optimal resource utilization.
+- **Health Checks**: Regularly monitor server health.
+- **Scalability**: Easily scale horizontally by adding or removing backend servers without downtime.
+
+
+#### **HTTP Caching**
+- **Cache Implementation**: Enable HTTP caching for routes to improve response times and reduce server load.
+- **Cache Storage Options**:
+  - **In-Memory Cache**: Suitable for single-instance applications or temporary caching.
+  - **Redis Cache**: Ideal for distributed caching across multiple instances.
+  - **Cache Control Headers**: Support for `Cache-Control`, `X-Cache-Status`, and `Last-Modified` headers for fine-grained cache management.
+  - **Cache Invalidation**: Implement strategies to invalidate stale cache entries (e.g., time-based or event-based invalidation).
+
 
 ### Configuration and Flexibility
 - **Support for Multiple Route Configuration Files**  
