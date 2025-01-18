@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-type HttpCache struct {
+type HttpCacheConfig struct {
 	// Path, route path
 	Path string
 	// Name, route name
@@ -62,6 +62,23 @@ type responseRecorder struct {
 	body       []byte
 }
 
+// HttpCache defines the interface for a cache.
+type HttpCache interface {
+	Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, time.Duration, bool)
+	Set(ctx context.Context, key string, response []byte, contentType string) error
+	Delete(ctx context.Context, key string) error
+	GetTTL(ctx context.Context, key string) time.Duration
+}
+
+// NewHttpCacheMiddleware creates new HTTP cache middleware.
+func NewHttpCacheMiddleware(redisBased bool, ttl time.Duration, memoryLimit int64) *Cache {
+	return &Cache{
+		ttl:         ttl,
+		redisBased:  redisBased,
+		data:        make(map[string]*CacheItem),
+		memoryLimit: memoryLimit,
+	}
+}
 func (rec *responseRecorder) WriteHeader(statusCode int) {
 	rec.statusCode = statusCode
 	rec.ResponseWriter.WriteHeader(statusCode)
@@ -78,16 +95,6 @@ type CacheItem struct {
 	ContentType string
 	Size        int64 // Size of the item in memory
 	ExpiresAt   time.Time
-}
-
-// NewCache initializes a Redis client and returns a Cache.
-func NewCache(redisBased bool, ttl time.Duration, memoryLimit int64) *Cache {
-	return &Cache{
-		ttl:         ttl,
-		redisBased:  redisBased,
-		data:        make(map[string]*CacheItem),
-		memoryLimit: memoryLimit,
-	}
 }
 
 // GetTTL retrieves the remaining TTL for a given cache key.
@@ -117,7 +124,7 @@ func (c *Cache) evictOldest() {
 	var oldestKey string
 	var oldestTime time.Time
 	if c.redisBased {
-		// Also remove from Redis.
+		// Remove from Redis.
 		RedisClient.Del(context.Background(), oldestKey)
 		logger.Debug("Evicted item with key: %s", oldestKey)
 		return
@@ -148,7 +155,7 @@ func (c *Cache) evictOldest() {
 func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, time.Duration, bool) {
 	ttl := c.GetTTL(ctx, key)
 	if c.redisBased {
-		// If not found in memory or expired, check Redis.
+		//  check Redis.
 		val, err := RedisClient.HGetAll(ctx, key).Result()
 		if errors.Is(err, redis.Nil) {
 			// Key does not exist in Redis.
@@ -190,7 +197,7 @@ func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]
 		return []byte(response), contentType, ttl, true
 
 	}
-	// First, check the in-memory cache.
+	// check the in-memory cache.
 	c.mu.RLock()
 	item, found := c.data[key]
 	c.mu.RUnlock()
@@ -263,8 +270,8 @@ func (c *Cache) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// CacheMiddleware adds caching to HTTP handlers.
-func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
+// Middleware returns the middleware function.
+func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cacheKey := fmt.Sprintf("%s-%s", h.Name, r.URL.Path)
 		ctx := r.Context()
@@ -273,7 +280,6 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-
 		// Only cache GET requests
 		if r.Method == http.MethodGet {
 			// Parse the max-stale value from the Cache-Control header
@@ -286,8 +292,7 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 			if !h.DisableCacheStatusHeader {
 				// Set Cache-Control for new response
 				w.Header().Set("X-Cache-Status", "MISS") // Indicate cache miss
-				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", 0))
-				//w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", h.TTL))
+				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", h.TTL.Seconds()))
 			}
 		}
 
@@ -306,7 +311,7 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 }
 
 // handleCache handles Redis-based caching logic
-func (h HttpCache) handleCache(ctx context.Context, cacheKey string, r *http.Request, rec *responseRecorder) {
+func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *http.Request, rec *responseRecorder) {
 	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
 		if err := h.Cache.Delete(ctx, cacheKey); err != nil {
 			logger.Error("Failed to invalidate cache for key %s: %v", cacheKey, err)

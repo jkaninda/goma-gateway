@@ -121,13 +121,13 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 	ttl := httpCacheMid.MaxTtl * int64(time.Second)
 	maxStale := httpCacheMid.MaxStale * int64(time.Second)
 
-	cache := middlewares.NewCache(redisBased, time.Duration(ttl), mLimit)
+	cache := middlewares.NewHttpCacheMiddleware(redisBased, time.Duration(ttl), mLimit)
 
 	codes, err := util.ParseRanges(httpCacheMid.ExcludedResponseCodes)
 	if err != nil {
-		logger.Error("Error HttpCache excludedResponseCodes: %v ", err)
+		logger.Error("Error HttpCacheConfig excludedResponseCodes: %v ", err)
 	}
-	httpCacheM := middlewares.HttpCache{
+	httpCacheM := middlewares.HttpCacheConfig{
 		Path:                     route.Path,
 		Name:                     util.Slug(route.Name),
 		Paths:                    mid.Paths,
@@ -138,7 +138,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 		DisableCacheStatusHeader: httpCacheMid.DisableCacheStatusHeader,
 		ExcludedResponseCodes:    codes,
 	}
-	r.Use(httpCacheM.CacheMiddleware)
+	r.Use(httpCacheM.Middleware)
 
 }
 
