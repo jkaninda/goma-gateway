@@ -260,3 +260,48 @@ func findMultiplier(unit string, units map[string]int64) (int64, error) {
 	}
 	return multiplier, nil
 }
+
+// ParseRanges converts a list of range strings to a slice of integers
+func ParseRanges(rangeStrings []string) ([]int, error) {
+	var result []int
+
+	for _, rs := range rangeStrings {
+		// Check if the string contains a range (indicated by a hyphen)
+		if strings.Contains(rs, "-") {
+			// Split the range string by the delimiter (hyphen)
+			parts := strings.Split(rs, "-")
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid range format: %s", rs)
+			}
+
+			// Convert the start and end of the range to integers
+			start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+			if err != nil {
+				return nil, fmt.Errorf("invalid start value in range: %s", rs)
+			}
+
+			end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+			if err != nil {
+				return nil, fmt.Errorf("invalid end value in range: %s", rs)
+			}
+
+			// Ensure the start is less than or equal to the end
+			if start > end {
+				return nil, fmt.Errorf("start value is greater than end value in range: %s", rs)
+			}
+
+			// Append all integers in the range to the result slice
+			for i := start; i <= end; i++ {
+				result = append(result, i)
+			}
+		} else {
+			// If it's a single integer, convert it directly
+			num, err := strconv.Atoi(strings.TrimSpace(rs))
+			if err != nil {
+				return nil, fmt.Errorf("invalid integer value: %s", rs)
+			}
+			result = append(result, num)
+		}
+	}
+	return result, nil
+}

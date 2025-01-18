@@ -199,8 +199,9 @@ type ProxyHandlerErrorInterceptor struct {
 	Origins     []string
 }
 type httpCacheRule struct {
-	MaxTtl                   int64  `yaml:"maxTtl"`
-	DisableCacheStatusHeader bool   `yaml:"disableCacheStatusHeader,omitempty"`
-	ExcludedResponseCodes    []int  `yaml:"excludedResponseCodes,omitempty"`
-	MemoryLimit              string `yaml:"memoryLimit,omitempty"`
+	MaxTtl                   int64    `yaml:"maxTtl"`
+	MaxStale                 int64    `yaml:"maxStale"`
+	DisableCacheStatusHeader bool     `yaml:"disableCacheStatusHeader,omitempty"`
+	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty"`
+	MemoryLimit              string   `yaml:"memoryLimit,omitempty"`
 }

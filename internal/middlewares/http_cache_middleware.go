@@ -35,6 +35,7 @@ type HttpCache struct {
 	Cache      *Cache
 	RedisCache *RedisCache
 	TTL        time.Duration
+	MaxStale   time.Duration
 	// Paths, middlewares paths
 	Paths                    []string
 	RedisBased               bool
@@ -249,6 +250,8 @@ func (h HttpCache) handleRedisCache(ctx context.Context, cacheKey string, r *htt
 		}
 		if !h.DisableCacheStatusHeader {
 			rec.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.TTL.Seconds())))
+			rec.Header().Set("X-Cache-Status", "MISS") // Indicate cache miss
+
 		}
 		logger.Debug("Redis: Response saved")
 	}
@@ -268,6 +271,8 @@ func (h HttpCache) handleMemoryCache(cacheKey string, r *http.Request, rec *resp
 		h.Cache.Set(cacheKey, rec.body, rec.Header().Get("Content-Type"), h.TTL)
 		if !h.DisableCacheStatusHeader {
 			rec.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.TTL.Seconds())))
+			rec.Header().Set("X-Cache-Status", "MISS") // Indicate cache miss
+
 		}
 		logger.Debug("Memory: Response saved")
 	}
@@ -279,6 +284,7 @@ func writeCachedResponse(w http.ResponseWriter, contentType string, response []b
 	w.Header().Set("Proxied-By", "Goma Gateway")
 	if !disableCacheStatusHeader {
 		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(ttl.Seconds())))
+		w.Header().Set("X-Cache-Status", "HIT") // Indicate cache hit
 	}
 	_, err := w.Write(response)
 	if err != nil {
