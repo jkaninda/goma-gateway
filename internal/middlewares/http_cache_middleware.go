@@ -23,7 +23,6 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"slices"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -98,33 +97,14 @@ func NewRedisCache(ttl time.Duration) *RedisCache {
 	}
 }
 
-// Get retrieves an item from the cache with max-stale support.
-func (c *Cache) Get(key string, maxStale time.Duration) (*CacheItem, bool) {
+// Get retrieves an item from the cache.
+func (c *Cache) Get(key string) (*CacheItem, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
 	item, found := c.data[key]
-	if !found {
-		// Cache miss: Item not found.
-		return nil, false
-	}
-
-	// Get current time for expiration check.
-	now := time.Now()
-
-	// Check if the item is fresh.
-	if item.ExpiresAt.After(now) {
-		// Cache hit with fresh item.
+	if found && item.ExpiresAt.After(time.Now()) {
 		return item, true
 	}
-
-	// Item is expired, check if it's within the max-stale window.
-	if maxStale > 0 && now.Before(item.ExpiresAt.Add(maxStale)) {
-		// Cache hit with stale item, but within max-stale duration.
-		return item, true
-	}
-
-	// Cache miss or expired beyond the max-stale period.
 	return nil, false
 }
 
@@ -182,57 +162,24 @@ func (c *Cache) evictOldest() {
 	}
 }
 
-// Get retrieves a cached response from Redis with max-stale support.
-func (r *RedisCache) Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, bool) {
-	// Fetch the entire hash for the given key.
+// Get retrieves a cached response from Redis.
+func (r *RedisCache) Get(ctx context.Context, key string) ([]byte, string, bool) {
 	val, err := RedisClient.HGetAll(ctx, key).Result()
 	if err != nil || len(val) == 0 {
 		if err != nil {
 			logger.Error("Error Redis cache: %v", err)
+
 		}
 		return nil, "", false
 	}
-
-	// Parse the required fields from the Redis hash.
-	response := val["response"]
-	contentType := val["contentType"]
-	expiresAtStr := val["expiresAt"]
-
-	// Validate the existence of necessary fields.
-	if response == "" || contentType == "" || expiresAtStr == "" {
-		logger.Error("Incomplete cache entry for key: %s", key)
-		return nil, "", false
-	}
-
-	// Parse the expiration timestamp.
-	expiresAt, err := strconv.ParseInt(expiresAtStr, 10, 64)
-	if err != nil {
-		logger.Error("Invalid expiresAt value for key: %s, error: %v", key, err)
-		return nil, "", false
-	}
-
-	// Determine the current time and expiration status.
-	now := time.Now().Unix()
-	if now > expiresAt {
-		// The item is expired; check if it falls within the max-stale period.
-		if maxStale > 0 && now <= expiresAt+int64(maxStale.Seconds()) {
-			// Serve the stale item within the max-stale period.
-			return []byte(response), contentType, true
-		}
-		// Item is expired and beyond the max-stale period.
-		return nil, "", false
-	}
-
-	// Item is fresh; serve it.
-	return []byte(response), contentType, true
+	return []byte(val["response"]), val["contentType"], true
 }
 
 // Set stores a response in Redis with an expiration time.
-func (r *RedisCache) Set(ctx context.Context, key string, response []byte, contentType string, ttl time.Duration) error {
+func (r *RedisCache) Set(ctx context.Context, key string, response []byte, contentType string) error {
 	data := map[string]interface{}{
 		"response":    response,
 		"contentType": contentType,
-		"expiresAt":   time.Now().Add(ttl).Unix(),
 	}
 	err := RedisClient.HSet(ctx, key, data).Err()
 	if err != nil {
@@ -262,10 +209,8 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 
 		// Only cache GET requests
 		if r.Method == http.MethodGet {
-			// Parse the max-stale value from the Cache-Control header
-			maxStale := parseMaxStale(r.Header.Get("Cache-Control"))
 			if h.RedisBased {
-				if response, contentType, found := h.RedisCache.Get(ctx, cacheKey, maxStale); found {
+				if response, contentType, found := h.RedisCache.Get(ctx, cacheKey); found {
 					// Calculate remaining TTL and set Cache-Control
 					ttl, err := RedisClient.TTL(ctx, cacheKey).Result()
 					if err != nil {
@@ -277,7 +222,7 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 					return
 				}
 			} else {
-				if cachedItem, found := h.Cache.Get(cacheKey, maxStale); found {
+				if cachedItem, found := h.Cache.Get(cacheKey); found {
 					// Calculate remaining TTL and set Cache-Control
 					ttl, _ := h.Cache.GetTTL(cacheKey)
 					writeCachedResponse(w, cachedItem.ContentType, cachedItem.Response, ttl, h.DisableCacheStatusHeader)
@@ -322,7 +267,7 @@ func (h HttpCache) handleRedisCache(ctx context.Context, cacheKey string, r *htt
 	}
 
 	if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
-		if err := h.RedisCache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type"), h.TTL); err != nil {
+		if err := h.RedisCache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type")); err != nil {
 			logger.Error("Error redis cache: %v", err.Error())
 			return
 		}
