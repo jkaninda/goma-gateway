@@ -66,7 +66,7 @@ func loadGatewayCertificate(gatewayServer GatewayServer) (tls.Certificate, error
 	loadCertificate := func(cert, key, warnMsg string) (tls.Certificate, error) {
 		if cert != "" || key != "" {
 			if warnMsg != "" {
-				logger.Warn(warnMsg)
+				logger.Warn("sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead")
 			}
 			return loadCertAndKey(cert, key)
 		}
