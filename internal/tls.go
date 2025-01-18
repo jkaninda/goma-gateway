@@ -19,8 +19,13 @@ package internal
 
 import (
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"os"
+	"strings"
 )
 
 func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
@@ -57,7 +62,7 @@ func loadTLS() *tls.Config {
 					logger.Error("Error tls: no certificate or key file provided for route: %s", route.Name)
 					continue
 				}
-				certificate, err := loadCert(key.Cert, key.Key)
+				certificate, err := loadCertAndKey(key.Cert, key.Key)
 				if err != nil {
 					logger.Error("Error loading server certificate: %v", err)
 					continue
@@ -75,7 +80,7 @@ func loadGatewayCertificate(gatewayServer GatewayServer) (tls.Certificate, error
 			if warnMsg != "" {
 				logger.Warn("sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead")
 			}
-			certificate, err := loadCert(cert, key)
+			certificate, err := loadCertAndKey(cert, key)
 			if err != nil {
 				logger.Error("Error loading server certificate: %v", err)
 			}
@@ -99,4 +104,89 @@ func loadGatewayCertificate(gatewayServer GatewayServer) (tls.Certificate, error
 		gatewayServer.gateway.TlsKeyFile,
 		"",
 	)
+}
+
+// / loadCertAndKey loads a certificate and private key from either file paths,
+// raw PEM content, or base64-encoded content.
+func loadCertAndKey(certInput, keyInput string) (tls.Certificate, error) {
+	var certPEMBlock, keyPEMBlock []byte
+	var err error
+
+	// Helper function to decode base64 if the input is base64-encoded
+	decodeBase64IfNeeded := func(input string) ([]byte, error) {
+		trimmedInput := strings.TrimSpace(input)
+		if isBase64(trimmedInput) {
+			return base64.StdEncoding.DecodeString(trimmedInput)
+		}
+		return []byte(trimmedInput), nil
+	}
+
+	// Load certificate
+	if strings.Contains(certInput, "-----BEGIN CERTIFICATE-----") {
+		// Assume certInput is raw PEM content
+		certPEMBlock = []byte(certInput)
+	} else {
+		// Check if certInput is base64-encoded
+		decodedCert, err := decodeBase64IfNeeded(certInput)
+		if err != nil {
+			return tls.Certificate{}, fmt.Errorf("failed to decode base64 certificate: %w", err)
+		}
+		if strings.Contains(string(decodedCert), "-----BEGIN CERTIFICATE-----") {
+			// Decoded content is PEM
+			certPEMBlock = decodedCert
+		} else {
+			// Assume certInput is a file path
+			certPEMBlock, err = os.ReadFile(certInput)
+			if err != nil {
+				return tls.Certificate{}, fmt.Errorf("failed to read certificate file: %w", err)
+			}
+		}
+	}
+
+	// Load private key
+	if strings.Contains(keyInput, "-----BEGIN PRIVATE KEY-----") || strings.Contains(keyInput, "-----BEGIN RSA PRIVATE KEY-----") {
+		// Assume keyInput is raw PEM content
+		keyPEMBlock = []byte(keyInput)
+	} else {
+		// Check if keyInput is base64-encoded
+		decodedKey, err := decodeBase64IfNeeded(keyInput)
+		if err != nil {
+			return tls.Certificate{}, fmt.Errorf("failed to decode base64 private key: %w", err)
+		}
+		if strings.Contains(string(decodedKey), "-----BEGIN PRIVATE KEY-----") || strings.Contains(string(decodedKey), "-----BEGIN RSA PRIVATE KEY-----") {
+			// Decoded content is PEM
+			keyPEMBlock = decodedKey
+		} else {
+			// Assume keyInput is a file path
+			keyPEMBlock, err = os.ReadFile(keyInput)
+			if err != nil {
+				return tls.Certificate{}, fmt.Errorf("failed to read private key file: %w", err)
+			}
+		}
+	}
+
+	// Decode the PEM blocks to ensure they are valid
+	certBlock, _ := pem.Decode(certPEMBlock)
+	if certBlock == nil || certBlock.Type != "CERTIFICATE" {
+		return tls.Certificate{}, errors.New("failed to decode PEM block containing certificate")
+	}
+
+	keyBlock, _ := pem.Decode(keyPEMBlock)
+	if keyBlock == nil || (keyBlock.Type != "PRIVATE KEY" && keyBlock.Type != "RSA PRIVATE KEY") {
+		return tls.Certificate{}, errors.New("failed to decode PEM block containing private key")
+	}
+
+	// Load the certificate and key into a tls.Certificate
+	cert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("failed to load X509 key pair: %w", err)
+	}
+
+	return cert, nil
+}
+
+// isBase64 checks if the input is a valid Base64-encoded string.
+func isBase64(input string) bool {
+	_, err := base64.StdEncoding.DecodeString(input)
+	return err == nil
 }
