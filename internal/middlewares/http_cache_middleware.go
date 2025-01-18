@@ -238,13 +238,13 @@ func (c *Cache) Set(ctx context.Context, key string, response []byte, contentTyp
 		if err != nil {
 			return err
 		}
-		logger.Debug("Redis: Response saved")
+		logger.Debug("In redis: Response saved")
 		return RedisClient.Expire(ctx, key, c.ttl).Err()
 	}
 
 	c.data[key] = item
 	c.memoryUsed += itemSize
-	logger.Debug("Memory: Response saved")
+	logger.Debug("In memory: Response saved")
 	return nil
 }
 
@@ -252,13 +252,13 @@ func (c *Cache) Set(ctx context.Context, key string, response []byte, contentTyp
 func (c *Cache) Delete(ctx context.Context, key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	delete(c.data, key)
 	if c.redisBased {
 		if err := RedisClient.Del(ctx, key).Err(); err != nil {
 			return err
 		}
+		return nil
 	}
+	delete(c.data, key)
 
 	return nil
 }
@@ -283,13 +283,14 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 				logger.Debug("Cache: served from cache: %s", r.URL.Path)
 				return
 			}
-
 			if !h.DisableCacheStatusHeader {
 				// Set Cache-Control for new response
 				w.Header().Set("X-Cache-Status", "MISS") // Indicate cache miss
-				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(h.TTL.Seconds())))
+				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", 0))
+				//w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", h.TTL))
 			}
 		}
+
 		// Capture the response
 		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(rec, r)
