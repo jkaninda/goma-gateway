@@ -93,9 +93,8 @@ func (r *router) AddRoute(route Route) {
 		cors:                  route.Cors,
 		insecureSkipVerify:    route.InsecureSkipVerify,
 	}
-
-	attachMiddlewares(route, rRouter)
 	rRouter.Use(CORSHandler(route.Cors))
+	attachMiddlewares(route, rRouter)
 
 	if r.enableMetrics {
 		pr := metrics.PrometheusRoute{

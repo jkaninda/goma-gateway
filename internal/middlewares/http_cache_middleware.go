@@ -198,14 +198,14 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 		if r.Method == http.MethodGet {
 			if h.RedisBased {
 				if response, contentType, found := h.RedisCache.Get(ctx, cacheKey); found {
-					logger.Debug("Redis: Response found in the cache")
 					writeCachedResponse(w, contentType, response, h.TTL, h.DisableCacheStatusHeader)
+					logger.Debug("Redis: served from cache: %s", r.URL.Path)
 					return
 				}
 			} else {
 				if cachedItem, found := h.Cache.Get(cacheKey); found {
-					logger.Debug("Memory: Response found in the cache")
 					writeCachedResponse(w, cachedItem.ContentType, cachedItem.Response, h.TTL, h.DisableCacheStatusHeader)
+					logger.Debug("Memory: served from cache: %s", r.URL.Path)
 					return
 				}
 			}
@@ -217,7 +217,7 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 
 		// Check if the response code is excluded from caching
 		if isExcludedResponseCode(rec.statusCode, h.ExcludedResponseCodes) {
-			logger.Info("Status code %d is excluded from caching", rec.statusCode)
+			logger.Debug("Status code %d is excluded from caching", rec.statusCode)
 			return
 		}
 
