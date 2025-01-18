@@ -82,38 +82,61 @@ It's designed to be straightforward and efficient, offering a rich set of featur
     - Protect your route from bots by blocking requests from known bots.
 
 ### Monitoring and Performance
-- **Logging**  
-  Comprehensive request and response logging.
 
-- **Metrics**  
-  Gather insights and monitor performance metrics.
+#### **Logging**
+- **Comprehensive Logging**: Implement detailed logging for all incoming requests and outgoing responses.
+- **Log Levels**: Support multiple log levels (e.g., INFO, DEBUG, ERROR) to capture varying degrees of detail.
 
-- **Rate Limiting**
-  - **In-Memory Rate Limiting**: Client IP-based request throttling.
-  - **Distributed Rate Limiting**: Leverage Redis for scalable, client IP-based rate limits.
 
-- **Load Balancing**  
-  Use a round-robin algorithm for efficient load distribution.
+### **Metrics**  
+- **Performance Monitoring**: Collect and analyze key performance metrics such as response times, error rates, and throughput.
+- **Real-Time Dashboards**: Integrate with monitoring tools (e.g., Prometheus, Grafana) to visualize metrics in real-time.
+
+#### **Rate Limiting**
+- **In-Memory Rate Limiting**:
+  - Throttle requests based on client IP addresses using in-memory storage.
+  - Suitable for single-instance applications or low-traffic scenarios.
+- **Distributed Rate Limiting**:
+  - Use Redis for scalable, client IP-based rate limiting across multiple application instances.
+  - Configure rate limits (e.g., requests per minute) to prevent abuse and ensure fair usage.
+
+#### **Load Balancing**
+- **Round-Robin Algorithm**: Distribute incoming requests evenly across backend servers to ensure optimal resource utilization.
+- **Health Checks**: Regularly monitor server health.
+- **Scalability**: Easily scale horizontally by adding or removing backend servers without downtime.
+
+
+#### **HTTP Caching**
+- **Cache Implementation**: Enable HTTP caching for routes to improve response times and reduce server load.
+- **Cache Storage Options**:
+  - **In-Memory Cache**: Suitable for single-instance applications or temporary caching.
+  - **Redis Cache**: Ideal for distributed caching across multiple instances.
+  - **Cache Control Headers**: Support for `Cache-Control`, `X-Cache-Status`, and `Last-Modified` headers for fine-grained cache management.
+  - **Cache Invalidation**: Implement strategies to invalidate stale cache entries (e.g., time-based or event-based invalidation).
 
 ### Configuration and Flexibility
+
 - **Support for Multiple Route and Middleware Configuration Files**  
-  Organize routes across multiple `.yml` or `.yaml` files.
+  Easily organize and manage routes by splitting them across multiple `.yml` or `.yaml` files for improved maintainability and clarity.
 
-- **Support dynamic configuration reload**  
-  - Reload configuration without restarting the server.
-  - Enable or disable routes dynamically, with zero downtime.
+- **Dynamic Configuration Reload**
+  - Reload configurations seamlessly without server restarts, ensuring uninterrupted service.
+  - Dynamically enable or disable routes with zero downtime, allowing for flexible, real-time adjustments.
 
-- **TLS Support**  
-  Ensure secure communication with TLS integration.
+- **TLS Integration**  
+  Secure communication through built-in TLS support, enhancing data protection and user trust.
 
 - **HTTP Method Restrictions**  
-  Limit HTTP methods for specific routes to enhance control.
+  Enforce HTTP method restrictions on specific routes, providing granular control and improved security.
 
-- **Configure using K8s Custom Resource Definitions (CRD)**
-    - Kubernetes operator-focused CRDs (gateway, route, and middleware configuration)
-    - Define your gateways, routes, and middleware directly in code for seamless configuration.
+- **Kubernetes CRD Integration**
+  - Leverage Kubernetes-native Custom Resource Definitions (CRDs) for streamlined management of gateways, routes, and middleware.
+  - Define and configure gateways, routes, and middleware directly within Kubernetes manifests for seamless operator-focused workflows.
 
-Declarative API Gateway Management, define your routes and middleware directly in code for seamless configuration.
+- **Declarative API Gateway Management**  
+  Adopt a declarative approach to API gateway management, enabling you to:
+  - Define routes and middleware programmatically for consistent, code-driven configuration.
+  - Integrate GitOps workflows to version control your gateway configurations, ensuring traceable and automated deployments.
 
 
 ----

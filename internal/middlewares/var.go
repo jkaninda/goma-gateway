@@ -28,11 +28,11 @@ const traversalPatterns = `\.\./`
 const xssPatterns = `(?i)<script|onerror|onload`
 
 var (
-	Rdb     *redis.Client
-	limiter *redis_rate.Limiter
+	RedisClient *redis.Client
+	limiter     *redis_rate.Limiter
 )
 
-// List of known bot user agents
+// Paths of known bot user agents
 var botUserAgents = []string{
 	"Googlebot",
 	"Bingbot",

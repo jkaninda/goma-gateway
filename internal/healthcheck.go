@@ -205,8 +205,6 @@ func healthCheckRoutes(routes []Route) []Health {
 				}
 				healthRoutes = append(healthRoutes, health)
 			}
-		} else {
-			logger.Debug("Route %s's healthCheck is undefined", route.Name)
 		}
 	}
 	return healthRoutes

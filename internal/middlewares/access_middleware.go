@@ -18,9 +18,7 @@ limitations under the License.
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"github.com/jkaninda/goma-gateway/util"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -28,47 +26,14 @@ import (
 func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
-		for _, block := range blockList.List {
-			if isPathBlocked(r.URL.Path, util.ParseURLPath(blockList.Path+block)) {
-				logger.Error("%s: %s access forbidden", getRealIP(r), r.URL.Path)
-				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), blockList.Origins, contentType)
-				return
-			}
+		if isPathMatching(r.URL.Path, blockList.Path, blockList.Paths) {
+			logger.Error("%s: %s access forbidden", getRealIP(r), r.URL.Path)
+			RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), blockList.Origins, contentType)
+			return
+
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-// Helper function to determine if the request path is blocked
-func isPathBlocked(requestPath, blockedPath string) bool {
-	// Handle exact match
-	if requestPath == blockedPath {
-		return true
-	}
-	// Handle wildcard match (e.g., /admin/* should block /admin and any subpath)
-	if strings.HasSuffix(blockedPath, "/*") {
-		basePath := strings.TrimSuffix(blockedPath, "/*")
-		if strings.HasPrefix(requestPath, basePath) {
-			return true
-		}
-	}
-	return false
-}
-func isProtectedPath(urlPath, prefix string, paths []string) bool {
-	for _, path := range paths {
-		return isPathBlocked(urlPath, util.ParseURLPath(prefix+path))
-	}
-	return false
-}
-
-// NewRateLimiter creates a new requests limiter with the specified refill requests and token capacity
-func NewRateLimiter(maxTokens int, refillRate time.Duration) *TokenRateLimiter {
-	return &TokenRateLimiter{
-		tokens:     maxTokens,
-		maxTokens:  maxTokens,
-		refillRate: refillRate,
-		lastRefill: time.Now(),
-	}
 }
 
 // Allow checks if a request is allowed based on the current token bucket

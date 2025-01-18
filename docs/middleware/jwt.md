@@ -2,13 +2,15 @@
 title: JWT
 layout: default
 parent: Middleware
-nav_order: 10
+nav_order: 11
 ---
 
 
 ### JWT Middleware
 
 The JWT middleware restricts access to routes, similar to BasicAuth, by authorizing users based on JSON Web Tokens (JWTs).
+
+#### For more advanced use cases, consider using the `forwardAuth` middleware instead.
 
 ---
 

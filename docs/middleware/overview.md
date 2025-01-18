@@ -15,7 +15,7 @@ With Goma, you can create custom middleware tailored to your needs and apply the
 ## Supported Middleware Types
 
 - **Authentication Middleware**
-  - **JWT**: Performs client authorization based on the result of a request using JSON Web Tokens.
+  - **ForwardAuth**: delegates authorization to a backend service, determining access based on the service's HTTP response.
   - **Basic-Auth**: Verifies credentials through Basic Authentication.
   - **OAuth**: Supports OAuth-based authentication flows.
 

@@ -205,3 +205,10 @@ type Dashboard struct {
 	Enabled     bool     `yaml:"enabled,omitempty"`
 	Middlewares []string `yaml:"middlewares,omitempty"`
 }
+type httpCacheRule struct {
+	MaxTtl                   int64    `yaml:"maxTtl"`
+	MaxStale                 int64    `yaml:"maxStale"`
+	DisableCacheStatusHeader bool     `yaml:"disableCacheStatusHeader,omitempty"`
+	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty"`
+	MemoryLimit              string   `yaml:"memoryLimit,omitempty"`
+}

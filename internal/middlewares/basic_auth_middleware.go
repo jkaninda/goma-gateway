@@ -38,7 +38,8 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 		if realm == "" {
 			realm = "Restricted"
 		}
-		if isProtectedPath(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
+		if isPathMatching(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
+
 			// Get the Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {

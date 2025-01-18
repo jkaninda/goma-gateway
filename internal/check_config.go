@@ -113,12 +113,21 @@ func checkRoutes(routes []Route, middlewares []Middleware) {
 func checkConfig(routes []Route, middlewares []Middleware) error {
 	logger.Info("Checking configurations...")
 	midNames := middlewareNames(middlewares)
-	for index, route := range routes {
+	for _, route := range routes {
 		if len(route.Name) == 0 {
-			logger.Warn("Warning: route name is empty, index: [%d]", index)
+			des := route.Destination
+			if des == "" {
+				if len(route.Backends) > 0 {
+					des = route.Backends[0]
+				}
+			}
+			return fmt.Errorf("route name is empty, route with destination: %s", des)
+		}
+		if route.Path == "" {
+			return fmt.Errorf("route [%s] has en empty path", route.Name)
 		}
 		if route.Destination == "" && len(route.Backends) == 0 {
-			return fmt.Errorf("Error: no destination or backends specified for route: %s | index: [%d] \n", route.Name, index)
+			return fmt.Errorf("Error: no destination or backends specified for route: %s ", route.Name)
 		}
 		// checking middleware applied to routes
 		for _, middleware := range route.Middlewares {

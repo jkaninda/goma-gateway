@@ -40,8 +40,8 @@ gateway:
       methods: []
       healthCheck:
         path: "/health/live"
-        interval: 0
-        timeout: 0
+        interval: 10s
+        timeout: 5s
         healthyStatuses: [200,404]
       errorInterceptor:
         enabled: true
