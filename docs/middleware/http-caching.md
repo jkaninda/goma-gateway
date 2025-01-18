@@ -77,4 +77,3 @@ For example:
    - `/store/categories/*` matches all paths under `/store/categories/`.
    - `/api/stores/(.*)/items/(.*)` matches dynamic paths under `/api/stores/`.
 
----
