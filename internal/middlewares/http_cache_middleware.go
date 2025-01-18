@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/redis/go-redis/v9"
-	"log"
 	"net/http"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -34,11 +34,10 @@ type HttpCache struct {
 	// Path, route path
 	Path string
 	// Name, route name
-	Name       string
-	Cache      *Cache
-	RedisCache *RedisCache
-	TTL        time.Duration
-	MaxStale   time.Duration
+	Name     string
+	Cache    *Cache
+	TTL      time.Duration
+	MaxStale time.Duration
 	// Paths, middlewares paths
 	Paths                    []string
 	RedisBased               bool
@@ -46,10 +45,11 @@ type HttpCache struct {
 	ExcludedResponseCodes    []int
 }
 
-// RedisCache is a wrapper around the Redis client.
-type RedisCache struct {
+// Cache is a wrapper around the Redis client.
+type Cache struct {
 	ttl         time.Duration
 	data        map[string]*CacheItem
+	redisBased  bool
 	memoryLimit int64
 	memoryUsed  int64
 	mu          sync.RWMutex
@@ -80,103 +80,50 @@ type CacheItem struct {
 	ExpiresAt   time.Time
 }
 
-// Cache is a thread-safe in-memory cache.
-type Cache struct {
-	data        map[string]*CacheItem
-	mu          sync.RWMutex
-	memoryUsed  int64
-	memoryLimit int64 // in bytes
-
-}
-
-// NewCache creates a new Cache.
-func NewCache(memoryLimit int64) *Cache {
+// NewCache initializes a Redis client and returns a Cache.
+func NewCache(redisBased bool, ttl time.Duration, memoryLimit int64) *Cache {
 	return &Cache{
-		data:        make(map[string]*CacheItem),
-		memoryLimit: memoryLimit,
-	}
-}
-
-// NewRedisCache initializes a Redis client and returns a RedisCache.
-func NewRedisCache(ttl time.Duration, memoryLimit int64) *RedisCache {
-	return &RedisCache{
 		ttl:         ttl,
+		redisBased:  redisBased,
 		data:        make(map[string]*CacheItem),
 		memoryLimit: memoryLimit,
-	}
-}
-
-// Get retrieves an item from the cache.
-func (c *Cache) Get(key string) (*CacheItem, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	item, found := c.data[key]
-	if found && item.ExpiresAt.After(time.Now()) {
-		return item, true
-	}
-	return nil, false
-}
-
-// Set stores an item in the cache.
-func (c *Cache) Set(key string, response []byte, contentType string, ttl time.Duration) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	// Calculate the size of the new cache item.
-	newItemSize := int64(len(response))
-
-	if c.memoryLimit != 0 {
-		// Evict items if necessary to stay within the memory limit.
-		for c.memoryUsed+newItemSize > c.memoryLimit {
-			c.evictOldest()
-		}
-	}
-
-	c.data[key] = &CacheItem{
-		Response:    response,
-		ContentType: contentType,
-		ExpiresAt:   time.Now().Add(ttl),
 	}
 }
 
 // GetTTL retrieves the remaining TTL for a given cache key.
 // If the key does not exist or has expired, it returns 0 and false.
-func (c *Cache) GetTTL(key string) (time.Duration, bool) {
+func (c *Cache) GetTTL(ctx context.Context, key string) time.Duration {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	if c.redisBased {
+		ttl, err := RedisClient.TTL(ctx, key).Result()
+		if err != nil {
+			logger.Error("Failed to get TTL %v ", err)
+			return 0
+		}
+		return ttl
+	}
 	item, found := c.data[key]
 	if !found || item.ExpiresAt.Before(time.Now()) {
-		return 0, false
+		return 0
 	}
 	remainingTTL := time.Until(item.ExpiresAt)
-	return remainingTTL, true
-}
 
-// evictOldest removes the oldest item in the cache to free up memory.
-func (c *Cache) evictOldest() {
-	var oldestKey string
-	var oldestTime time.Time
-
-	// Find the oldest item.
-	for key, item := range c.data {
-		if oldestKey == "" || item.ExpiresAt.Before(oldestTime) {
-			oldestKey = key
-			oldestTime = item.ExpiresAt
-		}
-	}
-
-	// Remove the oldest item.
-	if oldestKey != "" {
-		c.memoryUsed -= int64(len(c.data[oldestKey].Response))
-		delete(c.data, oldestKey)
-	}
+	return remainingTTL
 }
 
 // evictOldest evicts the oldest item in the cache to make room for new items.
-func (r *RedisCache) evictOldest() {
-	// Find the oldest item and evict it.
+func (c *Cache) evictOldest() {
 	var oldestKey string
 	var oldestTime time.Time
-	for key, item := range r.data {
+	if c.redisBased {
+		// Also remove from Redis.
+		RedisClient.Del(context.Background(), oldestKey)
+		logger.Debug("Evicted item with key: %s", oldestKey)
+		return
+	}
+
+	for key, item := range c.data {
 		if oldestTime.IsZero() || item.ExpiresAt.Before(oldestTime) {
 			oldestKey = key
 			oldestTime = item.ExpiresAt
@@ -185,95 +132,135 @@ func (r *RedisCache) evictOldest() {
 
 	// Evict the oldest item from memory.
 	if oldestKey != "" {
-		r.mu.Lock()
-		defer r.mu.Unlock()
+		c.mu.Lock()
+		defer c.mu.Unlock()
 
 		// Remove from memory.
-		item := r.data[oldestKey]
-		delete(r.data, oldestKey)
-		r.memoryUsed -= item.Size
+		item := c.data[oldestKey]
+		delete(c.data, oldestKey)
+		c.memoryUsed -= item.Size
 
-		// Also remove from Redis.
-		RedisClient.Del(context.Background(), oldestKey)
-		logger.Debug("Evicted item with key: %s", oldestKey)
 	}
+
 }
 
 // Get retrieves an item from Redis or the in-memory cache with max-stale support.
-func (r *RedisCache) Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, bool) {
-	// First, check the in-memory cache.
-	r.mu.RLock()
-	item, found := r.data[key]
-	r.mu.RUnlock()
+func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, time.Duration, bool) {
+	ttl := c.GetTTL(ctx, key)
+	if c.redisBased {
+		// If not found in memory or expired, check Redis.
+		val, err := RedisClient.HGetAll(ctx, key).Result()
+		if errors.Is(err, redis.Nil) {
+			// Key does not exist in Redis.
+			return nil, "", time.Duration(0), false
+		} else if err != nil {
+			// Redis error.
+			logger.Error("Error retrieving item from Redis: %v", err)
+			return nil, "", time.Duration(0), false
+		}
+		// The item was found in Redis, retrieve the response and contentType.
+		response := val["response"]
+		contentType := val["contentType"]
+		expiresAtStr := val["expiresAt"]
 
+		// If any of the necessary fields are missing, return a cache miss.
+		if response == "" || contentType == "" || expiresAtStr == "" {
+			logger.Debug("Cache entry missing data for key: %s", key)
+			return nil, "", time.Duration(0), false
+		}
+
+		// Parse the expiration timestamp.
+		expiresAt, err := strconv.ParseInt(expiresAtStr, 10, 64)
+		if err != nil {
+			logger.Debug("Invalid expiresAt value for key: %s, error: %v", key, err)
+			return nil, "", time.Duration(0), false
+		}
+
+		// Check expiration and max-stale.
+		now := time.Now()
+		if now.After(time.Unix(expiresAt, 0)) {
+			// Item is expired, check if within max-stale window.
+			if maxStale > 0 && now.Before(time.Unix(expiresAt, 0).Add(maxStale)) {
+				return []byte(response), contentType, ttl, true
+			}
+			// Item expired and beyond max-stale period.
+			return nil, "", ttl, false
+		}
+		// Item is fresh.
+		return []byte(response), contentType, ttl, true
+
+	}
+	// First, check the in-memory cache.
+	c.mu.RLock()
+	item, found := c.data[key]
+	c.mu.RUnlock()
 	if found {
 		now := time.Now()
 		if item.ExpiresAt.After(now) {
-			return item.Response, item.ContentType, true
+			return item.Response, item.ContentType, ttl, true
 		}
 
 		// If expired, check if max-stale allows serving the stale item.
 		if maxStale > 0 && now.Before(item.ExpiresAt.Add(maxStale)) {
-			return item.Response, item.ContentType, true
+			return item.Response, item.ContentType, ttl, true
 		}
 	}
-
-	// If not found in memory or expired, check Redis.
-	val, err := RedisClient.Get(ctx, key).Result()
-	if errors.Is(err, redis.Nil) {
-		// Key does not exist in Redis.
-		return nil, "", false
-	} else if err != nil {
-		// Redis error.
-		logger.Error("Error retrieving item from Redis: %v", err)
-		return nil, "", false
-	}
-
-	// The item was found in Redis, return it.
-	// Note: You could update the in-memory cache here as well.
-	return []byte(val), "text/plain", true
+	return nil, "", ttl, false
 }
 
 // Set stores an item in both Redis and the in-memory cache with memory limit checks.
-func (r *RedisCache) Set(ctx context.Context, key string, response []byte, contentType string, ttl time.Duration) error {
+func (c *Cache) Set(ctx context.Context, key string, response []byte, contentType string) error {
 	itemSize := int64(len(response))
-
 	// Check if the item will exceed the memory limit.
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	// Evict items if necessary to stay within the memory limit.
-	for r.memoryUsed+itemSize > r.memoryLimit {
-		r.evictOldest()
+	for c.memoryUsed+itemSize > c.memoryLimit {
+		c.evictOldest()
 	}
-
 	// Add the new item to the in-memory cache.
 	item := &CacheItem{
 		Response:    response,
 		ContentType: contentType,
 		Size:        itemSize,
-		ExpiresAt:   time.Now().Add(r.ttl),
+		ExpiresAt:   time.Now().Add(c.ttl),
 	}
 
-	r.data[key] = item
-	r.memoryUsed += itemSize
-
-	// Store the item in Redis as well.
-	err := RedisClient.Set(ctx, key, response, r.ttl).Err()
-	if err != nil {
-		log.Printf("Error storing item in Redis: %v", err)
-		return err
+	if c.redisBased {
+		// Store the item in Redis as a hash with response and contentType.
+		data := map[string]interface{}{
+			"response":    response,
+			"contentType": contentType,
+			"expiresAt":   time.Now().Add(c.ttl).Unix(),
+		}
+		err := RedisClient.HSet(ctx, key, data).Err()
+		if err != nil {
+			return err
+		}
+		logger.Debug("Redis: Response saved")
+		return RedisClient.Expire(ctx, key, c.ttl).Err()
 	}
 
+	c.data[key] = item
+	c.memoryUsed += itemSize
+	logger.Debug("Memory: Response saved")
 	return nil
 }
 
-// Delete removes a cached response from the memory cache.
-func (c *Cache) Delete(key string) {
+// Delete removes a cached response from the memory cache or Redis cache.
+func (c *Cache) Delete(ctx context.Context, key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	delete(c.data, key)
+	if c.redisBased {
+		if err := RedisClient.Del(ctx, key).Err(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // CacheMiddleware adds caching to HTTP handlers.
@@ -291,27 +278,12 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 		if r.Method == http.MethodGet {
 			// Parse the max-stale value from the Cache-Control header
 			maxStale := parseMaxStale(r.Header.Get("Cache-Control"))
-			if h.RedisBased {
-				if response, contentType, found := h.RedisCache.Get(ctx, cacheKey, maxStale); found {
-					// Calculate remaining TTL and set Cache-Control
-					ttl, err := RedisClient.TTL(ctx, cacheKey).Result()
-					if err != nil {
-						http.Error(w, "Failed to get TTL", http.StatusInternalServerError)
-						return
-					}
-					writeCachedResponse(w, contentType, response, ttl, h.DisableCacheStatusHeader)
-					logger.Debug("Redis: served from cache: %s", r.URL.Path)
-					return
-				}
-			} else {
-				if cachedItem, found := h.Cache.Get(cacheKey); found {
-					// Calculate remaining TTL and set Cache-Control
-					ttl, _ := h.Cache.GetTTL(cacheKey)
-					writeCachedResponse(w, cachedItem.ContentType, cachedItem.Response, ttl, h.DisableCacheStatusHeader)
-					logger.Debug("Memory: served from cache: %s", r.URL.Path)
-					return
-				}
+			if response, contentType, ttl, found := h.Cache.Get(ctx, cacheKey, maxStale); found {
+				writeCachedResponse(w, contentType, response, ttl, h.DisableCacheStatusHeader)
+				logger.Debug("Cache: served from cache: %s", r.URL.Path)
+				return
 			}
+
 			if !h.DisableCacheStatusHeader {
 				// Set Cache-Control for new response
 				w.Header().Set("X-Cache-Status", "MISS") // Indicate cache miss
@@ -328,48 +300,25 @@ func (h HttpCache) CacheMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		// Handle cache invalidation and caching based on the request method and response status
-		if h.RedisBased {
-			h.handleRedisCache(ctx, cacheKey, r, rec)
-		} else {
-			h.handleMemoryCache(cacheKey, r, rec)
-		}
+		h.handleCache(ctx, cacheKey, r, rec)
 	})
 }
 
-// handleRedisCache handles Redis-based caching logic
-func (h HttpCache) handleRedisCache(ctx context.Context, cacheKey string, r *http.Request, rec *responseRecorder) {
+// handleCache handles Redis-based caching logic
+func (h HttpCache) handleCache(ctx context.Context, cacheKey string, r *http.Request, rec *responseRecorder) {
 	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
-		h.RedisCache.mu.Lock()
-		defer h.RedisCache.mu.Unlock()
-		if err := RedisClient.Del(ctx, cacheKey).Err(); err != nil {
+		if err := h.Cache.Delete(ctx, cacheKey); err != nil {
 			logger.Error("Failed to invalidate cache for key %s: %v", cacheKey, err)
 		}
-		logger.Debug("Redis: Cache invalidated: Status: %d", rec.statusCode)
+		logger.Debug("Cache invalidated: Status: %d", rec.statusCode)
 		return
 	}
 
 	if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
-		if err := h.RedisCache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type"), h.MaxStale); err != nil {
-			logger.Error("Error redis cache: %v", err.Error())
+		if err := h.Cache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type")); err != nil {
+			logger.Error("Error saving response in cache: %v", err.Error())
 			return
 		}
-		logger.Debug("Redis: Response saved")
-	}
-}
-
-// handleMemoryCache handles in-memory caching logic
-func (h HttpCache) handleMemoryCache(cacheKey string, r *http.Request, rec *responseRecorder) {
-	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
-		h.Cache.mu.Lock()
-		defer h.Cache.mu.Unlock()
-		h.Cache.Delete(cacheKey)
-		logger.Debug("Memory: Cache invalidated: Status: %d", rec.statusCode)
-		return
-	}
-
-	if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
-		h.Cache.Set(cacheKey, rec.body, rec.Header().Get("Content-Type"), h.TTL)
-		logger.Debug("Memory: Response saved")
 	}
 }
 
