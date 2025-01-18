@@ -123,7 +123,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 
 	redisCache := &middlewares.RedisCache{}
 	if redisBased {
-		redisCache = middlewares.NewRedisCache(time.Duration(ttl))
+		redisCache = middlewares.NewRedisCache(time.Duration(ttl), mLimit)
 	}
 	cache := middlewares.NewCache(mLimit)
 
