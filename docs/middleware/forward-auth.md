@@ -142,4 +142,5 @@ gateway:
 
 - Use the ForwardAuth middleware to delegate access control and protect endpoints effectively.
 - Ensure `AuthUrl` and associated configurations align with your backend authentication service's API.
+- **Paths**: The `paths` field supports regex patterns for flexible route matching. 
 - Test configurations in a secure environment to validate proper integration before deploying to production.

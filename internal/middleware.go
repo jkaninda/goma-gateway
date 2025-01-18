@@ -114,28 +114,31 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 	}
 	mLimit := int64(0)
 	m, err := util.ConvertToBytes(httpCacheMid.MemoryLimit)
-	if err == nil {
-		mLimit = m
+	if err != nil {
+		logger.Error("Error httpCaching memoryLimit: %v", err)
 	}
+	mLimit = m
 	ttl := httpCacheMid.MaxTtl * int64(time.Second)
+	maxStale := httpCacheMid.MaxStale * int64(time.Second)
 
-	redisCache := &middlewares.RedisCache{}
-	if redisBased {
-		redisCache = middlewares.NewRedisCache(time.Duration(ttl))
+	cache := middlewares.NewHttpCacheMiddleware(redisBased, time.Duration(ttl), mLimit)
+
+	codes, err := util.ParseRanges(httpCacheMid.ExcludedResponseCodes)
+	if err != nil {
+		logger.Error("Error HttpCacheConfig excludedResponseCodes: %v ", err)
 	}
-	cache := middlewares.NewCache(mLimit)
-	httpCacheM := middlewares.HttpCache{
+	httpCacheM := middlewares.HttpCacheConfig{
 		Path:                     route.Path,
 		Name:                     util.Slug(route.Name),
 		Paths:                    mid.Paths,
 		Cache:                    cache,
 		TTL:                      time.Duration(ttl),
-		RedisCache:               redisCache,
+		MaxStale:                 time.Duration(maxStale),
 		RedisBased:               redisBased,
 		DisableCacheStatusHeader: httpCacheMid.DisableCacheStatusHeader,
-		ExcludedResponseCodes:    httpCacheMid.ExcludedResponseCodes,
+		ExcludedResponseCodes:    codes,
 	}
-	r.Use(httpCacheM.CacheMiddleware)
+	r.Use(httpCacheM.Middleware)
 
 }
 
