@@ -279,7 +279,6 @@ func (b Backends) HasPositiveWeight() bool {
 			return true
 		}
 	}
-	logger.Debug("No backend with positive weight found")
 	return false
 }
 

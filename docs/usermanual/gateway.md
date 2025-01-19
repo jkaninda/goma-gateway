@@ -13,9 +13,8 @@ These settings enable precise control over traffic flow and routing within your 
 
 ## Configuration Options
 
-- **`tlsCertFile`** (`string`): Path to the TLS certificate file.
-- **`tlsKeyFile`** (`string`): Path to the TLS certificate private key file.
 - **`redis`**: Redis configuration settings.
+- **`tls`**: Global TLS configuration .
 - **`writeTimeout`** (`integer`): Timeout for writing responses (in seconds).
 - **`readTimeout`** (`integer`): Timeout for reading requests (in seconds).
 - **`idleTimeout`** (`integer`): Timeout for idle connections (in seconds).
@@ -29,6 +28,32 @@ These settings enable precise control over traffic flow and routing within your 
 - **`disableKeepAlive`** (`boolean`): Enable or disable `keepAlive` for the proxy.
 - **`enableMetrics`** (`boolean`): Enable or disable server metrics collection.
 
+
+## TLS Configuration
+
+Goma Gateway allows you to define global TLS certificates for securing routes.
+
+These certificates are used to encrypt traffic between clients and the gateway.
+
+#### Keys Configuration
+
+You can define a list of TLS certificates for the routes using the following keys:
+
+- **`cert`** (`string`):  
+  Specifies the TLS certificate. This can be provided as:
+  - A file path to the certificate.
+  - Raw certificate content.
+  - A base64-encoded certificate.
+
+- **`key`** (`string`):  
+  Specifies the private key corresponding to the TLS certificate. 
+   
+  This can be provided as:
+  - A file path to the private key.
+  - Raw private key content.
+  - A base64-encoded private key.
+
+---
 ### CORS Configuration
 
 Customize Cross-Origin Resource Sharing (CORS) settings for the proxy:
@@ -60,11 +85,16 @@ Define the main routes for the Gateway, enabling routing logic for incoming requ
 ```yaml
 version: 1.0
 gateway:
-  tlsCertFile: /etc/goma/cert.pem
-  tlsKeyFile: /etc/goma/key.pem
   writeTimeout: 15
   readTimeout: 15
   idleTimeout: 30
+  tls:
+    keys:
+      - cert: /etc/goma/cert.pem
+        key: /etc/goma/key.pem      
+      - cert: |
+          -----BEGIN CERTIFICATE-----
+        key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...
   accessLog: /dev/Stdout
   errorLog: /dev/stderr
   logLevel: info
@@ -97,3 +127,11 @@ gateway:
     watch: true
   routes: []
 ```
+
+---
+### Notes
+
+- Ensure that the `cert` and `key` values are correctly formatted and match each other. Mismatched certificates and keys will result in TLS handshake failures.
+- If using file paths, ensure the gateway has read access to the specified files.
+- For raw or base64-encoded content, ensure there are no formatting errors or extra spaces.
+- TLS configuration is global and applies to all routes unless overridden by route-specific configurations.

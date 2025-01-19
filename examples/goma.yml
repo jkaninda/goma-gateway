@@ -7,8 +7,20 @@ gateway:
   idleTimeout: 30           # Maximum duration to keep idle connections open.
 
   # TLS Configuration
-  sslCertFile: ''           # Path to SSL Certificate file (e.g., cert.pem).
-  sslKeyFile: ''            # Path to SSL Private Key file (e.g., key.pem).
+  tls:  # Global TLS configuration for the gateway
+    keys:  # List of TLS certificates and private keys
+      - cert: /path/to/certificate.crt  # File path to the TLS certificate
+        key: /path/to/private.key  # File path to the private key
+      - cert: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64-encoded certificate
+        key:  LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64-encoded private key
+      - cert: |  # Raw certificate content (PEM format)
+          -----BEGIN CERTIFICATE-----
+            <certificate content>
+          -----END CERTIFICATE-----
+        key: |  # Raw private key content (PEM format)
+          -----BEGIN PRIVATE KEY-----
+             <private-key content>
+          -----END PRIVATE KEY-----
 
 
   # Logging Configuration
@@ -83,9 +95,10 @@ gateway:
       disabled: false                # Disables the route, the route will not be proxied.
       rewrite: /
       destination: ''
-      backends:
-        - https://example.com
-        - https://example2.com
+      backends:  # List of backend servers to route traffic to
+        - endPoint: https://backend1.example.com
+        - endPoint: https://backend2.example.com
+        - endPoint: https://backend3.example.com
       insecureSkipVerify: true       # Disable SSL verification for backend connections.
       ## Allowed HTTP Methods
       methods:

@@ -27,6 +27,8 @@ This section outlines the available configuration options for defining routes in
 - **`destination`** (`string`): The backend endpoint for the route.
 - **`backends`** (`list of strings`): A list of backend services for load balancing.
 - **`insecureSkipVerify`** (`boolean`): Disables backend TLS certificate verification.
+- **`tls`**: Route TLS configuration .
+
 
 ## Health Check Configuration
 
@@ -48,7 +50,31 @@ This section outlines the available configuration options for defining routes in
 - **`contentType`** (`string`): Specifies the `Content-Type` header of the response, such as `application/json` or `text/plain`.
 - **`errors`** (`array`): A collection of error configurations defining which HTTP status codes to intercept and their corresponding custom responses.
 
+## TLS Configuration
 
+Goma Gateway allows you to define route TLS certificates for securing route.
+
+These certificates are used to encrypt traffic between clients and the gateway.
+
+#### Keys Configuration
+
+You can define a list of TLS certificates for the route using the following keys:
+
+- **`cert`** (`string`):  
+  Specifies the TLS certificate. This can be provided as:
+  - A file path to the certificate.
+  - Raw certificate content.
+  - A base64-encoded certificate.
+
+- **`key`** (`string`):  
+  Specifies the private key corresponding to the TLS certificate. 
+  
+  This can be provided as:
+  - A file path to the private key.
+  - Raw private key content.
+  - A base64-encoded private key.
+
+---
 ## Additional Options
 
 - **`disableHostForwarding`** (`boolean`): Disables proxy host forwarding for improved security.
@@ -176,31 +202,30 @@ gateway:
 
 Example of route with load balancing enabled.
 
+Below is an example configuration for round-robin load balancing:
+
+
 ```yaml
-version: 1.0
+version: 1.0  # Configuration version
 gateway:
-  ...
   routes:
-    - name: Example
-      path: /store/cart
-      rewrite: /cart
-      ## destination: will be override by backends
-      destination: ""
-      backends:
-          - https://example.com
-          - https://example2.com
-          - https://example4.com
-      insecureSkipVerify: true
-      methods: []
-      healthCheck:
-        path: "/health/live"
-        interval: 30s
-        timeout: 10s
-        healthyStatuses: [200,404]
-      blockCommonExploits: false
+    - path: /  # The path to match for this route
+      name: example route  # A descriptive name for the route
+      hosts:  # List of hostnames this route will handle
+        - example.com
+        - example.localhost
+      rewrite: /  # Rewrite the incoming request path (if needed)
+      methods: []  # HTTP methods to allow (empty means all methods are allowed)
+      healthCheck:  # Health check configuration for backend servers
+        path: "/"  # Endpoint to check for health
+        interval: 30s  # Time interval between health checks
+        timeout: 10s  # Timeout for health check requests
+        healthyStatuses: [200, 404]  # HTTP status codes considered healthy
+      ## destination: will be overridden by backends
+      destination: ""  # Placeholder for backend destination (overridden by `backends`)
+      backends:  # List of backend servers for load balancing
+        - endPoint: https://example.com  # Backend server URL
+        - endPoint: https://example1.com  # Backend server URL
+        - endPoint: https://example2.com  # Backend server URL
       cors: {}
-      ## Middleware
-      middlewares:
-        - api-forbidden-paths
-        - jwt-auth
 ```
