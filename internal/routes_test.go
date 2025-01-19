@@ -47,11 +47,11 @@ func initExtraRoute(path string) error {
 			{
 				Name: "Load balancer",
 				Path: "/extra-protected",
-				Backends: []string{
-					"https://example.com",
-					"https://example2.com",
-					"https://example3.com",
-				},
+				//Backends: []string{
+				//	"https://example.com",
+				//	"https://example2.com",
+				//	"https://example3.com",
+				//},
 				Rewrite:     "/",
 				HealthCheck: RouteHealthCheck{},
 				Cors: Cors{

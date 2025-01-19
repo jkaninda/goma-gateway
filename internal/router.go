@@ -84,10 +84,12 @@ func (r *router) AddRoute(route Route) {
 	}
 
 	proxyRoute := ProxyRoute{
+		name:                  route.Name,
 		path:                  route.Path,
 		rewrite:               route.Rewrite,
 		destination:           route.Destination,
 		backends:              route.Backends,
+		weightedBased:         route.Backends.HasPositiveWeight(),
 		methods:               route.Methods,
 		disableHostForwarding: route.DisableHostForwarding,
 		cors:                  route.Cors,
@@ -118,7 +120,7 @@ func (r *router) AddRoute(route Route) {
 		rRouter.Use(bot.BotDetectionMiddleware)
 	}
 
-	if len(route.Hosts) != 0 {
+	if len(route.Hosts) > 0 {
 		for _, host := range route.Hosts {
 			rRouter.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
 		}

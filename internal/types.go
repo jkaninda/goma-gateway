@@ -130,16 +130,6 @@ type GatewayServer struct {
 	gateway     Gateway
 	middlewares []Middleware
 }
-type ProxyRoute struct {
-	path                  string
-	rewrite               string
-	destination           string
-	backends              []string
-	methods               []string
-	cors                  Cors
-	disableHostForwarding bool
-	insecureSkipVerify    bool
-}
 type HealthCheckRoute struct {
 	DisableRouteHealthCheckError bool
 	Routes                       []Route

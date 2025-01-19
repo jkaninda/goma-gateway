@@ -89,7 +89,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 		return nil, err
 	}
 	logger.Info("Generating new configuration file...done")
-	logger.Info("Server configuration file is available at %s", ConfigFile)
+	logger.Info("Server configuration file is unavailable at %s", ConfigFile)
 	util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 	buf, err := os.ReadFile(ConfigFile)
 	if err != nil {
@@ -219,11 +219,11 @@ func initConfig(configFile string) error {
 				{
 					Name: "Load balancer",
 					Path: "/protected",
-					Backends: []string{
-						"https://example.com",
-						"https://example2.com",
-						"https://example3.com",
-					},
+					//Backends: []string{
+					//	"https://example.com",
+					//	"https://example2.com",
+					//	"https://example3.com",
+					//},
 					Rewrite:               "/",
 					DisableHostForwarding: false,
 					ErrorInterceptor: middlewares.RouteErrorInterceptor{
