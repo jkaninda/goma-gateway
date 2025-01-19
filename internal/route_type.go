@@ -70,7 +70,7 @@ type Route struct {
 	// such as SQL injection or simple XSS attempts.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	EnableBotDetection  bool `yaml:"enableBotDetection,omitempty"`
-	TLS                 TLS  `yaml:"tls"`
+	TLS                 TLS  `yaml:"tls,omitempty"`
 	// Middlewares lists middleware names to apply to this route.
 	Middlewares []string `yaml:"middlewares"`
 }

@@ -28,9 +28,11 @@ type Gateway struct {
 	// Deprecated: Use TlsKeyFile instead.
 	SSLKeyFile string `yaml:"sslKeyFile,omitempty" env:"GOMA_SSL_KEY_FILE, overwrite"`
 	// TlsCertFile specifies the TLS certificate file.
-	TlsCertFile string `yaml:"tlsCertFile" env:"GOMA_TLS_CERT_FILE, overwrite"`
+	TlsCertFile string `yaml:"tlsCertFile,omitempty" env:"GOMA_TLS_CERT_FILE, overwrite"`
 	// TlsKeyFile specifies the TLS private key file.
-	TlsKeyFile string `yaml:"tlsKeyFile" env:"GOMA_TLS_KEY_FILE, overwrite"`
+	TlsKeyFile string `yaml:"tlsKeyFile,omitempty" env:"GOMA_TLS_KEY_FILE, overwrite"`
+	// TLS specifies a list of tls certificate, cert and key
+	TLS TLS `yaml:"tls,omitempty"`
 	// Redis contains the configuration details for the Redis database.
 	Redis Redis `yaml:"redis,omitempty"`
 	// WriteTimeout defines the timeout (in seconds) for writing responses to clients.

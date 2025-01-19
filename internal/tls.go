@@ -27,7 +27,7 @@ import (
 )
 
 func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
-	tlsConfig := loadTLS()
+	tlsConfig := loadTLS(gatewayServer.gateway.TLS)
 	cert, err := loadGatewayCertificate(gatewayServer)
 	if err == nil {
 		tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
@@ -39,9 +39,20 @@ func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
 }
 
 // loadTLS initializes a TLS configuration by loading certificates from dynamic routes.
-func loadTLS() *tls.Config {
+func loadTLS(gatewayTls TLS) *tls.Config {
 	cfg := &tls.Config{}
-
+	for _, key := range gatewayTls.Keys {
+		if key.Key == "" && key.Cert == "" {
+			logger.Error("Error tls: no certificate or key file provided gor the gateway")
+			continue
+		}
+		certificate, err := loadCertAndKey(key.Cert, key.Key)
+		if err != nil {
+			logger.Error("Error loading server certificate for the gateway")
+			continue
+		}
+		cfg.Certificates = append(cfg.Certificates, certificate)
+	}
 	for _, route := range dynamicRoutes {
 		for _, key := range route.TLS.Keys {
 			if key.Key == "" && key.Cert == "" {
