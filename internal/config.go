@@ -350,8 +350,8 @@ func (rateLimit RateLimitRuleMiddleware) validate() error {
 
 // validate validates JWTRuleMiddleware
 func (jwt JWTRuleMiddleware) validate() error {
-	if jwt.URL == "" {
-		return fmt.Errorf("error parsing yaml: empty url in jwt auth middlewares")
+	if jwt.Secret == "" && jwt.JwksUrl == "" {
+		return fmt.Errorf("error parsing yaml: empty Secret or  PublicKey in jwt auth middlewares")
 
 	}
 	return nil

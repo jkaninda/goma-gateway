@@ -281,13 +281,11 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 	}
 
 	jwtAuth := middlewares.JwtAuth{
-		Path:            route.Path,
-		Paths:           routeMiddleware.Paths,
-		AuthURL:         jwt.URL,
-		RequiredHeaders: jwt.RequiredHeaders,
-		Headers:         jwt.Headers,
-		Params:          jwt.Params,
-		Origins:         route.Cors.Origins,
+		Path:    route.Path,
+		Paths:   routeMiddleware.Paths,
+		Secret:  jwt.Secret,
+		JwksUrl: jwt.JwksUrl,
+		Origins: route.Cors.Origins,
 	}
 
 	r.Use(jwtAuth.AuthMiddleware)

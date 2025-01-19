@@ -57,9 +57,8 @@ func TestMiddleware(t *testing.T) {
 			Type:  JWTAuth,
 			Paths: []string{"/", "/admin"},
 			Rule: JWTRuleMiddleware{
-				URL:     "https://www.googleapis.com/auth/userinfo.email",
-				Headers: map[string]string{},
-				Params:  map[string]string{},
+				JwksUrl: "https://www.googleapis.com/auth/userinfo.email",
+				Secret:  "",
 			},
 		},
 		{
@@ -132,7 +131,7 @@ func TestReadMiddleware(t *testing.T) {
 			if err != nil {
 				logger.Error("Error: %s", err.Error())
 			}
-			log.Printf("JWT authentification URL is %s\n", jwt.URL)
+			log.Printf("JWT authentification valited")
 		case OAuth:
 			log.Println("OAuth auth")
 			oauth := &OauthRulerMiddleware{}
