@@ -83,7 +83,7 @@ Define the main routes for the Gateway, enabling routing logic for incoming requ
 ## Example Configuration
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   writeTimeout: 15
   readTimeout: 15

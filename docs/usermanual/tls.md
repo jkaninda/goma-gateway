@@ -35,7 +35,7 @@ You can define a list of TLS certificates for the routes using the following key
 Below is an example of how to configure global TLS certificates for your routes:
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   tls:  # Global TLS configuration for the gateway
     keys:  # List of TLS certificates and private keys
@@ -66,7 +66,7 @@ gateway:
 Below is an example of how to configure TLS certificates for a single route:
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   routes:
     - path: /  # The path to match for this route

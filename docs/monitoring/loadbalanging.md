@@ -27,7 +27,7 @@ Goma Gateway supports both **round-robin** and **weighted-based** load balancing
 Below is an example configuration for round-robin load balancing:
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   routes:
     - path: /

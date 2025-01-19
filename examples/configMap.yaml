@@ -5,7 +5,7 @@ metadata:
 data:
   goma.yml: |
     # Goma Gateway Configuration File
-    version: 1.0
+    version: 2
     gateway:
       # Timeouts in seconds
       writeTimeout: 15          # Maximum duration for writing to a client.
