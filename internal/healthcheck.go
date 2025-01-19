@@ -150,7 +150,7 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 			logger.Error("Route %s is unhealthy: %v", health.Name, err.Error())
 			return
 		}
-		logger.Info("Route %s is healthy", health.Name)
+		logger.Debug("Route %s is healthy", health.Name)
 	})
 	if err != nil {
 		return err
