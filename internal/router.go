@@ -80,7 +80,7 @@ func (r *router) AddRoute(route Route) {
 
 	rRouter := r.mux.PathPrefix(route.Path).Subrouter()
 	if route.DisableHostForwarding {
-		logger.Info("Route %s: host forwarding disabled", route.Name)
+		logger.Debug("Route %s: host forwarding disabled", route.Name)
 	}
 
 	proxyRoute := ProxyRoute{
@@ -115,7 +115,7 @@ func (r *router) AddRoute(route Route) {
 	rRouter.Use(proxyHandler.proxyHandler)
 
 	if route.EnableBotDetection {
-		logger.Info("Route %s: Bot detection enabled", route.Name)
+		logger.Debug("Route %s: Bot detection enabled", route.Name)
 		bot := middlewares.BotDetection{}
 		rRouter.Use(bot.BotDetectionMiddleware)
 	}
@@ -142,7 +142,7 @@ func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
 	}
 
 	if gateway.EnableMetrics {
-		logger.Info("Metrics enabled")
+		logger.Debug("Metrics enabled")
 		mux.Path("/metrics").Handler(promhttp.Handler())
 	}
 
@@ -156,7 +156,7 @@ func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
 	mux.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
 
 	if gateway.BlockCommonExploits {
-		logger.Info("Block common exploits enabled")
+		logger.Debug("Block common exploits enabled")
 		mux.Use(middlewares.BlockExploitsMiddleware)
 	}
 

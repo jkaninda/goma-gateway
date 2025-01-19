@@ -51,7 +51,7 @@ func (gatewayServer GatewayServer) Start() error {
 	}
 	// Watch for changes
 	if gatewayServer.gateway.ExtraConfig.Watch {
-		logger.Info("Dynamic configuration watch enabled")
+		logger.Debug("Dynamic configuration watch enabled")
 		go gatewayServer.watchExtraConfig(newRouter)
 
 	}

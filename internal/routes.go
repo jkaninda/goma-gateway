@@ -43,14 +43,14 @@ func (gatewayServer GatewayServer) Initialize() error {
 	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
 	if err == nil {
 		dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
-		logger.Info("Loaded %d additional middlewares", len(extraMiddlewares))
+		logger.Debug("Loaded %d additional middlewares", len(extraMiddlewares))
 
 	}
 	// Load Extra Routes
 	extraRoutes, err := loadExtraRoutes(gateway.ExtraConfig.Directory)
 	if err == nil {
 		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
-		logger.Info("Loaded %d additional routes", len(extraRoutes))
+		logger.Debug("Loaded %d additional routes", len(extraRoutes))
 
 	}
 	// Check configs
@@ -78,7 +78,7 @@ func (gatewayServer GatewayServer) Initialize() error {
 // attachMiddlewares attaches middlewares to the route
 func attachMiddlewares(route Route, router *mux.Router) {
 	if route.BlockCommonExploits {
-		logger.Info("Block common exploits enabled")
+		logger.Debug("Block common exploits enabled")
 		router.Use(middlewares.BlockExploitsMiddleware)
 	}
 	// Apply route rate limit // Deprecated
