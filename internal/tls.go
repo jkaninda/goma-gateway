@@ -39,34 +39,32 @@ func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
 }
 
 // loadTLS initializes a TLS configuration by loading certificates from dynamic routes.
-func loadTLS(gatewayTls TLS) *tls.Config {
+func loadTLS(t TLS) *tls.Config {
 	cfg := &tls.Config{}
-	for _, key := range gatewayTls.Keys {
-		if key.Key == "" && key.Cert == "" {
-			logger.Error("Error tls: no certificate or key file provided gor the gateway")
-			continue
-		}
-		certificate, err := loadCertAndKey(key.Cert, key.Key)
-		if err != nil {
-			logger.Error("Error loading server certificate for the gateway")
-			continue
-		}
-		cfg.Certificates = append(cfg.Certificates, certificate)
-	}
-	for _, route := range dynamicRoutes {
-		for _, key := range route.TLS.Keys {
+
+	// Helper function to load certificates and append them to the config
+	loadCertificates := func(t TLS, context string) {
+		for _, key := range t.Keys {
 			if key.Key == "" && key.Cert == "" {
-				logger.Error("Error tls: no certificate or key file provided for route: %s", route.Name)
+				logger.Error("Error TLS: no certificate or key file provided for %s", context)
 				continue
 			}
 
 			certificate, err := loadCertAndKey(key.Cert, key.Key)
 			if err != nil {
-				logger.Error("Error loading server certificate for route %s: %v", route.Name, err)
+				logger.Error("Error loading server certificate for %s: %v", context, err)
 				continue
 			}
 			cfg.Certificates = append(cfg.Certificates, certificate)
 		}
+	}
+
+	// Load certificates for the gateway
+	loadCertificates(t, "the gateway")
+
+	// Load certificates for dynamic routes
+	for _, route := range dynamicRoutes {
+		loadCertificates(route.TLS, fmt.Sprintf("route: %s", route.Name))
 	}
 
 	return cfg
