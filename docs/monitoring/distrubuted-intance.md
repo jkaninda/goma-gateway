@@ -15,8 +15,6 @@ By leveraging Redis, the Gateway ensures high-performance request throttling and
 ```yaml
 version: "1.0"
 gateway:
-  tlsCertFile: cert.pem
-  tlsKeyFile: key.pem
   writeTimeout: 15
   readTimeout: 15
   idleTimeout: 30

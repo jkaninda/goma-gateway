@@ -42,7 +42,7 @@ type Route struct {
 	// Destination defines the primary backend URL for this route.
 	Destination string `yaml:"destination"`
 	// Backends specifies a list of backend URLs for load balancing.
-	Backends []string `yaml:"backends"`
+	Backends Backends `yaml:"backends"`
 	// InsecureSkipVerify disables SSL/TLS verification for the backend.
 	InsecureSkipVerify bool `yaml:"insecureSkipVerify"`
 	// HealthCheck contains configuration for monitoring the health of backends.
@@ -70,6 +70,7 @@ type Route struct {
 	// such as SQL injection or simple XSS attempts.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	EnableBotDetection  bool `yaml:"enableBotDetection,omitempty"`
+	TLS                 TLS  `yaml:"tls,omitempty"`
 	// Middlewares lists middleware names to apply to this route.
 	Middlewares []string `yaml:"middlewares"`
 }
@@ -82,3 +83,15 @@ type ExtraMiddleware struct {
 	// Routes holds proxy routes
 	Middlewares []Middleware `yaml:"middlewares"`
 }
+type TLS struct {
+	Keys []struct {
+		Cert string `yaml:"cert"`
+		Key  string `yaml:"key"`
+	} `yaml:"keys,omitempty"`
+}
+type Backend struct {
+	unavailable bool
+	EndPoint    string `yaml:"endPoint,omitempty"`
+	Weight      int    `yaml:"weight,omitempty"`
+}
+type Backends []Backend

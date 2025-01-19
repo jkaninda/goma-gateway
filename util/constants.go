@@ -13,7 +13,7 @@ import (
 	"fmt"
 )
 
-const ConfigVersion = "1.0"
+const ConfigVersion = "2"
 
 var Version = "development"
 var buildTime string

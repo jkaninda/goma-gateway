@@ -6,6 +6,7 @@ const ConfigFile = "/etc/goma/goma.yml"                        // Default config
 const accessControlAllowOrigin = "Access-Control-Allow-Origin" // Cors
 const gatewayName = "Goma Gateway"
 const applicationJson = "application/json"
+const CertsPath = ConfigDir + "/certs"
 
 // Middlewares type
 const (
