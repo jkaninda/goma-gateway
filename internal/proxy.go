@@ -31,25 +31,32 @@ import (
 	"time"
 )
 
-// ProxyHandler proxies requests to the backend
+// ProxyHandler proxies incoming HTTP requests to the appropriate backend based on the configuration.
+// It handles method validation, CORS headers, backend selection, and request rewriting.
 func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("started %s %s for %s %s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
+		// Log the start of the request with detailed context
+		logger.Debug("Request started: method=%s, path=%s, client_ip=%s, user_agent=%s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
+		// Extract the Content-Type header from the request
 		contentType := r.Header.Get("Content-Type")
-		// Check Method if is allowed
+
+		// Validate if the HTTP method is allowed
 		if len(proxyRoute.methods) > 0 {
 			if !slices.Contains(proxyRoute.methods, r.Method) {
-				logger.Error("%s Method is not allowed", r.Method)
+				logger.Error("Method not allowed: method=%s, allowed_methods=%v", r.Method, proxyRoute.methods)
 				middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, r.Method), proxyRoute.cors.Origins, contentType)
 				return
 			}
 		}
-		// Set CORS headers from the cors config
-		// Update Cors Headers
+
+		// Set CORS headers from the CORS configuration
 		for k, v := range proxyRoute.cors.Headers {
 			w.Header().Set(k, v)
 		}
+
+		// Handle CORS for allowed origins
 		if allowedOrigin(proxyRoute.cors.Origins, r.Header.Get("Origin")) {
+			logger.Debug("Handling preflight request for origin=%s", r.Header.Get("Origin"))
 			// Handle preflight requests (OPTIONS)
 			if r.Method == "OPTIONS" {
 				w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
@@ -59,6 +66,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 				w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
 			}
 		}
+
 		// Parse the target backend URL
 		targetURL, err := url.Parse(proxyRoute.destination)
 		if err != nil {
@@ -66,58 +74,74 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 			middlewares.RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, contentType)
 			return
 		}
+
+		// Set headers for forwarding client information
 		r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
 		r.Header.Set("X-Forwarded-For", getRealIP(r))
 		r.Header.Set("X-Real-IP", getRealIP(r))
-		// Update the headers to allow for SSL redirection
+
+		// Update the headers to allow for SSL redirection if host forwarding is disabled
 		if proxyRoute.disableHostForwarding {
 			r.URL.Scheme = targetURL.Scheme
 			r.Host = targetURL.Host
+			logger.Debug("Host forwarding disabled: updated request URL to scheme=%s, host=%s", targetURL.Scheme, targetURL.Host)
 		}
+
+		// Parse the backend URL for the reverse proxy
 		backendURL, _ := url.Parse(proxyRoute.destination)
 		proxy := httputil.NewSingleHostReverseProxy(backendURL)
 
+		// If multiple backends are configured, use the appropriate load balancing algorithm
 		if len(proxyRoute.backends) > 0 {
 			if proxyRoute.weightedBased {
-				// Reverse Proxy Weighted based algorithm
+				// Use weighted-based load balancing
 				proxy, err = NewWeightedReverseProxy(proxyRoute)
 				if err != nil {
-					middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unaivalable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
+					logger.Error("Failed to create weighted reverse proxy: route=%s, error=%v", proxyRoute.name, err)
+					middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unavailable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
 					return
 				}
-				logger.Debug("Proxy: using Weighted algorithm")
+				logger.Debug("Proxy: using weighted-based load balancing")
 			} else {
-				// Reverse Proxy RoundRobin based algorithm
+				// Use round-robin load balancing
 				proxy, err = NewRoundRobinReverseProxy(proxyRoute)
 				if err != nil {
-					middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unaivalable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
+					logger.Error("Failed to create round-robin reverse proxy: route=%s, error=%v", proxyRoute.name, err)
+					middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unavailable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
 					return
 				}
-				logger.Debug("Proxy: using RoundRobin algorithm")
+				logger.Debug("Using round-robin load balancing for route=%s", proxyRoute.name)
 			}
 		}
-		// Rewrite
+
+		// Rewrite the request path if necessary
 		rewritePath(r, proxyRoute)
-		// Custom transport with InsecureSkipVerify
-		proxy.Transport = &http.Transport{TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: proxyRoute.insecureSkipVerify,
-		},
+		// Configure the proxy transport to allow insecure SSL verification if enabled
+		proxy.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: proxyRoute.insecureSkipVerify,
+			},
 		}
+
+		// Set a custom header to indicate the request is proxied
 		w.Header().Set("Proxied-By", gatewayName)
-		// Custom error handler for proxy errors
+
+		// Set a custom error handler for proxy errors
 		proxy.ErrorHandler = ProxyErrorHandler
+
+		// Forward the request to the selected backend
 		proxy.ServeHTTP(w, r)
 	}
 }
 
-// getNextBackend selects the next backend in a round-robin fashion
+// getNextBackend selects the next backend in a round-robin fashion.
 func getNextBackend(backendURLs []string) *url.URL {
 	idx := atomic.AddUint32(&counter, 1) % uint32(len(backendURLs))
 	backendURL, _ := url.Parse(backendURLs[idx])
 	return backendURL
 }
 
-// rewritePath rewrites the path if it matches the prefix
+// rewritePath rewrites the request path if it matches the configured prefix.
 func rewritePath(r *http.Request, proxyRoute ProxyRoute) {
 	if proxyRoute.path != "" && proxyRoute.rewrite != "" {
 		// Rewrite the path if it matches the prefix
@@ -126,50 +150,67 @@ func rewritePath(r *http.Request, proxyRoute ProxyRoute) {
 		}
 	}
 }
+
+// NewWeightedReverseProxy creates a reverse proxy that uses a weighted load balancing algorithm.
 func NewWeightedReverseProxy(proxyRoute ProxyRoute) (*httputil.ReverseProxy, error) {
+	// Check if there are any available backends
 	availableBackend := proxyRoute.backends.AvailableBackend()
 	if availableBackend == nil || len(availableBackend) == 0 {
-		return nil, fmt.Errorf("route %s has no backends available", proxyRoute.name)
+		logger.Error("No available backends for route=%s", proxyRoute.name)
+		return nil, fmt.Errorf("no available backends for route=%s", proxyRoute.name)
 	}
+
+	// Define the director function to select a backend based on weights
 	director := func(req *http.Request) {
 		backend := proxyRoute.backends.SelectBackend()
 		if backend == nil {
-			logger.Error("Error, route %s has no backends available", proxyRoute.name)
+			logger.Error("No available backends for route=%s", proxyRoute.name)
 			return
 		}
+
+		// Parse the backend URL and update the request
 		backendURL, err := url.Parse(backend.EndPoint)
 		if err != nil {
 			logger.Error("Error parsing backend URL for route %s: %v", proxyRoute.name, err)
 			return
 		}
+
 		req.URL.Scheme = backendURL.Scheme
 		req.URL.Host = backendURL.Host
 		req.URL.Path = backendURL.Path + req.URL.Path
 		req.Host = backendURL.Host
 	}
+
 	return &httputil.ReverseProxy{Director: director}, nil
 }
 
+// NewRoundRobinReverseProxy creates a reverse proxy that uses a round-robin load balancing algorithm.
 func NewRoundRobinReverseProxy(proxyRoute ProxyRoute) (*httputil.ReverseProxy, error) {
+	// Check if there are any available backends
 	availableBackend := proxyRoute.backends.AvailableBackend()
 	if availableBackend == nil || len(availableBackend) == 0 {
-		return nil, fmt.Errorf("route %s has no backends available", proxyRoute.name)
+		logger.Error("No available backends for route=%s", proxyRoute.name)
+		return nil, fmt.Errorf("no available backends for route=%s", proxyRoute.name)
 	}
+
+	// Define the director function to select the next backend in a round-robin fashion
 	director := func(req *http.Request) {
-		// Increment the counter and wrap around using modulo
 		index := atomic.AddUint32(&counter, 1) % uint32(len(availableBackend))
 		backend := proxyRoute.backends[index]
 
-		// Update the request URL to point to the selected backend
+		// Parse the backend URL and update the request
 		backendURL, _ := url.Parse(backend.EndPoint)
 		req.URL.Scheme = backendURL.Scheme
 		req.URL.Host = backendURL.Host
 		req.URL.Path = backendURL.Path + req.URL.Path
 		req.Host = backendURL.Host
+		logger.Debug("Selected backend for route=%s: index=%d, endpoint=%s", proxyRoute.name, index, backend.EndPoint)
 	}
 
 	return &httputil.ReverseProxy{Director: director}, nil
 }
+
+// TotalWeight calculates the total weight of all backends.
 func (b Backends) TotalWeight() int {
 	total := 0
 	for _, backend := range b {
@@ -178,6 +219,7 @@ func (b Backends) TotalWeight() int {
 	return total
 }
 
+// SelectBackend selects a backend based on weighted randomization.
 func (b Backends) SelectBackend() *Backend {
 	rand.Seed(time.Now().UnixNano())
 	r := rand.Intn(b.TotalWeight())
@@ -189,21 +231,26 @@ func (b Backends) SelectBackend() *Backend {
 	}
 	return nil
 }
+
+// HasPositiveWeight checks if at least one backend has a positive weight.
 func (b Backends) HasPositiveWeight() bool {
 	for _, backend := range b {
 		if backend.Weight > 0 {
 			return true
 		}
 	}
+	logger.Debug("No backend with positive weight found")
 	return false
 }
+
+// AvailableBackend returns a list of backends that are not marked as unavailable.
 func (b Backends) AvailableBackend() Backends {
 	backends := Backends{}
 	for _, backend := range b {
 		if !backend.unavailable {
 			backends = append(backends, backend)
-			continue
 		}
 	}
+	logger.Debug("Available backends: count=%d", len(backends))
 	return backends
 }
