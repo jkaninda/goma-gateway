@@ -217,13 +217,31 @@ func initConfig(configFile string) error {
 					Middlewares:           []string{"block-access"},
 				},
 				{
-					Name: "Load balancer",
-					Path: "/protected",
-					//Backends: []string{
-					//	"https://example.com",
-					//	"https://example2.com",
-					//	"https://example3.com",
-					//},
+					Name:    "round-robin-load-balancing",
+					Path:    "/load-balancing",
+					Methods: []string{"GET", "OPTIONS"},
+					Backends: Backends{
+						Backend{EndPoint: "https://example.com"},
+						Backend{EndPoint: "https://example1.com"},
+						Backend{EndPoint: "https://example2.com"},
+					},
+					HealthCheck: RouteHealthCheck{
+						Path:            "/",
+						Interval:        "30s",
+						Timeout:         "10s",
+						HealthyStatuses: []int{200, 404},
+					},
+					DisableHostForwarding: true,
+					Middlewares:           []string{"block-access"},
+				},
+				{
+					Name: "weighted-load-balancing",
+					Path: "/load-balancing2",
+					Backends: Backends{
+						Backend{EndPoint: "https://example.com", Weight: 5},
+						Backend{EndPoint: "https://example1.com", Weight: 2},
+						Backend{EndPoint: "https://example2.com", Weight: 1},
+					},
 					Rewrite:               "/",
 					DisableHostForwarding: false,
 					ErrorInterceptor: middlewares.RouteErrorInterceptor{
