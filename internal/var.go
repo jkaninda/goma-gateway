@@ -21,6 +21,7 @@ const (
 	rewriteRegex     = "rewriteRegex"
 	forwardAuth      = "forwardAuth"
 	httpCache        = "httpCache"
+	redirectScheme   = "redirectScheme"
 )
 
 var (

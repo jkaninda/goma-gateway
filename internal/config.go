@@ -138,6 +138,7 @@ func validateRoute(route Route) {
 	if len(route.Destination) == 0 && len(route.Backends) == 0 {
 		logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
 	}
+
 }
 func handleDeprecations(route *Route) {
 	if route.DisableHostFording {
@@ -155,6 +156,16 @@ func handleDeprecations(route *Route) {
 		}
 		route.ErrorInterceptor.Enabled = true
 	}
+	// TODO: to remove in up coming version
+	if len(route.Backends) > 0 {
+		for i := range route.Backends {
+			if route.Backends[i].Endpoint == "" {
+				route.Backends[i].Endpoint = route.Backends[i].EndPointD
+			}
+
+		}
+	}
+
 }
 func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.RouteErrorInterceptor) {
 	if gatewayInterceptor.Enabled {
@@ -221,9 +232,9 @@ func initConfig(configFile string) error {
 					Path:    "/load-balancing",
 					Methods: []string{"GET", "OPTIONS"},
 					Backends: Backends{
-						Backend{EndPoint: "https://example.com"},
-						Backend{EndPoint: "https://example1.com"},
-						Backend{EndPoint: "https://example2.com"},
+						Backend{Endpoint: "https://example.com"},
+						Backend{Endpoint: "https://example1.com"},
+						Backend{Endpoint: "https://example2.com"},
 					},
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
@@ -238,9 +249,9 @@ func initConfig(configFile string) error {
 					Name: "weighted-load-balancing",
 					Path: "/load-balancing2",
 					Backends: Backends{
-						Backend{EndPoint: "https://example.com", Weight: 5},
-						Backend{EndPoint: "https://example1.com", Weight: 2},
-						Backend{EndPoint: "https://example2.com", Weight: 1},
+						Backend{Endpoint: "https://example.com", Weight: 5},
+						Backend{Endpoint: "https://example1.com", Weight: 2},
+						Backend{Endpoint: "https://example2.com", Weight: 1},
 					},
 					Rewrite:               "/",
 					DisableHostForwarding: false,
@@ -295,6 +306,15 @@ func initConfig(configFile string) error {
 					"/swagger-ui/*",
 					"/api-docs/*",
 					"/actuator/*",
+				},
+			}, {
+				Name: "custom-block-access",
+				Type: AccessMiddleware,
+				Paths: []string{
+					"/admin/*",
+				},
+				Rule: AccessRuleMiddleware{
+					StatusCode: 404,
 				},
 			},
 			{
@@ -361,6 +381,15 @@ func (jwt JWTRuleMiddleware) validate() error {
 func (f ForwardAuthRuleMiddleware) validate() error {
 	if f.AuthURL == "" {
 		return fmt.Errorf("error parsing yaml: empty url in forwardAuth middlewares")
+
+	}
+	return nil
+}
+
+// validate validates RedirectScheme
+func (r RedirectScheme) validate() error {
+	if r.Scheme == "" {
+		return fmt.Errorf("error parsing yaml: empty Scheme in redirectScheme middlewares")
 
 	}
 	return nil

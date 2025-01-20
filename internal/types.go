@@ -93,7 +93,7 @@ type RateLimitRuleMiddleware struct {
 	RequestsPerUnit int    `yaml:"requestsPerUnit"`
 }
 type AccessRuleMiddleware struct {
-	ResponseCode int `yaml:"responseCode"` // HTTP Response code
+	StatusCode int `yaml:"statusCode,omitempty"` // HTTP Response code
 }
 
 type RouteHealthCheck struct {
@@ -181,4 +181,9 @@ type httpCacheRule struct {
 	DisableCacheStatusHeader bool     `yaml:"disableCacheStatusHeader,omitempty"`
 	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty"`
 	MemoryLimit              string   `yaml:"memoryLimit,omitempty"`
+}
+type RedirectScheme struct {
+	Scheme    string `yaml:"scheme"`
+	Port      int64  `yaml:"port"`
+	Permanent bool   `yaml:"permanent,omitempty"`
 }

@@ -58,19 +58,6 @@ func allowedOrigin(origins []string, origin string) bool {
 	return slices.Contains(origins, origin)
 }
 
-// RespondWithError is a helper function to handle error responses with flexible content type
-//
-// w: http.ResponseWriter (outgoing response)
-//
-// r: *http.Request (incoming request)
-//
-// statusCode: int (HTTP status code)
-//
-// logMessage: string (log message)
-//
-// origins: []string (allowed origins)
-//
-// contentType: string (content type of the response)
 func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, logMessage string, origins []string, contentType string) {
 	// Set the message for the error response
 	message := http.StatusText(statusCode)
