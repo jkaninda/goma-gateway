@@ -78,9 +78,9 @@ gateway:
       rewrite: /  # Rewrite the incoming request path (if needed)
       methods: []  # HTTP methods to allow (empty means all methods are allowed)
       backends:  # List of backend servers to route traffic to
-        - endPoint: https://backend.example.com
-        - endPoint: https://backend.example.com
-        - endPoint: https://backend.example.com
+        - endpoint: https://backend.example.com
+        - endpoint: https://backend.example.com
+        - endpoint: https://backend.example.com
       tls:  # TLS configuration for this route
         keys:  # List of TLS certificates and private keys
           - cert: /path/to/certificate.crt  # File path to the TLS certificate
