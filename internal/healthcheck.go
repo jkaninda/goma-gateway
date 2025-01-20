@@ -185,7 +185,7 @@ func healthCheckRoutes(routes []Route) []Health {
 				for index, backend := range route.Backends {
 					health := Health{
 						Name:               fmt.Sprintf("%s - [%d]", route.Name, index),
-						URL:                backend.EndPoint + route.HealthCheck.Path,
+						URL:                backend.Endpoint + route.HealthCheck.Path,
 						TimeOut:            timeout,
 						Interval:           route.HealthCheck.Interval,
 						HealthyStatuses:    route.HealthCheck.HealthyStatuses,

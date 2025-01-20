@@ -91,7 +91,10 @@ type TLS struct {
 }
 type Backend struct {
 	unavailable bool
-	EndPoint    string `yaml:"endPoint,omitempty"`
-	Weight      int    `yaml:"weight,omitempty"`
+	Endpoint    string `yaml:"endpoint,omitempty"`
+	// EndPointD
+	// Deprecated, replaced by endpoint in YAML
+	EndPointD string `yaml:"endPoint,omitempty"`
+	Weight    int    `yaml:"weight,omitempty"`
 }
 type Backends []Backend
