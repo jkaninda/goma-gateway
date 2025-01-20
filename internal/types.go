@@ -51,24 +51,11 @@ type RewriteRegexRuleMiddleware struct {
 //
 // JWTRuleMiddleware contains the authentication details
 type JWTRuleMiddleware struct {
-	// URL contains the authentication URL, it supports HTTP GET method only.
-	URL string `yaml:"url"`
-	// RequiredHeaders , contains required before sending request to the backend.
-	RequiredHeaders []string `yaml:"requiredHeaders"`
-	// Headers Add header to the backend from Authentication request's header, depending on your requirements.
-	// Key is Http's response header Key, and value  is the backend Request's header Key.
-	// In case you want to get headers from Authentication service and inject them to backend request's headers.
-	Headers map[string]string `yaml:"headers"`
-	// Params same as Headers, contains the request params.
-	//
-	// Gets authentication headers from authentication request and inject them as request params to the backend.
-	//
-	// Key is Http's response header Key, and value  is the backend Request's request param Key.
-	//
-	// In case you want to get headers from Authentication service and inject them to next request's params.
-	//
-	// e.g: Header X-Auth-UserId to query userId
-	Params map[string]string `yaml:"params"`
+	Alg                  string
+	Secret               string `yaml:"secret,omitempty"`
+	PublicKey            string `yaml:"publicKey,omitempty"`
+	JwksUrl              string `yaml:"jwksUrl,omitempty"`
+	ForwardAuthorization bool   `yaml:"forwardAuthorization,omitempty"`
 }
 type OauthRulerMiddleware struct {
 	// ClientID is the application's ID.

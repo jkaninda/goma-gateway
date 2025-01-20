@@ -28,8 +28,10 @@ type Gateway struct {
 	// Deprecated: Use TlsKeyFile instead.
 	SSLKeyFile string `yaml:"sslKeyFile,omitempty" env:"GOMA_SSL_KEY_FILE, overwrite"`
 	// TlsCertFile specifies the TLS certificate file.
+	// Deprecated: Use TLS instead.
 	TlsCertFile string `yaml:"tlsCertFile,omitempty" env:"GOMA_TLS_CERT_FILE, overwrite"`
 	// TlsKeyFile specifies the TLS private key file.
+	// Deprecated: Use TLS instead.
 	TlsKeyFile string `yaml:"tlsKeyFile,omitempty" env:"GOMA_TLS_KEY_FILE, overwrite"`
 	// TLS specifies a list of tls certificate, cert and key
 	TLS TLS `yaml:"tls,omitempty"`

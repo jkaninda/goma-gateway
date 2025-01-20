@@ -18,113 +18,99 @@ package middlewares
 
 import (
 	"fmt"
+	"github.com/golang-jwt/jwt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"io"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"net/http"
-	"net/url"
 )
 
 // AuthMiddleware authenticates the client using JWT
-//
-// authorization based on the result of backend's response and continue the request when the client is authorized
 func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
 		if isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
-			if !validateHeaders(r, jwtAuth.RequiredHeaders, jwtAuth.Origins, w, r, contentType) {
+			// Get the token from the Authorization header
+			authHeader, valid := validateHeaders(r, jwtAuth.Origins, w, r, contentType)
+			if !valid {
 				return
 			}
-			// Authenticate the request
-			authenticated, authResp := authenticateRequest(jwtAuth.AuthURL, r, w, r, jwtAuth.Origins, contentType)
-			if !authenticated {
+			tokenStr := authHeader[7:]
+
+			var keyFunc jwt.Keyfunc
+
+			if jwtAuth.JwksUrl != "" {
+				// Fetch JWK Set
+				set, err := jwk.Fetch(r.Context(), jwtAuth.JwksUrl)
+				if err != nil {
+					logger.Error("Failed to fetch JWK set: %v", err)
+					RespondWithError(w, r, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), jwtAuth.Origins, contentType)
+					return
+				}
+				// Define key function for JWK
+				keyFunc = func(token *jwt.Token) (interface{}, error) {
+					kid, ok := token.Header["kid"].(string)
+					if !ok {
+						return nil, fmt.Errorf("kid not found in token header")
+					}
+
+					key, found := set.LookupKeyID(kid)
+					if !found {
+						return nil, fmt.Errorf("key with kid %q not found", kid)
+					}
+
+					var rawKey interface{}
+					if err = key.Raw(&rawKey); err != nil {
+						return nil, fmt.Errorf("failed to extract raw key: %w", err)
+					}
+					return rawKey, nil
+				}
+			} else if jwtAuth.Secret != "" {
+				// Define key function for static secret
+				keyFunc = func(token *jwt.Token) (interface{}, error) {
+					return []byte(jwtAuth.Secret), nil
+				}
+			} else if jwtAuth.RsaKey != nil {
+				// Define key function for RSA public key
+				keyFunc = func(token *jwt.Token) (interface{}, error) {
+					return jwtAuth.RsaKey, nil
+				}
+			} else {
+				logger.Error("No jwksURL, secret, or key provided")
+				RespondWithError(w, r, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), jwtAuth.Origins, contentType)
+
 				return
 			}
-			// Inject headers and parameters
-			injectHeadersAndParams(jwtAuth, r, authResp)
+
+			// Parse and validate JWT
+			token, err := jwt.Parse(tokenStr, keyFunc)
+			if err != nil {
+				RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), jwtAuth.Origins, contentType)
+				return
+			}
+
+			// Optional: Validate claims
+			if !token.Valid {
+				logger.Error("invalid token")
+				RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), jwtAuth.Origins, contentType)
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	})
 }
 
 // validateHeaders checks if the required headers are present in the request
-func validateHeaders(r *http.Request, requiredHeaders []string, origins []string, w http.ResponseWriter, req *http.Request, contentType string) bool {
-	for _, header := range requiredHeaders {
-		if r.Header.Get(header) == "" {
-			logger.Error("Proxy error, missing %s header", header)
-			if allowedOrigin(origins, r.Header.Get("Origin")) {
-				w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-			}
-			RespondWithError(w, req, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), origins, contentType)
-			return false
-		}
-	}
-	return true
-}
+func validateHeaders(r *http.Request, origins []string, w http.ResponseWriter, req *http.Request, contentType string) (string, bool) {
+	authHeader := r.Header.Get("Authorization")
 
-// authenticateRequest authenticates the request using the authURL
-func authenticateRequest(authURL string, r *http.Request, w http.ResponseWriter, req *http.Request, origins []string, contentType string) (bool, *http.Response) {
-	parsedURL, err := url.Parse(authURL)
-	if err != nil {
-		logger.Error("Error parsing auth URL: %v", err)
-		RespondWithError(w, req, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), origins, contentType)
-		return false, &http.Response{StatusCode: http.StatusInternalServerError}
-	}
-	authReq, err := http.NewRequest("GET", parsedURL.String(), nil)
-	if err != nil {
-		logger.Error("Proxy error creating authentication request: %v", err)
-		RespondWithError(w, req, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), origins, contentType)
-		return false, &http.Response{StatusCode: http.StatusInternalServerError}
-	}
-	copyHeadersAndCookies(r, authReq)
-	client := &http.Client{}
-	authResp, err := client.Do(authReq)
-	if err != nil || authResp.StatusCode != http.StatusOK {
-		if err != nil {
-			logger.Error("Proxy error authenticating request: %v", err)
-
-		} else {
-			logger.Error("Unauthorized access to %s, proxy authentication resulted with status code: %d ", r.URL.Path, authResp.StatusCode)
+	if authHeader == "" {
+		logger.Error("Proxy error, missing Authorization")
+		if allowedOrigin(origins, r.Header.Get("Origin")) {
+			w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 		}
 		RespondWithError(w, req, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), origins, contentType)
-		return false, authResp
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			logger.Error("Error closing response body: %v", err)
-		}
-	}(authResp.Body)
-	return true, authResp
-}
-
-// copyHeadersAndCookies copies headers and cookies from the source request to the destination request
-func copyHeadersAndCookies(src *http.Request, dest *http.Request) {
-	for name, values := range src.Header {
-		for _, value := range values {
-			dest.Header.Set(name, value)
-		}
-	}
-	for _, cookie := range src.Cookies() {
-		dest.AddCookie(cookie)
-	}
-}
-
-// injectHeadersAndParams injects headers and parameters from the authentication response into the request.
-// It updates the request headers and query parameters based on the provided JwtAuth configuration.
-func injectHeadersAndParams(jwtAuth JwtAuth, r *http.Request, authResp *http.Response) {
-	// Inject headers from the authentication response into the current request's headers.
-	if jwtAuth.Headers != nil {
-		for k, v := range jwtAuth.Headers {
-			r.Header.Set(v, authResp.Header.Get(k))
-		}
+		return authHeader, false
 	}
 
-	// Inject query parameters from the authentication response headers into the current request's URL.
-	query := r.URL.Query()
-	if jwtAuth.Params != nil {
-		for k, v := range jwtAuth.Params {
-			query.Set(v, authResp.Header.Get(k))
-		}
-	}
-	r.URL.RawQuery = query.Encode()
+	return authHeader, true
 }

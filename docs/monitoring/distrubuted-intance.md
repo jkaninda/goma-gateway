@@ -13,7 +13,7 @@ Goma Gateway includes built-in support for Redis-based rate limiting, enabling e
 By leveraging Redis, the Gateway ensures high-performance request throttling and distributed rate limiting across multiple instances, making it ideal for modern, cloud-native architectures.
 
 ```yaml
-version: "1.0"
+version: 2
 gateway:
   writeTimeout: 15
   readTimeout: 15

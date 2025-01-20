@@ -18,6 +18,7 @@
 package middlewares
 
 import (
+	"crypto/rsa"
 	"sync"
 	"time"
 )
@@ -83,13 +84,12 @@ type ProxyResponseError struct {
 
 // JwtAuth  stores JWT configuration
 type JwtAuth struct {
-	Path            string
-	Paths           []string
-	AuthURL         string
-	RequiredHeaders []string
-	Headers         map[string]string
-	Params          map[string]string
-	Origins         []string
+	Path    string
+	Paths   []string
+	Origins []string
+	Secret  string
+	JwksUrl string
+	RsaKey  *rsa.PublicKey
 }
 
 // AuthenticationMiddleware Define struct
