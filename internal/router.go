@@ -163,7 +163,7 @@ func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
 	if gateway.RateLimit > 0 {
 		rLimit := middlewares.RateLimit{
 			Id:         "global_rate",
-			Unit:       "minute",
+			Unit:       "second",
 			Requests:   gateway.RateLimit,
 			Origins:    gateway.Cors.Origins,
 			Hosts:      []string{},

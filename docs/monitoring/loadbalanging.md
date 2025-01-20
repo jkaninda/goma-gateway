@@ -45,9 +45,9 @@ gateway:
       ## destination: will be overridden by backends
       destination: ""
       backends:
-        - endPoint: https://example.com
-        - endPoint: https://example1.com
-        - endPoint: https://example2.com
+        - endpoint: https://example.com
+        - endpoint: https://example1.com
+        - endpoint: https://example2.com
       cors: {}
 ```
 
@@ -74,11 +74,11 @@ gateway:
       ## destination: will be overridden by backends
       destination: ""  # Placeholder for backend destination (overridden by `backends`)
       backends:  # List of backend servers with weights for load balancing
-        - endPoint: https://example.com  # Backend server URL
+        - endpoint: https://example.com  # Backend server URL
           weight: 5  # Weight for traffic distribution (higher weight = more traffic)
-        - endPoint: https://example1.com  # Backend server URL
+        - endpoint: https://example1.com  # Backend server URL
           weight: 2  # Weight for traffic distribution
-        - endPoint: https://example2.com  # Backend server URL
+        - endpoint: https://example2.com  # Backend server URL
           weight: 1  # Weight for traffic distribution
       cors: {}
 ```

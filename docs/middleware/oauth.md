@@ -10,6 +10,7 @@ nav_order: 6
 ### Example of Google provider
 
 ```yaml
+middlewares:
   - name: google-oauth
     type: oauth
     paths:
@@ -33,6 +34,7 @@ nav_order: 6
 ### Example of Authentik provider
 
 ```yaml
+middlewares:
     - name: oauth-authentik
       type: oauth
       paths:

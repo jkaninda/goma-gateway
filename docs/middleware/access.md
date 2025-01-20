@@ -21,13 +21,14 @@ Access middleware is used to restrict access to specific routes or route paths. 
 The following example demonstrates how to define blocked paths using the access middleware:
 
 ```yaml
+middlewares:
 # Middleware configuration to block specific paths
-- name: api-blocked-paths
-  type: access
-  paths:
-    - /swagger-ui       # Blocks only /swagger-ui
-    - /v2/swagger-ui    # Blocks only /v2/swagger-ui
-    - /api-docs/*       # Explicitly blocks /api-docs and all subpaths
+    - name: api-blocked-paths
+      type: access
+      paths:
+        - /swagger-ui       # Blocks only /swagger-ui
+        - /v2/swagger-ui    # Blocks only /v2/swagger-ui
+        - /api-docs/*       # Explicitly blocks /api-docs and all subpaths
 ```
 ### Explanation:
 

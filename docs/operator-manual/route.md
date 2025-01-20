@@ -30,7 +30,6 @@ spec:
 
   # Backend Configuration
   destination: https://example.com # Primary destination URL
-  backends: [] # Optional: Additional backends for load balancing
   insecureSkipVerify: false # Skip TLS verification (not recommended)
 
   # Health Check Settings

@@ -223,8 +223,8 @@ gateway:
       ## destination: will be overridden by backends
       destination: ""  # Placeholder for backend destination (overridden by `backends`)
       backends:  # List of backend servers for load balancing
-        - endPoint: https://example.com  # Backend server URL
-        - endPoint: https://example1.com  # Backend server URL
-        - endPoint: https://example2.com  # Backend server URL
+        - endpoint: https://example.com  # Backend server URL
+        - endpoint: https://example1.com  # Backend server URL
+        - endpoint: https://example2.com  # Backend server URL
       cors: {}
 ```

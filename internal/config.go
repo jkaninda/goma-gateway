@@ -158,7 +158,7 @@ func handleDeprecations(route *Route) {
 	}
 	// TODO: to remove in up coming version
 	if len(route.Backends) > 0 {
-		for i, _ := range route.Backends {
+		for i := range route.Backends {
 			if route.Backends[i].Endpoint == "" {
 				route.Backends[i].Endpoint = route.Backends[i].EndPointD
 			}
@@ -372,6 +372,15 @@ func (jwt JWTRuleMiddleware) validate() error {
 func (f ForwardAuthRuleMiddleware) validate() error {
 	if f.AuthURL == "" {
 		return fmt.Errorf("error parsing yaml: empty url in forwardAuth middlewares")
+
+	}
+	return nil
+}
+
+// validate validates RedirectScheme
+func (r RedirectScheme) validate() error {
+	if r.Scheme == "" {
+		return fmt.Errorf("error parsing yaml: empty Scheme in redirectScheme middlewares")
 
 	}
 	return nil
