@@ -77,7 +77,7 @@ func findDuplicateMiddlewareNames(middlewares []Middleware) ([]string, error) {
 
 	for _, mid := range middlewares {
 		if mid.Name == "" {
-			return duplicates, fmt.Errorf("middlewre name should not be empty")
+			return duplicates, fmt.Errorf("name should not be empty")
 		}
 		nameMap[mid.Name]++
 		// If the count is ==2, it's a duplicate
