@@ -93,7 +93,7 @@ type RateLimitRuleMiddleware struct {
 	RequestsPerUnit int    `yaml:"requestsPerUnit"`
 }
 type AccessRuleMiddleware struct {
-	ResponseCode int `yaml:"responseCode"` // HTTP Response code
+	StatusCode int `yaml:"statusCode,omitempty"` // HTTP Response code
 }
 
 type RouteHealthCheck struct {

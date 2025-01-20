@@ -165,10 +165,15 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 }
 
 func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
+	accessM := &AccessRuleMiddleware{}
+	if err := converter.Convert(&mid.Rule, accessM); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+	}
 	blM := middlewares.AccessListMiddleware{
-		Path:    route.Path,
-		Paths:   mid.Paths,
-		Origins: route.Cors.Origins,
+		Path:       route.Path,
+		Paths:      mid.Paths,
+		Origins:    route.Cors.Origins,
+		StatusCode: accessM.StatusCode,
 	}
 	router.Use(blM.AccessMiddleware)
 }

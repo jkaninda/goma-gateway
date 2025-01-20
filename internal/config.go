@@ -307,6 +307,15 @@ func initConfig(configFile string) error {
 					"/api-docs/*",
 					"/actuator/*",
 				},
+			}, {
+				Name: "custom-block-access",
+				Type: AccessMiddleware,
+				Paths: []string{
+					"/admin/*",
+				},
+				Rule: AccessRuleMiddleware{
+					StatusCode: 404,
+				},
 			},
 			{
 				Name: "access-policy",
