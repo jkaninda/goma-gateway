@@ -110,12 +110,13 @@ It's designed to be straightforward and efficient, offering a rich set of featur
 
 
 
+
 #### **HTTP Caching**
 - **Cache Implementation**: Enable HTTP caching for routes to improve response times and reduce server load.
 - **Cache Storage Options**:
   - **In-Memory Cache**: Suitable for single-instance applications or temporary caching.
   - **Redis Cache**: Ideal for distributed caching across multiple instances.
-  - **Cache Control Headers**: Support for `Cache-Control`, `X-Cache-Status`, and `Last-Modified` headers for fine-grained cache management.
+  - **Cache Control Headers**: Support for `Cache-Control`, `and X-Cache-Status` headers for fine-grained cache management.
   - **Cache Invalidation**: Implement strategies to invalidate stale cache entries (e.g., time-based or event-based invalidation).
 
 ### Configuration and Flexibility
