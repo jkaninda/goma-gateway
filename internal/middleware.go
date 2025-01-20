@@ -70,19 +70,22 @@ func loadExtraMiddlewares(routePath string) ([]Middleware, error) {
 }
 
 // findDuplicateMiddlewareNames finds duplicated middleware name
-func findDuplicateMiddlewareNames(middlewares []Middleware) []string {
+func findDuplicateMiddlewareNames(middlewares []Middleware) ([]string, error) {
 	// Create a map to track occurrences of names
 	nameMap := make(map[string]int)
 	var duplicates []string
 
 	for _, mid := range middlewares {
+		if mid.Name == "" {
+			return duplicates, fmt.Errorf("middlewre name should not be empty")
+		}
 		nameMap[mid.Name]++
 		// If the count is ==2, it's a duplicate
 		if nameMap[mid.Name] == 2 {
 			duplicates = append(duplicates, mid.Name)
 		}
 	}
-	return duplicates
+	return duplicates, nil
 }
 func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 	switch mid.Type {

@@ -138,7 +138,10 @@ func checkConfig(routes []Route, middlewares []Middleware) error {
 	}
 
 	// find duplicated middleware name
-	duplicates := findDuplicateMiddlewareNames(dynamicMiddlewares)
+	duplicates, err := findDuplicateMiddlewareNames(dynamicMiddlewares)
+	if err != nil {
+		return fmt.Errorf(err.Error())
+	}
 	if len(duplicates) != 0 {
 		for _, duplicate := range duplicates {
 			return fmt.Errorf("duplicated middleware name: %s, the name of the middleware should be unique", duplicate)
