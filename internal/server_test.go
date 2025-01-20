@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -127,7 +128,12 @@ func testBasicAuthRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error sending request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			t.Error("Error closing body")
+		}
+	}(resp.Body)
 
 	// Check the response status
 	if resp.StatusCode != http.StatusNotFound {
