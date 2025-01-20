@@ -15,6 +15,13 @@ HTTP caching is a mechanism that stores responses associated with specific reque
 
 Goma Gateway's **HTTP Cache Middleware** enables you to implement caching for your routes, ensuring faster response times and reduced server load. This middleware adheres to the standards outlined in **RFC 7234** (HTTP/1.1 Caching).
 
+#### **HTTP Caching**
+- **Cache Implementation**: Enable HTTP caching for routes to improve response times and reduce server load.
+- **Cache Storage Options**:
+  - **In-Memory Cache**: Suitable for single-instance applications or temporary caching.
+  - **Redis Cache**: Ideal for distributed caching across multiple instances.
+  - **Cache Control Headers**: Support for `Cache-Control`, `and X-Cache-Status` headers for fine-grained cache management.
+  - **Cache Invalidation**: Implement strategies to invalidate stale cache entries (e.g., time-based or event-based invalidation).
 ---
 
 ## Cache Status Header

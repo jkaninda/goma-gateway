@@ -87,7 +87,7 @@ It's designed to be straightforward and efficient, offering a rich set of featur
 - **Cache Storage Options**:
   - **In-Memory Cache**: Suitable for single-instance applications or temporary caching.
   - **Redis Cache**: Ideal for distributed caching across multiple instances.
-  - **Cache Control Headers**: Support for `Cache-Control`, `X-Cache-Status`, and `Last-Modified` headers for fine-grained cache management.
+  - **Cache Control Headers**: Support for `Cache-Control`, `and X-Cache-Status` headers for fine-grained cache management.
   - **Cache Invalidation**: Implement strategies to invalidate stale cache entries (e.g., time-based or event-based invalidation).
 
 
