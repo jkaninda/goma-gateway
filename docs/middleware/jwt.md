@@ -5,107 +5,50 @@ parent: Middleware
 nav_order: 11
 ---
 
+# JWT Middleware
 
-### JWT Middleware
-
-The JWT middleware restricts access to routes, similar to BasicAuth, by authorizing users based on JSON Web Tokens (JWTs).
-
-#### For more advanced use cases, consider using the `forwardAuth` middleware instead.
+The **JWT Middleware** is designed to validate JSON Web Tokens (JWT) in incoming requests based on your configuration. It ensures that the provided authorization token is valid before forwarding the request to the backend. The middleware supports validation using a **secret**, a **public key**, or a **JWKS URL**.
 
 ---
 
-#### How It Works
+## Configuration Options
 
-1. **Authorization Logic**  
-   The middleware determines access based on the HTTP response from an authentication service:
-   - **200 (OK)**: Access is granted.
-   - **401 (Unauthorized)** or **403 (Forbidden)**: Access is denied with the corresponding error code.
-   - **Other Response Codes**: Treated as errors.
+The JWT Middleware can be configured with the following options:
 
-2. **Backend Dependency**  
-   The middleware relies on a backend authentication service to validate requests.
+- **`secret`**: A shared secret key used to validate the JWT signature.
+- **`publicKey`**: The path to a public key file or the raw content of the public key (in PEM format) used to validate the JWT signature.
+- **`jwksUrl`**: The URL of a JSON Web Key Set (JWKS) endpoint. This is used to dynamically fetch public keys for token validation.
 
-3. **Nginx Inspiration**  
-   Its behavior is comparable to `ngx_http_auth_request_module` in Nginx.
+---
 
-### Key Features
-- `Rule`: To block all subpaths of a route, append /* to the path explicitly.
-- `Header Mapping`: Map headers between authentication response and backend request to customize the data flow.
-- `Parameter Mapping`: Map query parameters between authentication response and backend request to customize the data flow.
-- `Environment Testing`: Always test configurations in a staging environment before deploying to production.
+## Example Configurations
 
-Here's an example Nginx configuration:
-
-```
-   location /private/ {
-       auth_request /auth;
-       ...
-   }
-
-   location = /auth {
-       proxy_pass ...;
-       proxy_pass_request_body off;
-       proxy_set_header Content-Length "";
-       proxy_set_header X-Original-URI $request_uri;
-   }
-```
-
-### Header and Parameter Injection
-
-The middleware supports extracting headers from the authentication response and injecting them into the next request’s headers or parameters.
-
-1. **Injecting Headers**
-   Add headers to the next request after a successful authorization:
+### Minimal Configuration
+Below is an example of a minimal JWT authentication configuration using a shared secret:
 
 ```yaml
-headers:
-   # Key: Auth response header key | Value: Next request header key
-   userId: X-Auth-UserId
-   userCountryId: X-Auth-UserCountryId
+- name: jwt
+  type: jwt
+  paths:
+    - "/*"
+  rule:
+    secret: MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo...
 ```
 
-2. **Injecting Parameters**
-
-Add parameters to the next request from the authentication response headers:
+### Advanced Configuration
+For more advanced use cases, you can configure the middleware with additional options such as a `publicKey`, `jwksUrl`, and `forwardAuthorization`:
 
 ```yaml
-params:
-   # Key: Auth response header key | Value: Next request parameter key
-   userId: userId
-   userCountryId: countryId
+- name: jwt
+  type: jwt
+  paths:
+    - "/*"
+  rule:
+    secret: MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo...
+    publicKey: "" # File path to the certificate or raw certificate content
+    jwksUrl: ""   # URL to fetch JWKS for dynamic key resolution
+    forwardAuthorization: false # Whether to forward the Authorization header
 ```
 
-### Example Configuration
+---
 
-Below is a complete example of JWT middleware configuration:
-
-```yaml
-middlewares:
-   - name: jwt-auth
-     type: jwt
-      # Paths to protect
-     paths:
-        - /admin/*
-        - /account/*
-        # - /* for wildcard paths
-     rule:
-        # URL of the backend authentication service
-        url: https://www.example.com/auth/access
-        # Headers required in the incoming request
-        requiredHeaders:
-           - Authorization
-        # Headers to include in the next request
-        headers:
-           userId: X-Auth-UserId
-           userCountryId: X-Auth-UserCountryId
-        # Parameters to include in the next request
-        params:
-           userId: userId
-           userCountryId: countryId
-
-```
-
-### Notes
-
-- Use this middleware to secure endpoints by delegating authorization to a backend service.
-- Properly configure the rule section to match your authentication service requirements.

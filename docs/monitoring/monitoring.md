@@ -17,7 +17,7 @@ To enable metrics collection, set the `enableMetrics` field to `true` in the con
 ### Example Configuration:
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   enableMetrics: true
   ...

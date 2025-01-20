@@ -28,7 +28,7 @@ import (
 	"testing"
 )
 
-var rules = []string{"fake", "jwt", "google-jwt"}
+var rules = []string{"fake", "jwt", "google-jwt", "forwardAuth"}
 
 func TestMiddleware(t *testing.T) {
 	TestInit(t)
@@ -38,17 +38,18 @@ func TestMiddleware(t *testing.T) {
 			Type:  BasicAuth,
 			Paths: []string{"/", "/admin"},
 			Rule: BasicRuleMiddleware{
-				Username: "goma",
-				Password: "goma",
+				Users: []string{
+					"admin:admin",
+					"user:password",
+				},
 			},
 		},
 		{
-			Name:  "forbidden path access",
-			Type:  AccessMiddleware,
-			Paths: []string{"/", "/admin"},
-			Rule: BasicRuleMiddleware{
-				Username: "goma",
-				Password: "goma",
+			Name:  "forwardAuth",
+			Type:  forwardAuth,
+			Paths: []string{"/*"},
+			Rule: ForwardAuthRuleMiddleware{
+				AuthURL: "http://localhost:8080/readyz",
 			},
 		},
 
@@ -57,9 +58,8 @@ func TestMiddleware(t *testing.T) {
 			Type:  JWTAuth,
 			Paths: []string{"/", "/admin"},
 			Rule: JWTRuleMiddleware{
-				URL:     "https://www.googleapis.com/auth/userinfo.email",
-				Headers: map[string]string{},
-				Params:  map[string]string{},
+				JwksUrl: "https://www.googleapis.com/auth/userinfo.email",
+				Secret:  "",
 			},
 		},
 		{
@@ -121,7 +121,18 @@ func TestReadMiddleware(t *testing.T) {
 			if err := converter.Convert(&middleware.Rule, &basicAuth); err != nil {
 				t.Fatalf("Error: %v", err.Error())
 			}
-			log.Printf("Username: %s and password: %s\n", basicAuth.Username, basicAuth.Password)
+			log.Printf("Users : %v\n", basicAuth.Users)
+		case forwardAuth:
+			log.Println("forwardAuth")
+			f := ForwardAuthRuleMiddleware{}
+			if err := converter.Convert(&middleware.Rule, &f); err != nil {
+				t.Fatalf("Error: %v", err.Error())
+			}
+			err := f.validate()
+			if err != nil {
+				log.Fatalf("Error in validating forwardAuth: %v ", err)
+			}
+			log.Printf("Auth URL : %v\n", f.AuthURL)
 		case JWTAuth:
 			log.Println("JWT auth")
 			jwt := &JWTRuleMiddleware{}
@@ -132,7 +143,7 @@ func TestReadMiddleware(t *testing.T) {
 			if err != nil {
 				logger.Error("Error: %s", err.Error())
 			}
-			log.Printf("JWT authentification URL is %s\n", jwt.URL)
+			log.Printf("JWT authentification valited")
 		case OAuth:
 			log.Println("OAuth auth")
 			oauth := &OauthRulerMiddleware{}

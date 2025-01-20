@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"sync"
@@ -151,7 +152,7 @@ func (oauthRuler *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r
 		return
 	}
 	// Generate JWT with user's email
-	jwtToken, err := createJWT(userInfo.Email, oauthRuler.JWTSecret)
+	jwtToken, err := middlewares.CreateJWT(userInfo.Email, oauthRuler.JWTSecret)
 	if err != nil {
 		logger.Error("Error creating JWT: %v", err)
 		http.Error(w, "Error creating JWT ", http.StatusInternalServerError)

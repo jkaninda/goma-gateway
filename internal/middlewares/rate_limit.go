@@ -44,9 +44,12 @@ func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 
 // RateLimitMiddleware limits request based on the number of requests peer minutes.
 func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
-	window := time.Minute //  requests per minute
+	window := time.Second //  requests per minute
 	if len(rl.unit) != 0 && rl.unit == "hour" {
 		window = time.Hour
+	}
+	if len(rl.unit) != 0 && rl.unit == "minute" {
+		window = time.Minute
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

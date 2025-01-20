@@ -118,7 +118,7 @@ func checkConfig(routes []Route, middlewares []Middleware) error {
 			des := route.Destination
 			if des == "" {
 				if len(route.Backends) > 0 {
-					des = route.Backends[0]
+					des = route.Backends[0].EndPoint
 				}
 			}
 			return fmt.Errorf("route name is empty, route with destination: %s", des)

@@ -26,9 +26,12 @@ import (
 
 // redisRateLimiter, handle rateLimit
 func redisRateLimiter(clientIP, unit string, rate int) error {
-	limit := redis_rate.PerMinute(rate)
+	limit := redis_rate.PerSecond(rate)
 	if len(unit) != 0 && unit == "hour" {
 		limit = redis_rate.PerHour(rate)
+	}
+	if len(unit) != 0 && unit == "minute" {
+		limit = redis_rate.PerMinute(rate)
 	}
 	ctx := context.Background()
 	res, err := limiter.Allow(ctx, clientIP, limit)

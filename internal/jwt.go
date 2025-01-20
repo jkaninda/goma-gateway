@@ -18,27 +18,65 @@
 package internal
 
 import (
-	"github.com/golang-jwt/jwt"
-	"time"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"os"
+	"strings"
 )
 
-// createJWT create JWT token
-func createJWT(email, jwtSecret string) (string, error) {
-	// Define JWT claims
-	claims := jwt.MapClaims{
-		"email": email,
-		"exp":   jwt.TimeFunc().Add(time.Hour * 24).Unix(), // Token expiration
-		"iss":   "Goma-Gateway",                            // Issuer claim
+// loadRSAPublicKey loads an RSA public key from a PEM file or raw PEM content.
+func loadRSAPublicKey(input string) (*rsa.PublicKey, error) {
+	var data []byte
+	var err error
+
+	if strings.Contains(input, "-----BEGIN") {
+		data = []byte(input)
+	} else {
+		data, err = os.ReadFile(input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read file: %w", err)
+		}
 	}
 
-	// Create a new token with HS256 signing method
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Sign the token with a secret
-	signedToken, err := token.SignedString([]byte(jwtSecret))
-	if err != nil {
-		return "", err
+	// Decode PEM block
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, fmt.Errorf("invalid PEM format")
 	}
 
-	return signedToken, nil
+	// Handle different PEM block types
+	switch block.Type {
+	case "PUBLIC KEY":
+		// Parse PKIX public key
+		key, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse public key: %w", err)
+		}
+
+		// Ensure it is an RSA public key
+		rsaKey, ok := key.(*rsa.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("key is not an RSA public key")
+		}
+		return rsaKey, nil
+
+	case "CERTIFICATE":
+		// Parse the certificate
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse certificate: %w", err)
+		}
+
+		// Extract the public key from the certificate
+		rsaKey, ok := cert.PublicKey.(*rsa.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("certificate does not contain an RSA public key")
+		}
+		return rsaKey, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported PEM block type: %s", block.Type)
+	}
 }

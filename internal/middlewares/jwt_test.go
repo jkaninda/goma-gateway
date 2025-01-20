@@ -15,26 +15,25 @@
  *
  */
 
-package util
+package middlewares
 
 import (
-	"fmt"
+	"log"
+	"testing"
 )
 
-const ConfigVersion = "2"
-
-var Version = "development"
-var buildTime string
-var gitCommit string
-
-func FullVersion() {
-	fmt.Printf("Goma Gateway version: %s\n", Version)
-	fmt.Printf("Configuration version: %s\n", ConfigVersion)
-	fmt.Printf("Build time: %s\n", buildTime)
-	fmt.Printf("Git commit: %s\n", gitCommit)
+func TestCreateJWT(t *testing.T) {
+	jwtSecret := "MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo"
+	jwtToken, err := CreateJWT("user@example.com", jwtSecret)
+	if err != nil {
+		t.Fatalf("Error creating JWT token")
+	}
+	log.Println(jwtToken)
+	ok, err := validateJWT(jwtToken, jwtSecret)
+	if err != nil {
+		t.Fatalf("Erro validating JWT token")
+	}
+	if ok {
+		log.Println("Validated")
+	}
 }
-
-const MainExample = "Initialize config: config init --output config.yml\n" +
-	"Start server: server \n" +
-	"Start server with custom config file: server --config config.yml \n" +
-	"Check config file: config check --config config.yml"

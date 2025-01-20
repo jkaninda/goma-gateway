@@ -43,14 +43,29 @@ func initExtraRoute(path string) error {
 				DisableHostForwarding: true,
 				Middlewares:           []string{"block-access"},
 			},
+			{
+				Name:        "api",
+				Path:        "/api",
+				Methods:     []string{"GET"},
+				Destination: "https://example.com",
+				Rewrite:     "/",
+				HealthCheck: RouteHealthCheck{
+					Path:            "/",
+					Interval:        "30s",
+					Timeout:         "10s",
+					HealthyStatuses: []int{200, 404},
+				},
+				DisableHostForwarding: true,
+				Middlewares:           []string{"basic-auth"},
+			},
 			// Duplicate route name
 			{
-				Name: "Load balancer",
-				Path: "/extra-protected",
-				Backends: []string{
-					"https://example.com",
-					"https://example2.com",
-					"https://example3.com",
+				Name: "weighted-load-balancing",
+				Path: "/weighted-extra",
+				Backends: Backends{
+					Backend{EndPoint: "https://example.com", Weight: 5},
+					Backend{EndPoint: "https://example1.com", Weight: 2},
+					Backend{EndPoint: "https://example2.com", Weight: 1},
 				},
 				Rewrite:     "/",
 				HealthCheck: RouteHealthCheck{},

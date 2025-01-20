@@ -101,9 +101,14 @@ It's designed to be straightforward and efficient, offering a rich set of featur
   - Configure rate limits (e.g., requests per minute) to prevent abuse and ensure fair usage.
 
 #### **Load Balancing**
-- **Round-Robin Algorithm**: Distribute incoming requests evenly across backend servers to ensure optimal resource utilization.
-- **Health Checks**: Regularly monitor server health.
-- **Scalability**: Easily scale horizontally by adding or removing backend servers without downtime.
+
+- **Round-Robin Algorithm**: Distributes incoming requests evenly across backend servers, ensuring balanced resource utilization.
+- **Weighted Algorithm**: Distributes incoming requests based on predefined weights, allowing for prioritized traffic allocation to specific servers.
+- **Health Checks**: Continuously monitors the health of backend servers to ensure only healthy servers receive traffic.
+- **Scalability**: Enables seamless horizontal scaling by adding or removing backend servers without downtime.
+- **Integrated Health Checks**: Automatically monitors the health of backend servers to maintain high availability.
+
+
 
 
 #### **HTTP Caching**
@@ -111,7 +116,7 @@ It's designed to be straightforward and efficient, offering a rich set of featur
 - **Cache Storage Options**:
   - **In-Memory Cache**: Suitable for single-instance applications or temporary caching.
   - **Redis Cache**: Ideal for distributed caching across multiple instances.
-  - **Cache Control Headers**: Support for `Cache-Control`, `X-Cache-Status`, and `Last-Modified` headers for fine-grained cache management.
+  - **Cache Control Headers**: Support for `Cache-Control`, `and X-Cache-Status` headers for fine-grained cache management.
   - **Cache Invalidation**: Implement strategies to invalidate stale cache entries (e.g., time-based or event-based invalidation).
 
 ### Configuration and Flexibility

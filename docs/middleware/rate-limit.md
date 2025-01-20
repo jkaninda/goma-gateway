@@ -19,7 +19,7 @@ middlewares:
   - name: rate-limit
     type: rateLimit # or ratelimit
     rule:
-      unit: minute          # or hour
+      unit: second          # minute or hour
       requestsPerUnit: 60    # Maximum number of requests per unit of time
 ```
 ### Parameters:
