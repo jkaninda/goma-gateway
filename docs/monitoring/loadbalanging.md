@@ -56,7 +56,7 @@ gateway:
 Below is an example configuration for weighted load balancing, where traffic is distributed based on server weights:
 
 ```yaml
-version: 1.0  # Configuration version
+version: 2  # Configuration version
 gateway:
   routes:
     - path: /  # The path to match for this route

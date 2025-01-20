@@ -85,19 +85,18 @@ You can define a list of TLS certificates for the route using the following keys
 
 ---
 
-### Simple route
+### ### Minimal Configuration
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
-  ...
   routes:
     - name: Example
       path: /store/cart
-      rewrite: /cart # You can use RegexRewrite middleware for more complex rewrites
+      rewrite: /cart # You can use RewriteRegex middleware for more complex rewrites
       destination:  http://cart-service:8080
-      cors: {}
 ```
+
 ###  Route with limited HTTP methods
 The proxy will allow all HTTP methods if there's no defined method.
 

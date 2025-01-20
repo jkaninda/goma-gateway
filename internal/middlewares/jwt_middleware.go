@@ -27,7 +27,6 @@ import (
 // AuthMiddleware authenticates the client using JWT
 func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Info("JWT")
 		contentType := r.Header.Get("Content-Type")
 		if isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
 			// Get the token from the Authorization header

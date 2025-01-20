@@ -79,6 +79,13 @@ Define custom routes and middlewares for greater flexibility:
 Define the main routes for the Gateway, enabling routing logic for incoming requests.
 
 ---
+### ### Minimal Configuration
+
+```yaml
+version: 2  # Configuration version
+gateway:
+  routes: []
+```
 
 ## Example Configuration
 

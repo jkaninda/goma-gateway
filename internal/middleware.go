@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -270,19 +271,29 @@ func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Ro
 
 // applyJWTAuthMiddleware applies JWT Authentication middleware
 func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+	var err error
 	jwt := &JWTRuleMiddleware{}
-	if err := converter.Convert(&routeMiddleware.Rule, jwt); err != nil {
+	if err = converter.Convert(&routeMiddleware.Rule, jwt); err != nil {
 		logger.Error("Error: %v, middleware not applied", err.Error())
 		return
 	}
-	if err := jwt.validate(); err != nil {
+	if err = jwt.validate(); err != nil {
 		logger.Error("Error: %s", err.Error())
 		return
+	}
+	key := &rsa.PublicKey{}
+	if jwt.PublicKey != "" {
+		key, err = loadRSAPublicKey(jwt.PublicKey)
+		if err != nil {
+			logger.Error("Error JWT: %v", err)
+			return
+		}
 	}
 
 	jwtAuth := middlewares.JwtAuth{
 		Path:    route.Path,
 		Paths:   routeMiddleware.Paths,
+		RsaKey:  key,
 		Secret:  jwt.Secret,
 		JwksUrl: jwt.JwksUrl,
 		Origins: route.Cors.Origins,
