@@ -122,6 +122,7 @@ func setForwardedHeaders(r *http.Request) {
 	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
 	r.Header.Set("X-Forwarded-For", getRealIP(r))
 	r.Header.Set("X-Real-IP", getRealIP(r))
+	r.Header.Set("X-Forwarded-Proto", scheme(r))
 }
 
 // createProxy creates a reverse proxy based on the configuration.
