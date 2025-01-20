@@ -2,17 +2,22 @@ package internal
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 const testPath = "./tests"
 const extraRoutePath = "./tests/extra"
+const serverURL = "http://localhost:8080"
 
 var configFile = filepath.Join(testPath, "goma.yml")
+var configFile2 = filepath.Join(testPath, "goma2.yml")
 
 func TestInit(t *testing.T) {
 	err := os.MkdirAll(testPath, os.ModePerm)
@@ -27,7 +32,11 @@ func TestInit(t *testing.T) {
 
 func TestCheckConfig(t *testing.T) {
 	TestInit(t)
-	err := initConfig(configFile)
+	err := initConfig(configFile2)
+	if err != nil {
+		t.Fatal("Error init config:", err)
+	}
+	err = initTestConfig(configFile)
 	if err != nil {
 		t.Fatal("Error init config:", err)
 	}
@@ -40,7 +49,7 @@ func TestCheckConfig(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	TestInit(t)
-	err := initConfig(configFile)
+	err := initTestConfig(configFile)
 	if err != nil {
 		t.Fatalf("Error initializing config: %s", err.Error())
 	}
@@ -70,14 +79,16 @@ func TestStart(t *testing.T) {
 			return
 		}
 	}()
-
-	// Test health check
+	log.Println("Wait...")
+	time.Sleep(5 * time.Second) // Sleep for 5 seconds
 
 	resp, err := makeRequest("http://localhost:8080/readyz")
 	if err != nil {
 		t.Fatalf("Error making request: %s", err.Error())
 	}
 	assertResponse(t, resp, http.StatusOK)
+
+	testBasicAuthRequest(t)
 
 	ctx.Done()
 }
@@ -96,4 +107,30 @@ func makeRequest(url string) (*http.Response, error) {
 		return nil, err
 	}
 	return response, nil
+}
+
+func testBasicAuthRequest(t *testing.T) {
+	// Create a request to the mock server
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api", serverURL), nil)
+	if err != nil {
+		t.Fatalf("Error creating request: %v", err)
+	}
+
+	// Add Basic Auth header
+	auth := "admin:admin"
+	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+	req.Header.Add("Authorization", basicAuth)
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Error sending request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check the response status
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("Expected status code %d, got %d", http.StatusNotFound, resp.StatusCode)
+	}
 }
