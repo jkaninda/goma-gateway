@@ -21,6 +21,7 @@ The `AddPrefix` middleware appends a specified prefix to the URL path of incomin
 Here’s an example of an `addPrefix` middleware configuration in YAML:
 
 ```yaml
+middlewares:
   - name: addPrefix
     type: addPrefix
     rule:

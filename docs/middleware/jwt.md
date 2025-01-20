@@ -2,7 +2,7 @@
 title: JWT
 layout: default
 parent: Middleware
-nav_order: 11
+nav_order: 12
 ---
 
 # JWT Middleware
@@ -27,27 +27,29 @@ The JWT Middleware can be configured with the following options:
 Below is an example of a minimal JWT authentication configuration using a shared secret:
 
 ```yaml
-- name: jwt
-  type: jwt
-  paths:
-    - "/*"
-  rule:
-    secret: MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo...
+middlewares:
+    - name: jwt
+      type: jwt
+      paths:
+        - "/*"
+      rule:
+        secret: MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo...
 ```
 
 ### Advanced Configuration
 For more advanced use cases, you can configure the middleware with additional options such as a `publicKey`, `jwksUrl`, and `forwardAuthorization`:
 
 ```yaml
-- name: jwt
-  type: jwt
-  paths:
-    - "/*"
-  rule:
-    secret: MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo...
-    publicKey: "" # File path to the certificate or raw certificate content
-    jwksUrl: ""   # URL to fetch JWKS for dynamic key resolution
-    forwardAuthorization: false # Whether to forward the Authorization header
+middlewares:
+    - name: jwt
+      type: jwt
+      paths:
+        - "/*"
+      rule:
+        secret: MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo...
+        publicKey: "" # File path to the certificate or raw certificate content
+        jwksUrl: ""   # URL to fetch JWKS for dynamic key resolution
+        forwardAuthorization: false # Whether to forward the Authorization header
 ```
 
 ---

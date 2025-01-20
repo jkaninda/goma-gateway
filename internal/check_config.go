@@ -118,7 +118,7 @@ func checkConfig(routes []Route, middlewares []Middleware) error {
 			des := route.Destination
 			if des == "" {
 				if len(route.Backends) > 0 {
-					des = route.Backends[0].EndPoint
+					des = route.Backends[0].Endpoint
 				}
 			}
 			return fmt.Errorf("route name is empty, route with destination: %s", des)
@@ -138,7 +138,10 @@ func checkConfig(routes []Route, middlewares []Middleware) error {
 	}
 
 	// find duplicated middleware name
-	duplicates := findDuplicateMiddlewareNames(dynamicMiddlewares)
+	duplicates, err := findDuplicateMiddlewareNames(dynamicMiddlewares)
+	if err != nil {
+		return fmt.Errorf("middlewre %v", err)
+	}
 	if len(duplicates) != 0 {
 		for _, duplicate := range duplicates {
 			return fmt.Errorf("duplicated middleware name: %s, the name of the middleware should be unique", duplicate)

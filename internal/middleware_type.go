@@ -27,11 +27,11 @@ type Middleware struct {
 	Type string `yaml:"type"`
 
 	// Paths lists the routes or paths that this middleware will protect.
-	Paths []string `yaml:"paths"`
+	Paths []string `yaml:"paths,omitempty"`
 
 	// Rule represents the specific configuration or rules for the middleware.
 	// The structure of Rule depends on the middleware Type. For example:
 	// - "rateLimit" might use a struct defining rate limits.
 	// - "accessPolicy" could use a struct specifying accessPolicy control rules.
-	Rule interface{} `yaml:"rule"`
+	Rule interface{} `yaml:"rule,omitempty"`
 }

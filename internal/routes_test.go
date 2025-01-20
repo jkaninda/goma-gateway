@@ -63,9 +63,9 @@ func initExtraRoute(path string) error {
 				Name: "weighted-load-balancing",
 				Path: "/weighted-extra",
 				Backends: Backends{
-					Backend{EndPoint: "https://example.com", Weight: 5},
-					Backend{EndPoint: "https://example1.com", Weight: 2},
-					Backend{EndPoint: "https://example2.com", Weight: 1},
+					Backend{Endpoint: "https://example.com", Weight: 5},
+					Backend{Endpoint: "https://example1.com", Weight: 2},
+					Backend{Endpoint: "https://example2.com", Weight: 1},
 				},
 				Rewrite:     "/",
 				HealthCheck: RouteHealthCheck{},

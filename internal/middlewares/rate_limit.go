@@ -63,7 +63,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			if rl.redisBased {
 				err := redisRateLimiter(clientID, rl.unit, rl.requests)
 				if err != nil {
-					logger.Error("Redis Rate limiter error: %s", err.Error())
+					logger.Debug("Redis Rate limiter error: %s", err.Error())
 					logger.Error("Too many requests from IP: %s %s %s", clientIP, r.URL, r.UserAgent())
 					return
 				}

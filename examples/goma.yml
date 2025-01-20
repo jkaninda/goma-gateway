@@ -96,9 +96,9 @@ gateway:
       rewrite: /
       destination: ''
       backends:  # List of backend servers to route traffic to
-        - endPoint: https://backend1.example.com
-        - endPoint: https://backend2.example.com
-        - endPoint: https://backend3.example.com
+        - endpoint: https://backend1.example.com
+        - endpoint: https://backend2.example.com
+        - endpoint: https://backend3.example.com
       insecureSkipVerify: true       # Disable SSL verification for backend connections.
       ## Allowed HTTP Methods
       methods:

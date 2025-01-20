@@ -211,7 +211,7 @@ func NewWeightedReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputil.
 	}
 
 	// Parse the backend URL and update the request
-	backendURL, err := url.Parse(backend.EndPoint)
+	backendURL, err := url.Parse(backend.Endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing backend URL for route %s: %v", proxyRoute.name, err)
 	}
@@ -235,7 +235,7 @@ func NewRoundRobinReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputi
 	backend := proxyRoute.backends[index]
 
 	// Parse the backend URL and update the request
-	backendURL, _ := url.Parse(backend.EndPoint)
+	backendURL, _ := url.Parse(backend.Endpoint)
 	if proxyRoute.disableHostForwarding {
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
