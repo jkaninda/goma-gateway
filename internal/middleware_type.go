@@ -33,5 +33,5 @@ type Middleware struct {
 	// The structure of Rule depends on the middleware Type. For example:
 	// - "rateLimit" might use a struct defining rate limits.
 	// - "accessPolicy" could use a struct specifying accessPolicy control rules.
-	Rule interface{} `yaml:"rule"`
+	Rule interface{} `yaml:"rule,omitempty"`
 }
