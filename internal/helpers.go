@@ -120,3 +120,17 @@ func isIPOrCIDR(input string) (isIP bool, isCIDR bool) {
 	// Neither IP nor CIDR
 	return false, false
 }
+
+// Helper function to determine the scheme (http or https)
+func scheme(r *http.Request) string {
+	// Check if the request is behind a reverse proxy
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		return strings.ToLower(proto)
+	}
+	// Check if the request is using TLS
+	if r.TLS != nil {
+		return "https"
+	}
+	// Default to HTTP
+	return "http"
+}
