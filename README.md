@@ -191,16 +191,63 @@ Goma Gateway provides the following health check endpoints:
 
 Here’s an example of deploying Goma Gateway using Docker Compose:
 
+```yaml
+# config.yaml
+version: 2
+gateway:
+  writeTimeout: 15
+  readTimeout: 15
+  idleTimeout: 30
+  routes:
+    - path: /
+      name: example
+      disabled: false
+      hosts: []
+      rewrite: ''
+      destination: https://example.com
+      disableHostFording: true
+      healthCheck:
+        path: /
+        interval: 15s
+        timeout: 10s
+        healthyStatuses:
+          - 200
+          - 404
+      cors: {}
+      middlewares:
+        - basic-auth
+    - name: load-balancer
+      path: /load-balancer
+      disabled: false
+      hosts: []
+      rewrite: /
+      backends:
+       - endpoint: https://example2.com
+         weight: 1 # Optional can be omitted
+       - endpoint: https://example.com
+         weight: 3 # Optional can be omitted
+      middlewares: []
+middlewares:
+  - name: basic-auth
+    type: basic
+    paths:
+      - /*
+    rule:
+      users: 
+      - admin:admin
+```
+
 ```shell
+# compose.yaml
 services:
   goma-gateway:
     image: jkaninda/goma-gateway
-    command: server
+    command: server -c config.yaml
     ports:
       - "8080:8080"
       - "8443:8443"
     volumes:
-      - ./config:/etc/goma/
+      - ./:/etc/goma/
 ```
 
 

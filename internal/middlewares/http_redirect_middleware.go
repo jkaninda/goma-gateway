@@ -32,7 +32,7 @@ type RedirectScheme struct {
 // Middleware is a middleware that redirects HTTP scheme.
 func (h RedirectScheme) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if getScheme(r) != h.Scheme {
+		if scheme(r) != h.Scheme {
 			httpsURL := fmt.Sprintf("%s://%s%s", h.Scheme, r.Host, r.URL.Path)
 			if h.Port >= 0 {
 				host := strings.Split(r.Host, ":")[0]
@@ -53,18 +53,4 @@ func (h RedirectScheme) Middleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-func getScheme(r *http.Request) string {
-	// Check if the request is behind a reverse proxy
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
-		return strings.ToLower(proto)
-	}
-
-	// Check if the request is using TLS
-	if r.TLS != nil {
-		return "https"
-	}
-
-	// Default to HTTP
-	return "http"
 }

@@ -114,11 +114,16 @@ func authRequest(f ForwardAuth, w http.ResponseWriter, req *http.Request, conten
 
 // copyHeadersAndCookies copies headers and cookies from the source request to the destination request
 func authCopyHeadersAndCookies(f ForwardAuth, src *http.Request, dest *http.Request) {
+	sSchema := scheme(src)
+	// Forward headers
 	dest.Header.Set("X-Forwarded-Host", src.Host)
+	dest.Header.Set("X-Forwarded-Method", src.Method)
+	dest.Header.Set("X-Forwarded-Proto", sSchema)
 	dest.Header.Set("X-Forwarded-For", getRealIP(src))
 	dest.Header.Set("X-Real-IP", getRealIP(src))
 	dest.Header.Set("User-Agent", src.UserAgent())
-	dest.Header.Set("X-Original-URL", fmt.Sprintf("%s://%s%s", scheme(src), src.Host, src.URL.RequestURI()))
+	dest.Header.Set("X-Forwarded-URI", fmt.Sprintf("%s://%s%s", sSchema, src.Host, src.URL.RequestURI()))
+	dest.Header.Set("X-Original-URL", fmt.Sprintf("%s://%s%s", sSchema, src.Host, src.URL.RequestURI()))
 	// Forward the host from the source request to the destination request
 	if f.EnableHostForwarding {
 		dest.Host = src.Host

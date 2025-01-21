@@ -28,6 +28,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // printRoute prints routes
@@ -119,4 +120,33 @@ func isIPOrCIDR(input string) (isIP bool, isCIDR bool) {
 
 	// Neither IP nor CIDR
 	return false, false
+}
+
+// Helper function to determine the scheme (http or https)
+func scheme(r *http.Request) string {
+	// Check if the request is behind a reverse proxy
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		return strings.ToLower(proto)
+	}
+	// Check if the request is using TLS
+	if r.TLS != nil {
+		return "https"
+	}
+	// Default to HTTP
+	return "http"
+}
+
+// isWebSocketRequest checks if the request is a WebSocket request
+func isWebSocketRequest(r *http.Request) bool {
+	return r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Connection") == "Upgrade"
+}
+
+// formatDuration formats the duration to either "X.Xms" or "X.Xs"
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		// Format as milliseconds with one decimal place
+		return fmt.Sprintf("%.1fms", float64(d.Milliseconds()))
+	}
+	// Format as seconds with one decimal place
+	return fmt.Sprintf("%.1fs", d.Seconds())
 }
