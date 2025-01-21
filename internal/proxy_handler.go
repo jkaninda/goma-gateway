@@ -56,6 +56,7 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 // ProxyHandlerErrorInterceptor intercepts responses based on the status code
 func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
 		// Determine the content type
 		contentType := errorInterceptor.ContentType
 		if contentType == "" {
@@ -82,30 +83,29 @@ func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Hand
 			_, _ = io.Copy(w, rec.body)
 			return
 		}
+		// Retrieve the value later in the request lifecycle
+		if val := r.Context().Value(requestStartTimerKey); val != nil {
+			// Get request start time
+			startTime = val.(time.Time)
+		}
 
-		// Get request start time
-		start := r.Context().Value("__requestStartTimer__").(time.Time)
 		// Get request query
 		query := r.URL.RawQuery
 		if query != "" {
 			query = "?" + query
 		}
+		formatted := formatDuration(time.Since(startTime))
 		// Check if the response should be intercepted
 		if ok, message := middlewares.CanIntercept(rec.statusCode, errorInterceptor.Errors); ok {
-			logger.Error("failed %s %s for %s %d %s in %v @ %s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), time.Now().Sub(start), r.UserAgent())
+			logger.Error("failed %s %s for %s %d %s in %s %s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), formatted, r.UserAgent())
 			middlewares.RespondWithError(w, r, rec.statusCode, message, errorInterceptor.Origins, contentType)
 			return
 		}
 
 		// No error, write the response to the client
-		logger.Info("completed %s %s for %s %d %s in %v @ %s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), time.Now().Sub(start), r.UserAgent())
+		logger.Info("completed %s %s for %s %d %s in %s %s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), formatted, r.UserAgent())
 		// Set the recorded status code
 		w.WriteHeader(rec.statusCode)
 		_, _ = io.Copy(w, rec.body)
 	})
-}
-
-// isWebSocketRequest checks if the request is a WebSocket request
-func isWebSocketRequest(r *http.Request) bool {
-	return r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Connection") == "Upgrade"
 }

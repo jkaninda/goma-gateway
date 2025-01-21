@@ -28,6 +28,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // printRoute prints routes
@@ -133,4 +134,19 @@ func scheme(r *http.Request) string {
 	}
 	// Default to HTTP
 	return "http"
+}
+
+// isWebSocketRequest checks if the request is a WebSocket request
+func isWebSocketRequest(r *http.Request) bool {
+	return r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Connection") == "Upgrade"
+}
+
+// formatDuration formats the duration to either "X.Xms" or "X.Xs"
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		// Format as milliseconds with one decimal place
+		return fmt.Sprintf("%.1fms", float64(d.Milliseconds()))
+	}
+	// Format as seconds with one decimal place
+	return fmt.Sprintf("%.1fs", d.Seconds())
 }

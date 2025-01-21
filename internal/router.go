@@ -53,7 +53,7 @@ func (r *router) AddRoutes(rt Router) {
 func (r *router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	r.RLock()
 	defer r.RUnlock()
-	ctx := context.WithValue(request.Context(), "__requestStartTimer__", time.Now())
+	ctx := context.WithValue(request.Context(), requestStartTimerKey, time.Now())
 	request = request.WithContext(ctx)
 	r.mux.ServeHTTP(writer, request)
 }
