@@ -19,10 +19,12 @@ package internal
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"io"
 	"net/http"
+	"time"
 )
 
 // responseRecorder is a custom http.ResponseWriter that captures the response status code and body
@@ -81,15 +83,22 @@ func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Hand
 			return
 		}
 
+		// Get request start time
+		start := r.Context().Value("__requestStartTimer__").(time.Time)
+		// Get request query
+		query := r.URL.RawQuery
+		if query != "" {
+			query = "?" + query
+		}
 		// Check if the response should be intercepted
 		if ok, message := middlewares.CanIntercept(rec.statusCode, errorInterceptor.Errors); ok {
-			logger.Error("failed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), r.UserAgent())
+			logger.Error("failed %s %s for %s %d %s in %v @ %s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), time.Now().Sub(start), r.UserAgent())
 			middlewares.RespondWithError(w, r, rec.statusCode, message, errorInterceptor.Origins, contentType)
 			return
 		}
 
 		// No error, write the response to the client
-		logger.Info("completed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), r.UserAgent())
+		logger.Info("completed %s %s for %s %d %s in %v @ %s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, http.StatusText(rec.statusCode), time.Now().Sub(start), r.UserAgent())
 		// Set the recorded status code
 		w.WriteHeader(rec.statusCode)
 		_, _ = io.Copy(w, rec.body)

@@ -18,12 +18,14 @@
 package internal
 
 import (
+	"context"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
+	"time"
 )
 
 // NewRouter creates a new router instance.
@@ -51,6 +53,8 @@ func (r *router) AddRoutes(rt Router) {
 func (r *router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	r.RLock()
 	defer r.RUnlock()
+	ctx := context.WithValue(request.Context(), "__requestStartTimer__", time.Now())
+	request = request.WithContext(ctx)
 	r.mux.ServeHTTP(writer, request)
 }
 
