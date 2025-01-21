@@ -7,6 +7,7 @@ const accessControlAllowOrigin = "Access-Control-Allow-Origin" // Cors
 const gatewayName = "Goma Gateway"
 const applicationJson = "application/json"
 const CertsPath = ConfigDir + "/certs"
+const requestStartTimerKey contextKey = "__requestStartTimer__"
 
 // Middlewares type
 const (
@@ -34,3 +35,5 @@ var (
 	stopChan           = make(chan struct{})
 	reloaded           = false
 )
+
+type contextKey string
