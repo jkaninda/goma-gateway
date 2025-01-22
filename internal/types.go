@@ -182,7 +182,7 @@ type httpCacheRule struct {
 	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty"`
 	MemoryLimit              string   `yaml:"memoryLimit,omitempty"`
 }
-type RedirectScheme struct {
+type RedirectSchemeRuleMiddleware struct {
 	Scheme    string `yaml:"scheme"`
 	Port      int64  `yaml:"port"`
 	Permanent bool   `yaml:"permanent,omitempty"`

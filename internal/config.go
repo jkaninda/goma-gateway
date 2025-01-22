@@ -386,8 +386,8 @@ func (f ForwardAuthRuleMiddleware) validate() error {
 	return nil
 }
 
-// validate validates RedirectScheme
-func (r RedirectScheme) validate() error {
+// validate validates RedirectSchemeRuleMiddleware
+func (r RedirectSchemeRuleMiddleware) validate() error {
 	if r.Scheme == "" {
 		return fmt.Errorf("error parsing yaml: empty Scheme in redirectScheme middlewares")
 
