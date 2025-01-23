@@ -35,9 +35,6 @@ import (
 // It handles method validation, CORS headers, backend selection, and request rewriting.
 func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Log details of the incoming request for debugging purposes
-		logRequestDetails(r)
-
 		// Extract the Content-Type header from the request
 		contentType := r.Header.Get("Content-Type")
 
@@ -78,11 +75,6 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		// Forward the request to the selected backend
 		proxy.ServeHTTP(w, r)
 	}
-}
-
-// logRequestDetails logs the details of the incoming request for debugging purposes.
-func logRequestDetails(r *http.Request) {
-	logger.Debug("Request started: method=%s, path=%s, client_ip=%s, user_agent=%s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
 }
 
 // validateMethod checks if the HTTP method is allowed for the request.
@@ -291,6 +283,5 @@ func (b Backends) AvailableBackend() Backends {
 			backends = append(backends, backend)
 		}
 	}
-	logger.Debug("Available backends: count=%d", len(backends))
 	return backends
 }
