@@ -19,8 +19,8 @@ package internal
 
 import (
 	"fmt"
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/pkg/converter"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"gopkg.in/yaml.v3"
 	"log"
@@ -118,14 +118,14 @@ func TestReadMiddleware(t *testing.T) {
 		case BasicAuth:
 			log.Println("Basic auth")
 			basicAuth := BasicRuleMiddleware{}
-			if err := converter.Convert(&middleware.Rule, &basicAuth); err != nil {
+			if err := goutils.DeepCopy(&basicAuth, middleware.Rule); err != nil {
 				t.Fatalf("Error: %v", err.Error())
 			}
 			log.Printf("Users : %v\n", basicAuth.Users)
 		case forwardAuth:
 			log.Println("forwardAuth")
 			f := ForwardAuthRuleMiddleware{}
-			if err := converter.Convert(&middleware.Rule, &f); err != nil {
+			if err := goutils.DeepCopy(&f, middleware.Rule); err != nil {
 				t.Fatalf("Error: %v", err.Error())
 			}
 			err := f.validate()
@@ -136,7 +136,7 @@ func TestReadMiddleware(t *testing.T) {
 		case JWTAuth:
 			log.Println("JWT auth")
 			jwt := &JWTRuleMiddleware{}
-			if err := converter.Convert(&middleware.Rule, jwt); err != nil {
+			if err := goutils.DeepCopy(jwt, middleware.Rule); err != nil {
 				t.Fatalf("Error: %v", err.Error())
 			}
 			err := jwt.validate()
@@ -147,7 +147,7 @@ func TestReadMiddleware(t *testing.T) {
 		case OAuth:
 			log.Println("OAuth auth")
 			oauth := &OauthRulerMiddleware{}
-			if err := converter.Convert(&middleware.Rule, oauth); err != nil {
+			if err := goutils.DeepCopy(oauth, middleware.Rule); err != nil {
 				t.Fatalf("Error: %v, middleware not applied", err.Error())
 			}
 			err := oauth.validate()

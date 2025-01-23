@@ -205,7 +205,7 @@ gateway:
       hosts: []
       rewrite: ''
       destination: https://example.com
-      disableHostFording: true
+      disableHostForwarding: true
       healthCheck:
         path: /
         interval: 15s
