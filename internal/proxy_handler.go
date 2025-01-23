@@ -53,12 +53,12 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 	return rec.body.Write(data)
 }
 
-// ProxyHandlerErrorInterceptor intercepts responses based on the status code
-func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Handler) http.Handler {
+// ProxyHandler intercepts responses based on the status code
+func (h ProxyHandler) handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		// Determine the content type
-		contentType := errorInterceptor.ContentType
+		contentType := h.ContentType
 		if contentType == "" {
 			contentType = r.Header.Get("Content-Type")
 		}
@@ -67,6 +67,11 @@ func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Hand
 		if isWebSocketRequest(r) {
 			next.ServeHTTP(w, r)
 			return
+		}
+		// Get request content length
+		contentLength := r.Header.Get("Content-Length")
+		if contentLength == "" {
+			contentLength = "0"
 		}
 
 		// Record the response for interception
@@ -87,8 +92,8 @@ func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Hand
 		}
 		formatted := formatDuration(time.Since(startTime))
 		// No interception logic needed
-		if !errorInterceptor.Enabled || len(errorInterceptor.Errors) == 0 {
-			logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, r.UserAgent())
+		if !h.Enabled || len(h.Errors) == 0 {
+			logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s route=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, r.UserAgent())
 			// Set the recorded status code
 			w.WriteHeader(rec.statusCode)
 			_, _ = io.Copy(w, rec.body)
@@ -96,14 +101,14 @@ func (errorInterceptor ProxyHandlerErrorInterceptor) proxyHandler(next http.Hand
 		}
 
 		// Check if the response should be intercepted
-		if ok, message := middlewares.CanIntercept(rec.statusCode, errorInterceptor.Errors); ok {
-			logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, r.UserAgent())
-			middlewares.RespondWithError(w, r, rec.statusCode, message, errorInterceptor.Origins, contentType)
+		if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
+			logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s route=%s content_length=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, contentLength, r.UserAgent())
+			middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
 			return
 		}
 
 		// No error, write the response to the client
-		logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, r.UserAgent())
+		logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s content_length=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, contentLength, r.UserAgent())
 		// Set the recorded status code
 		w.WriteHeader(rec.statusCode)
 		_, _ = io.Copy(w, rec.body)

@@ -99,7 +99,7 @@ func logWithCaller(level, msg string, args ...interface{}) {
 		line = 0
 	}
 
-	if getLogLevel() == traceLog {
+	if getLogLevel() == "trace" {
 		log.Printf("%s: %s (File: %s, Line: %d)\n", level, formattedMessage, file, line)
 	} else {
 		log.Printf("%s: %s\n", level, formattedMessage)

@@ -169,7 +169,8 @@ type AccessPolicyRuleMiddleware struct {
 	Action       string   `yaml:"action,omitempty"` // action, ALLOW or DENY
 	SourceRanges []string `yaml:"sourceRanges"`     //  list of Ips
 }
-type ProxyHandlerErrorInterceptor struct {
+type ProxyHandler struct {
+	Name        string
 	Enabled     bool
 	ContentType string
 	Errors      []middlewares.RouteError
