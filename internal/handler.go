@@ -24,6 +24,7 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"sync"
+	"time"
 )
 
 // CORSHandler handles CORS headers for incoming requests
@@ -56,8 +57,15 @@ func CORSHandler(cors Cors) mux.MiddlewareFunc {
 
 // ProxyErrorHandler catches backend errors and returns a custom response
 func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	startTime := time.Now()
+	// Retrieve the value later in the request lifecycle
+	if val := r.Context().Value(requestStartTimerKey); val != nil {
+		// Get request start time
+		startTime = val.(time.Time)
+	}
+	formatted := formatDuration(time.Since(startTime))
 	logger.Error("Proxy error: %v", err)
-	logger.Error("failed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, http.StatusText(http.StatusBadGateway), r.UserAgent())
+	logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, formatted, r.UserAgent())
 	w.WriteHeader(http.StatusBadGateway)
 	_, err = w.Write([]byte(fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway))))
 	if err != nil {
@@ -67,7 +75,7 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 
 // HealthCheckHandler handles health check of routes
 func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("completed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), http.StatusOK, http.StatusText(http.StatusOK), r.UserAgent())
+	logger.Info("method=%s url=%s client_ip=%s status=%d user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusOK, r.UserAgent())
 	healthRoutes := healthCheckRoutes(heathRoute.Routes)
 	wg := sync.WaitGroup{}
 	wg.Add(len(healthRoutes))
@@ -103,7 +111,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 	}
 }
 func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("completed %s %s for %s %d %s %s", r.Method, r.URL.Path, getRealIP(r), http.StatusOK, http.StatusText(http.StatusOK), r.UserAgent())
+	logger.Info("method=%s url=%s client_ip=%s status=%d user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusOK, r.UserAgent())
 	response := HealthCheckRouteResponse{
 		Name:   "Service Gateway",
 		Status: "healthy",
