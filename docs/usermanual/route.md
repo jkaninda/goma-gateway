@@ -50,29 +50,6 @@ This section outlines the available configuration options for defining routes in
 - **`contentType`** (`string`): Specifies the `Content-Type` header of the response, such as `application/json` or `text/plain`.
 - **`errors`** (`array`): A collection of error configurations defining which HTTP status codes to intercept and their corresponding custom responses.
 
-## TLS Configuration
-
-Goma Gateway allows you to define route TLS certificates for securing route.
-
-These certificates are used to encrypt traffic between clients and the gateway.
-
-#### Keys Configuration
-
-You can define a list of TLS certificates for the route using the following keys:
-
-- **`cert`** (`string`):  
-  Specifies the TLS certificate. This can be provided as:
-  - A file path to the certificate.
-  - Raw certificate content.
-  - A base64-encoded certificate.
-
-- **`key`** (`string`):  
-  Specifies the private key corresponding to the TLS certificate. 
-  
-  This can be provided as:
-  - A file path to the private key.
-  - Raw private key content.
-  - A base64-encoded private key.
 
 ---
 ## Additional Options
@@ -168,7 +145,7 @@ gateway:
 Example of route with backend errors interceptor.
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   ...
   routes:
@@ -205,7 +182,7 @@ Below is an example configuration for round-robin load balancing:
 
 
 ```yaml
-version: 1.0  # Configuration version
+version: 2  # Configuration version
 gateway:
   routes:
     - path: /  # The path to match for this route
