@@ -13,7 +13,7 @@ This is particularly useful for enforcing secure connections or redirecting traf
 
 ## Configuration
 
-Below is an example configuration for the `RedirectScheme` middleware in YAML format:
+Below is an example configuration for the `RedirectScheme` middleware:
 
 ```yaml
 middlewares:
@@ -42,7 +42,8 @@ middlewares:
 
 1. **Enforcing HTTPS**  
    Redirect all HTTP traffic to HTTPS to ensure secure communication:
-   ```yaml
+
+```yaml
    middlewares:
      - name: enforceHttps
        type: redirectScheme
@@ -52,7 +53,8 @@ middlewares:
 
 2. **Custom Port Redirection**  
    Redirect HTTP traffic to HTTPS on a custom port (e.g., `8443`):
-   ```yaml
+
+```yaml
    middlewares:
      - name: redirectToCustomPort
        type: redirectScheme
@@ -63,7 +65,8 @@ middlewares:
 
 3. **Permanent Redirect**  
    Permanently redirect HTTP traffic to HTTPS:
-   ```yaml
+
+```yaml
    middlewares:
      - name: permanentHttpsRedirect
        type: redirectScheme
