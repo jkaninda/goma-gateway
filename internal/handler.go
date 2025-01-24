@@ -18,6 +18,7 @@ limitations under the License.
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -58,6 +59,7 @@ func CORSHandler(cors Cors) mux.MiddlewareFunc {
 // ProxyErrorHandler catches backend errors and returns a custom response
 func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	startTime := time.Now()
+	contentType := r.Header.Get("Content-Type")
 	// Retrieve the value later in the request lifecycle
 	if val := r.Context().Value(requestStartTimerKey); val != nil {
 		// Get request start time
@@ -66,11 +68,41 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	formatted := formatDuration(time.Since(startTime))
 	logger.Error("Proxy error: %v", err)
 	logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, formatted, r.UserAgent())
-	w.WriteHeader(http.StatusBadGateway)
-	_, err = w.Write([]byte(fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway))))
-	if err != nil {
+
+	// Deadline exceeded
+	if errors.Is(err, context.DeadlineExceeded) {
+		middlewares.RespondWithError(w, r, http.StatusGatewayTimeout, fmt.Sprintf("%d %s ", http.StatusGatewayTimeout, http.StatusText(http.StatusGatewayTimeout)), nil, contentType)
 		return
 	}
+	// Handler timeout
+	if errors.Is(err, http.ErrHandlerTimeout) {
+		middlewares.RespondWithError(w, r, http.StatusGatewayTimeout, fmt.Sprintf("%d %s ", http.StatusGatewayTimeout, http.StatusText(http.StatusGatewayTimeout)), nil, contentType)
+		return
+	}
+	logger.Warn(err.Error())
+
+	// Body too large
+	//if err.Error() == "http: request body too large" {
+	//	logger.Warn(err.Error())
+	//	middlewares.RespondWithError(w, r, http.StatusRequestEntityTooLarge, fmt.Sprintf("%d %s ", http.StatusRequestEntityTooLarge, http.StatusText(http.StatusRequestEntityTooLarge)), nil, contentType)
+	//	return
+	//}
+	// Service unavailable
+	if errors.Is(err, http.ErrAbortHandler) {
+		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d %s ", http.StatusServiceUnavailable, http.StatusText(http.StatusServiceUnavailable)), nil, contentType)
+		return
+
+	}
+	//middlewares.RespondWithError(w, r, http.StatusRequestEntityTooLarge, fmt.Sprintf("%d %s ", http.StatusRequestEntityTooLarge, http.StatusText(http.StatusRequestEntityTooLarge)), nil, contentType)
+
+	middlewares.RespondWithError(w, r, http.StatusBadGateway, fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway)), nil, "")
+	return
+	// Default error
+	//w.WriteHeader(http.StatusBadGateway)
+	//_, err = w.Write([]byte(fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway))))
+	//if err != nil {
+	//	return
+	//}
 }
 
 // HealthCheckHandler handles health check of routes

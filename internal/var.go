@@ -23,6 +23,7 @@ const (
 	forwardAuth      = "forwardAuth"
 	httpCache        = "httpCache"
 	redirectScheme   = "redirectScheme"
+	bodyLimit        = "bodyLimit"
 )
 
 var (

@@ -103,10 +103,23 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 		applyHttpCacheMiddleware(route, mid, router)
 	case redirectScheme:
 		applyRedirectSchemeMiddleware(mid, router)
+	case bodyLimit:
+		applyBodyLimitMiddleware(mid, router)
 
 	}
 	// Attach Auth middlewares
 	attachAuthMiddlewares(route, mid, router)
+}
+
+func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {
+	bodyLimitMid := &middlewares.BodyLimit{}
+	if err := goutils.DeepCopy(bodyLimitMid, mid.Rule); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if bodyLimitMid.MaxBytes > 0 {
+		r.Use(bodyLimitMid.Middleware)
+	}
 }
 
 func applyRedirectSchemeMiddleware(mid Middleware, r *mux.Router) {
