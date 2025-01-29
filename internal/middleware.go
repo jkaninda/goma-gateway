@@ -157,6 +157,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 		Name:                     util.Slug(route.Name),
 		Paths:                    mid.Paths,
 		Cache:                    cache,
+		Origins:                  route.Cors.Origins,
 		TTL:                      time.Duration(ttl),
 		MaxStale:                 time.Duration(maxStale),
 		RedisBased:               redisBased,
