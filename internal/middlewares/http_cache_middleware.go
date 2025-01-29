@@ -40,6 +40,7 @@ type HttpCacheConfig struct {
 	MaxStale time.Duration
 	// Paths, middlewares paths
 	Paths                    []string
+	Origins                  []string
 	RedisBased               bool
 	DisableCacheStatusHeader bool
 	ExcludedResponseCodes    []int
@@ -285,6 +286,9 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 			// Parse the max-stale value from the Cache-Control header
 			maxStale := parseMaxStale(r.Header.Get("Cache-Control"))
 			if response, contentType, ttl, found := h.Cache.Get(ctx, cacheKey, maxStale); found {
+				if allowedOrigin(h.Origins, r.Header.Get("Origin")) {
+					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+				}
 				writeCachedResponse(w, contentType, response, ttl, h.DisableCacheStatusHeader)
 				logger.Debug("Cache: served from cache: %s", r.URL.Path)
 				return

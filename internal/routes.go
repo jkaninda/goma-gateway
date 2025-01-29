@@ -58,13 +58,20 @@ func (gatewayServer GatewayServer) Initialize() error {
 	if err != nil {
 		return err
 	}
-	if len(gateway.Redis.Addr) != 0 {
+	if len(gateway.Redis.Addr) > 0 {
 		redisBased = true
 	}
-	// Sort routes by path in descending order
-	sort.Slice(dynamicRoutes, func(i, j int) bool {
-		return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
-	})
+	if hasPositivePriority(dynamicRoutes) {
+		// Sort routes by Priority in ascending order
+		sort.Slice(dynamicRoutes, func(i, j int) bool {
+			return dynamicRoutes[i].Priority < dynamicRoutes[j].Priority
+		})
+	} else {
+		// Sort routes by path in descending order
+		sort.Slice(dynamicRoutes, func(i, j int) bool {
+			return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
+		})
+	}
 	// Update Routes
 	dynamicRoutes = validateRoutes(gateway, dynamicRoutes)
 

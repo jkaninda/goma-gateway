@@ -46,7 +46,10 @@ spec:
    imageName: jkaninda/goma-gateway:latest # https://github.com/jkaninda/goma-gateway/releases
    ## Server Configuration
    server:
-      tlsSecretName: '' # Optional: Specify a Kubernetes TLS secret name
+      tls: # Optional: Specify a Kubernetes TLS secret name
+         keys: []
+           # - tlsSecretName: tls-secret
+           # - tlsSecretName: tls-secret2
       redis:
          addr: '' # Optional: Redis host (e.g., redis:6379)
          password: '' # Optional: Redis password
