@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
@@ -63,7 +64,7 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 		// Get request start time
 		startTime = val.(time.Time)
 	}
-	formatted := formatDuration(time.Since(startTime))
+	formatted := goutils.FormatDuration(time.Since(startTime), 0)
 	logger.Error("Proxy error: %v", err)
 	logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, formatted, r.UserAgent())
 	w.WriteHeader(http.StatusBadGateway)

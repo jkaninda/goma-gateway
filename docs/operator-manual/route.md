@@ -27,7 +27,7 @@ spec:
     - GET
     - POST
     - PUT
-
+  priority: 1 # Optional, route priority order
   # Backend Configuration
   # destination: https://example.com # For Single backend destination URL
   backends: # Optional: backends for load balancing
