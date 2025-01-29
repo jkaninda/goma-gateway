@@ -28,6 +28,7 @@ This section outlines the available configuration options for defining routes in
 - **`backends`** (`list of strings`): A list of backend services for load balancing.
 - **`insecureSkipVerify`** (`boolean`): Disables backend TLS certificate verification.
 - **`tls`**: Route TLS configuration .
+- **`priority`**  (`integer`): Determines route matching order
 
 
 ## Health Check Configuration
@@ -60,8 +61,12 @@ This section outlines the available configuration options for defining routes in
 - **`middlewares`** (`array of strings`): A list of middleware names applied to the route.
 
 
----
+## Route priority
 
+- If no route has a positive priority, routes are matched in descending order based on their path.
+- If at least one route has a positive priority, routes are matched in ascending order based on priority values (lower numbers take precedence).
+
+---
 ### ### Minimal Configuration
 
 ```yaml
