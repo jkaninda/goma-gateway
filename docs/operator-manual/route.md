@@ -29,7 +29,12 @@ spec:
     - PUT
 
   # Backend Configuration
-  destination: https://example.com # Primary destination URL
+  # destination: https://example.com # For Single backend destination URL
+  backends: # Optional: backends for load balancing
+    - endpoint: https://backend1.example.com
+      weight: 2
+    - endpoint: https://backend2.example.com
+      weight: 1
   insecureSkipVerify: false # Skip TLS verification (not recommended)
 
   # Health Check Settings
