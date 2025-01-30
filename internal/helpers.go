@@ -28,19 +28,18 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // printRoute prints routes
 func printRoute(routes []Route) {
 	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Name", "Disabled", "Path", "Rewrite", "Destination"})
+	t.AppendHeader(table.Row{"Name", "Disabled", "Priority", "Path", "Rewrite", "Destination"})
 	for _, route := range routes {
-		if len(route.Backends) != 0 {
-			t.AppendRow(table.Row{route.Name, route.Disabled, route.Path, route.Rewrite, fmt.Sprintf("backends: [%d]", len(route.Backends))})
+		if len(route.Backends) > 0 {
+			t.AppendRow(table.Row{route.Name, route.Disabled, route.Priority, route.Path, route.Rewrite, fmt.Sprintf("backends: [%d]", len(route.Backends))})
 
 		} else {
-			t.AppendRow(table.Row{route.Name, route.Disabled, route.Path, route.Rewrite, util.TruncateText(route.Destination, 25)})
+			t.AppendRow(table.Row{route.Name, route.Disabled, route.Priority, route.Path, route.Rewrite, util.TruncateText(route.Destination, 25)})
 		}
 	}
 	fmt.Println(t.Render())
@@ -141,12 +140,11 @@ func isWebSocketRequest(r *http.Request) bool {
 	return r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Connection") == "Upgrade"
 }
 
-// formatDuration formats the duration to either "X.Xms" or "X.Xs"
-func formatDuration(d time.Duration) string {
-	if d < time.Second {
-		// Format as milliseconds with one decimal place
-		return fmt.Sprintf("%.1fms", float64(d.Milliseconds()))
+func hasPositivePriority(r []Route) bool {
+	for _, route := range r {
+		if route.Priority > 0 {
+			return true
+		}
 	}
-	// Format as seconds with one decimal place
-	return fmt.Sprintf("%.1fs", d.Seconds())
+	return false
 }

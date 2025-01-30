@@ -92,6 +92,8 @@ spec:
       - /api-docs/*
       - /internal/*
       - /actuator/*
+    rule:
+      statusCode: 404 # Custom status code, default 403
 ```
 
 ## OAuth Middleware
@@ -139,6 +141,6 @@ spec:
     paths:
       - /*
     rule:
-      unit: minute # or hour
+      unit: second # minute or hour
       requestsPerUnit: 60
 ```

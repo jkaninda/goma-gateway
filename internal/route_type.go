@@ -28,7 +28,7 @@ type Route struct {
 	// For example, `/cart` to `/` rewrites `/cart` to `/`.
 	// Name provides a descriptive name for the route.
 	Name string `yaml:"name"`
-	// Route order priority
+	// Priority, Determines route matching order
 	Priority int `yaml:"priority,omitempty"`
 	// Disabled specifies whether the route is disabled.
 	Disabled bool `yaml:"disabled"`
