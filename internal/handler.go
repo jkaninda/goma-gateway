@@ -80,30 +80,17 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 		middlewares.RespondWithError(w, r, http.StatusGatewayTimeout, fmt.Sprintf("%d %s ", http.StatusGatewayTimeout, http.StatusText(http.StatusGatewayTimeout)), nil, contentType)
 		return
 	}
-	logger.Warn(err.Error())
-
-	// Body too large
-	//if err.Error() == "http: request body too large" {
-	//	logger.Warn(err.Error())
-	//	middlewares.RespondWithError(w, r, http.StatusRequestEntityTooLarge, fmt.Sprintf("%d %s ", http.StatusRequestEntityTooLarge, http.StatusText(http.StatusRequestEntityTooLarge)), nil, contentType)
-	//	return
-	//}
 	// Service unavailable
 	if errors.Is(err, http.ErrAbortHandler) {
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d %s ", http.StatusServiceUnavailable, http.StatusText(http.StatusServiceUnavailable)), nil, contentType)
 		return
 
 	}
-	//middlewares.RespondWithError(w, r, http.StatusRequestEntityTooLarge, fmt.Sprintf("%d %s ", http.StatusRequestEntityTooLarge, http.StatusText(http.StatusRequestEntityTooLarge)), nil, contentType)
-
-	middlewares.RespondWithError(w, r, http.StatusBadGateway, fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway)), nil, "")
-	return
-	// Default error
-	//w.WriteHeader(http.StatusBadGateway)
-	//_, err = w.Write([]byte(fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway))))
-	//if err != nil {
-	//	return
-	//}
+	w.WriteHeader(http.StatusBadGateway)
+	_, err = w.Write([]byte(fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway))))
+	if err != nil {
+		return
+	}
 }
 
 // HealthCheckHandler handles health check of routes

@@ -30,6 +30,7 @@ type BodyLimit struct {
 
 func (b BodyLimit) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
 		// Create a new limited reader with the specified limit
 		lr := &io.LimitedReader{R: r.Body, N: b.MaxBytes + 1}
 		// Read the entire body into a buffer
@@ -41,7 +42,7 @@ func (b BodyLimit) Middleware(next http.Handler) http.Handler {
 
 		// Check if the body exceeded the limit
 		if lr.N <= 0 {
-			http.Error(w, fmt.Sprintf("Request body too large (limit %d bytes)", b.MaxBytes), http.StatusRequestEntityTooLarge)
+			RespondWithError(w, r, http.StatusRequestEntityTooLarge, fmt.Sprintf("Request body too large (limit %d bytes)", b.MaxBytes), nil, contentType)
 			return
 		}
 
