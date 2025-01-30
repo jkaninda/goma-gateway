@@ -18,6 +18,7 @@ limitations under the License.
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	goutils "github.com/jkaninda/go-utils"
@@ -59,14 +60,32 @@ func CORSHandler(cors Cors) mux.MiddlewareFunc {
 // ProxyErrorHandler catches backend errors and returns a custom response
 func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	startTime := time.Now()
+	contentType := r.Header.Get("Content-Type")
 	// Retrieve the value later in the request lifecycle
 	if val := r.Context().Value(requestStartTimerKey); val != nil {
 		// Get request start time
 		startTime = val.(time.Time)
 	}
-	formatted := goutils.FormatDuration(time.Since(startTime), 0)
+	formatted := goutils.FormatDuration(time.Since(startTime), 1)
 	logger.Error("Proxy error: %v", err)
 	logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, formatted, r.UserAgent())
+
+	// Deadline exceeded
+	if errors.Is(err, context.DeadlineExceeded) {
+		middlewares.RespondWithError(w, r, http.StatusGatewayTimeout, fmt.Sprintf("%d %s ", http.StatusGatewayTimeout, http.StatusText(http.StatusGatewayTimeout)), nil, contentType)
+		return
+	}
+	// Handler timeout
+	if errors.Is(err, http.ErrHandlerTimeout) {
+		middlewares.RespondWithError(w, r, http.StatusGatewayTimeout, fmt.Sprintf("%d %s ", http.StatusGatewayTimeout, http.StatusText(http.StatusGatewayTimeout)), nil, contentType)
+		return
+	}
+	// Service unavailable
+	if errors.Is(err, http.ErrAbortHandler) {
+		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d %s ", http.StatusServiceUnavailable, http.StatusText(http.StatusServiceUnavailable)), nil, contentType)
+		return
+
+	}
 	w.WriteHeader(http.StatusBadGateway)
 	_, err = w.Write([]byte(fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway))))
 	if err != nil {

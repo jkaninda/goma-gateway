@@ -91,7 +91,7 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 			// Get request start time
 			startTime = val.(time.Time)
 		}
-		formatted := goutils.FormatDuration(time.Since(startTime), 0)
+		formatted := goutils.FormatDuration(time.Since(startTime), 1)
 		// No interception logic needed
 		if !h.Enabled || len(h.Errors) == 0 {
 			logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s route=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, r.UserAgent())
