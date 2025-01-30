@@ -66,7 +66,7 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 		// Get request start time
 		startTime = val.(time.Time)
 	}
-	formatted := goutils.FormatDuration(time.Since(startTime), 0)
+	formatted := goutils.FormatDuration(time.Since(startTime), 1)
 	logger.Error("Proxy error: %v", err)
 	logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, formatted, r.UserAgent())
 

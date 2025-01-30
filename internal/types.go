@@ -188,3 +188,6 @@ type RedirectSchemeRuleMiddleware struct {
 	Port      int64  `yaml:"port"`
 	Permanent bool   `yaml:"permanent,omitempty"`
 }
+type BodyLimitRuleMiddleware struct {
+	Limit string `yaml:"limit"`
+}

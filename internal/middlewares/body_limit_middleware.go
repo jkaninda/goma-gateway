@@ -18,31 +18,37 @@
 package middlewares
 
 import (
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 type BodyLimit struct {
-	MaxBytes int64 `yaml:"maxBytes"`
+	MaxBytes int64
 }
 
 func (b BodyLimit) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, b.MaxBytes)
-
-		// Attempt to read a small portion to trigger size validation
-		_, err := io.CopyN(io.Discard, r.Body, b.MaxBytes+1)
+		// Create a new limited reader with the specified limit
+		lr := &io.LimitedReader{R: r.Body, N: b.MaxBytes + 1}
+		// Read the entire body into a buffer
+		body, err := io.ReadAll(lr)
 		if err != nil {
-			if err == http.ErrBodyReadAfterClose {
-				http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
-				return
-			}
+			http.Error(w, "Error reading body", http.StatusInternalServerError)
+			return
 		}
 
-		// Reset body if within size
-		r.Body = http.MaxBytesReader(w, r.Body, b.MaxBytes)
+		// Check if the body exceeded the limit
+		if lr.N <= 0 {
+			http.Error(w, fmt.Sprintf("Request body too large (limit %d bytes)", b.MaxBytes), http.StatusRequestEntityTooLarge)
+			return
+		}
 
+		// Replace the original body with the limited body
+		r.Body = io.NopCloser(strings.NewReader(string(body)))
+
+		// Call the next handler
 		next.ServeHTTP(w, r)
 	})
-
 }

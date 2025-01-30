@@ -37,6 +37,8 @@ github.com/jedib0t/go-pretty/v6 v6.6.5 h1:9PgMJOVBedpgYLI56jQRJYqngxYAAzfEUua+3N
 github.com/jedib0t/go-pretty/v6 v6.6.5/go.mod h1:Uq/HrbhuFty5WSVNfjpQQe47x16RwVGXIveNGEyGtHs=
 github.com/jkaninda/go-utils v0.1.0 h1:xtdwJ6NetZNFoGxxHS49Ynp7qsre1MLUxEud9UC69zo=
 github.com/jkaninda/go-utils v0.1.0/go.mod h1:pf0/U6k4JbxlablM2G4eSTZdQ2LFshfAsCK5Q8qNfGo=
+github.com/jkaninda/go-utils v0.1.1 h1:PMrtXR9d51YzHo85y9Z6YVL0YyBURbRTPemHVbFDqZg=
+github.com/jkaninda/go-utils v0.1.1/go.mod h1:pf0/U6k4JbxlablM2G4eSTZdQ2LFshfAsCK5Q8qNfGo=
 github.com/klauspost/compress v1.17.9 h1:6KIumPrER1LHsvBVuDa0r5xaG0Es51mhhB9BQB2qeMA=
 github.com/klauspost/compress v1.17.9/go.mod h1:Di0epgTjJY877eYKx5yC51cX2A2Vl2ibi7bDH9ttBbw=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
