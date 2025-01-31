@@ -94,7 +94,7 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 		formatted := goutils.FormatDuration(time.Since(startTime), 1)
 		// No interception logic needed
 		if !h.Enabled || len(h.Errors) == 0 {
-			logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s route=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, r.UserAgent())
+			logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, r.UserAgent())
 			// Set the recorded status code
 			w.WriteHeader(rec.statusCode)
 			_, _ = io.Copy(w, rec.body)
