@@ -35,6 +35,8 @@ var (
 	redisBased         = false
 	stopChan           = make(chan struct{})
 	reloaded           = false
+	webAddress         = ":8080"
+	webSecureAddress   = ":8443"
 )
 
 type contextKey string

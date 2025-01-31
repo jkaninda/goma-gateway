@@ -22,11 +22,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -147,4 +149,32 @@ func hasPositivePriority(r []Route) bool {
 		}
 	}
 	return false
+}
+
+// validateEntrypoint checks if the entrypoint address is valid.
+// A valid entrypoint address should be in the format ":<port>",
+// where <port> is a valid port number (1-65535).
+func validateEntrypoint(entrypoint string) bool {
+	// Check if the string starts with a colon
+	if !strings.HasPrefix(entrypoint, ":") {
+		logger.Error("Error validating entrypoint address: %s", entrypoint)
+		return false
+	}
+
+	// Extract the port part
+	portStr := entrypoint[1:]
+
+	// Convert the port string to an integer
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		logger.Error("Error validating entrypoint address: %v", err)
+		return false
+	}
+	// Check if the port is within the valid range
+	if port < 1 || port > 65535 {
+		logger.Error("Error validating entrypoint address invalid port: %s", entrypoint)
+		return false
+	}
+
+	return true
 }
