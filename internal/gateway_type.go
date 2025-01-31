@@ -66,7 +66,8 @@ type Gateway struct {
 	// When enabled, the router will match the path with or without a trailing slash.
 	EnableStrictSlash bool `yaml:"enableStrictSlash,omitempty"`
 	// EnableMetrics enables or disables server metrics collection.
-	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
+	EnableMetrics bool       `yaml:"enableMetrics,omitempty"`
+	EntryPoints   EntryPoint `yaml:"entryPoints,omitempty"`
 	// InterceptErrors holds the status codes to intercept backend errors.
 	// Deprecated: Use ErrorInterceptor for advanced error handling.
 	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
@@ -81,4 +82,22 @@ type Gateway struct {
 	ExtraConfig ExtraRouteConfig `yaml:"extraConfig,omitempty"`
 	// Routes defines the list of proxy routes.
 	Routes []Route `yaml:"routes"`
+}
+type EntryPoint struct {
+	Web       EntryPointAddress `yaml:"web,omitempty"`
+	WebSecure EntryPointAddress `yaml:"webSecure,omitempty"`
+}
+type EntryPointAddress struct {
+	Address string `yaml:"address,omitempty"`
+}
+
+func (p EntryPoint) Validate() {
+	// Check entrypoint ports
+	if len(p.Web.Address) > 0 && validateEntrypoint(p.Web.Address) {
+		webAddress = p.Web.Address
+	}
+	if len(p.WebSecure.Address) > 0 && validateEntrypoint(p.WebSecure.Address) {
+		webSecureAddress = p.WebSecure.Address
+
+	}
 }
