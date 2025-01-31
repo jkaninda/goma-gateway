@@ -86,11 +86,11 @@ spec:
     - PUT
 
   # Backend Configuration
-  backends: # Optional: backends for load balancing
+  backends: #  backends for load balancing
     - endpoint: https://backend1.example.com
-      weight: 2
+      weight: 2 # Optional
     - endpoint: https://backend2.example.com
-      weight: 1
+      weight: 1 # Optional
   insecureSkipVerify: false # Skip TLS verification (not recommended)
 
   # Health Check Settings
