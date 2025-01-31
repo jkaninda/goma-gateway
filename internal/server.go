@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"net/http"
 	"os"
@@ -82,7 +81,7 @@ func (gatewayServer GatewayServer) createServer(addr string, handler http.Handle
 
 func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Server, listenWithTLS bool) {
 	go func() {
-		logger.Info(fmt.Sprintf("Starting Web server on %s", webAddress))
+		logger.Info("Starting Web server on %s", webAddress)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("HTTP server error: %v", err)
 		}
@@ -90,7 +89,7 @@ func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Se
 
 	if listenWithTLS {
 		go func() {
-			logger.Info(fmt.Sprintf("Starting WebSecure server on %s", webSecureAddress))
+			logger.Info("Starting WebSecure server on %s ", webSecureAddress)
 			if err := httpsServer.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				logger.Fatal("HTTPS server error: %v", err)
 			}
