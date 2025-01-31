@@ -22,8 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
 	"io"
 	"net"
@@ -35,14 +35,11 @@ import (
 // printRoute prints routes
 func printRoute(routes []Route) {
 	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Name", "Disabled", "Priority", "Path", "Rewrite", "Destination"})
+	t.AppendHeader(table.Row{"Name", "Disabled", "Priority", "Path", "Rewrite"})
 	for _, route := range routes {
-		if len(route.Backends) > 0 {
-			t.AppendRow(table.Row{route.Name, route.Disabled, route.Priority, route.Path, route.Rewrite, fmt.Sprintf("backends: [%d]", len(route.Backends))})
 
-		} else {
-			t.AppendRow(table.Row{route.Name, route.Disabled, route.Priority, route.Path, route.Rewrite, util.TruncateText(route.Destination, 25)})
-		}
+		t.AppendRow(table.Row{goutils.TruncateText(route.Name, 20), route.Disabled, route.Priority, goutils.TruncateText(route.Path, 20), route.Rewrite})
+
 	}
 	fmt.Println(t.Render())
 }
