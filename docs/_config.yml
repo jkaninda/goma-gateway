@@ -20,7 +20,7 @@ description: >- # this means to ignore newlines until "baseurl:"
   It supports domain-based routing, reverse proxy, WebSocket, rate limiting, and authentication middleware.
   With real-time monitoring, and load balancing, Goma simplifies modern API management with flexibility and ease.
 
-baseurl: "" # the subpath of your site, e.g. /blog
+baseurl: "/goma-gateway" # the subpath of your site, e.g. /blog
 url: ""#"jkaninda.github.io/goma-gateway/" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username: jonaskaninda
 github_username:  jkaninda

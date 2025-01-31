@@ -28,7 +28,7 @@ func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error)
 }
 
 func doesExist(tyName string) bool {
-	middlewareList := []string{BasicAuth, JWTAuth, AccessMiddleware, accessPolicy, addPrefix, rateLimit, strings.ToLower(rateLimit), redirectRegex, forwardAuth, rewriteRegex, httpCache, redirectScheme}
+	middlewareList := []string{BasicAuth, JWTAuth, AccessMiddleware, accessPolicy, addPrefix, rateLimit, strings.ToLower(rateLimit), redirectRegex, forwardAuth, rewriteRegex, httpCache, redirectScheme, bodyLimit}
 	return slices.Contains(middlewareList, tyName)
 }
 func GetMiddleware(rule string, middlewares []Middleware) (Middleware, error) {
@@ -103,10 +103,31 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 		applyHttpCacheMiddleware(route, mid, router)
 	case redirectScheme:
 		applyRedirectSchemeMiddleware(mid, router)
+	case bodyLimit:
+		applyBodyLimitMiddleware(mid, router)
 
 	}
 	// Attach Auth middlewares
 	attachAuthMiddlewares(route, mid, router)
+}
+
+func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {
+	bodyLimitMid := &BodyLimitRuleMiddleware{}
+	if err := goutils.DeepCopy(bodyLimitMid, mid.Rule); err != nil {
+		logger.Error("Error: %v, middleware not applied", err.Error())
+		return
+	}
+	if len(bodyLimitMid.Limit) > 0 {
+		maxBytes, err := goutils.ConvertToBytes(bodyLimitMid.Limit)
+		if err != nil {
+			logger.Error("Error: %v, middleware not applied", err.Error())
+		}
+		if maxBytes > 0 {
+			bodyLimitMiddleware := &middlewares.BodyLimit{MaxBytes: maxBytes}
+			r.Use(bodyLimitMiddleware.Middleware)
+		}
+	}
+
 }
 
 func applyRedirectSchemeMiddleware(mid Middleware, r *mux.Router) {

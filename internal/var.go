@@ -25,6 +25,7 @@ const (
 	forwardAuth      = "forwardAuth"
 	httpCache        = "httpCache"
 	redirectScheme   = "redirectScheme"
+	bodyLimit        = "bodyLimit"
 )
 
 var (
@@ -36,6 +37,8 @@ var (
 	redisBased         = false
 	stopChan           = make(chan struct{})
 	reloaded           = false
+	webAddress         = ":8080"
+	webSecureAddress   = ":8443"
 	startTime          = time.Now()
 )
 

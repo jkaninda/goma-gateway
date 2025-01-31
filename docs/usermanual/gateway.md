@@ -26,6 +26,7 @@ These settings enable precise control over traffic flow and routing within your 
 - **`disableRouteHealthCheckError`** (`boolean`): Enable or disable returning health check error responses for routes.
 - **`disableDisplayRouteOnStart`** (`boolean`): Enable or disable displaying routes during server startup.
 - **`disableKeepAlive`** (`boolean`): Enable or disable `keepAlive` for the proxy.
+- **`entroiponts`**: Define the network addresses where web servers will listen for incoming HTTP and HTTPS requests.
 - **`enableMetrics`** (`boolean`): Enable or disable server metrics collection.
 
 
@@ -67,6 +68,30 @@ Customize Cross-Origin Resource Sharing (CORS) settings for the proxy:
 - **`contentType`** (`string`): Specifies the `Content-Type` header of the response, such as `application/json` or `text/plain`.
 - **`errors`** (`array`): A collection of error configurations defining which HTTP status codes to intercept and their corresponding custom responses.
 
+### EntryPoints Configuration
+
+The `entryPoints` section in Goma Gateway's configuration allows you to define the network addresses where your web servers will listen for incoming HTTP and HTTPS requests. This section is crucial for setting up custom ports or IP addresses for your web services.
+
+#### Default Behavior
+By default, Goma Gateway listens on:
+- **Web (HTTP)**: Port `8080`
+- **WebSecure (HTTPS)**: Port `8443`
+
+However, you can customize these settings to use different ports or bind to specific IP addresses as needed.
+
+#### Configuration Structure
+
+##### `web` Entry Point
+- **Purpose**: Configures the address for the HTTP server.
+- **Key**: `address` (`string`)
+  - **Description**: Specifies the network address and port where the HTTP server will listen. The format is typically `:port` (e.g., `":80"`) or `ip:port` (e.g., `"192.168.1.1:80"`).
+
+##### `webSecure` Entry Point
+- **Purpose**: Configures the address for the HTTPS server.
+- **Key**: `address` (`string`)
+  - **Description**: Specifies the network address and port where the HTTPS server will listen. Similar to the `web` entry point, the format is `:port` or `ip:port`.
+
+  
 ### Extra Config
 
 Define custom routes and middlewares for greater flexibility:
@@ -79,6 +104,20 @@ Define custom routes and middlewares for greater flexibility:
 Define the main routes for the Gateway, enabling routing logic for incoming requests.
 
 ---
+### Example: Customizing EntryPoints
+
+To override the default ports and bind the web servers to standard HTTP (`:80`) and HTTPS (`:443`) ports, you can modify the configuration as shown below:
+
+```yaml
+version: 2  # Configuration version
+gateway:
+  entryPoints:
+    web:
+      address: ":80"  # Bind HTTP server to port 80
+    webSecure:
+      address: ":443" # Bind HTTPS server to port 443
+```
+
 ### ### Minimal Configuration
 
 ```yaml
@@ -147,11 +186,3 @@ gateway:
   # Routes configuration (empty in this example)
   routes: []  # Define routes for the gateway (e.g., path, backends, health checks)
 ```
-
----
-### Notes
-
-- Ensure that the `cert` and `key` values are correctly formatted and match each other. Mismatched certificates and keys will result in TLS handshake failures.
-- If using file paths, ensure the gateway has read access to the specified files.
-- For raw or base64-encoded content, ensure there are no formatting errors or extra spaces.
-- TLS configuration is global and applies to all routes unless overridden by route-specific configurations.

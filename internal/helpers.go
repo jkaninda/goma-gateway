@@ -22,11 +22,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -147,4 +149,41 @@ func hasPositivePriority(r []Route) bool {
 		}
 	}
 	return false
+}
+
+// validateEntrypoint checks if the entrypoint address is valid.
+// A valid entrypoint address should be in the format ":<port>" or "<IP>:<port>",
+// where <IP> is a valid IP address and <port> is a valid port number (1-65535).
+func validateEntrypoint(entrypoint string) bool {
+	// Split the entrypoint into IP and port parts
+	host, portStr, err := net.SplitHostPort(entrypoint)
+	if err != nil {
+		logger.Error("Error validating entrypoint address: %v", err)
+		return false
+	}
+
+	// If the host is empty, it means the entrypoint is in the format ":<port>"
+	// Otherwise, validate the IP address
+	if host != "" {
+		ip := net.ParseIP(host)
+		if ip == nil {
+			logger.Error("Error validating entrypoint address: invalid IP address: %s", host)
+			return false
+		}
+	}
+
+	// Convert the port string to an integer
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		logger.Error("Error validating entrypoint address: invalid port: %v", err)
+		return false
+	}
+
+	// Check if the port is within the valid range
+	if port < 1 || port > 65535 {
+		logger.Error("Error validating entrypoint address: invalid port: %d", port)
+		return false
+	}
+
+	return true
 }
