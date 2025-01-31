@@ -44,10 +44,13 @@ The **ForwardAuth middleware** delegates authorization to a backend service, det
 The following headers are automatically forwarded:
 
 - `X-Forwarded-Host`
+- `X-Forwarded-Method`
+- `X-Forwarded-Proto`
 - `X-Forwarded-For`
 - `X-Real-IP`
 - `User-Agent`
 - `X-Original-URL`
+- `X-Forwarded-URI`
 - `Host`
 
 ---
