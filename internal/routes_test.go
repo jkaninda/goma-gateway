@@ -29,11 +29,13 @@ func initExtraRoute(path string) error {
 	conf := &ExtraRoute{
 		Routes: []Route{
 			{
-				Name:        "Extra1",
-				Path:        "/extra",
-				Methods:     []string{"GET"},
-				Destination: "https://extra-example.com",
-				Rewrite:     "/",
+				Name:    "Extra1",
+				Path:    "/extra",
+				Methods: []string{"GET"},
+				Backends: Backends{
+					Backend{Endpoint: "https://extra-example.com"},
+				},
+				Rewrite: "/",
 				HealthCheck: RouteHealthCheck{
 					Path:            "/",
 					Interval:        "30s",
@@ -44,11 +46,13 @@ func initExtraRoute(path string) error {
 				Middlewares:           []string{"block-access"},
 			},
 			{
-				Name:        "api",
-				Path:        "/api",
-				Methods:     []string{"GET"},
-				Destination: "https://example.com",
-				Rewrite:     "/",
+				Name:    "api",
+				Path:    "/api",
+				Methods: []string{"GET"},
+				Backends: Backends{
+					Backend{Endpoint: "https://example.com"},
+				},
+				Rewrite: "/",
 				HealthCheck: RouteHealthCheck{
 					Path:            "/",
 					Interval:        "30s",

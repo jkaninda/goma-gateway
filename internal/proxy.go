@@ -154,7 +154,6 @@ func createWeightedProxy(proxyRoute ProxyRoute, r *http.Request, contentType str
 		logger.Error("Failed to create weighted reverse proxy: route=%s, error=%v", proxyRoute.name, err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unavailable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
 	}
-	logger.Debug("Proxy: using weighted-based load balancing")
 	return proxy, err
 }
 
@@ -165,7 +164,6 @@ func createRoundRobinProxy(proxyRoute ProxyRoute, r *http.Request, contentType s
 		logger.Error("Failed to create round-robin reverse proxy: route=%s, error=%v", proxyRoute.name, err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unavailable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
 	}
-	logger.Debug("Using round-robin load balancing for route=%s", proxyRoute.name)
 	return proxy, err
 }
 

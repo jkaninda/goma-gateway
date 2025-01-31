@@ -41,10 +41,12 @@ func initTestConfig(configFile string) error {
 			},
 			Routes: []Route{
 				{
-					Name:        "Example",
-					Path:        "/",
-					Methods:     []string{"GET", "PATCH", "OPTIONS"},
-					Destination: "https://example.com",
+					Name:    "Example",
+					Path:    "/",
+					Methods: []string{"GET", "PATCH", "OPTIONS"},
+					Backends: Backends{
+						Backend{Endpoint: "https://example.com"},
+					},
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
 						Interval:        "30s",
