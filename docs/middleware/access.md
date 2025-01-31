@@ -46,7 +46,8 @@ routes:
   - path: /protected
     name: protected
     rewrite: /
-    destination: 'https://example.com'
+    backends:
+    - endpoint: https://example.com
     methods: [POST, PUT, GET]
     healthCheck: {}
     cors: {}
