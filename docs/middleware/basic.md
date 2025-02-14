@@ -48,7 +48,8 @@ Here’s how to attach the basic-auth middleware to a route:
     - path: /
       name: Basic-auth
       rewrite: /
-      destination: https://example.com
+      backends:
+       - endpoint: https://example.com
       methods: [POST, PUT, GET]
       healthCheck: {}
       cors: {}

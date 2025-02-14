@@ -15,11 +15,21 @@
  *
  */
 
-package main
+package middlewares
 
-import "github.com/jkaninda/goma-gateway/cmd"
+import (
+	"fmt"
+	"net/http"
+)
 
-func main() {
-
-	cmd.Execute()
+func CanIntercept(status int, routeErrors []RouteError) (bool, string) {
+	for _, routeError := range routeErrors {
+		if status == routeError.Status || status == routeError.Code {
+			if routeError.Body != "" {
+				return true, routeError.Body
+			}
+			return true, fmt.Sprintf("%d %s", status, http.StatusText(status))
+		}
+	}
+	return false, ""
 }

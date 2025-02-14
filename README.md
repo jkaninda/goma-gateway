@@ -204,7 +204,8 @@ gateway:
       disabled: false
       hosts: []
       rewrite: ''
-      destination: https://example.com
+      backends:
+        - endpoint: https://example.com
       disableHostForwarding: true
       healthCheck:
         path: /

@@ -21,7 +21,12 @@ gateway:
           -----BEGIN PRIVATE KEY-----
              <private-key content>
           -----END PRIVATE KEY-----
-
+  # Optional, Define the network addresses where web servers will listen for incoming HTTP and HTTPS requests
+  entryPoints:
+    web:
+      address: ":80"
+    webSecure:
+      address: ":443"
 
   # Logging Configuration
   logLevel: info            # Logging level (options: debug, trace, off).
@@ -78,7 +83,8 @@ gateway:
       disabled: false                # Disables the route, the route will not be proxied.
       hosts: []                      # Optional host-based routing.
       rewrite: /                     # Rewrite request paths (e.g., /store to /).
-      destination: https://example.com
+      backends:
+        - endpoint: https://example.com
       methods: [POST, PUT, GET]      # Allowed HTTP methods for this route.
       disableHostForwarding: false   # Disable forwarding the host header.
       cors:                          # Route-specific CORS configuration (overrides global).
@@ -94,7 +100,6 @@ gateway:
       name: Basic Auth
       disabled: false                # Disables the route, the route will not be proxied.
       rewrite: /
-      destination: ''
       backends:  # List of backend servers to route traffic to
         - endpoint: https://backend1.example.com
         - endpoint: https://backend2.example.com

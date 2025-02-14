@@ -44,10 +44,13 @@ The **ForwardAuth middleware** delegates authorization to a backend service, det
 The following headers are automatically forwarded:
 
 - `X-Forwarded-Host`
+- `X-Forwarded-Method`
+- `X-Forwarded-Proto`
 - `X-Forwarded-For`
 - `X-Real-IP`
 - `User-Agent`
 - `X-Original-URL`
+- `X-Forwarded-URI`
 - `Host`
 
 ---
@@ -112,14 +115,16 @@ gateway:
         - path: /
           name: my-app
           disabled: false
-          destination: https://example.com
+          backends:
+           - endpoint: https://example.com
           # Protect the route with forwardAuth
           middlewares:
             - example-forward-auth
         - path: /outpost.goauthentik.io
           name: authentik-outpost
           disabled: false
-          destination: http://authentik-outpost:9000
+          backends:
+           - endpoint: http://authentik-outpost:9000
           cors: {}
           # all requests to /outpost.goauthentik.io must be accessible without authentication
           middlewares: []
@@ -134,6 +139,13 @@ gateway:
             authUrl: http://authentik.company:9000:9000/outpost.goauthentik.io/auth/nginx
             # forward 
             authSignIn: https://authentik.company:9000/outpost.goauthentik.io/start?rd=
+            # Optional
+            authResponseHeaders:
+                - X-authentik-username
+                - X-authentik-groups
+                - X-authentik-email
+                - X-authentik-name
+                - X-authentik-jwt
             enableHostForwarding: true
             skipInsecureVerify: false
 ```

@@ -76,7 +76,8 @@ gateway:
     - name: Example
       path: /store/cart
       rewrite: /cart # You can use RewriteRegex middleware for more complex rewrites
-      destination:  http://cart-service:8080
+      backends:
+        - endpoint:  http://cart-service:8080
 ```
 
 ###  Route with limited HTTP methods
@@ -92,7 +93,8 @@ gateway:
     - name: Example
       disabled: false # Disabled specifies whether the route is disabled, the route will not be proxied.
       path: /store/cart
-      destination:  http://cart-service:8080
+      backends:
+        - endpoint:  http://cart-service:8080
       methods: [PATCH, GET]
       cors: {}
       middlewares:
@@ -111,7 +113,8 @@ gateway:
   routes:
     - name: Example
       path: /store/cart
-      destination:  http://cart-service:8080
+      backends:
+        - endpoint:  http://cart-service:8080
       methods: [PATCH, GET]
       healthCheck:
         path: "/health/live"
@@ -132,7 +135,8 @@ gateway:
     - name: Example
       path: /store/cart
       rewrite: /cart
-      destination:  http://cart-service:8080
+      backends:
+        - endpoint:  http://cart-service:8080
       methods: []
       healthCheck:
         path: "/health/live"
@@ -157,7 +161,8 @@ gateway:
     - name: Example
       path: /store/cart
       rewrite: /cart
-      destination:  http://cart-service:8080
+      backends:
+        - endpoint:  http://cart-service:8080
       methods: []
       healthCheck:
         path: "/health/live"
@@ -183,7 +188,7 @@ gateway:
 
 Example of route with load balancing enabled.
 
-Below is an example configuration for round-robin load balancing:
+Below is an example configuration for weighted load balancing:
 
 
 ```yaml
@@ -206,7 +211,10 @@ gateway:
       destination: ""  # Placeholder for backend destination (overridden by `backends`)
       backends:  # List of backend servers for load balancing
         - endpoint: https://example.com  # Backend server URL
+          weight: 1
         - endpoint: https://example1.com  # Backend server URL
+          weight: 3
         - endpoint: https://example2.com  # Backend server URL
+          weight: 2
       cors: {}
 ```

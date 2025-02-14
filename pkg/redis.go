@@ -15,11 +15,25 @@
  *
  */
 
-package main
+package pkg
 
-import "github.com/jkaninda/goma-gateway/cmd"
+import (
+	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+)
 
-func main() {
+func (gatewayServer GatewayServer) initRedis() {
+	if len(gatewayServer.gateway.Redis.Addr) != 0 {
+		logger.Info("Initializing Redis...")
+		middlewares.InitRedis(gatewayServer.gateway.Redis.Addr, gatewayServer.gateway.Redis.Password)
+	}
 
-	cmd.Execute()
+}
+
+func (gatewayServer GatewayServer) closeRedis() {
+	if middlewares.RedisClient != nil {
+		if err := middlewares.RedisClient.Close(); err != nil {
+			logger.Error("Error closing Redis: %v", err)
+		}
+	}
 }

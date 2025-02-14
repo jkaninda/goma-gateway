@@ -15,11 +15,23 @@
  *
  */
 
-package main
+package pkg
 
-import "github.com/jkaninda/goma-gateway/cmd"
-
-func main() {
-
-	cmd.Execute()
+type Cors struct {
+	// Cors Allowed origins,
+	// e.g:
+	//
+	// - http://localhost:80
+	//
+	// - https://example.com
+	Origins []string `yaml:"origins"`
+	//
+	// e.g:
+	//
+	// Access-Control-Allow-Origin: '*'
+	//
+	//    Access-Control-Allow-Methods: 'GET, POST, PUT, DELETE, OPTIONS'
+	//
+	//    Access-Control-Allow-Cors: 'Content-Type, Authorization'
+	Headers map[string]string `yaml:"headers"`
 }

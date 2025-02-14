@@ -15,11 +15,24 @@
  *
  */
 
-package main
+package pkg
 
-import "github.com/jkaninda/goma-gateway/cmd"
+import (
+	"github.com/gorilla/mux"
+	"net/http"
+	"sync"
+)
 
-func main() {
+type Router interface {
+	AddRoute(route Route)
+	AddRoutes(router2 Router)
+	Mux() http.Handler
+	UpdateHandler(Gateway)
+	ServeHTTP(http.ResponseWriter, *http.Request)
+}
 
-	cmd.Execute()
+type router struct {
+	mux           *mux.Router
+	enableMetrics bool
+	sync.RWMutex
 }

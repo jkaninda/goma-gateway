@@ -15,11 +15,17 @@
  *
  */
 
-package main
+package pkg
 
-import "github.com/jkaninda/goma-gateway/cmd"
-
-func main() {
-
-	cmd.Execute()
+type ProxyRoute struct {
+	name                  string
+	path                  string
+	rewrite               string
+	destination           string
+	weightedBased         bool
+	backends              Backends
+	methods               []string
+	cors                  Cors
+	disableHostForwarding bool
+	insecureSkipVerify    bool
 }

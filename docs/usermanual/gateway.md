@@ -118,7 +118,7 @@ gateway:
       address: ":443" # Bind HTTPS server to port 443
 ```
 
-### ### Minimal Configuration
+### Minimal Configuration
 
 ```yaml
 version: 2  # Configuration version

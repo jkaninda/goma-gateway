@@ -14,7 +14,8 @@ routes:
         Access-Control-Allow-Credentials: 'true'  # Allow credentials (e.g., cookies)
         Access-Control-Max-Age: 1728000  # Max age for preflight requests (in seconds)
     rewrite: /  # Rewrite the request path to a new destination path
-    destination: https://example.com  # Backend service destination for this route
+    backends:
+      - endpoint:  https://example.com
     methods: [POST, PUT, GET]  # Allowed HTTP methods for this route
     disableHostForwarding: false  # If false, the Host header is forwarded to the backend
 
