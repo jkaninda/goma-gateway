@@ -24,6 +24,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"golang.org/x/net/http/httpguts"
 	"golang.org/x/oauth2"
 	"io"
 	"net"
@@ -136,11 +137,13 @@ func scheme(r *http.Request) string {
 
 // isWebSocketRequest checks if the request is a WebSocket request
 func isWebSocketRequest(r *http.Request) bool {
-	return strings.ToLower(r.Header.Get("Connection")) == "upgrade" && strings.ToLower(r.Header.Get("Upgrade")) == "websocket"
+	return httpguts.HeaderValuesContainsToken(r.Header["Connection"], "Upgrade") &&
+		strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
 }
 
 func isSSE(r *http.Request) bool {
-	return strings.Contains(r.Header.Get("Accept"), "text/event-stream") || strings.Contains(r.Header.Get("Content-Type"), "text/event-stream")
+	return httpguts.HeaderValuesContainsToken(r.Header["Accept"], "text/event-stream") ||
+		strings.EqualFold(r.Header.Get("Content-Type"), "text/event-stream")
 }
 
 // isKeepAlive checks if the request indicates a keep-alive connection
