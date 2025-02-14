@@ -15,26 +15,25 @@
  *
  */
 
-package util
+package pkg
 
 import (
-	"fmt"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 )
 
-const ConfigVersion = "2"
+func (gatewayServer GatewayServer) initRedis() {
+	if len(gatewayServer.gateway.Redis.Addr) != 0 {
+		logger.Info("Initializing Redis...")
+		middlewares.InitRedis(gatewayServer.gateway.Redis.Addr, gatewayServer.gateway.Redis.Password)
+	}
 
-var Version = "development"
-var buildTime string
-var gitCommit string
-
-func FullVersion() {
-	fmt.Printf("Goma Gateway version: %s\n", Version)
-	fmt.Printf("Configuration version: %s\n", ConfigVersion)
-	fmt.Printf("Build time: %s\n", buildTime)
-	fmt.Printf("Git commit: %s\n", gitCommit)
 }
 
-const MainExample = "Initialize config: config init --output config.yml\n" +
-	"Start server: server \n" +
-	"Start server with custom config file: server --config config.yml \n" +
-	"Check config file: config check --config config.yml"
+func (gatewayServer GatewayServer) closeRedis() {
+	if middlewares.RedisClient != nil {
+		if err := middlewares.RedisClient.Close(); err != nil {
+			logger.Error("Error closing Redis: %v", err)
+		}
+	}
+}

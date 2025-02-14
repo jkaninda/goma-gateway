@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/common-nighthawk/go-figure"
-	"github.com/jkaninda/goma-gateway/internal"
+	"github.com/jkaninda/goma-gateway/pkg"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
 	"os"
@@ -33,10 +33,10 @@ var ServerCmd = &cobra.Command{
 		intro()
 		configFile, _ := cmd.Flags().GetString("config")
 		if configFile == "" {
-			configFile = internal.GetConfigPaths()
+			configFile = pkg.GetConfigPaths()
 		}
 		ctx := context.Background()
-		g := internal.GatewayServer{}
+		g := pkg.GatewayServer{}
 		gs, err := g.Config(configFile, ctx)
 		if err != nil {
 			fmt.Printf("Could not load configuration: %v\n", err)

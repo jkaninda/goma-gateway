@@ -15,26 +15,23 @@
  *
  */
 
-package util
+package pkg
 
-import (
-	"fmt"
-)
-
-const ConfigVersion = "2"
-
-var Version = "development"
-var buildTime string
-var gitCommit string
-
-func FullVersion() {
-	fmt.Printf("Goma Gateway version: %s\n", Version)
-	fmt.Printf("Configuration version: %s\n", ConfigVersion)
-	fmt.Printf("Build time: %s\n", buildTime)
-	fmt.Printf("Git commit: %s\n", gitCommit)
+type Cors struct {
+	// Cors Allowed origins,
+	// e.g:
+	//
+	// - http://localhost:80
+	//
+	// - https://example.com
+	Origins []string `yaml:"origins"`
+	//
+	// e.g:
+	//
+	// Access-Control-Allow-Origin: '*'
+	//
+	//    Access-Control-Allow-Methods: 'GET, POST, PUT, DELETE, OPTIONS'
+	//
+	//    Access-Control-Allow-Cors: 'Content-Type, Authorization'
+	Headers map[string]string `yaml:"headers"`
 }
-
-const MainExample = "Initialize config: config init --output config.yml\n" +
-	"Start server: server \n" +
-	"Start server with custom config file: server --config config.yml \n" +
-	"Check config file: config check --config config.yml"

@@ -15,26 +15,21 @@
  *
  */
 
-package util
+package middlewares
 
 import (
 	"fmt"
+	"net/http"
 )
 
-const ConfigVersion = "2"
-
-var Version = "development"
-var buildTime string
-var gitCommit string
-
-func FullVersion() {
-	fmt.Printf("Goma Gateway version: %s\n", Version)
-	fmt.Printf("Configuration version: %s\n", ConfigVersion)
-	fmt.Printf("Build time: %s\n", buildTime)
-	fmt.Printf("Git commit: %s\n", gitCommit)
+func CanIntercept(status int, routeErrors []RouteError) (bool, string) {
+	for _, routeError := range routeErrors {
+		if status == routeError.Status || status == routeError.Code {
+			if routeError.Body != "" {
+				return true, routeError.Body
+			}
+			return true, fmt.Sprintf("%d %s", status, http.StatusText(status))
+		}
+	}
+	return false, ""
 }
-
-const MainExample = "Initialize config: config init --output config.yml\n" +
-	"Start server: server \n" +
-	"Start server with custom config file: server --config config.yml \n" +
-	"Check config file: config check --config config.yml"
