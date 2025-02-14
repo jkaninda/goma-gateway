@@ -40,7 +40,7 @@ type Route struct {
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
 	Methods []string `yaml:"methods"`
 	// Destination defines the primary backend URL for this route.
-	Destination string `yaml:"destination,omitempty"` // Deprecated, use Backends
+	Destination string `yaml:"destination,omitempty"`
 	// Backends specifies a list of backend URLs for load balancing.
 	Backends Backends `yaml:"backends"`
 	// InsecureSkipVerify disables SSL/TLS verification for the backend.

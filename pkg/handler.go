@@ -26,6 +26,8 @@ import (
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"io"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -63,6 +65,8 @@ func CORSHandler(cors Cors) mux.MiddlewareFunc {
 func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	startTime := time.Now()
 	contentType := r.Header.Get("Content-Type")
+	statusCode := ComputeStatusCode(err)
+
 	// Retrieve the value later in the request lifecycle
 	if val := r.Context().Value(requestStartTimerKey); val != nil {
 		// Get request start time
@@ -72,27 +76,7 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	logger.Error("Proxy error: %v", err)
 	logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, formatted, r.UserAgent())
 
-	// Deadline exceeded
-	if errors.Is(err, context.DeadlineExceeded) {
-		middlewares.RespondWithError(w, r, http.StatusGatewayTimeout, fmt.Sprintf("%d %s ", http.StatusGatewayTimeout, http.StatusText(http.StatusGatewayTimeout)), nil, contentType)
-		return
-	}
-	// Handler timeout
-	if errors.Is(err, http.ErrHandlerTimeout) {
-		middlewares.RespondWithError(w, r, http.StatusGatewayTimeout, fmt.Sprintf("%d %s ", http.StatusGatewayTimeout, http.StatusText(http.StatusGatewayTimeout)), nil, contentType)
-		return
-	}
-	// Service unavailable
-	if errors.Is(err, http.ErrAbortHandler) {
-		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d %s ", http.StatusServiceUnavailable, http.StatusText(http.StatusServiceUnavailable)), nil, contentType)
-		return
-
-	}
-	w.WriteHeader(http.StatusBadGateway)
-	_, err = w.Write([]byte(fmt.Sprintf("%d %s ", http.StatusBadGateway, http.StatusText(http.StatusBadGateway))))
-	if err != nil {
-		return
-	}
+	middlewares.RespondWithError(w, r, statusCode, fmt.Sprintf("%d %s ", statusCode, http.StatusText(statusCode)), nil, contentType)
 }
 
 // HealthCheckHandler handles health check of routes
@@ -197,4 +181,27 @@ func (oauthRuler *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r
 
 	// Redirect to the home page or another protected route
 	http.Redirect(w, r, oauthRuler.RedirectPath, http.StatusSeeOther)
+}
+
+// ComputeStatusCode computes the HTTP status code according to the given error.
+func ComputeStatusCode(err error) int {
+	switch {
+	case errors.Is(err, io.EOF):
+		return http.StatusBadGateway
+	case errors.Is(err, context.Canceled):
+		return StatusClientClosedRequest
+	case errors.Is(err, http.ErrAbortHandler):
+		return http.StatusServiceUnavailable
+	default:
+		var netErr net.Error
+		if errors.As(err, &netErr) {
+			if netErr.Timeout() {
+				return http.StatusGatewayTimeout
+			}
+
+			return http.StatusBadGateway
+		}
+	}
+
+	return http.StatusInternalServerError
 }
