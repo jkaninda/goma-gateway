@@ -77,7 +77,6 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, formatted, r.UserAgent())
 
 	middlewares.RespondWithError(w, r, statusCode, fmt.Sprintf("%d %s ", statusCode, http.StatusText(statusCode)), nil, contentType)
-	return
 }
 
 // HealthCheckHandler handles health check of routes
