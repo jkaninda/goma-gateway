@@ -15,30 +15,21 @@
  *
  */
 
-package config
+package middlewares
 
 import (
 	"fmt"
-	"os"
-
-	"github.com/spf13/cobra"
+	"net/http"
 )
 
-var Cmd = &cobra.Command{
-	Use:   "config",
-	Short: "Goma Gateway configuration management",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			return
-		} else {
-			fmt.Printf("config accepts no argument %q\n", args)
-			os.Exit(1)
+func CanIntercept(status int, routeErrors []RouteError) (bool, string) {
+	for _, routeError := range routeErrors {
+		if status == routeError.Status || status == routeError.Code {
+			if routeError.Body != "" {
+				return true, routeError.Body
+			}
+			return true, fmt.Sprintf("%d %s", status, http.StatusText(status))
 		}
-
-	},
-}
-
-func init() {
-	Cmd.AddCommand(InitConfigCmd)
-	Cmd.AddCommand(CheckConfigCmd)
+	}
+	return false, ""
 }

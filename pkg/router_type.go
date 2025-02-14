@@ -15,30 +15,24 @@
  *
  */
 
-package config
+package pkg
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/spf13/cobra"
+	"github.com/gorilla/mux"
+	"net/http"
+	"sync"
 )
 
-var Cmd = &cobra.Command{
-	Use:   "config",
-	Short: "Goma Gateway configuration management",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			return
-		} else {
-			fmt.Printf("config accepts no argument %q\n", args)
-			os.Exit(1)
-		}
-
-	},
+type Router interface {
+	AddRoute(route Route)
+	AddRoutes(router2 Router)
+	Mux() http.Handler
+	UpdateHandler(Gateway)
+	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 
-func init() {
-	Cmd.AddCommand(InitConfigCmd)
-	Cmd.AddCommand(CheckConfigCmd)
+type router struct {
+	mux           *mux.Router
+	enableMetrics bool
+	sync.RWMutex
 }

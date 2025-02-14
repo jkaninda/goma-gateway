@@ -15,30 +15,17 @@
  *
  */
 
-package config
+package pkg
 
-import (
-	"fmt"
-	"os"
-
-	"github.com/spf13/cobra"
-)
-
-var Cmd = &cobra.Command{
-	Use:   "config",
-	Short: "Goma Gateway configuration management",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			return
-		} else {
-			fmt.Printf("config accepts no argument %q\n", args)
-			os.Exit(1)
-		}
-
-	},
-}
-
-func init() {
-	Cmd.AddCommand(InitConfigCmd)
-	Cmd.AddCommand(CheckConfigCmd)
+type ProxyRoute struct {
+	name                  string
+	path                  string
+	rewrite               string
+	destination           string
+	weightedBased         bool
+	backends              Backends
+	methods               []string
+	cors                  Cors
+	disableHostForwarding bool
+	insecureSkipVerify    bool
 }

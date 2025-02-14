@@ -9,7 +9,7 @@ issues:
   # restore some of the defaults
   # (fill in the rest as needed)
   exclude-rules:
-    - path: "internal/*"
+    - path: "pkg/*"
       linters:
         - dupl
         - lll

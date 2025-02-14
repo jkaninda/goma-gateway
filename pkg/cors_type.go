@@ -15,30 +15,23 @@
  *
  */
 
-package config
+package pkg
 
-import (
-	"fmt"
-	"os"
-
-	"github.com/spf13/cobra"
-)
-
-var Cmd = &cobra.Command{
-	Use:   "config",
-	Short: "Goma Gateway configuration management",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			return
-		} else {
-			fmt.Printf("config accepts no argument %q\n", args)
-			os.Exit(1)
-		}
-
-	},
-}
-
-func init() {
-	Cmd.AddCommand(InitConfigCmd)
-	Cmd.AddCommand(CheckConfigCmd)
+type Cors struct {
+	// Cors Allowed origins,
+	// e.g:
+	//
+	// - http://localhost:80
+	//
+	// - https://example.com
+	Origins []string `yaml:"origins"`
+	//
+	// e.g:
+	//
+	// Access-Control-Allow-Origin: '*'
+	//
+	//    Access-Control-Allow-Methods: 'GET, POST, PUT, DELETE, OPTIONS'
+	//
+	//    Access-Control-Allow-Cors: 'Content-Type, Authorization'
+	Headers map[string]string `yaml:"headers"`
 }

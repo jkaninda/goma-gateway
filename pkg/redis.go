@@ -15,30 +15,25 @@
  *
  */
 
-package config
+package pkg
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/spf13/cobra"
+	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 )
 
-var Cmd = &cobra.Command{
-	Use:   "config",
-	Short: "Goma Gateway configuration management",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			return
-		} else {
-			fmt.Printf("config accepts no argument %q\n", args)
-			os.Exit(1)
-		}
+func (gatewayServer GatewayServer) initRedis() {
+	if len(gatewayServer.gateway.Redis.Addr) != 0 {
+		logger.Info("Initializing Redis...")
+		middlewares.InitRedis(gatewayServer.gateway.Redis.Addr, gatewayServer.gateway.Redis.Password)
+	}
 
-	},
 }
 
-func init() {
-	Cmd.AddCommand(InitConfigCmd)
-	Cmd.AddCommand(CheckConfigCmd)
+func (gatewayServer GatewayServer) closeRedis() {
+	if middlewares.RedisClient != nil {
+		if err := middlewares.RedisClient.Close(); err != nil {
+			logger.Error("Error closing Redis: %v", err)
+		}
+	}
 }
