@@ -136,9 +136,17 @@ func scheme(r *http.Request) string {
 
 // isWebSocketRequest checks if the request is a WebSocket request
 func isWebSocketRequest(r *http.Request) bool {
-	return r.Header.Get("Upgrade") == "websocket" && r.Header.Get("Connection") == "Upgrade"
+	return strings.ToLower(r.Header.Get("Connection")) == "upgrade" && strings.ToLower(r.Header.Get("Upgrade")) == "websocket"
 }
 
+func isSSE(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept"), "text/event-stream") || strings.Contains(r.Header.Get("Content-Type"), "text/event-stream")
+}
+
+// isKeepAlive checks if the request indicates a keep-alive connection
+func isKeepAlive(r *http.Request) bool {
+	return strings.Contains(strings.ToLower(r.Header.Get("Connection")), "keep-alive")
+}
 func hasPositivePriority(r []Route) bool {
 	for _, route := range r {
 		if route.Priority > 0 {

@@ -58,17 +58,24 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 func (h ProxyHandler) handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
-		// Determine the content type
+
+		// Detect WebSocket Upgrade request
+		if isWebSocketRequest(r) {
+			next.ServeHTTP(w, r) // Directly proxy WebSocket connections
+			return
+		}
+		// Detect EventStream (Server-Sent Events)
+		if isSSE(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Determine content type
 		contentType := h.ContentType
 		if contentType == "" {
 			contentType = r.Header.Get("Content-Type")
 		}
 
-		// Pass through WebSocket connections
-		if isWebSocketRequest(r) {
-			next.ServeHTTP(w, r)
-			return
-		}
 		// Get request content length
 		contentLength := r.Header.Get("Content-Length")
 		if contentLength == "" {
@@ -81,23 +88,24 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 		// Delete server header
 		rec.Header().Del("Server")
 		rec.Header().Set("Proxied-By", gatewayName)
+
 		// Get request query
 		query := r.URL.RawQuery
 		if query != "" {
 			query = "?" + query
 		}
-		// Retrieve the value later in the request lifecycle
+
+		// Retrieve the request start time from context
 		if val := r.Context().Value(requestStartTimerKey); val != nil {
-			// Get request start time
 			startTime = val.(time.Time)
 		}
 		formatted := goutils.FormatDuration(time.Since(startTime), 1)
+
 		// No interception logic needed
 		if !h.Enabled || len(h.Errors) == 0 {
 			logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, r.UserAgent())
-			// Set the recorded status code
-			w.WriteHeader(rec.statusCode)
-			_, _ = io.Copy(w, rec.body)
+			// Copy recorded response to the client
+			writeResponse(w, rec)
 			return
 		}
 
@@ -108,10 +116,14 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 			return
 		}
 
-		// No error, write the response to the client
+		// Log and forward response
 		logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s content_length=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, contentLength, r.UserAgent())
-		// Set the recorded status code
-		w.WriteHeader(rec.statusCode)
-		_, _ = io.Copy(w, rec.body)
+		writeResponse(w, rec)
 	})
+}
+
+// writeResponse writes the recorded response to the client
+func writeResponse(w http.ResponseWriter, rec *responseRecorder) {
+	w.WriteHeader(rec.statusCode)
+	_, _ = io.Copy(w, rec.body)
 }
