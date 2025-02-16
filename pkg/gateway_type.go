@@ -44,15 +44,13 @@ type Gateway struct {
 	// IdleTimeout defines the timeout (in seconds) for idle connections.
 	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
 	// RateLimit specifies the maximum number of requests allowed per minute.
-	RateLimit int `yaml:"rateLimit,omitempty" env:"GOMA_RATE_LIMIT, overwrite"` // Deprecated
+	RateLimit int `yaml:"rateLimit,omitempty" env:"GOMA_RATE_LIMIT, overwrite"` // Deprecated: RateLimit middleware type
 	// BlockCommonExploits enables or disables blocking of common exploit patterns.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
-	// AccessLog specifies the file path for access logs.
-	AccessLog string `yaml:"accessLog,omitempty" env:"GOMA_ACCESS_LOG, overwrite"`
-	// ErrorLog specifies the file path for error logs.
-	ErrorLog string `yaml:"errorLog,omitempty" env:"GOMA_ERROR_LOG=, overwrite"`
 	// LogLevel defines the logging level (e.g., info, debug, trace, off).
 	LogLevel string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
+	// Log defines the logging config
+	Log Log `yaml:"log,omitempty"`
 	// DisableHealthCheckStatus enables or disables health checks for routes.
 	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus,omitempty"`
 	// DisableRouteHealthCheckError enables or disables logging of backend health check errors.
@@ -100,4 +98,10 @@ func (p EntryPoint) Validate() {
 		webSecureAddress = p.WebSecure.Address
 
 	}
+}
+
+type Log struct {
+	Level             string `yaml:"level,omitempty"  env:"GOMA_LOG_LEVEL, overwrite"`
+	FilePath          string `yaml:"filePath,omitempty" env:"GOMA_LOG_FILE, overwrite"`
+	AccessLogFilePath string `yaml:"accessLogFilePath,omitempty" env:"GOMA_ACCESS_LOG_FILE, overwrite"`
 }

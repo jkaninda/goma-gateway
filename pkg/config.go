@@ -114,9 +114,9 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 // SetEnv sets environment variables
 func (gatewayServer GatewayServer) SetEnv() {
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
-	util.SetEnv("GOMA_ERROR_LOG", gatewayServer.gateway.ErrorLog)
-	util.SetEnv("GOMA_ACCESS_LOG", gatewayServer.gateway.AccessLog)
-
+	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.Log.Level)
+	util.SetEnv("GOMA_LOG_FILE", gatewayServer.gateway.Log.FilePath)
+	util.SetEnv("GOMA_ACCESS_LOG_FILE", gatewayServer.gateway.Log.AccessLogFilePath)
 }
 
 // validateRoutes validates routes
