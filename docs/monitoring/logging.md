@@ -22,6 +22,11 @@ This is helpful to confirm that certain required Headers are correctly forwarded
 - trace
 - off
 
+### Access Log Format
+
+```shell
+method=GET url=/path/10 client_ip=192.168.16.15 status=200 duration=436.4ms route=Example content_length=0 user_agent=insomnia/8.2.0
+```
 ### When using the environment variable
 
 Set the Goma log level to TRACE:
