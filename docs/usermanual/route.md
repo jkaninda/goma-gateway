@@ -76,8 +76,7 @@ gateway:
     - name: Example
       path: /store/cart
       rewrite: /cart # You can use RewriteRegex middleware for more complex rewrites
-      backends:
-        - endpoint:  http://cart-service:8080
+      destination: http://cart-service:8080
 ```
 
 ###  Route with limited HTTP methods
@@ -86,15 +85,14 @@ The proxy will allow all HTTP methods if there's no defined method.
 Example of route with limited HTTP methods allowed for a particular route.
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   ...
   routes:
     - name: Example
       disabled: false # Disabled specifies whether the route is disabled, the route will not be proxied.
       path: /store/cart
-      backends:
-        - endpoint:  http://cart-service:8080
+      destination: http://cart-service:8080
       methods: [PATCH, GET]
       cors: {}
       middlewares:
@@ -107,7 +105,7 @@ gateway:
 Example of route with backend health check.
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   ...
   routes:
@@ -128,7 +126,7 @@ gateway:
 Example of route with backend health check.
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   ...
   routes:
