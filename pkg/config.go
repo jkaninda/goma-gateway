@@ -116,7 +116,6 @@ func (gatewayServer GatewayServer) SetEnv() {
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.Log.Level)
 	util.SetEnv("GOMA_LOG_FILE", gatewayServer.gateway.Log.FilePath)
-	util.SetEnv("GOMA_ACCESS_LOG_FILE", gatewayServer.gateway.Log.AccessLogFilePath)
 }
 
 // validateRoutes validates routes

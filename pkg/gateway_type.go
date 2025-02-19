@@ -48,7 +48,7 @@ type Gateway struct {
 	// BlockCommonExploits enables or disables blocking of common exploit patterns.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	// LogLevel defines the logging level (e.g., info, debug, trace, off).
-	LogLevel string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"`
+	LogLevel string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"` // Deprecated: Use Log instead
 	// Log defines the logging config
 	Log Log `yaml:"log,omitempty"`
 	// DisableHealthCheckStatus enables or disables health checks for routes.
@@ -101,7 +101,8 @@ func (p EntryPoint) Validate() {
 }
 
 type Log struct {
-	Level             string `yaml:"level,omitempty"  env:"GOMA_LOG_LEVEL, overwrite"`
-	FilePath          string `yaml:"filePath,omitempty" env:"GOMA_LOG_FILE, overwrite"`
-	AccessLogFilePath string `yaml:"accessLogFilePath,omitempty" env:"GOMA_ACCESS_LOG_FILE, overwrite"`
+	// Level defines the logging level (e.g., info, debug, trace, off).
+	Level string `yaml:"level,omitempty"  env:"GOMA_LOG_LEVEL, overwrite"`
+	// FilePath specifies the file path for logs, default Stdout.
+	FilePath string `yaml:"filePath,omitempty" env:"GOMA_LOG_FILE, overwrite"`
 }
