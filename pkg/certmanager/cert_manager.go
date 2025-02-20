@@ -101,7 +101,7 @@ func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certific
 // GenerateCertificate generates a self-signed certificate for the given domain.
 func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, error) {
 	// Generate a private key
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate private key: %v", err)
 	}
@@ -118,12 +118,12 @@ func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, err
 		BasicConstraintsValid: true,
 	}
 	// Create the certificate
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create certificate: %v", err)
 	}
 	// Encode the private key and certificate
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
 	// Create a TLS certificate
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
