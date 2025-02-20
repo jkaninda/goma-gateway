@@ -25,6 +25,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/pkg/sysinfo"
+	"github.com/jkaninda/goma-gateway/pkg/version"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/shirou/gopsutil/v3/host"
 	"io/fs"
@@ -131,7 +132,7 @@ func overviewHandler(w http.ResponseWriter, r *http.Request) {
 		CpuInfo:   cpus,
 		Uptime:    fmt.Sprintf("%v", appUptime),
 		SysUptime: fmt.Sprintf("%v", uptime),
-		Version:   util.Version,
+		Version:   version.Version,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

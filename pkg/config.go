@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/pkg/version"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/amazon"
@@ -119,9 +120,8 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 // SetEnv sets environment variables
 func (gatewayServer GatewayServer) SetEnv() {
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
-	util.SetEnv("GOMA_ERROR_LOG", gatewayServer.gateway.ErrorLog)
-	util.SetEnv("GOMA_ACCESS_LOG", gatewayServer.gateway.AccessLog)
-
+	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.Log.Level)
+	util.SetEnv("GOMA_LOG_FILE", gatewayServer.gateway.Log.FilePath)
 }
 
 // validateRoutes validates routes
@@ -210,7 +210,7 @@ func initConfig(configFile string) error {
 		configFile = GetConfigPaths()
 	}
 	conf := &GatewayConfig{
-		Version: util.ConfigVersion,
+		Version: version.ConfigVersion,
 		GatewayConfig: Gateway{
 			WriteTimeout: 15,
 			ReadTimeout:  15,

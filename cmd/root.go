@@ -20,6 +20,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/cmd/config"
+	"github.com/jkaninda/goma-gateway/pkg/version"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
 	"os"
@@ -31,7 +32,7 @@ var rootCmd = &cobra.Command{
 	Short:   "Goma Gateway is a lightweight API Gateway Management",
 	Long:    `.`,
 	Example: util.MainExample,
-	Version: util.Version,
+	Version: version.Version,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

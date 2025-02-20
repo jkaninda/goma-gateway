@@ -55,7 +55,7 @@ func (gatewayServer GatewayServer) Initialize() error {
 
 	}
 	// Check configs
-	err = checkConfig(dynamicRoutes, dynamicMiddlewares)
+	err = validateConfig(dynamicRoutes, dynamicMiddlewares)
 	if err != nil {
 		return err
 	}

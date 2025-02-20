@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"github.com/jkaninda/goma-gateway/pkg/version"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/robfig/cron/v3"
 	"io"
@@ -69,7 +70,7 @@ func (health Health) createHealthCheckRequest(healthCheckURL *url.URL) (*http.Re
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", fmt.Sprintf("goma-gateway/%s", util.Version))
+	req.Header.Set("User-Agent", fmt.Sprintf("goma-gateway/%s", version.Version))
 	return req, nil
 }
 

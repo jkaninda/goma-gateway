@@ -26,21 +26,21 @@ import (
 	"strings"
 )
 
-func (gatewayServer GatewayServer) initTLS() (*tls.Config, bool, error) {
-	tlsConfig := loadTLS(gatewayServer.gateway.TLS)
+func (gatewayServer GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
+	certs := loadTLS(gatewayServer.gateway.TLS)
 	cert, err := loadGatewayCertificate(gatewayServer)
-	if err == nil {
-		tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
+	if err == nil && cert != nil {
+		certs = append(certs, *cert)
 	}
-	if tlsConfig != nil {
-		return tlsConfig, true, nil
+	if len(certs) > 0 {
+		return certs, true, nil
 	}
 	return nil, false, fmt.Errorf("failed to load TLS config")
 }
 
 // loadTLS initializes a TLS configuration by loading certificates from dynamic routes.
-func loadTLS(t TLS) *tls.Config {
-	cfg := &tls.Config{}
+func loadTLS(t TLS) []tls.Certificate {
+	certs := make([]tls.Certificate, 0)
 
 	// Helper function to load certificates and append them to the config
 	loadCertificates := func(t TLS, context string) {
@@ -55,7 +55,7 @@ func loadTLS(t TLS) *tls.Config {
 				logger.Error("Error loading server certificate for %s: %v", context, err)
 				continue
 			}
-			cfg.Certificates = append(cfg.Certificates, certificate)
+			certs = append(certs, *certificate)
 		}
 	}
 
@@ -67,19 +67,19 @@ func loadTLS(t TLS) *tls.Config {
 		loadCertificates(route.TLS, fmt.Sprintf("route: %s", route.Name))
 	}
 
-	return cfg
+	return certs
 }
 
 // loadGatewayCertificate loads a certificate for the gateway server, handling both deprecated and new fields.
-func loadGatewayCertificate(gatewayServer GatewayServer) (tls.Certificate, error) {
-	loadCertificate := func(cert, key, warnMsg string) (tls.Certificate, error) {
+func loadGatewayCertificate(gatewayServer GatewayServer) (*tls.Certificate, error) {
+	loadCertificate := func(cert, key, warnMsg string) (*tls.Certificate, error) {
 		if cert != "" || key != "" {
 			if warnMsg != "" {
 				logger.Warn("sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead")
 			}
 			return loadCertAndKey(cert, key)
 		}
-		return tls.Certificate{}, nil
+		return nil, nil
 	}
 
 	// Check deprecated fields
@@ -97,7 +97,7 @@ func loadGatewayCertificate(gatewayServer GatewayServer) (tls.Certificate, error
 }
 
 // loadCertAndKey loads a certificate and private key from file paths or raw PEM content.
-func loadCertAndKey(certInput, keyInput string) (tls.Certificate, error) {
+func loadCertAndKey(certInput, keyInput string) (*tls.Certificate, error) {
 	decodeBase64IfNeeded := func(input string) ([]byte, error) {
 		trimmedInput := strings.TrimSpace(input)
 		if isBase64(trimmedInput) {
@@ -108,20 +108,20 @@ func loadCertAndKey(certInput, keyInput string) (tls.Certificate, error) {
 
 	certPEMBlock, err := decodeCertOrKey(certInput, decodeBase64IfNeeded)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("failed to process certificate: %w", err)
+		return nil, fmt.Errorf("failed to process certificate: %w", err)
 	}
 
 	keyPEMBlock, err := decodeCertOrKey(keyInput, decodeBase64IfNeeded)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("failed to process private key: %w", err)
+		return nil, fmt.Errorf("failed to process private key: %w", err)
 	}
 
 	cert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("failed to load X509 key pair: %w", err)
+		return nil, fmt.Errorf("failed to load X509 key pair: %w", err)
 	}
 
-	return cert, nil
+	return &cert, nil
 }
 
 // decodeCertOrKey processes PEM or file-based input.

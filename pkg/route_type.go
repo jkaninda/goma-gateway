@@ -40,7 +40,7 @@ type Route struct {
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
 	Methods []string `yaml:"methods"`
 	// Destination defines the primary backend URL for this route.
-	Destination string `yaml:"destination,omitempty"` // Deprecated, use Backends
+	Destination string `yaml:"destination,omitempty"`
 	// Backends specifies a list of backend URLs for load balancing.
 	Backends Backends `yaml:"backends"`
 	// InsecureSkipVerify disables SSL/TLS verification for the backend.
@@ -69,8 +69,10 @@ type Route struct {
 	// BlockCommonExploits enables or disables blocking of common exploit patterns
 	// such as SQL injection or simple XSS attempts.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
-	EnableBotDetection  bool `yaml:"enableBotDetection,omitempty"`
-	TLS                 TLS  `yaml:"tls,omitempty"`
+	// EnableBotDetection enables or disables bot detection for this route.
+	EnableBotDetection bool `yaml:"enableBotDetection,omitempty"`
+	// TLS contains the TLS configuration for the route.
+	TLS TLS `yaml:"tls,omitempty"`
 	// Middlewares lists middleware names to apply to this route.
 	Middlewares []string `yaml:"middlewares"`
 }

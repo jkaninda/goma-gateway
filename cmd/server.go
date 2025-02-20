@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/common-nighthawk/go-figure"
 	"github.com/jkaninda/goma-gateway/pkg"
-	"github.com/jkaninda/goma-gateway/util"
+	"github.com/jkaninda/goma-gateway/pkg/version"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -58,7 +58,7 @@ func init() {
 func intro() {
 	nameFigure := figure.NewFigure("Goma", "", true)
 	nameFigure.Print()
-	fmt.Printf("Version: %s\n", util.Version)
+	fmt.Printf("Version: %s\n", version.Version)
 	fmt.Println("Copyright (c) 2024 Jonas Kaninda")
 	fmt.Println("Starting Goma Gateway server...")
 }

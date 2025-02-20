@@ -25,6 +25,7 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -93,6 +94,11 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 		query := r.URL.RawQuery
 		if query != "" {
 			query = "?" + query
+		}
+		// URL decode the query parameter
+		query, err := url.QueryUnescape(query)
+		if err != nil {
+			logger.Error("Error decoding query parameter: %s", err.Error())
 		}
 
 		// Retrieve the request start time from context

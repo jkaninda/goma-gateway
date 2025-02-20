@@ -25,6 +25,7 @@ import (
 // sqlPatterns contains SQL injections patters
 const sqlPatterns = `(?i)(union|select|drop|insert|delete|update|create|alter|exec|;|--)`
 const traversalPatterns = `\.\./`
+const _traversalPatterns = `\..\../`
 const xssPatterns = `(?i)<script|onerror|onload`
 
 var (

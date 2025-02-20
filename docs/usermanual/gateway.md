@@ -24,10 +24,10 @@ These settings enable precise control over traffic flow and routing within your 
 - **`logLevel`** (`string`): Log verbosity level (e.g., `info`, `debug`, `error`).
 - **`disableHealthCheckStatus`** (`boolean`): Enable or disable exposing the health check route status.
 - **`disableRouteHealthCheckError`** (`boolean`): Enable or disable returning health check error responses for routes.
-- **`disableDisplayRouteOnStart`** (`boolean`): Enable or disable displaying routes during server startup.
 - **`disableKeepAlive`** (`boolean`): Enable or disable `keepAlive` for the proxy.
 - **`entroiponts`**: Define the network addresses where web servers will listen for incoming HTTP and HTTPS requests.
 - **`enableMetrics`** (`boolean`): Enable or disable server metrics collection.
+- **`enableStrictSlash`** (`boolean`): Enable or disable, the router will match the path with or without a trailing slash.
 
 
 ## TLS Configuration

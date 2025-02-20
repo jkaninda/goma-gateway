@@ -28,27 +28,27 @@ import (
 )
 
 // Generic logging function
-func logMessage(level, defaultOutput, msg string, args ...interface{}) {
+func logMessage(level, msg string, args ...interface{}) {
 	logLevel := getLogLevel()
 	if shouldLog(level, logLevel) {
-		log.SetOutput(getStd(util.GetStringEnv("GOMA_ACCESS_LOG", defaultOutput)))
+		log.SetOutput(getStd(util.GetStringEnv("GOMA_LOG_FILE", "")))
 		logWithCaller(level, msg, args...)
 	}
 }
 
 // Info logs informational messages
 func Info(msg string, args ...interface{}) {
-	logMessage("info", "/dev/stdout", msg, args...)
+	logMessage("info", msg, args...)
 }
 
 // Warn logs warning messages
 func Warn(msg string, args ...interface{}) {
-	logMessage("warn", "/dev/stdout", msg, args...)
+	logMessage("warn", msg, args...)
 }
 
 // Error logs error messages
 func Error(msg string, args ...interface{}) {
-	logMessage("error", "/dev/stderr", msg, args...)
+	logMessage("error", msg, args...)
 }
 
 // Fatal logs fatal errors and exits the program
@@ -60,12 +60,12 @@ func Fatal(msg string, args ...interface{}) {
 
 // Debug logs debug messages
 func Debug(msg string, args ...interface{}) {
-	logMessage("debug", "/dev/stdout", msg, args...)
+	logMessage("debug", msg, args...)
 }
 
 // Trace logs trace messages
 func Trace(msg string, args ...interface{}) {
-	logMessage("trace", "/dev/stdout", msg, args...)
+	logMessage("trace", msg, args...)
 }
 
 // Determines whether the message should be logged based on log level
@@ -109,19 +109,19 @@ func logWithCaller(level, msg string, args ...interface{}) {
 
 // Determines the appropriate standard output based on the environment variable
 func getStd(out string) *os.File {
-	switch out {
-	case "/dev/stdout":
+	if out != "" {
+		file, err := os.OpenFile(out, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return os.Stdout
+		}
+		return file
+	} else {
 		return os.Stdout
-	case "/dev/stderr":
-		return os.Stderr
-	case "/dev/stdin":
-		return os.Stdin
-	default:
-		return os.Stdout
+
 	}
 }
 
 // Retrieves the current log level from environment variables
 func getLogLevel() string {
-	return strings.ToLower(util.GetStringEnv("GOMA_LOG_LEVEL", ""))
+	return strings.ToLower(util.GetStringEnv("GOMA_LOG_LEVEL", "ERROR"))
 }
