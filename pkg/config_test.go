@@ -20,7 +20,7 @@ package pkg
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/middlewares"
-	"github.com/jkaninda/goma-gateway/util"
+	"github.com/jkaninda/goma-gateway/pkg/version"
 	"gopkg.in/yaml.v3"
 	"os"
 )
@@ -30,7 +30,7 @@ func initTestConfig(configFile string) error {
 		configFile = GetConfigPaths()
 	}
 	conf := &GatewayConfig{
-		Version: util.ConfigVersion,
+		Version: version.ConfigVersion,
 		GatewayConfig: Gateway{
 			WriteTimeout: 15,
 			ReadTimeout:  15,

@@ -17,23 +17,6 @@
 
 package util
 
-import (
-	"fmt"
-)
-
-const ConfigVersion = "2"
-
-var Version = "development"
-var buildTime string
-var gitCommit string
-
-func FullVersion() {
-	fmt.Printf("Goma Gateway version: %s\n", Version)
-	fmt.Printf("Configuration version: %s\n", ConfigVersion)
-	fmt.Printf("Build time: %s\n", buildTime)
-	fmt.Printf("Git commit: %s\n", gitCommit)
-}
-
 const MainExample = "Initialize config: config init --output config.yml\n" +
 	"Start server: server \n" +
 	"Start server with custom config file: server --config config.yml \n" +

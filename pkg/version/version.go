@@ -15,21 +15,19 @@
  *
  */
 
-package cmd
+package version
 
-import (
-	"github.com/jkaninda/goma-gateway/pkg/version"
-	"github.com/spf13/cobra"
-)
+import "fmt"
 
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Run: func(cmd *cobra.Command, args []string) {
-		appVersion()
-	},
-}
+const ConfigVersion = "2"
 
-func appVersion() {
-	version.FullVersion()
+var Version = "development"
+var buildTime string
+var gitCommit string
+
+func FullVersion() {
+	fmt.Printf("Goma Gateway version: %s\n", Version)
+	fmt.Printf("Configuration version: %s\n", ConfigVersion)
+	fmt.Printf("Build time: %s\n", buildTime)
+	fmt.Printf("Git commit: %s\n", gitCommit)
 }
