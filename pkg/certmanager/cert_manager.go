@@ -141,11 +141,6 @@ func (cm *CertManager) GenerateDefaultCertificate() (*tls.Certificate, error) {
 	return cm.GenerateCertificate("GOMA DEFAULT CERT")
 }
 
-// WatchCerts watches for certificate changes and reloads them dynamically.
-func (cm *CertManager) WatchCerts(domain, certFile, keyFile string, interval time.Duration) {
-
-}
-
 // getWildcardDomain
 func getWildcardDomain(domain string) string {
 	parts := strings.Split(domain, ".")
