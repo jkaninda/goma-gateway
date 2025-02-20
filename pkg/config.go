@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/pkg/version"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/amazon"
@@ -204,7 +205,7 @@ func initConfig(configFile string) error {
 		configFile = GetConfigPaths()
 	}
 	conf := &GatewayConfig{
-		Version: util.ConfigVersion,
+		Version: version.ConfigVersion,
 		GatewayConfig: Gateway{
 			WriteTimeout: 15,
 			ReadTimeout:  15,

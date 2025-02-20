@@ -109,9 +109,9 @@ func checkRoutes(routes []Route, middlewares []Middleware) {
 	}
 }
 
-// checkConfig checks configurations and returns error
-func checkConfig(routes []Route, middlewares []Middleware) error {
-	logger.Info("Checking configurations...")
+// validateConfig checks configurations and returns error
+func validateConfig(routes []Route, middlewares []Middleware) error {
+	logger.Info("Validating configurations...")
 	midNames := middlewareNames(middlewares)
 	for _, route := range routes {
 		if len(route.Name) == 0 {
