@@ -76,18 +76,18 @@ type DashboardServer struct {
 }
 
 func NewDashboardServer(assets embed.FS) DashboardServer {
-	router := mux.NewRouter()
-	router.HandleFunc("/api/overview", overviewHandler).Methods("GET")
-	router.HandleFunc("/api/routes", routeHandler).Methods("GET")
-	router.HandleFunc("/api/middlewares", middlewareHandler).Methods("GET")
+	apiRouter := mux.NewRouter()
+	apiRouter.HandleFunc("/api/overview", overviewHandler).Methods("GET")
+	apiRouter.HandleFunc("/api/routes", routeHandler).Methods("GET")
+	apiRouter.HandleFunc("/api/middlewares", middlewareHandler).Methods("GET")
 	serverRoot, err := fs.Sub(assets, "build")
 	if err != nil {
 		log.Fatal(err)
 	}
-	router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.FS(serverRoot))))
+	apiRouter.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.FS(serverRoot))))
 	return DashboardServer{&http.Server{
 		Addr:         ":81",
-		Handler:      router,
+		Handler:      apiRouter,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  15 * time.Second,

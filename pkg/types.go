@@ -19,7 +19,7 @@ package pkg
 
 import (
 	"context"
-	"embed"
+	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 	"time"
 )
@@ -112,8 +112,8 @@ type GatewayConfig struct {
 }
 
 type GatewayServer struct {
-	assets      embed.FS
 	ctx         context.Context
+	certManager *certmanager.CertManager
 	configFile  string
 	version     string
 	gateway     Gateway

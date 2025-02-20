@@ -80,6 +80,11 @@ func (gatewayServer GatewayServer) Initialize() error {
 		// Routes background healthcheck
 		routesHealthCheck(dynamicRoutes, stopChan)
 	}
+	// Load gateway routes certificates
+	certs, _, _ := gatewayServer.initTLS()
+	if len(certs) > 0 {
+		gatewayServer.certManager.AddCertificates(certs)
+	}
 	return nil
 }
 
