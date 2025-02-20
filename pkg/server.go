@@ -49,13 +49,12 @@ func (gatewayServer GatewayServer) Start() error {
 	logger.Debug("Routes count=%d, Middlewares count=%d", len(dynamicRoutes), len(dynamicMiddlewares))
 	gatewayServer.initRedis()
 	defer gatewayServer.closeRedis()
-
+	// generate default tls config
 	tlsConfig := gatewayServer.generateTLSConfig()
-	tlsConf, _, err := gatewayServer.initTLS()
-	if err != nil {
-		logger.Error("Failed to initialize TLS")
-	}
-	tlsConfig.Certificates = append(tlsConfig.Certificates, tlsConf.Certificates...)
+	// Load certificates
+	certs, _, _ := gatewayServer.initTLS()
+	// Append certificates to the default tls config
+	tlsConfig.Certificates = append(tlsConfig.Certificates, certs...)
 	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
 		printRoute(dynamicRoutes)
 	}

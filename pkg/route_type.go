@@ -69,8 +69,10 @@ type Route struct {
 	// BlockCommonExploits enables or disables blocking of common exploit patterns
 	// such as SQL injection or simple XSS attempts.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
-	EnableBotDetection  bool `yaml:"enableBotDetection,omitempty"`
-	TLS                 TLS  `yaml:"tls,omitempty"`
+	// EnableBotDetection enables or disables bot detection for this route.
+	EnableBotDetection bool `yaml:"enableBotDetection,omitempty"`
+	// TLS contains the TLS configuration for the route.
+	TLS TLS `yaml:"tls,omitempty"`
 	// Middlewares lists middleware names to apply to this route.
 	Middlewares []string `yaml:"middlewares"`
 }

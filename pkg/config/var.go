@@ -15,6 +15,4 @@
  *
  */
 
-package tls
-
-// AcmeClient is a client for the ACME protocol
+package config
