@@ -20,6 +20,7 @@ package pkg
 import (
 	"context"
 	"fmt"
+	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/version"
@@ -50,6 +51,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 		}
 		return &GatewayServer{
 			ctx:         ctx,
+			certManager: certmanager.NewCertManager(),
 			configFile:  configFile,
 			version:     c.Version,
 			gateway:     c.GatewayConfig,
@@ -73,6 +75,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 		}
 		return &GatewayServer{
 			ctx:         ctx,
+			certManager: certmanager.NewCertManager(),
 			configFile:  ConfigFile,
 			gateway:     c.GatewayConfig,
 			middlewares: c.Middlewares,
@@ -107,6 +110,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 	return &GatewayServer{
 		ctx:         ctx,
 		configFile:  ConfigFile,
+		certManager: certmanager.NewCertManager(),
 		gateway:     c.GatewayConfig,
 		middlewares: c.Middlewares,
 	}, nil
