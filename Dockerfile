@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.24.0 AS build
+FROM golang:1.24.0 AS build
 WORKDIR /app
 ARG appVersion=""
 ARG buildTime=""
@@ -11,7 +11,7 @@ RUN go mod download
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/jkaninda/goma-gateway/pkg/version.Version=${appVersion}' -X 'github.com/jkaninda/goma-gateway/pkg/version.buildTime=${buildTime}'-X 'github.com/jkaninda/goma-gateway/pkg/version.gitCommit=${gitCommit}'" -o /app/goma
 
-FROM --platform=$BUILDPLATFORM alpine:3.21.3
+FROM alpine:3.21.3
 ENV TZ=UTC
 ARG WORKDIR="/etc/goma"
 ARG EXTRADIR="${WORKDIR}/extra"
