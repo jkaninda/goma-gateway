@@ -43,15 +43,17 @@ func (gatewayServer GatewayServer) Start() error {
 	logger.Debug("Routes count=%d, Middlewares count=%d", len(dynamicRoutes), len(dynamicMiddlewares))
 	gatewayServer.initRedis()
 	defer gatewayServer.closeRedis()
-	// generate default tls config
-	defaultCert, _ := gatewayServer.certManager.GenerateDefaultCertificate()
+	// Configure TLS
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{*defaultCert},
+		GetCertificate: gatewayServer.certManager.GetCertificate,
 	}
-	// Load certificates
-	certs, _, _ := gatewayServer.initTLS()
-	// Append certificates to the default tls config
-	tlsConfig.Certificates = append(tlsConfig.Certificates, certs...)
+	// Generate default certificate
+	certificate, err := gatewayServer.certManager.GenerateDefaultCertificate()
+	if err != nil {
+		return err
+	}
+	// Add default certificate
+	gatewayServer.certManager.AddCertificate("default", *certificate)
 	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
 		printRoute(dynamicRoutes)
 	}
@@ -68,10 +70,10 @@ func (gatewayServer GatewayServer) Start() error {
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
 
 	// Start HTTP/HTTPS servers
-	gatewayServer.startServers(httpServer, httpsServer, tlsConfig != nil)
+	gatewayServer.startServers(httpServer, httpsServer)
 
 	// Handle graceful shutdown
-	return gatewayServer.shutdown(httpServer, httpsServer, tlsConfig != nil)
+	return gatewayServer.shutdown(httpServer, httpsServer)
 }
 
 func (gatewayServer GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
@@ -85,7 +87,7 @@ func (gatewayServer GatewayServer) createServer(addr string, handler http.Handle
 	}
 }
 
-func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Server, listenWithTLS bool) {
+func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Server) {
 	go func() {
 		logger.Info("Starting Web server on %s", webAddress)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -93,17 +95,16 @@ func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Se
 		}
 	}()
 
-	if listenWithTLS {
-		go func() {
-			logger.Info("Starting WebSecure server on %s ", webSecureAddress)
-			if err := httpsServer.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				logger.Fatal("HTTPS server error: %v", err)
-			}
-		}()
-	}
+	go func() {
+		logger.Info("Starting WebSecure server on %s ", webSecureAddress)
+		if err := httpsServer.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal("HTTPS server error: %v", err)
+		}
+	}()
+
 }
 
-func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server, listenWithTLS bool) error {
+func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server) error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -116,10 +117,9 @@ func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server
 		logger.Error("Error shutting down HTTP server: %v", err)
 	}
 
-	if listenWithTLS {
-		if err := httpsServer.Shutdown(shutdownCtx); err != nil {
-			logger.Error("Error shutting down HTTPS server: %v", err)
-		}
+	if err := httpsServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("Error shutting down HTTPS server: %v", err)
 	}
+
 	return nil
 }

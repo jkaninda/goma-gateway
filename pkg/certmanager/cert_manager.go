@@ -32,15 +32,14 @@ import (
 	"time"
 )
 
-// CertManager dynamically loads TLS certificates.
+// CertManager dynamically manages TLS certificates.
 type CertManager struct {
 	mu          sync.RWMutex
 	certs       map[string]*tls.Certificate
-	defaultCert *tls.Certificate // Fallback for unknown domains
-
+	defaultCert *tls.Certificate
 }
 
-// NewCertManager initializes the certificate manager.
+// NewCertManager initializes a CertManager instance.
 func NewCertManager() *CertManager {
 	return &CertManager{
 		certs: make(map[string]*tls.Certificate),
@@ -53,20 +52,15 @@ func (cm *CertManager) LoadCertificate(domain, certFile, keyFile string) error {
 	if err != nil {
 		return err
 	}
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	if domain == "default" {
-		cm.defaultCert = &cert
-	} else {
-		cm.certs[domain] = &cert
-	}
+	cm.AddCertificate(domain, cert)
 	return nil
 }
 
-// UpdateCertificate updates a TLS certificate from Certificate.
-func (cm *CertManager) UpdateCertificate(domain string, cert tls.Certificate) {
+// AddCertificate adds a TLS certificate.
+func (cm *CertManager) AddCertificate(domain string, cert tls.Certificate) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
+
 	if domain == "default" {
 		cm.defaultCert = &cert
 	} else {
@@ -74,78 +68,120 @@ func (cm *CertManager) UpdateCertificate(domain string, cert tls.Certificate) {
 	}
 }
 
-// GetCertificate dynamically retrieves the certificate for the given ClientHello request.
+// AddCertificates adds multiple TLS certificates.
+func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
+	for _, cert := range certs {
+		commonName, sanNames, err := getCertificateDetails(&cert)
+		if err != nil {
+			continue
+		}
+		for _, domain := range append([]string{commonName}, sanNames...) {
+			if domain != "" {
+				cm.AddCertificate(domain, cert)
+			}
+		}
+	}
+}
+
+// GetCertificate retrieves the appropriate certificate for a given ClientHello request.
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 
-	// Check for exact domain match
-	if cert, exists := cm.certs[hello.ServerName]; exists {
+	if cert := cm.findCertificate(hello.ServerName); cert != nil {
 		return cert, nil
 	}
-
-	// Check for a wildcard match
-	wildcardDomain := getWildcardDomain(hello.ServerName)
-	if wildcardCert, exists := cm.certs[wildcardDomain]; exists {
-		return wildcardCert, nil
-	}
-
-	// Use default certificate if no match found
-	if cm.defaultCert != nil {
-		return cm.defaultCert, nil
-	}
-
-	return nil, os.ErrNotExist
+	return cm.defaultCert, cm.defaultCertError()
 }
 
-// GenerateCertificate generates a self-signed certificate for the given domain.
+// findCertificate searches for a certificate by exact, wildcard, or parent domain match.
+func (cm *CertManager) findCertificate(domain string) *tls.Certificate {
+	if cert, exists := cm.certs[domain]; exists {
+		return cert
+	}
+	for _, d := range []string{getWildcardDomain(domain), getParentDomain(domain)} {
+		if cert, exists := cm.certs[d]; exists {
+			return cert
+		}
+	}
+	return nil
+}
+
+// defaultCertError returns an error if no default certificate is set.
+func (cm *CertManager) defaultCertError() error {
+	if cm.defaultCert == nil {
+		return os.ErrNotExist
+	}
+	return nil
+}
+
+// GenerateCertificate creates a self-signed certificate for a domain.
 func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, error) {
-	// Generate a private key
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate private key: %v", err)
+		return nil, fmt.Errorf("failed to generate private key: %w", err)
 	}
-	// Create a certificate template
+
 	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName: domain,
-		},
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: domain},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(1, 0, 0),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 	}
-	// Create the certificate
+
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create certificate: %v", err)
+		return nil, fmt.Errorf("failed to create certificate: %w", err)
 	}
-	// Encode the private key and certificate
+
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-	// Create a TLS certificate
+
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create TLS certificate: %v", err)
+		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
 	}
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.certs[domain] = &tlsCert
+
+	cm.AddCertificate(domain, tlsCert)
 	return &tlsCert, nil
 }
 
-// GenerateDefaultCertificate generates a default self-signed certificate.
+// GenerateDefaultCertificate creates a self-signed default certificate.
 func (cm *CertManager) GenerateDefaultCertificate() (*tls.Certificate, error) {
 	return cm.GenerateCertificate("GOMA DEFAULT CERT")
 }
 
-// getWildcardDomain
+// getWildcardDomain returns the wildcard domain for a given domain.
 func getWildcardDomain(domain string) string {
 	parts := strings.Split(domain, ".")
 	if len(parts) > 2 {
 		return "*." + strings.Join(parts[1:], ".")
 	}
 	return ""
+}
+
+// getParentDomain returns the parent domain for a given domain.
+func getParentDomain(domain string) string {
+	parts := strings.Split(domain, ".")
+	if len(parts) > 2 {
+		return strings.Join(parts[1:], ".")
+	}
+	return ""
+}
+
+// getCertificateDetails extracts the Subject (CN) and SANs from a TLS certificate.
+func getCertificateDetails(cert *tls.Certificate) (string, []string, error) {
+	if cert == nil || len(cert.Certificate) == 0 {
+		return "", nil, fmt.Errorf("no certificate data found")
+	}
+
+	parsedCert, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to parse certificate: %v", err)
+	}
+
+	return parsedCert.Subject.CommonName, parsedCert.DNSNames, nil
 }
