@@ -19,9 +19,15 @@ package pkg
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
+	"math/big"
 	"net/http"
 	"os"
 	"os/signal"
@@ -43,11 +49,12 @@ func (gatewayServer GatewayServer) Start() error {
 	logger.Debug("Routes count=%d, Middlewares count=%d", len(dynamicRoutes), len(dynamicMiddlewares))
 	gatewayServer.initRedis()
 	defer gatewayServer.closeRedis()
-
-	tlsConfig, listenWithTLS, err := gatewayServer.initTLS()
-	if err != nil {
-		logger.Error("Failed to initialize TLS")
-	}
+	// generate default tls config
+	tlsConfig := gatewayServer.generateTLSConfig()
+	// Load certificates
+	certs, _, _ := gatewayServer.initTLS()
+	// Append certificates to the default tls config
+	tlsConfig.Certificates = append(tlsConfig.Certificates, certs...)
 	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
 		printRoute(dynamicRoutes)
 	}
@@ -64,10 +71,10 @@ func (gatewayServer GatewayServer) Start() error {
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
 
 	// Start HTTP/HTTPS servers
-	gatewayServer.startServers(httpServer, httpsServer, listenWithTLS)
+	gatewayServer.startServers(httpServer, httpsServer, tlsConfig != nil)
 
 	// Handle graceful shutdown
-	return gatewayServer.shutdown(httpServer, httpsServer, listenWithTLS)
+	return gatewayServer.shutdown(httpServer, httpsServer, tlsConfig != nil)
 }
 
 func (gatewayServer GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
@@ -118,4 +125,50 @@ func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server
 		}
 	}
 	return nil
+}
+
+func (gatewayServer GatewayServer) generateTLSConfig() *tls.Config {
+	// Generate a new RSA private key
+	key, err := rsa.GenerateKey(rand.Reader, 2048) // Increased key size to 2048 for better security
+	if err != nil {
+		logger.Error("Failed to generate RSA private key: %v", err)
+		return &tls.Config{}
+	}
+
+	// Create a certificate template with Common Name and validity period
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "GOMA DEFAULT CERT", // Common Name is the hostname of the server
+		},
+		NotBefore:             time.Now(),                  // Certificate is valid from now
+		NotAfter:              time.Now().AddDate(1, 0, 0), // Certificate is valid for 1 year
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	// Create the certificate
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		logger.Error("Failed to create certificate: %v", err)
+		return &tls.Config{}
+	}
+
+	// Encode the private key and certificate in PEM format
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	// Create a TLS certificate from the PEM-encoded key and certificate
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		logger.Error("Failed to create TLS certificate: %v", err)
+		return &tls.Config{}
+	}
+
+	// Return a TLS config with the certificate
+	return &tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
+		NextProtos:   []string{"GOMA"},
+	}
 }
