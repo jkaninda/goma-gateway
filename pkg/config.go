@@ -218,6 +218,10 @@ func initConfig(configFile string) error {
 				Directory: ExtraDir,
 				Watch:     false,
 			},
+			Log: Log{
+				Level:    "error",
+				FilePath: "stdout",
+			},
 			Routes: []Route{
 				{
 					Name:    "example",

@@ -47,12 +47,10 @@ type Gateway struct {
 	RateLimit int `yaml:"rateLimit,omitempty" env:"GOMA_RATE_LIMIT, overwrite"` // Deprecated: RateLimit middleware type
 	// BlockCommonExploits enables or disables blocking of common exploit patterns.
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
-	// AccessLog specifies the file path for access logs.
-	AccessLog string `yaml:"accessLog,omitempty" env:"GOMA_ACCESS_LOG, overwrite"`
 	// LogLevel defines the logging level (e.g., info, debug, trace, off).
-	LogLevel string `yaml:"logLevel" env:"GOMA_LOG_LEVEL, overwrite"` // Deprecated: Use Log instead
+	LogLevel string `yaml:"logLevel,omitempty" env:"GOMA_LOG_LEVEL, overwrite"` // Deprecated: Use Log instead
 	// Log defines the logging config
-	Log Log `yaml:"log,omitempty"`
+	Log Log `yaml:"log"`
 	// DisableHealthCheckStatus enables or disables health checks for routes.
 	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus,omitempty"`
 	// DisableRouteHealthCheckError enables or disables logging of backend health check errors.
