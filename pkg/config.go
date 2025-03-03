@@ -224,12 +224,10 @@ func initConfig(configFile string) error {
 			},
 			Routes: []Route{
 				{
-					Name:    "example",
-					Path:    "/",
-					Methods: []string{"GET", "PATCH", "OPTIONS"},
-					Backends: Backends{
-						Backend{Endpoint: "https://example.com"},
-					},
+					Name:        "example",
+					Path:        "/",
+					Methods:     []string{"GET", "PATCH", "OPTIONS"},
+					Destination: "https://example.com",
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
 						Interval:        "30s",
@@ -240,13 +238,13 @@ func initConfig(configFile string) error {
 					Middlewares:           []string{"block-access"},
 				},
 				{
-					Name:    "round-robin-load-balancing",
+					Name:    "example-load-balancing",
 					Path:    "/load-balancing",
 					Methods: []string{"GET", "OPTIONS"},
 					Backends: Backends{
-						Backend{Endpoint: "https://example.com"},
-						Backend{Endpoint: "https://example1.com"},
-						Backend{Endpoint: "https://example2.com"},
+						Backend{Endpoint: "https://backend1.example.com"},
+						Backend{Endpoint: "https://backend2.example.com"},
+						Backend{Endpoint: "https://backend3.example.com"},
 					},
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
@@ -258,12 +256,12 @@ func initConfig(configFile string) error {
 					Middlewares:           []string{"block-access"},
 				},
 				{
-					Name: "weighted-load-balancing",
+					Name: "example-load-balancing2",
 					Path: "/load-balancing2",
 					Backends: Backends{
-						Backend{Endpoint: "https://example.com", Weight: 5},
-						Backend{Endpoint: "https://example1.com", Weight: 2},
-						Backend{Endpoint: "https://example2.com", Weight: 1},
+						Backend{Endpoint: "https://backend1.example.com", Weight: 5},
+						Backend{Endpoint: "https://backend2.example.com", Weight: 2},
+						Backend{Endpoint: "https://backend3.example.com", Weight: 1},
 					},
 					Rewrite:               "/",
 					DisableHostForwarding: false,

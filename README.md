@@ -204,16 +204,8 @@ gateway:
       disabled: false
       hosts: []
       rewrite: ''
-      backends:
-        - endpoint: https://example.com
+      destination: https://example.com
       disableHostForwarding: true
-      healthCheck:
-        path: /
-        interval: 15s
-        timeout: 10s
-        healthyStatuses:
-          - 200
-          - 404
       cors: {}
       middlewares:
         - basic-auth
@@ -223,10 +215,17 @@ gateway:
       hosts: []
       rewrite: /
       backends:
-       - endpoint: https://example2.com
+       - endpoint: https://backend1.example.com
          weight: 1 # Optional can be omitted
-       - endpoint: https://example.com
+       - endpoint:  https://backend2.example.com
          weight: 3 # Optional can be omitted
+      healthCheck:
+       path: /
+       interval: 15s
+       timeout: 10s
+       healthyStatuses:
+         - 200
+         - 404
       middlewares: []
 middlewares:
   - name: basic-auth
