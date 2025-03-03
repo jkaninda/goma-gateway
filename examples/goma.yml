@@ -29,9 +29,9 @@ gateway:
       address: ":443"
 
   # Logging Configuration
-  logLevel: info            # Logging level (options: debug, trace, off).
-  accessLog: "/dev/Stdout"  # Path for access logs.
-  errorLog: "/dev/stderr"   # Path for error logs.
+  log:
+    level: info # Logging level (options: debug, trace, off). default: error
+    filePath: stdout # Path for log files. default: stdout
 
   # Redis Configuration
   # redis:
