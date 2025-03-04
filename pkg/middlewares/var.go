@@ -20,14 +20,15 @@ package middlewares
 import (
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/redis/go-redis/v9"
+	"regexp"
 )
 
-// sqlPatterns contains SQL injections patters
-const sqlPatterns = `(?i)(union|select|drop|insert|delete|update|create|alter|exec|;|--)`
-const traversalPatterns = `\.\./`
-const _traversalPatterns = `\..\../`
-const xssPatterns = `(?i)<script|onerror|onload`
-
+// SQL injection, path traversal, and XSS patterns
+var (
+	sqlPatterns       = regexp.MustCompile(`(?i)(union|select|drop|insert|delete|update|create|alter|exec|;|--)`)
+	traversalPatterns = regexp.MustCompile(`(?i)(\.\./|\\.\\|%2e%2e%2f|%2e%2e%5c|%252e%252e%252f|%252e%252e%255c)`)
+	xssPatterns       = regexp.MustCompile(`(?i)<script|onerror|onload`)
+)
 var (
 	RedisClient *redis.Client
 	limiter     *redis_rate.Limiter

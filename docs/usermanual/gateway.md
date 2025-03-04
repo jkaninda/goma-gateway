@@ -19,9 +19,6 @@ These settings enable precise control over traffic flow and routing within your 
 - **`readTimeout`** (`integer`): Timeout for reading requests (in seconds).
 - **`idleTimeout`** (`integer`): Timeout for idle connections (in seconds).
 - **`blockCommonExploits`** (`boolean`): Enable or disable blocking of common exploits.
-- **`accessLog`** (`string`, default: `/dev/stdout`): Path for access logs.
-- **`errorLog`** (`string`, default: `/dev/stderr`): Path for error logs.
-- **`logLevel`** (`string`): Log verbosity level (e.g., `info`, `debug`, `error`).
 - **`disableHealthCheckStatus`** (`boolean`): Enable or disable exposing the health check route status.
 - **`disableRouteHealthCheckError`** (`boolean`): Enable or disable returning health check error responses for routes.
 - **`disableKeepAlive`** (`boolean`): Enable or disable `keepAlive` for the proxy.
@@ -104,6 +101,14 @@ Define custom routes and middlewares for greater flexibility:
 Define the main routes for the Gateway, enabling routing logic for incoming requests.
 
 ---
+
+### Minimal Configuration
+
+```yaml
+version: 2  # Configuration version
+gateway:
+  routes: []
+```
 ### Example: Customizing EntryPoints
 
 To override the default ports and bind the web servers to standard HTTP (`:80`) and HTTPS (`:443`) ports, you can modify the configuration as shown below:
@@ -116,14 +121,6 @@ gateway:
       address: ":80"  # Bind HTTP server to port 80
     webSecure:
       address: ":443" # Bind HTTPS server to port 443
-```
-
-### Minimal Configuration
-
-```yaml
-version: 2  # Configuration version
-gateway:
-  routes: []
 ```
 
 ## Example Configuration
@@ -145,10 +142,10 @@ gateway:
           -----BEGIN CERTIFICATE-----
         key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64-encoded private key
 
-  # Logging configuration
-  accessLog: /dev/Stdout  # File path or output stream for access logs
-  errorLog: /dev/stderr   # File path or output stream for error logs
-  logLevel: info          # Logging level (e.g., info, debug, warn, error)
+  # Logging Configuration
+  log:
+    level: info # Logging level (options: debug, trace, off). default: error
+    filePath: stdout # Path for log files (eg. /etc/goma/goma.log). default: stdout
 
   # Gateway behavior settings
   disableRouteHealthCheckError: false  # Enable/disable health check error logging

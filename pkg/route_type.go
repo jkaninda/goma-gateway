@@ -42,7 +42,7 @@ type Route struct {
 	// Destination defines the primary backend URL for this route.
 	Destination string `yaml:"destination,omitempty"`
 	// Backends specifies a list of backend URLs for load balancing.
-	Backends Backends `yaml:"backends"`
+	Backends Backends `yaml:"backends,omitempty"`
 	// InsecureSkipVerify disables SSL/TLS verification for the backend.
 	InsecureSkipVerify bool `yaml:"insecureSkipVerify"`
 	// HealthCheck contains configuration for monitoring the health of backends.

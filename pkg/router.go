@@ -68,7 +68,7 @@ func (r *router) UpdateHandler(gateway Gateway) {
 	stopChan = make(chan struct{})
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes, stopChan)
-	logger.Info("Configuration reloaded")
+	logger.Info("Configuration successfully reloaded")
 }
 
 // AddRoute adds a single route to the router.

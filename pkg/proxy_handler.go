@@ -19,13 +19,11 @@ package pkg
 
 import (
 	"bytes"
-	"fmt"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/pkg/logger"
 	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -90,17 +88,6 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 		rec.Header().Del("Server")
 		rec.Header().Set("Proxied-By", gatewayName)
 
-		// Get request query
-		query := r.URL.RawQuery
-		if query != "" {
-			query = "?" + query
-		}
-		// URL decode the query parameter
-		query, err := url.QueryUnescape(query)
-		if err != nil {
-			logger.Error("Error decoding query parameter: %s", err.Error())
-		}
-
 		// Retrieve the request start time from context
 		if val := r.Context().Value(requestStartTimerKey); val != nil {
 			startTime = val.(time.Time)
@@ -109,7 +96,7 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 
 		// No interception logic needed
 		if !h.Enabled || len(h.Errors) == 0 {
-			logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, r.UserAgent())
+			logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, formatted, h.Name, r.UserAgent())
 			// Copy recorded response to the client
 			writeResponse(w, rec)
 			return
@@ -117,13 +104,13 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 
 		// Check if the response should be intercepted
 		if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
-			logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s route=%s content_length=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, contentLength, r.UserAgent())
+			logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s route=%s content_length=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, formatted, h.Name, contentLength, r.UserAgent())
 			middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
 			return
 		}
 
 		// Log and forward response
-		logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s content_length=%s user_agent=%s", r.Method, fmt.Sprintf("%s%s", r.URL.Path, query), getRealIP(r), rec.statusCode, formatted, h.Name, contentLength, r.UserAgent())
+		logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s content_length=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, formatted, h.Name, contentLength, r.UserAgent())
 		writeResponse(w, rec)
 	})
 }
