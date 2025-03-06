@@ -49,9 +49,9 @@ routes:
       - GET
       - PUT
     backends:
-      - http://order-service:8080
-      - http://order-service2:8080
-      - http://order-service3:8080
+      - endpoint: https://api.example.com  # Backend server URL
+      - endpoint: https://api2.example.com   # Backend server URL
+      - endpoint: https://api3.example.com   # Backend server URL
     healthCheck:
       path: /
       interval: 30s

@@ -31,7 +31,9 @@ The **ForwardAuth middleware** delegates authorization to a backend service, det
 
 - **`Rule`**: Defines path-matching logic for applying the middleware. To block all subpaths, use `/*` at the end of the path.
 - **`AuthUrl`**: The URL of the backend authentication service.
-- **`AuthSignIn`**: Redirect URL when the authentication service returns a `401` status.
+- **`AuthSignIn`**: The redirect URL used when the authentication service returns a `401` status.
+  - This is optional and can be omitted if no sign-in URL is required. 
+  - To redirect to the current URL after successful authentication, pass it as a query parameter (e.g., http://authentik.company:9000/outpost.goauthentik.io/start?rd=). Goma Gateway will automatically append the current URL to the `rd` query parameter.
 - **`SkipInsecureVerify`**: Disables SSL certificate verification for the backend service.
 - **`EnableHostForwarding`**: Forwards the `Host` header from the original request.
 - **`AuthRequestHeaders`**: Specifies request headers to copy into the authentication request.
@@ -70,7 +72,7 @@ middlewares:
       authUrl: http://authentication-service:8080/auth/verify
       
       # Redirect URL when response status is 401
-      authSignIn: http://authentication-service:8080/auth/signin
+      authSignIn: http://authentication-service:8080/auth/signin?rd=
       
       # Skip SSL certificate verification
       skipInsecureVerify: true
@@ -138,7 +140,7 @@ gateway:
           rule:
             authUrl: http://authentik.company:9000:9000/outpost.goauthentik.io/auth/nginx
             # forward 
-            authSignIn: https://authentik.company:9000/outpost.goauthentik.io/start?rd=
+            authSignIn: http://authentik.company:9000/outpost.goauthentik.io/start?rd=
             # Optional
             authResponseHeaders:
                 - X-authentik-username
