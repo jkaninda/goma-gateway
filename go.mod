@@ -4,7 +4,7 @@ go 1.23.2
 
 require (
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
-	github.com/fsnotify/fsnotify v1.8.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-acme/lego/v4 v4.22.2
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
