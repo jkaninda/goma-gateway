@@ -343,11 +343,11 @@ func initConfig(configFile string) error {
 	}
 	yamlData, err := yaml.Marshal(&conf)
 	if err != nil {
-		return fmt.Errorf("serializing configuration %v\n", err.Error())
+		return fmt.Errorf("serializing configuration %v", err.Error())
 	}
 	err = os.WriteFile(configFile, yamlData, 0644)
 	if err != nil {
-		return fmt.Errorf("unable to write config file %s\n", err)
+		return fmt.Errorf("unable to write config file %s", err)
 	}
 	return nil
 }

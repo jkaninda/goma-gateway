@@ -127,7 +127,7 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 			return fmt.Errorf("route [%s] has en empty path", route.Name)
 		}
 		if route.Destination == "" && len(route.Backends) == 0 {
-			return fmt.Errorf("Error: no destination or backends specified for route: %s ", route.Name)
+			return fmt.Errorf("no destination or backends specified for route: %s ", route.Name)
 		}
 		// checking middleware applied to routes
 		for _, middleware := range route.Middlewares {
