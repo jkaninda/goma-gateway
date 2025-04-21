@@ -41,7 +41,12 @@ func (gatewayServer GatewayServer) watchExtraConfig(r Router) {
 	// Add the directory to the watcher
 	err = watcher.Add(directory)
 	if err != nil {
-		logger.Fatal("Failed to watch directory: %v", err)
+		logger.Error("Failed to watch directory: %v", err)
+		err = watcher.Close()
+		if err != nil {
+			logger.Error("Failed to close watcher: %v", err)
+		}
+		return
 	}
 	// Create a channel to receive events
 	done := make(chan bool)
