@@ -10,7 +10,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/mux v1.8.1
 	github.com/jkaninda/go-utils v0.1.1
-	github.com/lestrrat-go/jwx/v2 v2.1.5
+	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/robfig/cron/v3 v3.0.1
@@ -38,7 +38,6 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.3 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
