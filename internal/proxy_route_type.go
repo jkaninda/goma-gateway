@@ -15,21 +15,17 @@
  *
  */
 
-package cmd
+package internal
 
-import (
-	"github.com/jkaninda/goma-gateway/internal/version"
-	"github.com/spf13/cobra"
-)
-
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Run: func(cmd *cobra.Command, args []string) {
-		appVersion()
-	},
-}
-
-func appVersion() {
-	version.FullVersion()
+type ProxyRoute struct {
+	name                  string
+	path                  string
+	rewrite               string
+	destination           string
+	weightedBased         bool
+	backends              Backends
+	methods               []string
+	cors                  Cors
+	disableHostForwarding bool
+	insecureSkipVerify    bool
 }

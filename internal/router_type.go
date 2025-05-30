@@ -15,21 +15,24 @@
  *
  */
 
-package cmd
+package internal
 
 import (
-	"github.com/jkaninda/goma-gateway/internal/version"
-	"github.com/spf13/cobra"
+	"github.com/gorilla/mux"
+	"net/http"
+	"sync"
 )
 
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Run: func(cmd *cobra.Command, args []string) {
-		appVersion()
-	},
+type Router interface {
+	AddRoute(route Route)
+	AddRoutes(router2 Router)
+	Mux() http.Handler
+	UpdateHandler(Gateway)
+	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 
-func appVersion() {
-	version.FullVersion()
+type router struct {
+	mux           *mux.Router
+	enableMetrics bool
+	sync.RWMutex
 }

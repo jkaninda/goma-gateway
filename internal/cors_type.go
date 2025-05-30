@@ -15,21 +15,23 @@
  *
  */
 
-package cmd
+package internal
 
-import (
-	"github.com/jkaninda/goma-gateway/internal/version"
-	"github.com/spf13/cobra"
-)
-
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Run: func(cmd *cobra.Command, args []string) {
-		appVersion()
-	},
-}
-
-func appVersion() {
-	version.FullVersion()
+type Cors struct {
+	// Cors Allowed origins,
+	// e.g:
+	//
+	// - http://localhost:80
+	//
+	// - https://example.com
+	Origins []string `yaml:"origins"`
+	//
+	// e.g:
+	//
+	// Access-Control-Allow-Origin: '*'
+	//
+	//    Access-Control-Allow-Methods: 'GET, POST, PUT, DELETE, OPTIONS'
+	//
+	//    Access-Control-Allow-Cors: 'Content-Type, Authorization'
+	Headers map[string]string `yaml:"headers"`
 }
