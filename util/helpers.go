@@ -313,3 +313,20 @@ func ParseRanges(rangeStrings []string) ([]int, error) {
 	}
 	return result, nil
 }
+
+// TODO: To remove
+
+// RemoveDuplicates Duplicated
+func RemoveDuplicates[T comparable](elements []T) []T {
+	encountered := make(map[T]bool)
+	result := make([]T, 0, len(elements))
+
+	for _, elem := range elements {
+		if !encountered[elem] {
+			encountered[elem] = true
+			result = append(result, elem)
+		}
+	}
+
+	return result
+}

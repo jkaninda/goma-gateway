@@ -191,3 +191,12 @@ func validateEntrypoint(entrypoint string) bool {
 
 	return true
 }
+func allowedOrigin(origins []string, origin string) bool {
+	for _, o := range origins {
+		if o == "*" || o == origin {
+			return true
+		}
+	}
+	return false
+
+}

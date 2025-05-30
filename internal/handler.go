@@ -29,33 +29,84 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
 
-// CORSHandler handles CORS headers for incoming requests
+// CORSHandler creates a middleware function that handles CORS headers for incoming requests
+// It dynamically adds CORS headers to responses based on the provided Cors configuration
 //
-// Adds CORS headers to the response dynamically based on the provided headers map[string]string
+// Parameters:
+//   - cors: Cors configuration containing all CORS settings
+//
+// Returns:
+//   - mux.MiddlewareFunc: A middleware function that can be used with gorilla/mux router
 func CORSHandler(cors Cors) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Set CORS headers from the cors config
-			// Update Cors Headers
-			for k, v := range cors.Headers {
-				w.Header().Set(k, v)
+			// Get the origin from the request headers
+			origin := r.Header.Get("Origin")
+
+			// Skip CORS handling if the origin is not allowed
+			if !allowedOrigin(cors.Origins, origin) {
+				next.ServeHTTP(w, r)
+				return // Important to return here to prevent further processing
 			}
-			// Update Origin Cors Headers
-			if allowedOrigin(cors.Origins, r.Header.Get("Origin")) {
-				// Handle preflight requests (OPTIONS)
-				if r.Method == "OPTIONS" {
-					w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
-					w.WriteHeader(http.StatusNoContent)
-					return
-				} else {
-					w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
+
+			h := w.Header()
+
+			// Always set the allowed origin (either the specific origin or *)
+			h.Set(AccessControlAllowOrigin, origin)
+
+			// Set custom headers from the configuration
+			for k, v := range cors.Headers {
+				if _, ok := h[AccessControlAllowOrigin]; !ok {
+					w.Header().Set(k, v)
 				}
 			}
-			// Pass the request to the next handler
+
+			// Set allow credentials header if configured
+			if cors.AllowCredentials {
+				h.Set(AccessControlAllowCredentials, "true")
+			}
+
+			// Handle allowed headers
+			if len(cors.AllowedHeaders) > 0 {
+				// Use configured allowed headers if specified
+				h.Set(AccessControlAllowHeaders, strings.Join(cors.AllowedHeaders, ", "))
+			} else if reqHeaders := r.Header.Get("Access-Control-Request-Headers"); reqHeaders != "" {
+				// Fall back to request headers if no configuration provided
+				h.Set(AccessControlAllowHeaders, reqHeaders)
+			}
+
+			// Handle allowed methods
+			if len(cors.AllowMethods) > 0 {
+				// Use configured allowed methods if specified
+				h.Set(AccessControlAllowMethods, strings.Join(cors.AllowMethods, ", "))
+			} else if reqMethod := r.Header.Get("Access-Control-Request-Method"); reqMethod != "" {
+				// Fall back to request method if no configuration provided
+				h.Set(AccessControlAllowMethods, reqMethod)
+			}
+
+			// Set exposed headers if configured
+			if len(cors.ExposeHeaders) > 0 {
+				h.Set(AccessControlExposeHeaders, strings.Join(cors.ExposeHeaders, ", "))
+			}
+
+			// Set max age for preflight cache if configured
+			if cors.MaxAge > 0 {
+				h.Set(AccessControlMaxAge, strconv.Itoa(cors.MaxAge))
+			}
+
+			// Handle preflight (OPTIONS) requests
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return // End the request for OPTIONS
+			}
+
+			// Continue to the next handler for non-OPTIONS requests
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -129,16 +180,6 @@ func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *
 	if err != nil {
 		return
 	}
-}
-func allowedOrigin(origins []string, origin string) bool {
-	for _, o := range origins {
-		if o == origin {
-			return true
-		}
-		continue
-	}
-	return false
-
 }
 
 // callbackHandler handles oauth callback

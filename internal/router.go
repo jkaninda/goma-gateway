@@ -23,6 +23,7 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"time"
@@ -86,6 +87,10 @@ func (r *router) AddRoute(route Route) {
 	if route.DisableHostForwarding {
 		logger.Debug("Route %s: host forwarding disabled", route.Name)
 	}
+	// Add route methods to Cors Allowed methods
+	route.Cors.AllowMethods = append(route.Cors.AllowMethods, route.Methods...)
+	// Remove duplicated methods
+	route.Cors.AllowMethods = util.RemoveDuplicates(route.Cors.AllowMethods)
 
 	proxyRoute := ProxyRoute{
 		name:                  route.Name,

@@ -283,12 +283,11 @@ func initConfig(configFile string) error {
 						},
 					},
 					Cors: Cors{
-						Origins: []string{"http://localhost:3000", "https://dev.example.com"},
-						Headers: map[string]string{
-							"Access-Control-Allow-Headers":     "Origin, Authorization",
-							"Access-Control-Allow-Credentials": "true",
-							"Access-Control-Max-Age":           "1728000",
-						},
+						Origins:          []string{"http://localhost:3000", "https://dev.example.com"},
+						Headers:          map[string]string{},
+						MaxAge:           1728000,
+						AllowCredentials: true,
+						AllowedHeaders:   []string{"Origin", "Authorization"},
 					},
 					Middlewares: []string{"basic-auth", "block-access"},
 				},
