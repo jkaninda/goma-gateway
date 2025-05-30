@@ -20,8 +20,9 @@ Goma Gateway is a lightweight High-Performance Declarative API Gateway Managemen
 ![Docker Pulls](https://img.shields.io/docker/pulls/jkaninda/goma-gateway?style=flat-square)
 
 
-<img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Goma logo">
-
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Okapi logo">
+</p>
 ----
 
 Architecture:
