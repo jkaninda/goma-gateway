@@ -9,7 +9,7 @@
   \_____|\___/|_| |_| |_|\__,_|
                                
 ```
-Goma Gateway is a lightweight High-Performance Declarative API Gateway Management.
+---
 
 [![Tests](https://github.com/jkaninda/goma-gateway/actions/workflows/test.yml/badge.svg)](https://github.com/jkaninda/goma-gateway/actions/workflows/test.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jkaninda/goma-gateway)](https://goreportcard.com/report/github.com/jkaninda/goma-gateway)
@@ -19,11 +19,16 @@ Goma Gateway is a lightweight High-Performance Declarative API Gateway Managemen
 ![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/jkaninda/goma-gateway?style=flat-square)
 ![Docker Pulls](https://img.shields.io/docker/pulls/jkaninda/goma-gateway?style=flat-square)
 
+Goma Gateway is a lightweight High-Performance Declarative API Gateway Management.
+
+
+The project is named after Goma, a vibrant city located in the eastern region of the Democratic Republic of the Congo — known for its resilience, beauty, and energy.
+
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Okapi logo">
 </p>
-----
+
 
 Architecture:
 
@@ -38,7 +43,7 @@ Architecture:
 
 ### [Documentation](https://jkaninda.github.io/goma-gateway)
 
-
+---
 ## Features
 
 It's designed to be straightforward and efficient, offering a rich set of features, including:
