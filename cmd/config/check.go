@@ -19,7 +19,7 @@ package config
 
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/pkg"
+	"github.com/jkaninda/goma-gateway/internal"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -34,7 +34,7 @@ var CheckConfigCmd = &cobra.Command{
 			fmt.Println("no config file specified")
 			os.Exit(1)
 		}
-		err := pkg.CheckConfig(configFile)
+		err := internal.CheckConfig(configFile)
 		if err != nil {
 			fmt.Printf(" Error checking config file: %s\n", err)
 			os.Exit(1)

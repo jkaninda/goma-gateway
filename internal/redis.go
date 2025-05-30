@@ -15,21 +15,25 @@
  *
  */
 
-package cmd
+package internal
 
 import (
-	"github.com/jkaninda/goma-gateway/internal/version"
-	"github.com/spf13/cobra"
+	"github.com/jkaninda/goma-gateway/internal/logger"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Run: func(cmd *cobra.Command, args []string) {
-		appVersion()
-	},
+func (gatewayServer GatewayServer) initRedis() {
+	if len(gatewayServer.gateway.Redis.Addr) != 0 {
+		logger.Info("Initializing Redis...")
+		middlewares.InitRedis(gatewayServer.gateway.Redis.Addr, gatewayServer.gateway.Redis.Password)
+	}
+
 }
 
-func appVersion() {
-	version.FullVersion()
+func (gatewayServer GatewayServer) closeRedis() {
+	if middlewares.RedisClient != nil {
+		if err := middlewares.RedisClient.Close(); err != nil {
+			logger.Error("Error closing Redis: %v", err)
+		}
+	}
 }

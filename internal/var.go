@@ -15,21 +15,18 @@
  *
  */
 
-package cmd
+package internal
 
-import (
-	"github.com/jkaninda/goma-gateway/internal/version"
-	"github.com/spf13/cobra"
+var (
+	counter uint32
+	// dynamicRoutes routes
+	dynamicRoutes      []Route
+	dynamicMiddlewares []Middleware
+	redisBased         = false
+	stopChan           = make(chan struct{})
+	reloaded           = false
+	webAddress         = ":8080"
+	webSecureAddress   = ":8443"
 )
 
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Run: func(cmd *cobra.Command, args []string) {
-		appVersion()
-	},
-}
-
-func appVersion() {
-	version.FullVersion()
-}
+type contextKey string
