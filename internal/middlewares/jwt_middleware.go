@@ -18,83 +18,55 @@ package middlewares
 
 import (
 	"fmt"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/jkaninda/goma-gateway/internal/logger"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"net/http"
+	"strings"
 )
 
-// AuthMiddleware authenticates the client using JWT
 func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
-		if isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
-			// Get the token from the Authorization header
-			authHeader, valid := validateHeaders(r, jwtAuth.Origins, w, r, contentType)
-			if !valid {
-				return
-			}
-			tokenStr := authHeader[7:]
 
-			var keyFunc jwt.Keyfunc
-
-			if jwtAuth.JwksUrl != "" {
-				// Fetch JWK Set
-				set, err := jwk.Fetch(r.Context(), jwtAuth.JwksUrl)
-				if err != nil {
-					logger.Error("Failed to fetch JWK set: %v", err)
-					RespondWithError(w, r, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), jwtAuth.Origins, contentType)
-					return
-				}
-				// Define key function for JWK
-				keyFunc = func(token *jwt.Token) (interface{}, error) {
-					kid, ok := token.Header["kid"].(string)
-					if !ok {
-						return nil, fmt.Errorf("kid not found in token header")
-					}
-
-					key, found := set.LookupKeyID(kid)
-					if !found {
-						return nil, fmt.Errorf("key with kid %q not found", kid)
-					}
-
-					var rawKey interface{}
-					if err = key.Raw(&rawKey); err != nil {
-						return nil, fmt.Errorf("failed to extract raw key: %w", err)
-					}
-					return rawKey, nil
-				}
-			} else if jwtAuth.Secret != "" {
-				// Define key function for static secret
-				keyFunc = func(token *jwt.Token) (interface{}, error) {
-					return []byte(jwtAuth.Secret), nil
-				}
-			} else if jwtAuth.RsaKey != nil {
-				// Define key function for RSA public key
-				keyFunc = func(token *jwt.Token) (interface{}, error) {
-					return jwtAuth.RsaKey, nil
-				}
-			} else {
-				logger.Error("No jwksURL, secret, or key provided")
-				RespondWithError(w, r, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), jwtAuth.Origins, contentType)
-
-				return
-			}
-
-			// Parse and validate JWT
-			token, err := jwt.Parse(tokenStr, keyFunc)
-			if err != nil {
-				RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), jwtAuth.Origins, contentType)
-				return
-			}
-
-			// Optional: Validate claims
-			if !token.Valid {
-				logger.Error("invalid token")
-				RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), jwtAuth.Origins, contentType)
-				return
-			}
+		if !isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
+			next.ServeHTTP(w, r)
+			return
 		}
+
+		authHeader, ok := validateHeaders(r, jwtAuth.Origins, w, r, contentType)
+		if !ok {
+			return
+		}
+
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			RespondWithError(w, r, http.StatusUnauthorized, "Missing Bearer prefix", jwtAuth.Origins, contentType)
+			return
+		}
+
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+
+		keyFunc, err := jwtAuth.resolveKeyFunc()
+		if err != nil {
+			logger.Error("Failed to resolve key function: %v", err)
+			RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), jwtAuth.Origins, contentType)
+			return
+		}
+
+		token, err := jwt.Parse(tokenStr, keyFunc, jwt.WithValidMethods([]string{"RS256", "HS256"}), jwt.WithAudience("your-audience"), jwt.WithIssuer("your-issuer"))
+		if err != nil {
+			logger.Error("Invalid token: %v", err)
+			RespondWithError(w, r, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), jwtAuth.Origins, contentType)
+			return
+		}
+
+		if !token.Valid {
+			logger.Error("Token is invalid")
+			RespondWithError(w, r, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), jwtAuth.Origins, contentType)
+			return
+		}
+
+		// You can inject token claims into context here if needed.
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -113,4 +85,35 @@ func validateHeaders(r *http.Request, origins []string, w http.ResponseWriter, r
 	}
 
 	return authHeader, true
+}
+func (jwtAuth JwtAuth) resolveKeyFunc() (jwt.Keyfunc, error) {
+	if jwtAuth.JwksUrl != "" {
+		// Manual JWKS fetch
+		return func(token *jwt.Token) (interface{}, error) {
+			kid, ok := token.Header["kid"].(string)
+			if !ok {
+				return nil, fmt.Errorf("missing 'kid' in JWT header")
+			}
+			// You can cache this JWKS response for performance
+			jwks, err := fetchJWKS(jwtAuth.JwksUrl)
+			if err != nil {
+				return nil, err
+			}
+			return jwks.getKey(kid)
+		}, nil
+	}
+
+	if jwtAuth.Secret != "" {
+		return func(token *jwt.Token) (interface{}, error) {
+			return []byte(jwtAuth.Secret), nil
+		}, nil
+	}
+
+	if jwtAuth.RsaKey != nil {
+		return func(token *jwt.Token) (interface{}, error) {
+			return jwtAuth.RsaKey, nil
+		}, nil
+	}
+
+	return nil, fmt.Errorf("no JWT secret, RSA key, or JWKS URL configured")
 }

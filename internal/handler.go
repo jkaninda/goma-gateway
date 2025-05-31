@@ -190,34 +190,29 @@ func (oauthRuler *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r
 		http.Error(w, "Invalid state", http.StatusBadRequest)
 		return
 	}
-	// Exchange the authorization code for an access token
 	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "Missing code", http.StatusBadRequest)
+		return
+	}
+	// Exchange the authorization code for an access token
 	token, err := oauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		logger.Error("Failed to exchange token: %v", err.Error())
 		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
 		return
 	}
-
-	// Get user info from the token
-	userInfo, err := oauthRuler.getUserInfo(token)
-	if err != nil {
-		logger.Error("Error getting user info: %v", err)
-		http.Error(w, "Error getting user info: ", http.StatusInternalServerError)
-		return
-	}
-	// Generate JWT with user's email
-	jwtToken, err := middlewares.CreateJWT(userInfo.Email, oauthRuler.JWTSecret)
-	if err != nil {
-		logger.Error("Error creating JWT: %v", err)
-		http.Error(w, "Error creating JWT ", http.StatusInternalServerError)
-		return
-	}
-	// Save token to a cookie for simplicity
 	http.SetCookie(w, &http.Cookie{
-		Name:  "goma.oauth",
-		Value: jwtToken,
-		Path:  oauthRuler.CookiePath,
+		Name:     "access_token",
+		Value:    token.AccessToken,
+		Path:     oauthRuler.CookiePath,
+		HttpOnly: true,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    token.RefreshToken,
+		Path:     oauthRuler.CookiePath,
+		HttpOnly: true,
 	})
 
 	// Redirect to the home page or another protected route

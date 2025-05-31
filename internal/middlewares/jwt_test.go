@@ -16,24 +16,3 @@
  */
 
 package middlewares
-
-import (
-	"log"
-	"testing"
-)
-
-func TestCreateJWT(t *testing.T) {
-	jwtSecret := "MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo"
-	jwtToken, err := CreateJWT("user@example.com", jwtSecret)
-	if err != nil {
-		t.Fatalf("Error creating JWT token")
-	}
-	log.Println(jwtToken)
-	ok, err := validateJWT(jwtToken, jwtSecret)
-	if err != nil {
-		t.Fatalf("Erro validating JWT token")
-	}
-	if ok {
-		log.Println("Validated")
-	}
-}
