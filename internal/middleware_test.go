@@ -73,7 +73,6 @@ func TestMiddleware(t *testing.T) {
 				ClientID:     "xxx",
 				ClientSecret: "xxx",
 				Provider:     "google",
-				JWTSecret:    "your-strong-jwt-secret | It's optional",
 				RedirectURL:  "http://localhost:8080/callback",
 				Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
 					"https://www.googleapis.com/auth/userinfo.profile"},

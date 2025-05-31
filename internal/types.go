@@ -80,13 +80,13 @@ type OauthRulerMiddleware struct {
 	// Scope specifies optional requested permissions.
 	Scopes []string `yaml:"scopes"`
 	// contains filtered or unexported fields
-	State     string `yaml:"state"`
-	JWTSecret string `yaml:"jwtSecret"`
+	State string `yaml:"state"`
 }
 type OauthEndpoint struct {
 	AuthURL     string `yaml:"authUrl"`
 	TokenURL    string `yaml:"tokenUrl"`
 	UserInfoURL string `yaml:"userInfoUrl"`
+	JwksURL     string `yaml:"jwksUrl"`
 }
 
 type RateLimitRuleMiddleware struct {

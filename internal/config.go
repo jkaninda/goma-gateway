@@ -452,7 +452,6 @@ func oauthRulerMiddleware(oauth middlewares.Oauth) *OauthRulerMiddleware {
 		RedirectURL:  oauth.RedirectURL,
 		State:        oauth.State,
 		Scopes:       oauth.Scopes,
-		JWTSecret:    oauth.JWTSecret,
 		Provider:     oauth.Provider,
 		Endpoint: OauthEndpoint{
 			AuthURL:     oauth.Endpoint.AuthURL,

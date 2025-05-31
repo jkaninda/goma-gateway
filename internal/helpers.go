@@ -18,15 +18,11 @@
 package internal
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/logger"
 	"golang.org/x/net/http/httpguts"
-	"golang.org/x/oauth2"
-	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -67,31 +63,6 @@ func getRealIP(r *http.Request) string {
 
 	// Return the raw remote address as a last resort.
 	return r.RemoteAddr
-}
-
-// getUserInfo returns struct of UserInfo
-func (oauthRuler *OauthRulerMiddleware) getUserInfo(token *oauth2.Token) (UserInfo, error) {
-	oauthConfig := oauth2Config(oauthRuler)
-	// Call the user info endpoint with the token
-	client := oauthConfig.Client(context.Background(), token)
-	resp, err := client.Get(oauthRuler.Endpoint.UserInfoURL)
-	if err != nil {
-		return UserInfo{}, err
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			return
-		}
-	}(resp.Body)
-
-	// Parse the user info
-	var userInfo UserInfo
-	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-		return UserInfo{}, err
-	}
-
-	return userInfo, nil
 }
 
 // validateIPAddress checks if the input is a valid IP address (IPv4 or IPv6)

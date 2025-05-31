@@ -412,8 +412,12 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router
 		logger.Error("Error: %s", err.Error())
 		return
 	}
-
+	redirectPath := oauth.RedirectPath
 	redirectURL := "/callback" + route.Path
+	cookiePath := oauth.CookiePath
+	if cookiePath == "" {
+		cookiePath = route.Path
+	}
 	if oauth.RedirectURL != "" {
 		redirectURL = oauth.RedirectURL
 	}
@@ -429,17 +433,17 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router
 			AuthURL:     oauth.Endpoint.AuthURL,
 			TokenURL:    oauth.Endpoint.TokenURL,
 			UserInfoURL: oauth.Endpoint.UserInfoURL,
+			JwksURL:     oauth.Endpoint.JwksURL,
 		},
-		State:     oauth.State,
-		Origins:   route.Cors.Origins,
-		JWTSecret: oauth.JWTSecret,
-		Provider:  oauth.Provider,
+		State:      oauth.State,
+		Origins:    route.Cors.Origins,
+		CookiePath: cookiePath,
+		Provider:   oauth.Provider,
 	}
 
 	oauthRuler := oauthRulerMiddleware(amw)
-	if oauthRuler.CookiePath == "" {
-		oauthRuler.CookiePath = route.Path
-	}
+	oauthRuler.RedirectPath = redirectPath
+	oauthRuler.CookiePath = cookiePath
 	if oauthRuler.RedirectPath == "" {
 		oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
 	}
