@@ -241,7 +241,9 @@ middlewares:
       - /*
     rule:
       users: 
-      - admin:admin
+        - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia # bcrypt hash
+        - user:password # Plaintext password
+      
 ```
 
 ```shell
