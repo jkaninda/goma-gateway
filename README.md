@@ -198,52 +198,58 @@ Goma Gateway provides the following health check endpoints:
 
 Here’s an example of deploying Goma Gateway using Docker Compose:
 
+Create a file named `config.yaml`:
+
 ```yaml
-# config.yaml
 version: 2
 gateway:
-  writeTimeout: 15
-  readTimeout: 15
-  idleTimeout: 30
+  # Timeout settings (in seconds)
+  writeTimeout: 15 
+  readTimeout: 15 
+  idleTimeout: 30 
+  # Route definitions
   routes:
-    - path: /
-      name: example
-      disabled: false
-      hosts: []
-      rewrite: ''
-      destination: https://example.com
-      disableHostForwarding: true
-      cors: {}
+    # First route definition - simple proxy to example.com
+    - path: /                # Base path to match
+      name: example           # Descriptive name for the route
+      disabled: false         # Whether the route is disabled
+      rewrite: ''             # Path rewrite rule (empty means no rewrite)
+      destination: https://example.com  # Target URL for this route
+      disableHostForwarding: true  # Don't forward the original host header
+      cors: {}                # CORS settings (empty means default/disabled)
       middlewares:
-        - basic-auth
-    - name: load-balancer
-      path: /load-balancer
-      disabled: false
-      hosts: []
-      rewrite: /
-      backends:
-       - endpoint: https://backend1.example.com
-         weight: 1 # Optional can be omitted
-       - endpoint:  https://backend2.example.com
-         weight: 3 # Optional can be omitted
+        - basic-auth          # Apply basic authentication middleware
+    # Second route definition
+    - name: api             
+      path: /                 
+      disabled: false       
+      hosts:                  # Host-based routing (virtual hosting)
+        - app.example.com    # Only match requests for this host
+      rewrite: /              
+      backends:               # Load balancing backends
+        - endpoint: https://api-1.example.com  
+          weight: 1           
+        - endpoint: https://api-2.example.com  
+          weight: 3           
       healthCheck:
-       path: /
-       interval: 15s
-       timeout: 10s
-       healthyStatuses:
-         - 200
-         - 404
-      middlewares: []
+        path: /
+        interval: 15s
+        timeout: 10s 
+        healthyStatuses:       
+          - 200
+          - 404
+      middlewares: []         # No middlewares for this route
+
+# Middleware definitions
 middlewares:
-  - name: basic-auth
-    type: basic
+  - name: basic-auth          # Middleware identifier
+    type: basic               # Middleware type (basic auth)
     paths:
-      - /*
+      - /*                    # Apply to all paths
     rule:
-      users: 
-        - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia # bcrypt hash
-        - user:password # Plaintext password
-      
+      users:                  # Authorized users
+        - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia
+        - user:password
 ```
 
 ```shell
