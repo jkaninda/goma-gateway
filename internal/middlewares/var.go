@@ -24,6 +24,11 @@ import (
 	"regexp"
 )
 
+const (
+	GomaAccessToken  = "goma_access_token"
+	GomaRefreshToken = "goma_refresh_token"
+)
+
 // SQL injection, path traversal, and XSS patterns
 var (
 	sqlPatterns       = regexp.MustCompile(`(?i)(union|select|drop|insert|delete|update|create|alter|exec|;|--)`)

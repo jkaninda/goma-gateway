@@ -25,7 +25,11 @@ const (
 	gatewayName                          = "Goma Gateway"
 	applicationJson                      = "application/json"
 	CertsPath                            = ConfigDir + "certs"
-	requestStartTimerKey      contextKey = "__requestStartTimer__"
+	CtxRequestStartTime       contextKey = "requestStartTime"
+	CtxRequestIDHeader        contextKey = "requestID"
+	RequestIDHeader                      = "X-Goma-Request-ID"
+	GomaAccessToken                      = "goma_access_token"
+	GomaRefreshToken                     = "goma_refresh_token"
 	StatusClientClosedRequest            = 499
 )
 

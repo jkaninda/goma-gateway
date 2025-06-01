@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	goutils "github.com/jkaninda/go-utils"
-	"golang.org/x/net/http/httpguts"
 	"net"
 	"net/http"
 	"strconv"
@@ -107,13 +106,13 @@ func scheme(r *http.Request) string {
 
 // isWebSocketRequest checks if the request is a WebSocket request
 func isWebSocketRequest(r *http.Request) bool {
-	return httpguts.HeaderValuesContainsToken(r.Header["Connection"], "Upgrade") &&
-		strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
+	return r.Header.Get("Upgrade") == "websocket" && r.Method == http.MethodGet
+
 }
 
 func isSSE(r *http.Request) bool {
-	return httpguts.HeaderValuesContainsToken(r.Header["Accept"], "text/event-stream") ||
-		strings.EqualFold(r.Header.Get("Content-Type"), "text/event-stream")
+	return r.Header.Get("Accept") == "text/event-stream" && r.Method == http.MethodGet
+
 }
 
 func hasPositivePriority(r []Route) bool {

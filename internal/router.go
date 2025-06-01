@@ -50,12 +50,18 @@ func (r *router) AddRoutes(rt Router) {
 }
 
 // ServeHTTP handles incoming HTTP requests.
-func (r *router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.RLock()
 	defer r.RUnlock()
-	ctx := context.WithValue(request.Context(), requestStartTimerKey, time.Now())
-	request = request.WithContext(ctx)
-	r.mux.ServeHTTP(writer, request)
+
+	startTime := time.Now()
+	requestID := getRequestID(req)
+
+	ctx := context.WithValue(req.Context(), CtxRequestStartTime, startTime)
+	ctx = context.WithValue(ctx, CtxRequestIDHeader, requestID)
+
+	req = req.WithContext(ctx)
+	r.mux.ServeHTTP(w, req)
 }
 
 // UpdateHandler updates the router's handler based on the gateway configuration.

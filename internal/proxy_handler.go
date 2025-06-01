@@ -19,6 +19,7 @@ package internal
 
 import (
 	"bytes"
+	"github.com/google/uuid"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"io"
@@ -56,14 +57,10 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 func (h ProxyHandler) handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
+		requestID := getRequestID(r)
 
-		// Detect WebSocket Upgrade request
-		if isWebSocketRequest(r) {
-			next.ServeHTTP(w, r) // Directly proxy WebSocket connections
-			return
-		}
-		// Detect EventStream (Server-Sent Events)
-		if isSSE(r) {
+		if isWebSocketRequest(r) || isSSE(r) {
+			// Skip for WebSocket upgrades or Server-Sent Events
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -86,16 +83,31 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 		// Delete server header
 		rec.Header().Del("Server")
 		rec.Header().Set("Proxied-By", gatewayName)
+		rec.Header().Set(RequestIDHeader, requestID)
 
 		// Retrieve the request start time from context
-		if val := r.Context().Value(requestStartTimerKey); val != nil {
+		if val := r.Context().Value(CtxRequestStartTime); val != nil {
 			startTime = val.(time.Time)
+		}
+		if val := r.Context().Value(CtxRequestIDHeader); val != nil {
+			requestID = val.(string)
 		}
 		formatted := goutils.FormatDuration(time.Since(startTime), 1)
 
 		// No interception logic needed
 		if !h.Enabled || len(h.Errors) == 0 {
-			logger.Info("access", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", rec.statusCode, "duration", formatted, "route", h.Name, "content_length", contentLength, "user_agent", r.UserAgent())
+			logger.Info(
+				"Proxied request",
+				"method", r.Method,
+				"url", r.URL.Path,
+				"status", rec.statusCode,
+				"duration", formatted,
+				"route", h.Name,
+				"client_ip", getRealIP(r),
+				"request_id", requestID,
+				"content_length", contentLength,
+				"user_agent", r.UserAgent(),
+			)
 			// Copy recorded response to the client
 			writeResponse(w, rec)
 			return
@@ -103,13 +115,35 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 
 		// Check if the response should be intercepted
 		if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
-			logger.Error("access", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", rec.statusCode, "duration", formatted, "route", h.Name, "content_length", contentLength, "user_agent", r.UserAgent())
+			logger.Error(
+				"Proxied request resulted in error",
+				"method", r.Method,
+				"url", r.URL.Path,
+				"status", rec.statusCode,
+				"duration", formatted,
+				"route", h.Name,
+				"client_ip", getRealIP(r),
+				"request_id", requestID,
+				"content_length", contentLength,
+				"user_agent", r.UserAgent(),
+			)
 			middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
 			return
 		}
 
 		// Log and forward response
-		logger.Info("access", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", rec.statusCode, "duration", formatted, "route", h.Name, "content_length", contentLength, "user_agent", r.UserAgent())
+		logger.Info(
+			"Proxied request",
+			"method", r.Method,
+			"url", r.URL.Path,
+			"status", rec.statusCode,
+			"duration", formatted,
+			"route", h.Name,
+			"client_ip", getRealIP(r),
+			"request_id", requestID,
+			"content_length", contentLength,
+			"user_agent", r.UserAgent(),
+		)
 		writeResponse(w, rec)
 	})
 }
@@ -118,4 +152,12 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 func writeResponse(w http.ResponseWriter, rec *responseRecorder) {
 	w.WriteHeader(rec.statusCode)
 	_, _ = io.Copy(w, rec.body)
+}
+
+func getRequestID(r *http.Request) string {
+	requestID := r.Header.Get("X-Request-ID")
+	if requestID != "" {
+		return requestID
+	}
+	return uuid.NewString()
 }
