@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"io"
 	"math/big"
 	"net/http"
@@ -52,7 +51,7 @@ func fetchJWKS(jwksURL string) (*jwks, error) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			logger.Error("Error closing response body: %s", err)
+			logger.Error("Error closing response body", "error", err)
 		}
 	}(resp.Body)
 

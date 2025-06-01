@@ -20,9 +20,7 @@ package middlewares
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
 	"net/http"
@@ -48,8 +46,6 @@ func (oauth Oauth) AuthMiddleware(next http.Handler) http.Handler {
 		authRedirectURL := oauthConf.AuthCodeURL(oauth.State)
 		ctx := context.Background()
 		jwksURL := oauth.Endpoint.JwksURL
-		fmt.Println(jwksURL)
-
 		// Retrieve tokens from cookies
 		accessTokenCookie, err := r.Cookie("access_token")
 		refreshTokenCookie, _ := r.Cookie("refresh_token")

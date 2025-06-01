@@ -20,7 +20,6 @@ package internal
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
 	"math/rand"
@@ -101,7 +100,7 @@ func setCORSHeaders(w http.ResponseWriter, headers map[string]string) {
 // Returns true if the request is a preflight request and has been handled.
 func handlePreflight(proxyRoute ProxyRoute, w http.ResponseWriter, r *http.Request) bool {
 	if allowedOrigin(proxyRoute.cors.Origins, r.Header.Get("Origin")) {
-		logger.Debug("Handling preflight request for origin=%s", r.Header.Get("Origin"))
+		logger.Debug("Handling preflight request,", "origin", r.Header.Get("Origin"))
 		w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -135,7 +134,7 @@ func createProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w h
 func createSingleHostProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
 	backendURL, err := url.Parse(proxyRoute.destination)
 	if err != nil {
-		logger.Error("Error parsing backend URL: %s", err)
+		logger.Error("Error parsing backend URL", "error", err)
 		middlewares.RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, contentType)
 		return nil, err
 	}
@@ -194,7 +193,7 @@ func NewWeightedReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputil.
 	// Check if there are any available backends
 	availableBackend := proxyRoute.backends.AvailableBackend()
 	if len(availableBackend) == 0 {
-		logger.Error("No available backends for route=%s", proxyRoute.name)
+		logger.Error("No available backends", "route", proxyRoute.name)
 		return nil, fmt.Errorf("no available backends for route=%s", proxyRoute.name)
 	}
 
@@ -220,7 +219,7 @@ func NewRoundRobinReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputi
 	// Check if there are any available backends
 	availableBackend := proxyRoute.backends.AvailableBackend()
 	if len(availableBackend) == 0 {
-		logger.Error("No available backends for route=%s", proxyRoute.name)
+		logger.Error("No available backends", "route", proxyRoute.name)
 		return nil, fmt.Errorf("no available backends for route=%s", proxyRoute.name)
 	}
 

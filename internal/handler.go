@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"io"
 	"net"
@@ -124,15 +123,16 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 		startTime = val.(time.Time)
 	}
 	formatted := goutils.FormatDuration(time.Since(startTime), 1)
-	logger.Error("Proxy error: %v", err)
-	logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusBadGateway, formatted, r.UserAgent())
+	logger.Error("Proxy error", "error", err)
+	logger.Error("Proxy error", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", http.StatusBadGateway, "duration", formatted, "user_agent", r.UserAgent())
 
 	middlewares.RespondWithError(w, r, statusCode, fmt.Sprintf("%d %s ", statusCode, http.StatusText(statusCode)), nil, contentType)
 }
 
 // HealthCheckHandler handles health check of routes
 func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("method=%s url=%s client_ip=%s status=%d user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusOK, r.UserAgent())
+	logger.Info("healthcheck", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", http.StatusBadGateway, "user_agent", r.UserAgent())
+
 	healthRoutes := healthCheckRoutes(heathRoute.Routes)
 	wg := sync.WaitGroup{}
 	wg.Add(len(healthRoutes))
@@ -147,7 +147,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 					routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "unhealthy", Error: "Error: " + err.Error()})
 				}
 			} else {
-				logger.Debug("Route %s is healthy", health.Name)
+				logger.Debug("Route healthy", "route", health.Name)
 				routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "healthy", Error: ""})
 			}
 			defer wg.Done()
@@ -168,7 +168,7 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 	}
 }
 func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("method=%s url=%s client_ip=%s status=%d user_agent=%s", r.Method, r.URL.Path, getRealIP(r), http.StatusOK, r.UserAgent())
+	logger.Info("healthcheck", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", http.StatusOK, "user_agent", r.UserAgent())
 	response := HealthCheckRouteResponse{
 		Name:   "Service Gateway",
 		Status: "healthy",
@@ -198,7 +198,7 @@ func (oauthRuler *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r
 	// Exchange the authorization code for an access token
 	token, err := oauthConfig.Exchange(context.Background(), code)
 	if err != nil {
-		logger.Error("Failed to exchange token: %v", err.Error())
+		logger.Error("Failed to exchange token", "error", err)
 		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
 		return
 	}

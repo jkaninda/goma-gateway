@@ -19,6 +19,7 @@ package middlewares
 
 import (
 	"github.com/go-redis/redis_rate/v10"
+	"github.com/jkaninda/goma-gateway/internal/log"
 	"github.com/redis/go-redis/v9"
 	"regexp"
 )
@@ -32,6 +33,7 @@ var (
 var (
 	RedisClient *redis.Client
 	limiter     *redis_rate.Limiter
+	logger      = log.InitLogger().With("mod", "middleware")
 )
 
 // Paths of known bot user agents

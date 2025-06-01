@@ -20,7 +20,6 @@ package internal
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/robfig/cron/v3"
@@ -90,7 +89,7 @@ func (health Health) createHTTPClient() *http.Client {
 // closeResponseBody closes the response body and logs any errors
 func (health Health) closeResponseBody(body io.ReadCloser) {
 	if err := body.Close(); err != nil {
-		logger.Debug("Error closing HealthCheck response body: %v", err)
+		logger.Debug("Error closing HealthCheck response body", "error", err)
 	}
 }
 
@@ -113,12 +112,12 @@ func routesHealthCheck(routes []Route, stopChan chan struct{}) {
 			for {
 				select {
 				case <-stopChan:
-					logger.Debug("Stopping health check for route: %s", health.Name)
+					logger.Debug(fmt.Sprintf("Stopping health check for route: %s", health.Name))
 					return
 				default:
 					err := health.createHealthCheckJob(stopChan)
 					if err != nil {
-						logger.Error("Error creating healthcheck job: %v ", err)
+						logger.Error("Error creating healthcheck job ", "error", err)
 						return
 					}
 				}
@@ -137,7 +136,7 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 	// Create cron expression
 	expression := fmt.Sprintf("@every %s", interval)
 	if !util.IsValidCronExpression(expression) {
-		logger.Error("Health check interval is invalid: %s", interval)
+		logger.Error("Health check interval is invalid", "interval", interval)
 		logger.Info("Route health check ignored")
 		return fmt.Errorf("health check interval is invalid: %s", interval)
 	}
@@ -149,10 +148,10 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 	_, err := c.AddFunc(expression, func() {
 		err := health.Check()
 		if err != nil {
-			logger.Error("Route %s is unhealthy: %v", health.Name, err.Error())
+			logger.Error("Route is unhealthy,", "route", health.Name, "error", err)
 			return
 		}
-		logger.Debug("Route %s is healthy", health.Name)
+		logger.Debug("Route is healthy", "route", health.Name)
 	})
 	if err != nil {
 		return err
@@ -166,7 +165,7 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 
 	// Wait for a stop signal on the stopChan
 	<-stopChan
-	logger.Debug("Stopping health check job for route: %s", health.Name)
+	logger.Debug(fmt.Sprintf("Stopping health check job for route: %s", health.Name))
 	return nil
 }
 
@@ -179,7 +178,7 @@ func healthCheckRoutes(routes []Route) []Health {
 			if len(route.HealthCheck.Timeout) > 0 {
 				d1, err1 := util.ParseDuration(route.HealthCheck.Timeout)
 				if err1 != nil {
-					logger.Error("Health check timeout is invalid: %s", route.HealthCheck.Timeout)
+					logger.Error("Health check timeout is invalid", "timeout", route.HealthCheck.Timeout)
 				}
 				timeout = d1
 			}

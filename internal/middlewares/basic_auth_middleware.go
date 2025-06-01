@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strings"
@@ -103,12 +102,12 @@ func validateCredentials(parts []string, users []string) bool {
 	for index, user := range users {
 		u := strings.SplitN(user, ":", 2)
 		if len(parts) != 2 {
-			logger.Info("User %s is invalid", user)
+			logger.Debug("User is invalid", "user", user)
 			return false
 		}
 		ok, err := ValidatePassword(password, u[1])
 		if err != nil {
-			logger.Error("Error validating password: %v", err)
+			logger.Error("Error validating password", "error", err)
 			if len(users) == index {
 				return false
 

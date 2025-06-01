@@ -21,7 +21,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"github.com/jkaninda/goma-gateway/internal/logger"
+	"github.com/jkaninda/goma-gateway/internal/log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -36,11 +36,12 @@ func (gatewayServer GatewayServer) Start() error {
 	if err != nil {
 		logger.Fatal("Failed to initialize routes: %v", err)
 	}
+	logger = log.InitLogger()
 	// Create router
 	newRouter := gatewayServer.gateway.NewRouter()
 	newRouter.AddRoutes(newRouter)
 
-	logger.Debug("Routes count=%d, Middlewares count=%d", len(dynamicRoutes), len(dynamicMiddlewares))
+	logger.Debug("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
 	gatewayServer.initRedis()
 	defer gatewayServer.closeRedis()
 	// Configure TLS
@@ -89,16 +90,16 @@ func (gatewayServer GatewayServer) createServer(addr string, handler http.Handle
 
 func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Server) {
 	go func() {
-		logger.Info("Starting Web server on %s", webAddress)
+		logger.Info("Starting Web server on", "addr", webAddress)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("HTTP server error: %v", err)
 		}
 	}()
 
 	go func() {
-		logger.Info("Starting WebSecure server on %s ", webSecureAddress)
+		logger.Info("Starting WebSecure server on ", "addr", webSecureAddress)
 		if err := httpsServer.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatal("HTTPS server error: %v", err)
+			logger.Fatal("HTTPS server error", "error", err)
 		}
 	}()
 
@@ -114,11 +115,11 @@ func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server
 	defer cancel()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		logger.Error("Error shutting down HTTP server: %v", err)
+		logger.Error("Error shutting down HTTP server", "error", err)
 	}
 
 	if err := httpsServer.Shutdown(shutdownCtx); err != nil {
-		logger.Error("Error shutting down HTTPS server: %v", err)
+		logger.Error("Error shutting down HTTPS server", "error", err)
 	}
 
 	return nil

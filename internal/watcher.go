@@ -19,7 +19,6 @@ package internal
 
 import (
 	"github.com/fsnotify/fsnotify"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 )
 
 // watchExtraConfig watches the extra configuration directory for changes
@@ -27,13 +26,13 @@ func (gatewayServer GatewayServer) watchExtraConfig(r Router) {
 	// Create a new watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		logger.Error("Failed to create watcher: %v", err)
+		logger.Error("Failed to create watcher", "error", err)
 		return
 	}
 	defer func(watcher *fsnotify.Watcher) {
 		err = watcher.Close()
 		if err != nil {
-			logger.Fatal("Failed to close watcher: %v", err)
+			logger.Fatal("Failed to close watcher", "error", err)
 		}
 	}(watcher)
 	// Specify the directory to watch
@@ -41,10 +40,10 @@ func (gatewayServer GatewayServer) watchExtraConfig(r Router) {
 	// Add the directory to the watcher
 	err = watcher.Add(directory)
 	if err != nil {
-		logger.Error("Failed to watch directory: %v", err)
+		logger.Error("Failed to watch directory", "error", err)
 		err = watcher.Close()
 		if err != nil {
-			logger.Error("Failed to close watcher: %v", err)
+			logger.Error("Failed to close watcher", "error", err)
 		}
 		return
 	}
@@ -63,7 +62,7 @@ func (gatewayServer GatewayServer) watchExtraConfig(r Router) {
 					logger.Info("Configuration changes detected, backend reload required")
 					err = gatewayServer.Initialize()
 					if err != nil {
-						logger.Error("Failed to reload configuration: %v", err)
+						logger.Error("Failed to reload configuration", "error", err)
 					} else {
 						// Update the routes
 						r.UpdateHandler(gatewayServer.gateway)
@@ -74,7 +73,7 @@ func (gatewayServer GatewayServer) watchExtraConfig(r Router) {
 				if !ok {
 					return
 				}
-				logger.Error("Error: %v", err)
+				logger.Error("Error", "error", err)
 			}
 		}
 	}()

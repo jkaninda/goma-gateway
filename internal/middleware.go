@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
@@ -131,13 +130,13 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {
 	bodyLimitMid := &BodyLimitRuleMiddleware{}
 	if err := goutils.DeepCopy(bodyLimitMid, mid.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 	if len(bodyLimitMid.Limit) > 0 {
 		maxBytes, err := goutils.ConvertToBytes(bodyLimitMid.Limit)
 		if err != nil {
-			logger.Error("Error: %v, middleware not applied", err.Error())
+			logger.Error("Error middleware not applied", "error", err)
 		}
 		if maxBytes > 0 {
 			bodyLimitMiddleware := &middlewares.BodyLimit{MaxBytes: maxBytes}
@@ -150,11 +149,11 @@ func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {
 func applyRedirectSchemeMiddleware(mid Middleware, r *mux.Router) {
 	redirectSchemeMid := &RedirectSchemeRuleMiddleware{}
 	if err := goutils.DeepCopy(redirectSchemeMid, mid.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 	if err := redirectSchemeMid.validate(); err != nil {
-		logger.Error("Error: %s", err.Error())
+		logger.Error("Error", "error", err)
 		return
 	}
 	redirectSch := middlewares.RedirectScheme{
@@ -169,7 +168,7 @@ func applyRedirectSchemeMiddleware(mid Middleware, r *mux.Router) {
 func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 	httpCacheMid := &httpCacheRule{}
 	if err := goutils.DeepCopy(httpCacheMid, mid.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 	if httpCacheMid.MaxTtl == 0 {
@@ -178,7 +177,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 	mLimit := int64(0)
 	m, err := util.ConvertToBytes(httpCacheMid.MemoryLimit)
 	if err != nil {
-		logger.Error("Error httpCaching memoryLimit: %v", err)
+		logger.Error("Error httpCaching memoryLimit", "error", err)
 	}
 	mLimit = m
 	ttl := httpCacheMid.MaxTtl * int64(time.Second)
@@ -188,7 +187,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 
 	codes, err := util.ParseRanges(httpCacheMid.ExcludedResponseCodes)
 	if err != nil {
-		logger.Error("Error HttpCacheConfig excludedResponseCodes: %v ", err)
+		logger.Error("Error HttpCacheConfig excludedResponseCodes", "error", err)
 	}
 	httpCacheM := middlewares.HttpCacheConfig{
 		Path:                     route.Path,
@@ -209,7 +208,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
 	accessM := &AccessRuleMiddleware{}
 	if err := goutils.DeepCopy(accessM, mid.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error applying middleware", "error", err.Error())
 	}
 	blM := middlewares.AccessListMiddleware{
 		Path:       route.Path,
@@ -223,11 +222,11 @@ func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
 func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 	rateLimitMid := &RateLimitRuleMiddleware{}
 	if err := goutils.DeepCopy(rateLimitMid, mid.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 	if err := rateLimitMid.validate(); err != nil {
-		logger.Error("Error: %v", err.Error())
+		logger.Error(fmt.Sprintf("Error: %v", err.Error()))
 		return
 	}
 
@@ -250,11 +249,11 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router) {
 	a := &AccessPolicyRuleMiddleware{}
 	if err := goutils.DeepCopy(a, mid.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error applying middleware, middleware not applied", "error", err)
 		return
 	}
 	if err := a.validate(); err != nil {
-		logger.Error("Error: %v, middleware not applied", err)
+		logger.Error("Error applying middleware, middleware not applied", "error", err)
 		return
 	}
 
@@ -271,7 +270,7 @@ func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router
 func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
 	a := &AddPrefixRuleMiddleware{}
 	if err := goutils.DeepCopy(a, mid.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 	add := middlewares.AddPrefix{
@@ -282,7 +281,7 @@ func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
 func applyRewriteRegexMiddleware(mid Middleware, router *mux.Router) {
 	a := &RewriteRegexRuleMiddleware{}
 	if err := goutils.DeepCopy(a, mid.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 	add := middlewares.RewriteRegex{
@@ -305,7 +304,7 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Route
 		applyOAuthMiddleware(route, routeMiddleware, r)
 	default:
 		if !doesExist(routeMiddleware.Type) {
-			logger.Error("Unknown middleware type %s", routeMiddleware.Type)
+			logger.Error("Unknown middleware type, ", "type", routeMiddleware.Type)
 		}
 	}
 }
@@ -314,11 +313,11 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Route
 func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
 	basicAuth := &BasicRuleMiddleware{}
 	if err := goutils.DeepCopy(basicAuth, routeMiddleware.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 	if err := basicAuth.validate(); err != nil {
-		logger.Error("Error: %s", err.Error())
+		logger.Error("Error", "error", err)
 		return
 	}
 
@@ -342,18 +341,18 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 	var err error
 	jwt := &JWTRuleMiddleware{}
 	if err = goutils.DeepCopy(jwt, routeMiddleware.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 	if err = jwt.validate(); err != nil {
-		logger.Error("Error: %s", err.Error())
+		logger.Error("Error", "error", err.Error())
 		return
 	}
 	key := &rsa.PublicKey{}
 	if jwt.PublicKey != "" {
 		key, err = loadRSAPublicKey(jwt.PublicKey)
 		if err != nil {
-			logger.Error("Error JWT: %v", err)
+			logger.Error("Error JWT", "error", err)
 			return
 		}
 	}
@@ -375,11 +374,11 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
 	fAuth := &ForwardAuthRuleMiddleware{}
 	if err := goutils.DeepCopy(fAuth, routeMiddleware.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 	if err := fAuth.validate(); err != nil {
-		logger.Error("Error: %s", err.Error())
+		logger.Error("Error validating middleware", "error", err)
 		return
 	}
 
@@ -405,11 +404,11 @@ func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.
 func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
 	oauth := &OauthRulerMiddleware{}
 	if err := goutils.DeepCopy(oauth, routeMiddleware.Rule); err != nil {
-		logger.Error("Error: %v, middleware not applied", err.Error())
+		logger.Error("Error applying middleware, middleware not applied", "error", err)
 		return
 	}
 	if err := oauth.validate(); err != nil {
-		logger.Error("Error: %s", err.Error())
+		logger.Error("Error validating middleware", "error", err)
 		return
 	}
 	redirectPath := oauth.RedirectPath

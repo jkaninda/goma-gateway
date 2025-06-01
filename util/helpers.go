@@ -314,8 +314,6 @@ func ParseRanges(rangeStrings []string) ([]int, error) {
 	return result, nil
 }
 
-// TODO: To remove
-
 // RemoveDuplicates Duplicated
 func RemoveDuplicates[T comparable](elements []T) []T {
 	encountered := make(map[T]bool)

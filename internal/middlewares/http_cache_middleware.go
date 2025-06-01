@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/redis/go-redis/v9"
 	"net/http"
 	"slices"
@@ -106,7 +105,7 @@ func (c *Cache) GetTTL(ctx context.Context, key string) time.Duration {
 	if c.redisBased {
 		ttl, err := RedisClient.TTL(ctx, key).Result()
 		if err != nil {
-			logger.Error("Failed to get TTL %v ", err)
+			logger.Error("Failed to get TTL", "error", err)
 			return 0
 		}
 		return ttl
@@ -127,7 +126,7 @@ func (c *Cache) evictOldest() {
 	if c.redisBased {
 		// Remove from Redis.
 		RedisClient.Del(context.Background(), oldestKey)
-		logger.Debug("Evicted item with key: %s", oldestKey)
+		logger.Debug("Evicted item", "key", oldestKey)
 		return
 	}
 
@@ -163,7 +162,7 @@ func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]
 			return nil, "", time.Duration(0), false
 		} else if err != nil {
 			// Redis error.
-			logger.Error("Error retrieving item from Redis: %v", err)
+			logger.Error("Error retrieving item from Redis", "error", err)
 			return nil, "", time.Duration(0), false
 		}
 		// The item was found in Redis, retrieve the response and contentType.
@@ -173,14 +172,14 @@ func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]
 
 		// If any of the necessary fields are missing, return a cache miss.
 		if response == "" || contentType == "" || expiresAtStr == "" {
-			logger.Debug("Cache entry missing data for key: %s", key)
+			logger.Debug("Cache entry missing data for key", "key", key)
 			return nil, "", time.Duration(0), false
 		}
 
 		// Parse the expiration timestamp.
 		expiresAt, err := strconv.ParseInt(expiresAtStr, 10, 64)
 		if err != nil {
-			logger.Debug("Invalid expiresAt value for key: %s, error: %v", key, err)
+			logger.Debug("Invalid cache, cache expired", "key", key, "error", err)
 			return nil, "", time.Duration(0), false
 		}
 
@@ -290,7 +289,7 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 				}
 				writeCachedResponse(w, contentType, response, ttl, h.DisableCacheStatusHeader)
-				logger.Debug("Cache: served from cache: %s", r.URL.Path)
+				logger.Debug("Cache: served from cache", "path", r.URL.Path)
 				return
 			}
 			if !h.DisableCacheStatusHeader {
@@ -306,7 +305,7 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 
 		// Check if the response code is excluded from caching
 		if isExcludedResponseCode(rec.statusCode, h.ExcludedResponseCodes) {
-			logger.Debug("Status code %d is excluded from caching", rec.statusCode)
+			logger.Debug("Status code excluded from caching", "status", rec.statusCode)
 			return
 		}
 		// Handle cache invalidation and caching based on the request method and response status
@@ -318,15 +317,15 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *http.Request, rec *responseRecorder) {
 	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
 		if err := h.Cache.Delete(ctx, cacheKey); err != nil {
-			logger.Error("Failed to invalidate cache for key %s: %v", cacheKey, err)
+			logger.Error("Failed to invalidate cache", "key", cacheKey, "error", err)
 		}
-		logger.Debug("Cache invalidated: Status: %d", rec.statusCode)
+		logger.Debug("Cache invalidated", "status", rec.statusCode)
 		return
 	}
 
 	if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
 		if err := h.Cache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type")); err != nil {
-			logger.Error("Error saving response in cache: %v", err.Error())
+			logger.Error("Error saving response in cache", "error", err.Error())
 			return
 		}
 	}
@@ -342,7 +341,7 @@ func writeCachedResponse(w http.ResponseWriter, contentType string, response []b
 	}
 	_, err := w.Write(response)
 	if err != nil {
-		logger.Error("Failed to write cached response: %v", err)
+		logger.Error("Failed to write cached response", "error", err)
 	}
 }
 

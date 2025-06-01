@@ -19,7 +19,6 @@ package middlewares
 
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"net/http"
 	"time"
 )

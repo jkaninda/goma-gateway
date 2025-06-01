@@ -19,7 +19,6 @@ package internal
 
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -151,7 +150,7 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 	duplicates = findDuplicateRouteNames(dynamicRoutes)
 	if len(duplicates) != 0 {
 		for _, duplicate := range duplicates {
-			logger.Warn("Duplicated route name was found: %s ", duplicate)
+			logger.Warn("Duplicated route name was found", "route", duplicate)
 		}
 	}
 	return nil

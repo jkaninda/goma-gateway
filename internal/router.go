@@ -20,7 +20,6 @@ package internal
 import (
 	"context"
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
@@ -43,7 +42,7 @@ func (gateway Gateway) NewRouter() Router {
 func (r *router) AddRoutes(rt Router) {
 	for _, route := range dynamicRoutes {
 		if route.Disabled {
-			logger.Info("Proxies Route %s is disabled", route.Name)
+			logger.Info("Proxies Route is disabled", "route", route.Name)
 			continue
 		}
 		rt.AddRoute(route)
@@ -78,14 +77,14 @@ func (r *router) AddRoute(route Route) {
 	defer r.Unlock()
 
 	if len(route.Path) == 0 {
-		logger.Error("Error, path is empty in route %s", route.Name)
-		logger.Error("Route path ignored: %s", route.Path)
+		logger.Error("Error, path is empty in route", "route", route.Name)
+		logger.Error("Route path ignored", "path", route.Path)
 		return
 	}
 
 	rRouter := r.mux.PathPrefix(route.Path).Subrouter()
 	if route.DisableHostForwarding {
-		logger.Debug("Route %s: host forwarding disabled", route.Name)
+		logger.Debug("Host forwarding disabled", "route", route.Name)
 	}
 	// Add route methods to Cors Allowed methods
 	route.Cors.AllowMethods = append(route.Cors.AllowMethods, route.Methods...)
@@ -125,7 +124,7 @@ func (r *router) AddRoute(route Route) {
 	rRouter.Use(proxyHandler.handler)
 
 	if route.EnableBotDetection {
-		logger.Debug("Route %s: Bot detection enabled", route.Name)
+		logger.Debug("Bot detection enabled", "route", route.Name)
 		bot := middlewares.BotDetection{}
 		rRouter.Use(bot.BotDetectionMiddleware)
 	}

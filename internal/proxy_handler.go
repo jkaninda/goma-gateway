@@ -20,7 +20,6 @@ package internal
 import (
 	"bytes"
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"io"
 	"net/http"
@@ -96,7 +95,7 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 
 		// No interception logic needed
 		if !h.Enabled || len(h.Errors) == 0 {
-			logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, formatted, h.Name, r.UserAgent())
+			logger.Info("access", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", rec.statusCode, "duration", formatted, "route", h.Name, "content_length", contentLength, "user_agent", r.UserAgent())
 			// Copy recorded response to the client
 			writeResponse(w, rec)
 			return
@@ -104,13 +103,13 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 
 		// Check if the response should be intercepted
 		if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
-			logger.Error("method=%s url=%s client_ip=%s status=%d duration=%s route=%s content_length=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, formatted, h.Name, contentLength, r.UserAgent())
+			logger.Error("access", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", rec.statusCode, "duration", formatted, "route", h.Name, "content_length", contentLength, "user_agent", r.UserAgent())
 			middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
 			return
 		}
 
 		// Log and forward response
-		logger.Info("method=%s url=%s client_ip=%s status=%d duration=%s route=%s content_length=%s user_agent=%s", r.Method, r.URL.Path, getRealIP(r), rec.statusCode, formatted, h.Name, contentLength, r.UserAgent())
+		logger.Info("access", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", rec.statusCode, "duration", formatted, "route", h.Name, "content_length", contentLength, "user_agent", r.UserAgent())
 		writeResponse(w, rec)
 	})
 }
