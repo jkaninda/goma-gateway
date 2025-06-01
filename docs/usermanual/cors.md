@@ -19,23 +19,31 @@ CORS settings allow you to specify permitted origins and custom headers for secu
 ### Example: Global CORS Configuration
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   ...
-  cors:
+  cors: # Global CORS configuration (overrides global).
     origins:
-      - http://localhost:8080
-      - https://example.com
+      - http://localhost:3000
+      - https://dev.example.com
+    allowedHeaders:
+      - Origin
+      - Authorization
+      - X-Client-Id
+      - Content-Type
+      - Accept
     headers:
-      Access-Control-Allow-Credentials: "true"
-      Access-Control-Allow-Headers: Origin, Authorization, Accept, Content-Type, X-Client-Id
-      Access-Control-Max-Age: "1728000"
-      Access-Control-Allow-Origin: "*"
+      X-Session-Id: xxx-xxx-xx
+      Access-Control-Max-Age: 1728000
+    exposeHeaders: []
+    maxAge: 1728000
+    allowMethods: ["GET","POST"]
+    allowCredentials: true
 ```
 
 ### Example: Route Cors Configuration
 ```yaml
-version: 1.0
+version: 2
 gateway:
   ...
   routes:
@@ -45,12 +53,21 @@ gateway:
     destination: https://api.example.com
     disableHostFording: false
     blockCommonExploits: true
-    cors:
-      origins:
-        - http://localhost:8080
-        - https://example.com
-      headers:
-        Access-Control-Allow-Credentials: "true"
-        Access-Control-Allow-Headers: Origin, Authorization, Accept, Content-Type
-        Access-Control-Max-Age: "1728000"
+    cors: # Route-specific CORS configuration (overrides global).
+        origins:
+          - http://localhost:3000
+          - https://dev.example.com
+        allowedHeaders:
+          - Origin
+          - Authorization
+          - X-Client-Id
+          - Content-Type
+          - Accept
+        headers:
+          X-Session-Id: xxx-xxx-xx
+          Access-Control-Max-Age: 1728000
+        exposeHeaders: []
+        maxAge: 1728000
+        allowMethods: ["GET","POST"]
+        allowCredentials: true
 ```

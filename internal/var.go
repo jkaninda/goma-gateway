@@ -22,8 +22,7 @@ import (
 )
 
 var (
-	counter uint32
-	// dynamicRoutes routes
+	counter            uint32
 	dynamicRoutes      []Route
 	dynamicMiddlewares []Middleware
 	redisBased         = false

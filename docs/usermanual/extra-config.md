@@ -21,7 +21,7 @@ By using the **Extra Config** feature, you can split configurations into smaller
 To define extra routes, specify the configuration in the `gateway` section as shown below:
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   ...
   ## Add additional configuration

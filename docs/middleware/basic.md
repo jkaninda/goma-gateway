@@ -69,8 +69,7 @@ metadata:
 spec:
     type: basic
     paths:
-      - /admin # Blocks only /admin
-      - /admin/*  # Explicitly blocks /admin and all subpaths
+      - /admin  # Explicitly blocks /admin and all subpaths
     rule:
       realm: your-realm # Optional
       users:

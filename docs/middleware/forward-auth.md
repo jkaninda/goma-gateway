@@ -112,7 +112,6 @@ gateway:
     writeTimeout: 10
     readTimeout: 15
     idleTimeout: 30
-    logLevel: info
     routes:
         - path: /
           name: my-app

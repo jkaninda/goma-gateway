@@ -27,7 +27,6 @@ middlewares:
         - https://www.googleapis.com/auth/userinfo.email
         - https://www.googleapis.com/auth/userinfo.profile
       state: randomStateString
-      jwtSecret: your-strong-jwt-secret | It's optional
 
 ```
 
@@ -49,7 +48,8 @@ middlewares:
           authUrl: https://authentik.example.com/application/o/authorize/
           tokenUrl: https://authentik.example.com/application/o/token/
           userInfoUrl: https://authentik.example.com/application/o/userinfo/
-        redirectUrl: https://example.com/callback
+          jwksUrl: https://authentik.example.com/application/o/goma/jwks/
+        redirectUrl: https://example.com/callback # Goma will use the callback path as path
         #RedirectPath is the PATH to redirect users after authentication, e.g: /my-protected-path/dashboard
         redirectPath: ''
         #CookiePath e.g.: /my-protected-path or / || by default is applied on a route path
@@ -58,8 +58,6 @@ middlewares:
           - email
           - openid
         state: randomStateString
-        jwtSecret: your-strong-jwt-secret | It's optional
-
 ```
 ### Apply middleware on the route
 
