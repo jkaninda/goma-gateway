@@ -18,7 +18,6 @@
 package internal
 
 import (
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
@@ -33,7 +32,7 @@ func (gatewayServer GatewayServer) initRedis() {
 func (gatewayServer GatewayServer) closeRedis() {
 	if middlewares.RedisClient != nil {
 		if err := middlewares.RedisClient.Close(); err != nil {
-			logger.Error("Error closing Redis: %v", err)
+			logger.Error("Error closing Redis", "error", err)
 		}
 	}
 }

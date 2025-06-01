@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"os"
 	"strings"
 )
@@ -46,13 +45,13 @@ func loadTLS(t TLS) []tls.Certificate {
 	loadCertificates := func(t TLS, context string) {
 		for _, key := range t.Keys {
 			if key.Key == "" && key.Cert == "" {
-				logger.Error("Error TLS: no certificate or key file provided for %s", context)
+				logger.Error(fmt.Sprintf("Error TLS: no certificate or key file provided for %s", context))
 				continue
 			}
 
 			certificate, err := loadCertAndKey(key.Cert, key.Key)
 			if err != nil {
-				logger.Error("Error loading server certificate for %s: %v", context, err)
+				logger.Error(fmt.Sprintf("Error loading server certificate for %s: %v", context, err))
 				continue
 			}
 			certs = append(certs, *certificate)

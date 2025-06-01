@@ -18,7 +18,6 @@
 package middlewares
 
 import (
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"net/http"
 	"strings"

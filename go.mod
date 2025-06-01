@@ -8,8 +8,10 @@ require (
 	github.com/go-acme/lego/v4 v4.23.1
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jkaninda/go-utils v0.1.1
+	github.com/jkaninda/logger v0.0.3
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redis/go-redis/v9 v9.9.0
 	github.com/robfig/cron/v3 v3.0.1
@@ -48,4 +50,5 @@ require (
 	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/tools v0.33.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )

@@ -19,7 +19,6 @@ package internal
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
@@ -44,14 +43,14 @@ func (gatewayServer GatewayServer) Initialize() error {
 	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
 	if err == nil {
 		dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
-		logger.Debug("Loaded %d additional middlewares", len(extraMiddlewares))
+		logger.Debug("Loaded additional middlewares", "count", len(extraMiddlewares))
 
 	}
 	// Load Extra Routes
 	extraRoutes, err := loadExtraRoutes(gateway.ExtraConfig.Directory)
 	if err == nil {
 		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
-		logger.Debug("Loaded %d additional routes", len(extraRoutes))
+		logger.Debug("Loaded additional routes", "count", len(extraRoutes))
 
 	}
 	// Check configs
@@ -104,7 +103,7 @@ func attachMiddlewares(route Route, router *mux.Router) {
 
 		mid, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
 		if err != nil {
-			logger.Error("Error: %v", err.Error())
+			logger.Error("Error validating middleware", "error", err)
 			continue
 		}
 

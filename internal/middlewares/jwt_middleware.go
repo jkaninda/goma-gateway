@@ -19,7 +19,6 @@ package middlewares
 import (
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"net/http"
 	"strings"
 )
@@ -47,14 +46,14 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 
 		keyFunc, err := jwtAuth.resolveKeyFunc()
 		if err != nil {
-			logger.Error("Failed to resolve key function: %v", err)
+			logger.Error("Failed to resolve key function", "error", err)
 			RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), jwtAuth.Origins, contentType)
 			return
 		}
 
 		token, err := jwt.Parse(tokenStr, keyFunc, jwt.WithValidMethods([]string{"RS256", "HS256"}), jwt.WithAudience("your-audience"), jwt.WithIssuer("your-issuer"))
 		if err != nil {
-			logger.Error("Invalid token: %v", err)
+			logger.Error("Invalid token", "error", err)
 			RespondWithError(w, r, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), jwtAuth.Origins, contentType)
 			return
 		}

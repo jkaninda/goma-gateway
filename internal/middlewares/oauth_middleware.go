@@ -20,9 +20,7 @@ package middlewares
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"golang.org/x/oauth2"
 	"net/http"
@@ -48,11 +46,9 @@ func (oauth Oauth) AuthMiddleware(next http.Handler) http.Handler {
 		authRedirectURL := oauthConf.AuthCodeURL(oauth.State)
 		ctx := context.Background()
 		jwksURL := oauth.Endpoint.JwksURL
-		fmt.Println(jwksURL)
-
 		// Retrieve tokens from cookies
-		accessTokenCookie, err := r.Cookie("access_token")
-		refreshTokenCookie, _ := r.Cookie("refresh_token")
+		accessTokenCookie, err := r.Cookie(GomaAccessToken)
+		refreshTokenCookie, _ := r.Cookie(GomaRefreshToken)
 		if err != nil {
 			http.Redirect(w, r, authRedirectURL, http.StatusTemporaryRedirect)
 			return
@@ -83,7 +79,7 @@ func (oauth Oauth) AuthMiddleware(next http.Handler) http.Handler {
 			}
 
 			http.SetCookie(w, &http.Cookie{
-				Name:     "access_token",
+				Name:     GomaAccessToken,
 				Value:    newToken.AccessToken,
 				Path:     oauth.CookiePath,
 				HttpOnly: true,
@@ -91,7 +87,7 @@ func (oauth Oauth) AuthMiddleware(next http.Handler) http.Handler {
 
 			if newToken.RefreshToken != "" {
 				http.SetCookie(w, &http.Cookie{
-					Name:     "refresh_token",
+					Name:     GomaRefreshToken,
 					Value:    newToken.RefreshToken,
 					Path:     oauth.CookiePath,
 					HttpOnly: true,

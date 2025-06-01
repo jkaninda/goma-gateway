@@ -20,7 +20,6 @@ package middlewares
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/util"
 	"html"
 	"net"
@@ -87,7 +86,7 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 		})
 		// Log the error if encoding the JSON fails
 		if err != nil {
-			logger.Error("Error encoding JSON response: %v", err)
+			logger.Error("Error encoding JSON response", "error", err)
 		}
 		return
 	}
@@ -103,7 +102,7 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 			</error>`, statusCode, html.EscapeString(message))
 		_, err := w.Write([]byte(xmlResponse))
 		if err != nil {
-			logger.Error("Error writing XML response: %v", err)
+			logger.Error("Error writing XML response", "error", err)
 		}
 		return
 	}
@@ -153,7 +152,7 @@ func isPathMatching(urlPath, prefix string, paths []string) bool {
 	if matched, _, err := checkRegexMatch(urlPath, paths); err == nil && matched {
 		return true
 	} else if err != nil {
-		logger.Error("Error: %v", err.Error())
+		logger.Error("Error", "error", err.Error())
 	}
 
 	// Check without and with the route prefix

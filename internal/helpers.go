@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/logger"
-	"golang.org/x/net/http/httpguts"
 	"net"
 	"net/http"
 	"strconv"
@@ -108,13 +106,13 @@ func scheme(r *http.Request) string {
 
 // isWebSocketRequest checks if the request is a WebSocket request
 func isWebSocketRequest(r *http.Request) bool {
-	return httpguts.HeaderValuesContainsToken(r.Header["Connection"], "Upgrade") &&
-		strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
+	return r.Header.Get("Upgrade") == "websocket" && r.Method == http.MethodGet
+
 }
 
 func isSSE(r *http.Request) bool {
-	return httpguts.HeaderValuesContainsToken(r.Header["Accept"], "text/event-stream") ||
-		strings.EqualFold(r.Header.Get("Content-Type"), "text/event-stream")
+	return r.Header.Get("Accept") == "text/event-stream" && r.Method == http.MethodGet
+
 }
 
 func hasPositivePriority(r []Route) bool {
@@ -133,7 +131,7 @@ func validateEntrypoint(entrypoint string) bool {
 	// Split the entrypoint into IP and port parts
 	host, portStr, err := net.SplitHostPort(entrypoint)
 	if err != nil {
-		logger.Error("Error validating entrypoint address: %v", err)
+		logger.Error("Error validating entrypoint address", "error", err)
 		return false
 	}
 
@@ -142,7 +140,7 @@ func validateEntrypoint(entrypoint string) bool {
 	if host != "" {
 		ip := net.ParseIP(host)
 		if ip == nil {
-			logger.Error("Error validating entrypoint address: invalid IP address: %s", host)
+			logger.Error("Error validating entrypoint address: invalid IP address", "addr", host)
 			return false
 		}
 	}
@@ -150,13 +148,13 @@ func validateEntrypoint(entrypoint string) bool {
 	// Convert the port string to an integer
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		logger.Error("Error validating entrypoint address: invalid port: %v", err)
+		logger.Error("Error validating entrypoint address: invalid port", "error", err)
 		return false
 	}
 
 	// Check if the port is within the valid range
 	if port < 1 || port > 65535 {
-		logger.Error("Error validating entrypoint address: invalid port: %d", port)
+		logger.Error("Error validating entrypoint address, invalid port", "port", port)
 		return false
 	}
 

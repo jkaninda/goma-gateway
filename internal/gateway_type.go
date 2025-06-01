@@ -105,4 +105,6 @@ type Log struct {
 	Level string `yaml:"level,omitempty"  env:"GOMA_LOG_LEVEL, overwrite"`
 	// FilePath specifies the file path for logs, default Stdout.
 	FilePath string `yaml:"filePath,omitempty" env:"GOMA_LOG_FILE, overwrite"`
+	// Format defines the logging format (eg. text, json)
+	Format string `yaml:"format,omitempty" env:"GOMA_LOG_FORMAT, overwrite"`
 }

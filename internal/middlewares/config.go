@@ -18,7 +18,6 @@
 package middlewares
 
 import (
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/amazon"
 	"golang.org/x/oauth2/facebook"
@@ -51,7 +50,7 @@ func oauth2Config(oauth Oauth) *oauth2.Config {
 		config.Endpoint = gitlab.Endpoint
 	default:
 		if oauth.Provider != "custom" {
-			logger.Error("Unknown provider: %s", oauth.Provider)
+			logger.Error("Unknown provider,", "provider", oauth.Provider)
 		}
 
 	}

@@ -20,7 +20,6 @@ package internal
 import (
 	"fmt"
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"gopkg.in/yaml.v3"
 	"log"
@@ -140,7 +139,7 @@ func TestReadMiddleware(t *testing.T) {
 			}
 			err := jwt.validate()
 			if err != nil {
-				logger.Error("Error: %s", err.Error())
+				logger.Error("Error validating middleware", "error", err)
 			}
 			log.Printf("JWT authentification valited")
 		case OAuth:

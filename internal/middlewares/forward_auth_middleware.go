@@ -20,7 +20,6 @@ package middlewares
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"io"
 	"net/http"
 	"net/url"
@@ -49,7 +48,7 @@ func (auth ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 						encodedRef := url.QueryEscape(currentURL)
 						redirectURL = fmt.Sprintf("%s%s", redirectURL, encodedRef)
 					}
-					logger.Info("Redirecting to sign in page: %s", redirectURL)
+					logger.Info("Redirecting to sign in page", "url", redirectURL)
 					// Redirect to the sign in page
 					http.Redirect(w, r, redirectURL, http.StatusFound)
 					return
@@ -74,13 +73,13 @@ func (auth ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 func authRequest(f ForwardAuth, w http.ResponseWriter, req *http.Request, contentType string) (bool, *http.Response) {
 	parsedURL, err := url.Parse(f.AuthURL)
 	if err != nil {
-		logger.Error("Error parsing auth URL: %v", err)
+		logger.Error("Error parsing auth URL", "error", err)
 		RespondWithError(w, req, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), f.Origins, contentType)
 		return false, &http.Response{StatusCode: http.StatusInternalServerError}
 	}
 	authReq, err := http.NewRequest("GET", parsedURL.String(), nil)
 	if err != nil {
-		logger.Error("Proxy error creating authentication request: %v", err)
+		logger.Error("Proxy error creating authentication request", "error", err)
 		RespondWithError(w, req, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), f.Origins, contentType)
 		return false, &http.Response{StatusCode: http.StatusInternalServerError}
 	}
@@ -97,17 +96,17 @@ func authRequest(f ForwardAuth, w http.ResponseWriter, req *http.Request, conten
 	authResp, err := client.Do(authReq)
 	if err != nil || authResp.StatusCode != http.StatusOK {
 		if err != nil {
-			logger.Error("Proxy error authenticating request: %v", err)
+			logger.Error("Proxy error authenticating request", "error", err)
 
 		} else {
-			logger.Error("Unauthorized access to %s, proxy authentication resulted with status code: %d ", req.URL.Path, authResp.StatusCode)
+			logger.Error("Unauthorized access, proxy authentication resulted with error", "path", req.URL.Path, "status", authResp.StatusCode)
 		}
 		return false, authResp
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			logger.Error("Error closing response body: %v", err)
+			logger.Error("Error closing response body", "error", err)
 		}
 	}(authResp.Body)
 	return true, authResp
@@ -154,7 +153,7 @@ func authInjectHeadersAndParams(f ForwardAuth, r *http.Request, authResp *http.R
 			if strings.Contains(v, ":") {
 				pair := strings.SplitN(v, ":", 2)
 				if len(pair) != 2 {
-					logger.Error("Invalid header key:value pair: %s", v)
+					logger.Error("Invalid header key:value", "pair", v)
 					continue
 				}
 				r.Header.Set(pair[1], authResp.Header.Get(pair[0]))
@@ -173,7 +172,7 @@ func authInjectHeadersAndParams(f ForwardAuth, r *http.Request, authResp *http.R
 			if strings.Contains(v, ":") {
 				pair := strings.SplitN(v, ":", 2)
 				if len(pair) != 2 {
-					logger.Error("Invalid header key:value pair: %s", v)
+					logger.Error("Invalid header key:value", " pair", v)
 					continue
 				}
 				query.Set(pair[1], authResp.Header.Get(pair[0]))

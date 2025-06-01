@@ -17,6 +17,10 @@
 
 package internal
 
+import (
+	"github.com/jkaninda/goma-gateway/internal/log"
+)
+
 var (
 	counter uint32
 	// dynamicRoutes routes
@@ -27,6 +31,7 @@ var (
 	reloaded           = false
 	webAddress         = ":8080"
 	webSecureAddress   = ":8443"
+	logger             = log.InitLogger()
 )
 
 type contextKey string

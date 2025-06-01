@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
-	"github.com/jkaninda/goma-gateway/internal/logger"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/jkaninda/goma-gateway/util"
@@ -58,7 +57,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 			middlewares: c.Middlewares,
 		}, nil
 	}
-	logger.Error("Configuration file not found: %v", configFile)
+	logger.Error("Configuration file not found", "file", configFile)
 	// Check a default file
 	if util.FileExists(ConfigFile) {
 		buf, err := os.ReadFile(ConfigFile)
@@ -66,7 +65,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 			return nil, err
 
 		}
-		logger.Info("Using configuration file: %s", ConfigFile)
+		logger.Info("Using configuration", "file", ConfigFile)
 		util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
@@ -94,8 +93,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("Generating new configuration file...done")
-	logger.Info("Server configuration file is unavailable at %s", ConfigFile)
+	logger.Info("Generating new configuration file...done", "file", configFile)
 	util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 	buf, err := os.ReadFile(ConfigFile)
 	if err != nil {
@@ -121,6 +119,7 @@ func (gatewayServer GatewayServer) SetEnv() {
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.Log.Level)
 	util.SetEnv("GOMA_LOG_FILE", gatewayServer.gateway.Log.FilePath)
+	util.SetEnv("GOMA_LOG_FORMAT", gatewayServer.gateway.Log.Format)
 }
 
 // validateRoutes validates routes
@@ -457,6 +456,7 @@ func oauthRulerMiddleware(oauth middlewares.Oauth) *OauthRulerMiddleware {
 			AuthURL:     oauth.Endpoint.AuthURL,
 			TokenURL:    oauth.Endpoint.TokenURL,
 			UserInfoURL: oauth.Endpoint.UserInfoURL,
+			JwksURL:     oauth.Endpoint.JwksURL,
 		},
 	}
 }
@@ -493,7 +493,7 @@ func oauth2Config(oauth *OauthRulerMiddleware) *oauth2.Config {
 		conf.Endpoint = gitlab.Endpoint
 	default:
 		if oauth.Provider != "custom" {
-			logger.Error("Unknown provider: %s", oauth.Provider)
+			logger.Error(fmt.Sprintf("Unknown provider: %s", oauth.Provider))
 		}
 
 	}
