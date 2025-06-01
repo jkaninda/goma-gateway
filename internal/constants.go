@@ -22,7 +22,7 @@ const (
 	ExtraDir                             = ConfigDir + "extra"
 	ConfigFile                           = "/etc/goma/goma.yml"          // Default configuration file
 	accessControlAllowOrigin             = "Access-Control-Allow-Origin" // Cors
-	gatewayName                          = "Goma Gateway"
+	GatewayName                          = "Goma Gateway"
 	applicationJson                      = "application/json"
 	CertsPath                            = ConfigDir + "certs"
 	CtxRequestStartTime       contextKey = "requestStartTime"

@@ -25,7 +25,7 @@ import (
 
 type Router interface {
 	AddRoute(route Route)
-	AddRoutes(router2 Router)
+	AddRoutes(route Router)
 	Mux() http.Handler
 	UpdateHandler(Gateway)
 	ServeHTTP(http.ResponseWriter, *http.Request)

@@ -68,7 +68,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 		proxy.Transport = createProxyTransport(proxyRoute)
 
 		// Set a custom header to indicate the request is proxied
-		w.Header().Set("Proxied-By", gatewayName)
+		w.Header().Set("Proxied-By", GatewayName)
 
 		// Set a custom error handler for proxy errors
 		proxy.ErrorHandler = ProxyErrorHandler

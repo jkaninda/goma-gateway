@@ -82,7 +82,7 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 		// Delete server header
 		rec.Header().Del("Server")
-		rec.Header().Set("Proxied-By", gatewayName)
+		rec.Header().Set("Proxied-By", GatewayName)
 		rec.Header().Set(RequestIDHeader, requestID)
 
 		// Retrieve the request start time from context
@@ -92,48 +92,9 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 		if val := r.Context().Value(CtxRequestIDHeader); val != nil {
 			requestID = val.(string)
 		}
-		formatted := goutils.FormatDuration(time.Since(startTime), 1)
+		formatted := goutils.FormatDuration(time.Since(startTime), 2)
 
-		// No interception logic needed
-		if !h.Enabled || len(h.Errors) == 0 {
-			logger.Info(
-				"Proxied request",
-				"method", r.Method,
-				"url", r.URL.Path,
-				"status", rec.statusCode,
-				"duration", formatted,
-				"route", h.Name,
-				"client_ip", getRealIP(r),
-				"request_id", requestID,
-				"content_length", contentLength,
-				"user_agent", r.UserAgent(),
-			)
-			// Copy recorded response to the client
-			writeResponse(w, rec)
-			return
-		}
-
-		// Check if the response should be intercepted
-		if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
-			logger.Error(
-				"Proxied request resulted in error",
-				"method", r.Method,
-				"url", r.URL.Path,
-				"status", rec.statusCode,
-				"duration", formatted,
-				"route", h.Name,
-				"client_ip", getRealIP(r),
-				"request_id", requestID,
-				"content_length", contentLength,
-				"user_agent", r.UserAgent(),
-			)
-			middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
-			return
-		}
-
-		// Log and forward response
-		logger.Info(
-			"Proxied request",
+		logFields := []any{
 			"method", r.Method,
 			"url", r.URL.Path,
 			"status", rec.statusCode,
@@ -143,7 +104,24 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 			"request_id", requestID,
 			"content_length", contentLength,
 			"user_agent", r.UserAgent(),
-		)
+		}
+
+		// No interception logic needed
+		if !h.Enabled || len(h.Errors) == 0 {
+			logProxyResponse(rec.statusCode, "Proxied request", logFields...)
+			// Copy recorded response to the client
+			writeResponse(w, rec)
+			return
+		}
+
+		// Check if the response should be intercepted
+		if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
+			logProxyResponse(rec.statusCode, "Proxied request resulted in error", logFields...)
+			middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
+			return
+		}
+
+		logProxyResponse(rec.statusCode, "Proxied request", logFields...)
 		writeResponse(w, rec)
 	})
 }
@@ -160,4 +138,14 @@ func getRequestID(r *http.Request) string {
 		return requestID
 	}
 	return uuid.NewString()
+}
+func logProxyResponse(status int, msg string, fields ...any) {
+	switch {
+	case status >= 500:
+		logger.Error(msg, fields...)
+	case status >= 400:
+		logger.Warn(msg, fields...)
+	default:
+		logger.Info(msg, fields...)
+	}
 }
