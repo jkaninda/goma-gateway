@@ -145,7 +145,9 @@ gateway:
   # Logging Configuration
   log:
     level: info # Logging level (options: debug, trace, off). default: error
-    filePath: stdout # Path for log files (eg. /etc/goma/goma.log). default: stdout
+    filePath: '' # Path for log files (eg. /etc/goma/goma.log).
+    format: json # log output format (options: text, json). default: text
+
 
   # Gateway behavior settings
   disableRouteHealthCheckError: false  # Enable/disable health check error logging

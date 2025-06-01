@@ -15,22 +15,29 @@
  *
  */
 
-package internal
+package middlewares
 
 import (
-	"github.com/jkaninda/goma-gateway/internal/log"
+	"fmt"
+	"testing"
 )
 
-var (
-	counter            uint32
-	dynamicRoutes      []Route
-	dynamicMiddlewares []Middleware
-	redisBased         = false
-	stopChan           = make(chan struct{})
-	reloaded           = false
-	webAddress         = ":8080"
-	webSecureAddress   = ":8443"
-	logger             = log.InitLogger()
-)
+func TestValidateMD5Crypt(t *testing.T) {
+	password := "password123"
+	hash := "$1$salt$qJH7.N4xYta3aEG/dfqo/0"
 
-type contextKey string
+	isValid, err := validateMD5Crypt(password, hash)
+	if err != nil {
+		t.Errorf("Error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Password: %s\n", password)
+	fmt.Printf("Hash: %s\n", hash)
+	fmt.Printf("Valid: %t\n", isValid)
+
+	// Generate a new hash for comparison
+	newHash := generateMD5Crypt(password, "salt")
+
+	fmt.Printf("Generated hash: %s\n", newHash)
+}

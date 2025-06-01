@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"github.com/jkaninda/goma-gateway/internal/log"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"net/http"
 	"os"
 	"os/signal"
@@ -36,7 +37,10 @@ func (gatewayServer GatewayServer) Start() error {
 	if err != nil {
 		logger.Fatal("Failed to initialize routes: %v", err)
 	}
+	// Update logger with config
 	logger = log.InitLogger()
+	middlewares.UpdateLogger()
+
 	// Create router
 	newRouter := gatewayServer.gateway.NewRouter()
 	newRouter.AddRoutes(newRouter)

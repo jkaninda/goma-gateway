@@ -29,7 +29,7 @@ Each entry in the `errors` array defines an individual error handling rule with 
 ### Example of Route Error Interceptor
 
 ```yaml
-version: 1.0
+version: 2
 gateway:
   ...
   routes:

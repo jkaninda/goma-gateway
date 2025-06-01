@@ -24,20 +24,15 @@ middlewares:
   - name: basic-auth
     type: basic
     paths:
-      - /admin # Blocks only /admin
-      - /admin/*  # Explicitly blocks /admin and all subpaths
+      - /admin  # Explicitly blocks /admin and all subpaths
     rule:
       realm: your-realm # Optional
       users:
-        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
+        - user1:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
         - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
-        - admin:admin # Plaintext password
+        - user2:admin # Plaintext password
 ```
-### Explanation:
 
-- `/admin`: Requires authentication for the exact path /admin.
-- `/admin/*`: The path /admin and all its subpaths (e.g., /admin/settings) require authentication due to the /* wildcard.
-- `rule`: Specifies the users required for authentication.
 
 
 ### Applying Basic-Auth Middleware to a Route
@@ -57,6 +52,14 @@ Here’s how to attach the basic-auth middleware to a route:
         - basic-auth
 ```
 
+### Create user and password
+
+```shell
+docker run --rm \
+  --entrypoint htpasswd \
+  httpd:2 -Bbn admin password
+```
+
 ## Advanced Kubernetes deployment
 
 To deploy the basic-auth middleware in a Kubernetes environment, use the following example:
@@ -69,14 +72,13 @@ metadata:
 spec:
     type: basic
     paths:
-      - /admin # Blocks only /admin
-      - /admin/*  # Explicitly blocks /admin and all subpaths
+      - /admin  # Explicitly blocks /admin and all subpaths
     rule:
       realm: your-realm # Optional
       users:
-        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
+        - user:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
         - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
-        - admin:admin # Plaintext password
+        - user2:admin # Plaintext password
 ```
 
 By following these guidelines, you can effectively use basic-auth middleware to protect your application routes.

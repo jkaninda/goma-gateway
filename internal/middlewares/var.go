@@ -38,7 +38,7 @@ var (
 var (
 	RedisClient *redis.Client
 	limiter     *redis_rate.Limiter
-	logger      = log.InitLogger().With("mod", "middleware")
+	logger      = log.InitLogger()
 )
 
 // Paths of known bot user agents

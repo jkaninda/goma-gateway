@@ -31,7 +31,8 @@ gateway:
   # Logging Configuration
   log:
     level: info # Logging level (options: debug, trace, off). default: error
-    filePath: stdout # Path for log files. default: stdout
+    filePath: "" # Path for log files.
+    format: json # log output format (options: text, json)
 
   # Redis Configuration
   # redis:
@@ -61,15 +62,24 @@ gateway:
       - status: 500
         body: "Internal server error" # Custom response body for HTTP 500 errors.
 
-  # Cross-Origin Resource Sharing (CORS)
+  # Global Cross-Origin Resource Sharing (CORS)
   cors:
-    origins:                         # Global allowed origins.
-      - http://localhost:8080
-      - https://example.com
+    origins:
+      - http://localhost:3000
+      - https://dev.example.com
+    allowedHeaders:
+      - Origin
+      - Authorization
+      - X-Client-Id
+      - Content-Type
+      - Accept
     headers:                         # Global allowed headers.
-      Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'
-      Access-Control-Allow-Credentials: 'true'
+      X-Session-Id: xxx-xxx-xx
       Access-Control-Max-Age: 1728000
+    exposeHeaders: []
+    maxAge: 1728000
+    allowMethods: ["GET","POST"]
+    allowCredentials: true
   # Additional configs
   extraConfig:
     # Path for additional configuration files (e.g., routes and middleware), default /etc/goma/extra.
@@ -89,9 +99,21 @@ gateway:
       disableHostForwarding: false   # Disable forwarding the host header.
       cors:                          # Route-specific CORS configuration (overrides global).
         origins:
+          - http://localhost:3000
           - https://dev.example.com
+        allowedHeaders:
+          - Origin
+          - Authorization
+          - X-Client-Id
+          - Content-Type
+          - Accept
         headers:
-          Access-Control-Allow-Methods: 'GET'
+          X-Session-Id: xxx-xxx-xx
+          Access-Control-Max-Age: 1728000
+        exposeHeaders: []
+        maxAge: 1728000
+        allowMethods: ["GET","POST"]
+        allowCredentials: true
       middlewares:                   # List of middlewares for this route.
         - api-forbidden-paths
 
