@@ -9,16 +9,19 @@ COPY . .
 RUN go mod download
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/jkaninda/goma-gateway/pkg/version.Version=${appVersion}' -X 'github.com/jkaninda/goma-gateway/pkg/version.buildTime=${buildTime}'-X 'github.com/jkaninda/goma-gateway/pkg/version.gitCommit=${gitCommit}'" -o /app/goma
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/jkaninda/goma-gateway/internal/version.Version=${appVersion}' -X 'github.com/jkaninda/goma-gateway/internal/version.buildTime=${buildTime}'-X 'github.com/jkaninda/goma-gateway/internal/version.gitCommit=${gitCommit}'" -o /app/goma
 
 FROM alpine:3.21.3
 ENV TZ=UTC
 ARG WORKDIR="/etc/goma"
 ARG EXTRADIR="${WORKDIR}/extra"
 ARG appVersion=""
-LABEL author="Jonas Kaninda"
-LABEL version=${appVersion}
-LABEL github="github.com/jkaninda/goma-gateway"
+LABEL org.opencontainers.image.title="goma-gateway"
+LABEL org.opencontainers.image.description="Simple Lightweight High-Performance Declarative API Gateway Management"
+LABEL org.opencontainers.image.licenses="Apache"
+LABEL org.opencontainers.image.authors="Jonas Kaninda <me@jkaninda.dev>"
+LABEL org.opencontainers.image.version=${appVersion}
+LABEL org.opencontainers.image.source="github.com/jkaninda/goma-gateway"
 
 RUN mkdir -p ${WORKDIR} ${EXTRADIR} && \
      chmod a+rw ${WORKDIR} ${EXTRADIR}
