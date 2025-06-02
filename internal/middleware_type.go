@@ -24,7 +24,7 @@ type Middleware struct {
 
 	// Type indicates the type of middleware.
 	// Supported types: "basic", "jwt", "oauth", "rateLimit", "access", "accessPolicy.
-	Type string `yaml:"type"`
+	Type MiddlewareType `yaml:"type"`
 
 	// Paths lists the routes or paths that this middleware will protect.
 	Paths []string `yaml:"paths,omitempty"`
@@ -35,3 +35,5 @@ type Middleware struct {
 	// - "accessPolicy" could use a struct specifying accessPolicy control rules.
 	Rule interface{} `yaml:"rule,omitempty"`
 }
+
+type MiddlewareType string

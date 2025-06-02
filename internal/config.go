@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
+	"github.com/jkaninda/goma-gateway/internal/log"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/jkaninda/goma-gateway/util"
@@ -114,12 +115,17 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 	}, nil
 }
 
-// SetEnv sets environment variables
-func (gatewayServer GatewayServer) SetEnv() {
+// InitLogger sets environment variables and initialize the logger
+func (gatewayServer GatewayServer) InitLogger() {
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.Log.Level)
 	util.SetEnv("GOMA_LOG_FILE", gatewayServer.gateway.Log.FilePath)
 	util.SetEnv("GOMA_LOG_FORMAT", gatewayServer.gateway.Log.Format)
+
+	// Update logger with config
+	logger = log.InitLogger()
+	middlewares.UpdateLogger()
+
 }
 
 // validateRoutes validates routes
@@ -141,7 +147,7 @@ func validateRoute(route Route) {
 		logger.Fatal("Route name is required")
 	}
 	if len(route.Destination) == 0 && len(route.Backends) == 0 {
-		logger.Fatal("Route %s : destination or backends should not be empty", route.Name)
+		logger.Fatal("Route backend error, destination or backends should not be empty", "route", route.Name)
 	}
 
 }
@@ -218,8 +224,9 @@ func initConfig(configFile string) error {
 				Watch:     false,
 			},
 			Log: Log{
-				Level:    "error",
-				FilePath: "stdout",
+				Level:    "info",
+				FilePath: "",
+				Format:   "json",
 			},
 			Routes: []Route{
 				{
@@ -237,13 +244,15 @@ func initConfig(configFile string) error {
 					Middlewares:           []string{"block-access"},
 				},
 				{
-					Name:    "example-load-balancing",
-					Path:    "/load-balancing",
-					Methods: []string{"GET", "OPTIONS"},
+					Name:                  "api",
+					Path:                  "/",
+					Hosts:                 []string{"app.example.com"},
+					Rewrite:               "/",
+					DisableHostForwarding: false,
 					Backends: Backends{
-						Backend{Endpoint: "https://backend1.example.com"},
-						Backend{Endpoint: "https://backend2.example.com"},
-						Backend{Endpoint: "https://backend3.example.com"},
+						Backend{Endpoint: "https://api-1.example.com", Weight: 5},
+						Backend{Endpoint: "https://api-2.example.com", Weight: 2},
+						Backend{Endpoint: "https://api-3.example.com", Weight: 1},
 					},
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
@@ -251,19 +260,6 @@ func initConfig(configFile string) error {
 						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
 					},
-					DisableHostForwarding: true,
-					Middlewares:           []string{"block-access"},
-				},
-				{
-					Name: "example-load-balancing2",
-					Path: "/load-balancing2",
-					Backends: Backends{
-						Backend{Endpoint: "https://backend1.example.com", Weight: 5},
-						Backend{Endpoint: "https://backend2.example.com", Weight: 2},
-						Backend{Endpoint: "https://backend3.example.com", Weight: 1},
-					},
-					Rewrite:               "/",
-					DisableHostForwarding: false,
 					ErrorInterceptor: middlewares.RouteErrorInterceptor{
 						Enabled:     true,
 						ContentType: applicationJson,
@@ -288,7 +284,7 @@ func initConfig(configFile string) error {
 						AllowCredentials: true,
 						AllowedHeaders:   []string{"Origin", "Authorization"},
 					},
-					Middlewares: []string{"basic-auth", "block-access"},
+					Middlewares: []string{"basic-auth", "block-access", "block-admin-access"},
 				},
 			},
 		},
@@ -316,7 +312,7 @@ func initConfig(configFile string) error {
 					"/actuator/*",
 				},
 			}, {
-				Name: "custom-block-access",
+				Name: "block-admin-access",
 				Type: AccessMiddleware,
 				Paths: []string{
 					"/admin/*",

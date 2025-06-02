@@ -248,7 +248,7 @@ middlewares:
       - /*                    # Apply to all paths
     rule:
       users:                  # Authorized users
-        - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia
+        - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia #password
         - user:password
 ```
 

@@ -150,7 +150,8 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 	duplicates = findDuplicateRouteNames(dynamicRoutes)
 	if len(duplicates) != 0 {
 		for _, duplicate := range duplicates {
-			logger.Warn("Duplicated route name was found", "route", duplicate)
+			return fmt.Errorf("duplicated route name: %s, the name of the route should be unique", duplicate)
+
 		}
 	}
 	return nil

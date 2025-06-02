@@ -35,19 +35,19 @@ const (
 
 // ************** Middlewares types ***************
 const (
-	AccessMiddleware = "access" // access middlewares
-	BasicAuth        = "basic"  // basic authentication middlewares
-	JWTAuth          = "jwt"    // JWT authentication middlewares
-	OAuth            = "oauth"  // OAuth authentication middlewares
-	accessPolicy     = "accessPolicy"
-	addPrefix        = "addPrefix"
-	rateLimit        = "rateLimit"
-	redirectRegex    = "redirectRegex"
-	rewriteRegex     = "rewriteRegex"
-	forwardAuth      = "forwardAuth"
-	httpCache        = "httpCache"
-	redirectScheme   = "redirectScheme"
-	bodyLimit        = "bodyLimit"
+	AccessMiddleware MiddlewareType = "access" // access middlewares
+	BasicAuth        MiddlewareType = "basic"  // basic authentication middlewares
+	JWTAuth          MiddlewareType = "jwt"    // JWT authentication middlewares
+	OAuth            MiddlewareType = "oauth"  // OAuth authentication middlewares
+	accessPolicy     MiddlewareType = "accessPolicy"
+	addPrefix        MiddlewareType = "addPrefix"
+	rateLimit        MiddlewareType = "rateLimit"
+	redirectRegex    MiddlewareType = "redirectRegex"
+	rewriteRegex     MiddlewareType = "rewriteRegex"
+	forwardAuth      MiddlewareType = "forwardAuth"
+	httpCache        MiddlewareType = "httpCache"
+	redirectScheme   MiddlewareType = "redirectScheme"
+	bodyLimit        MiddlewareType = "bodyLimit"
 )
 
 // ************** CORS ***************
