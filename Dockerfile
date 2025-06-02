@@ -11,7 +11,7 @@ RUN go mod download
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/jkaninda/goma-gateway/internal/version.Version=${appVersion}' -X 'github.com/jkaninda/goma-gateway/internal/version.buildTime=${buildTime}'-X 'github.com/jkaninda/goma-gateway/internal/version.gitCommit=${gitCommit}'" -o /app/goma
 
-FROM alpine:3.21.3
+FROM alpine:3.22.0
 ENV TZ=UTC
 ARG WORKDIR="/etc/goma"
 ARG EXTRADIR="${WORKDIR}/extra"
