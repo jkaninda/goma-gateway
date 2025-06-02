@@ -309,7 +309,7 @@ func applyRewriteRegexMiddleware(mid Middleware, router *mux.Router) {
 func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Router) {
 	// Validate and apply middleware based on type
 	switch routeMiddleware.Type {
-	case BasicAuth:
+	case BasicAuth, BasicAuthMiddleware:
 		applyBasicAuthMiddleware(route, routeMiddleware, r)
 	case JWTAuth:
 		applyJWTAuthMiddleware(route, routeMiddleware, r)
