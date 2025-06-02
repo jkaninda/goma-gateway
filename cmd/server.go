@@ -42,7 +42,7 @@ var ServerCmd = &cobra.Command{
 			fmt.Printf("Could not load configuration: %v\n", err)
 			os.Exit(1)
 		}
-		gs.SetEnv()
+		gs.InitLogger()
 		if err := gs.Start(); err != nil {
 			fmt.Printf("Could not start server: %v\n", err)
 			os.Exit(1)

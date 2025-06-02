@@ -82,7 +82,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 // Returns false and sends an error response if the method is not allowed.
 func validateMethod(proxyRoute ProxyRoute, method string, w http.ResponseWriter, r *http.Request, contentType string) bool {
 	if len(proxyRoute.methods) > 0 && !slices.Contains(proxyRoute.methods, method) {
-		logger.Error("Method not allowed: method=%s, allowed_methods=%v", method, proxyRoute.methods)
+		logger.Error("Method not allowed", "method", method, "allowed_methods", proxyRoute.methods)
 		middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, method), proxyRoute.cors.Origins, contentType)
 		return false
 	}
@@ -152,7 +152,7 @@ func createSingleHostProxy(proxyRoute ProxyRoute, r *http.Request, contentType s
 func createWeightedProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
 	proxy, err := NewWeightedReverseProxy(proxyRoute, r)
 	if err != nil {
-		logger.Error("Failed to create weighted reverse proxy: route=%s, error=%v", proxyRoute.name, err)
+		logger.Error("Failed to create weighted reverse proxy", "route", proxyRoute.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unavailable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
 	}
 	return proxy, err
@@ -162,7 +162,7 @@ func createWeightedProxy(proxyRoute ProxyRoute, r *http.Request, contentType str
 func createRoundRobinProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
 	proxy, err := NewRoundRobinReverseProxy(proxyRoute, r)
 	if err != nil {
-		logger.Error("Failed to create round-robin reverse proxy: route=%s, error=%v", proxyRoute.name, err)
+		logger.Error("Failed to create round-robin reverse proxy", "route", proxyRoute.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unavailable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
 	}
 	return proxy, err

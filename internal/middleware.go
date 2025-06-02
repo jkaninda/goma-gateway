@@ -43,8 +43,23 @@ func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error)
 	return Middleware{}, errors.New("middleware not found with name:  [" + strings.Join(rules, ";") + "]")
 }
 
-func doesExist(tyName string) bool {
-	middlewareList := []string{BasicAuth, JWTAuth, AccessMiddleware, accessPolicy, addPrefix, rateLimit, strings.ToLower(rateLimit), redirectRegex, forwardAuth, rewriteRegex, httpCache, redirectScheme, bodyLimit}
+func doesExist(tyName MiddlewareType) bool {
+	middlewareList := []MiddlewareType{
+		BasicAuth,
+		JWTAuth,
+		AccessMiddleware,
+		accessPolicy,
+		addPrefix,
+		rateLimit,
+		redirectRegex,
+		forwardAuth,
+		rewriteRegex,
+		httpCache,
+		redirectScheme,
+		bodyLimit,
+	}
+
+	// Convert input to MiddlewareType and compare
 	return slices.Contains(middlewareList, tyName)
 }
 func GetMiddleware(rule string, middlewares []Middleware) (Middleware, error) {
@@ -107,7 +122,7 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 	switch mid.Type {
 	case AccessMiddleware:
 		applyAccessMiddleware(mid, route, router)
-	case rateLimit, strings.ToLower(rateLimit):
+	case rateLimit, MiddlewareType(strings.ToLower(string(rateLimit))):
 		applyRateLimitMiddleware(mid, route, router)
 	case accessPolicy:
 		applyAccessPolicyMiddleware(mid, route, router)
@@ -294,7 +309,7 @@ func applyRewriteRegexMiddleware(mid Middleware, router *mux.Router) {
 func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Router) {
 	// Validate and apply middleware based on type
 	switch routeMiddleware.Type {
-	case BasicAuth:
+	case BasicAuth, BasicAuthMiddleware:
 		applyBasicAuthMiddleware(route, routeMiddleware, r)
 	case JWTAuth:
 		applyJWTAuthMiddleware(route, routeMiddleware, r)
