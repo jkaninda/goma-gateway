@@ -80,7 +80,7 @@ It's designed to be straightforward and efficient, offering a rich set of featur
 
 - **Authentication Middleware**
   - Support for **ForwardAuth** with client authorization based on request results.
-  - **Basic-Auth** and **OAuth** authentication mechanisms.
+  - **Basic-Auth**, **JWT** and **OAuth** authentication mechanisms.
 - **Access Policy Middleware**
     - Control route access by either `allowing` or `denying` requests based on defined rules.
 - **Regex Support for URL Rewriting**
@@ -315,4 +315,4 @@ This project is licensed under the Apache 2.0 License. See the LICENSE file for 
 
 ## Copyright
 
-Copyright (c) 2024 Jonas Kaninda
+Copyright (c) 2024 Jonas Kaninda and contributors
