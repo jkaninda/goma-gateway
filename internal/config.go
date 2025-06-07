@@ -19,6 +19,7 @@ package internal
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/log"
@@ -35,6 +36,9 @@ import (
 	"net/http"
 	"os"
 )
+
+//go:embed all:build
+var assets embed.FS
 
 // Config reads config file and returns Gateway
 func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewayServer, error) {
@@ -108,8 +112,8 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 	logger.Info("Generating new configuration file...done")
 	return &GatewayServer{
 		ctx:         ctx,
-		configFile:  ConfigFile,
 		certManager: certmanager.NewCertManager(),
+		configFile:  ConfigFile,
 		gateway:     c.GatewayConfig,
 		middlewares: c.Middlewares,
 	}, nil

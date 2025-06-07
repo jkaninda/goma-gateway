@@ -78,8 +78,10 @@ type Gateway struct {
 	ExtraRoutes ExtraRouteConfig `yaml:"extraRoutes,omitempty"`
 	// ExtraConfig provides additional configuration, including routes and middleware, from a specified directory.
 	ExtraConfig ExtraRouteConfig `yaml:"extraConfig,omitempty"`
-	// Routes defines the list of proxy routes.
-	Routes []Route `yaml:"routes"`
+	// Dashboard specifies the configuration for the dashboard.
+	Dashboard Dashboard `yaml:"dashboard,omitempty"`
+	// Routes defines the list of proxy routeHandler.
+	Routes []Route `yaml:"routeHandler"`
 }
 type EntryPoint struct {
 	Web       EntryPointAddress `yaml:"web,omitempty"`

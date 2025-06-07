@@ -98,10 +98,10 @@ type AccessRuleMiddleware struct {
 }
 
 type RouteHealthCheck struct {
-	Path            string `yaml:"path"`
-	Interval        string `yaml:"interval"`
-	Timeout         string `yaml:"timeout"`
-	HealthyStatuses []int  `yaml:"healthyStatuses"`
+	Path            string `yaml:"path" json:"path"`
+	Interval        string `yaml:"interval" json:"interval"`
+	Timeout         string `yaml:"timeout" json:"timeout"`
+	HealthyStatuses []int  `yaml:"healthyStatuses" json:"healthyStatuses"`
 }
 type GatewayConfig struct {
 	Version string `yaml:"version"`
@@ -162,8 +162,8 @@ type Redis struct {
 
 // ExtraRouteConfig contains additional routes and middlewares directory
 type ExtraRouteConfig struct {
-	Directory string `yaml:"directory"`
-	Watch     bool   `yaml:"watch"`
+	Directory string `yaml:"directory" json:"directory"`
+	Watch     bool   `yaml:"watch" json:"watch"`
 }
 
 // AccessPolicyRuleMiddleware access policy
@@ -177,6 +177,11 @@ type ProxyHandler struct {
 	ContentType string
 	Errors      []middlewares.RouteError
 	Origins     []string
+}
+
+type Dashboard struct {
+	Enabled     bool     `yaml:"enabled,omitempty"`
+	Middlewares []string `yaml:"middlewares,omitempty"`
 }
 type httpCacheRule struct {
 	MaxTtl                   int64    `yaml:"maxTtl"`

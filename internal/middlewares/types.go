@@ -156,14 +156,14 @@ type OauthEndpoint struct {
 }
 
 type RouteErrorInterceptor struct {
-	Enabled     bool         `yaml:"enabled"`
-	ContentType string       `yaml:"contentType,omitempty"`
-	Errors      []RouteError `yaml:"errors"`
+	Enabled     bool         `yaml:"enabled" json:"enabled"`
+	ContentType string       `yaml:"contentType,omitempty" json:"contentType"`
+	Errors      []RouteError `yaml:"errors" json:"errors"`
 }
 type RouteError struct {
-	Code   int    `yaml:"code,omitempty"` // Deprecated
-	Status int    `yaml:"status"`
-	Body   string `yaml:"body,omitempty"`
+	Code   int    `yaml:"code,omitempty" json:"code,omitempty"` // Deprecated
+	Status int    `yaml:"status" json:"status"`
+	Body   string `yaml:"body,omitempty" json:"body"`
 }
 
 type ForwardAuth struct {

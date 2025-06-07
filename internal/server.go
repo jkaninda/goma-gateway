@@ -101,6 +101,13 @@ func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Se
 			logger.Fatal("HTTPS server error", "error", err)
 		}
 	}()
+	// Start Dashboard Server
+	dashboardServer := NewDashboardServer(assets)
+	// Start Dashboard Server
+	if gatewayServer.gateway.Dashboard.Enabled {
+		logger.Debug("Dashboard enabled")
+		dashboardServer.Serve()
+	}
 
 }
 

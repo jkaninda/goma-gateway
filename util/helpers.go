@@ -176,6 +176,7 @@ func AddPrefixPath(prefix string, paths []string) []string {
 	return paths
 
 }
+
 func TruncateText(text string, limit int) string {
 	if len(text) > limit {
 		return text[:limit] + "..."

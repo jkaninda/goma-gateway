@@ -28,6 +28,6 @@ RUN mkdir -p ${WORKDIR} ${EXTRADIR} && \
 COPY --from=build /app/goma /usr/local/bin/goma
 RUN chmod a+x /usr/local/bin/goma
 RUN apk --update add --no-cache tzdata ca-certificates curl
-EXPOSE 8080 8443
+EXPOSE 81 8080 8443
 WORKDIR $WORKDIR
 ENTRYPOINT ["/usr/local/bin/goma"]
