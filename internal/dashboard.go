@@ -15,7 +15,7 @@
  *
  */
 
-package pkg
+package internal
 
 import (
 	"embed"
@@ -23,9 +23,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/pkg/logger"
-	"github.com/jkaninda/goma-gateway/pkg/sysinfo"
-	"github.com/jkaninda/goma-gateway/pkg/version"
+	"github.com/jkaninda/goma-gateway/internal/sysinfo"
+	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/shirou/gopsutil/v3/host"
 	"io/fs"
@@ -45,10 +44,10 @@ type DashboardConf struct {
 type APIResponse struct {
 }
 type APIMiddleware struct {
-	Name  string      `json:"name"`
-	Type  string      `json:"type"`
-	Paths []string    `json:"paths"`
-	Rule  interface{} `json:"rule"`
+	Name  string         `json:"name"`
+	Type  MiddlewareType `json:"type"`
+	Paths []string       `json:"paths"`
+	Rule  interface{}    `json:"rule"`
 }
 type Overview struct {
 	RouteTotal      int               `json:"routeTotal"`
@@ -103,18 +102,18 @@ func (apiServer DashboardServer) Serve() {
 	}()
 }
 func overviewHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("api: %s %s for %s %s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
+	logger.Info("[api]", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "user_agent", r.UserAgent())
 	uptimeSeconds, err := host.Uptime()
 	if err != nil {
-		logger.Error("Error fetching uptime: %v", err)
+		logger.Error("Error fetching uptime", "error", err)
 	}
 	// Convert seconds to a more readable format
 	uptime := time.Duration(uptimeSeconds) * time.Second
 	appUptime := time.Since(startTime)
 	memInfo := sysinfo.NewMemInfo()
-	_, memStats := memInfo.GetInfo()
+	memStats, _ := memInfo.GetInfo()
 	cpuInfo := sysinfo.NewCPUInfo()
-	_, cpus := cpuInfo.GetInfo()
+	cpus, _ := cpuInfo.GetInfo()
 
 	goroutineTotal := runtime.NumGoroutine()
 
@@ -143,7 +142,6 @@ func overviewHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 func routeHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("api: %s %s for %s %s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(dynamicRoutes)
@@ -153,7 +151,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 func middlewareHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Info("api: %s %s for %s %s", r.Method, r.URL.Path, getRealIP(r), r.UserAgent())
+	logger.Info("[api]", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "user_agent", r.UserAgent())
 	apiMiddlewares := []APIMiddleware{}
 	for _, m := range dynamicMiddlewares {
 		apiMiddlewares = append(apiMiddlewares, APIMiddleware{

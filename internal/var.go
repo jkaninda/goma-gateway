@@ -19,6 +19,7 @@ package internal
 
 import (
 	"github.com/jkaninda/goma-gateway/internal/log"
+	"time"
 )
 
 var (
@@ -31,6 +32,7 @@ var (
 	webAddress         = ":8080"
 	webSecureAddress   = ":8443"
 	logger             = log.InitLogger()
+	startTime          = time.Now()
 )
 
 type contextKey string

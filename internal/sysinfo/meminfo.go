@@ -29,16 +29,16 @@ type MemInfo struct {
 	MemAvailable  uint64 `json:"memAvailable"`
 }
 
-func (m MemInfo) GetInfo() (error, MemInfo) {
+func (m MemInfo) GetInfo() (MemInfo, error) {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	return nil, MemInfo{
+	return MemInfo{
 		MemTotal:      memStats.Sys,
 		MemTotalAlloc: memStats.TotalAlloc,
 		MemFree:       memStats.Frees,
 		MemAlloc:      memStats.Alloc,
 		MemAvailable:  memStats.Sys - memStats.Alloc,
-	}
+	}, nil
 }
 
 func NewMemInfo() Memory {
@@ -46,5 +46,5 @@ func NewMemInfo() Memory {
 }
 
 type Memory interface {
-	GetInfo() (error, MemInfo)
+	GetInfo() (MemInfo, error)
 }

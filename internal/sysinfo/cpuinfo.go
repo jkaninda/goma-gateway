@@ -27,11 +27,11 @@ type CPUInfo struct {
 	Usage float64 `json:"usage"`
 }
 
-func (C CPUInfo) GetInfo() (error, []CPUInfo) {
+func (C CPUInfo) GetInfo() ([]CPUInfo, error) {
 	// Get CPU usage stats
 	percent, err := cpu.Percent(0, true)
 	if err != nil {
-		return fmt.Errorf("error"), []CPUInfo{}
+		return []CPUInfo{}, fmt.Errorf("error")
 	}
 	cpus := []CPUInfo{}
 	for i, p := range percent {
@@ -41,11 +41,11 @@ func (C CPUInfo) GetInfo() (error, []CPUInfo) {
 		}
 		cpus = append(cpus, cpuInfo)
 	}
-	return nil, cpus
+	return cpus, nil
 }
 
 type Cpu interface {
-	GetInfo() (error, []CPUInfo)
+	GetInfo() ([]CPUInfo, error)
 }
 
 func NewCPUInfo() Cpu {
