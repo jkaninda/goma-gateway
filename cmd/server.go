@@ -19,7 +19,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/common-nighthawk/go-figure"
 	"github.com/jkaninda/goma-gateway/internal"
 	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/spf13/cobra"
@@ -30,7 +29,7 @@ var ServerCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Start server",
 	Run: func(cmd *cobra.Command, args []string) {
-		intro()
+		version.PrintBanner()
 		configFile, _ := cmd.Flags().GetString("config")
 		if configFile == "" {
 			configFile = internal.GetConfigPaths()
@@ -54,11 +53,4 @@ var ServerCmd = &cobra.Command{
 
 func init() {
 	ServerCmd.Flags().StringP("config", "c", "", "Path to the configuration filename")
-}
-func intro() {
-	nameFigure := figure.NewFigure("Goma", "", true)
-	nameFigure.Print()
-	fmt.Printf("Version: %s\n", version.Version)
-	fmt.Println("Copyright (c) 2024 Jonas Kaninda")
-	fmt.Println("Starting Goma Gateway server...")
 }

@@ -17,7 +17,7 @@ Example of a rate limiting middleware
 ```yaml
 middlewares:
   - name: rate-limit
-    type: rateLimit # or ratelimit
+    type: rateLimit
     rule:
       unit: second          # minute or hour
       requestsPerUnit: 60    # Maximum number of requests per unit of time
@@ -33,7 +33,7 @@ middlewares:
 apiVersion: gomaproj.github.io/v1beta1
 kind: Middleware
 metadata:
-  name: ratelimit-middleware-sample
+  name: rate-limit-middleware-sample
 spec:
     type: rateLimit
     rule:
