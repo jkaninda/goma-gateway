@@ -31,3 +31,18 @@ func FullVersion() {
 	fmt.Printf("Build time: %s\n", buildTime)
 	fmt.Printf("Git commit: %s\n", gitCommit)
 }
+
+var Banner = `
+   ____                       
+  / ___| ___  _ __ ___   __ _ 
+ | |  _ / _ \| '_ ` + "`" + ` _ \ / _` + "`" + ` |
+ | |_| | (_) | | | | | | (_| |
+  \____|\___/|_| |_| |_|\__,_|
+  :: Goma Gateway :: - (` + Version + `)
+`
+
+func PrintBanner() {
+	fmt.Print(Banner)
+	fmt.Println("Copyright (c) 2024 Jonas Kaninda")
+	fmt.Println("Starting Goma Gateway...")
+}
