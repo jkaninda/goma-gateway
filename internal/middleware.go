@@ -357,28 +357,44 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 	jwt := &JWTRuleMiddleware{}
 	if err = goutils.DeepCopy(jwt, routeMiddleware.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
+		logger.Warn("JWT middleware not applied to route", "middleware", routeMiddleware.Name, "route", route.Name, "reason", "missing or invalid configuration")
 		return
 	}
 	if err = jwt.validate(); err != nil {
-		logger.Error("Error", "error", err.Error())
+		logger.Error("Error validating JWT middleware, ", "error", err.Error())
+		logger.Warn("JWT middleware not applied to route", "middleware", routeMiddleware.Name, "route", route.Name, "reason", "missing or invalid configuration")
 		return
 	}
 	key := &rsa.PublicKey{}
 	if jwt.PublicKey != "" {
 		key, err = loadRSAPublicKey(jwt.PublicKey)
 		if err != nil {
-			logger.Error("Error JWT", "error", err)
+			logger.Error("Error JWT PublicKey", "error", err)
+			logger.Warn("JWT middleware not applied to route", "middleware", routeMiddleware.Name, "route", route.Name, "reason", "missing or invalid configuration")
 			return
 		}
 	}
+	jwksFile := &middlewares.Jwks{}
+	if jwt.JwksFile != "" {
+		jwksFile, err = loadJWKSFromFile(jwt.JwksFile)
+		if err != nil {
+			logger.Error("Error JWT jwksFile", "error", err)
+			logger.Warn("JWT middleware not applied to route", "middleware", routeMiddleware.Name, "route", route.Name, "reason", "missing or invalid configuration")
+			return
 
+		}
+	}
 	jwtAuth := middlewares.JwtAuth{
-		Path:    route.Path,
-		Paths:   routeMiddleware.Paths,
-		RsaKey:  key,
-		Secret:  jwt.Secret,
-		JwksUrl: jwt.JwksUrl,
-		Origins: route.Cors.Origins,
+		Path:     route.Path,
+		Paths:    routeMiddleware.Paths,
+		RsaKey:   key,
+		Algo:     jwt.Alg,
+		JwksFile: jwksFile,
+		Secret:   jwt.Secret,
+		JwksUrl:  jwt.JwksUrl,
+		Issuer:   jwt.Issuer,
+		Audience: jwt.Audience,
+		Origins:  route.Cors.Origins,
 	}
 
 	r.Use(jwtAuth.AuthMiddleware)

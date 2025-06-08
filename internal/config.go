@@ -374,8 +374,8 @@ func (rateLimit RateLimitRuleMiddleware) validate() error {
 
 // validate validates JWTRuleMiddleware
 func (jwt JWTRuleMiddleware) validate() error {
-	if jwt.Secret == "" && jwt.PublicKey == "" && jwt.JwksUrl == "" {
-		return fmt.Errorf("empty Secret, JwksUrl or  PublicKey in jwt auth middlewares")
+	if jwt.Secret == "" && jwt.PublicKey == "" && jwt.JwksUrl == "" && jwt.JwksFile == "" {
+		return fmt.Errorf("empty Secret, JwksUrl, JwksFile or  PublicKey in jwt auth middlewares")
 
 	}
 	return nil

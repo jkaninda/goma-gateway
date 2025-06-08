@@ -52,10 +52,13 @@ type RewriteRegexRuleMiddleware struct {
 //
 // JWTRuleMiddleware contains the authentication details
 type JWTRuleMiddleware struct {
-	Alg                  string
+	Alg                  string `yaml:"alg,omitempty"`
 	Secret               string `yaml:"secret,omitempty"`
 	PublicKey            string `yaml:"publicKey,omitempty"`
+	Issuer               string `yaml:"issuer,omitempty"`
+	Audience             string `yaml:"audience,omitempty"`
 	JwksUrl              string `yaml:"jwksUrl,omitempty"`
+	JwksFile             string `yaml:"jwksFile,omitempty"`
 	ForwardAuthorization bool   `yaml:"forwardAuthorization,omitempty"`
 }
 type OauthRulerMiddleware struct {

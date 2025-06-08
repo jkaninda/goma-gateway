@@ -16,8 +16,12 @@ The **JWT Middleware** is designed to validate JSON Web Tokens (JWT) in incoming
 The JWT Middleware can be configured with the following options:
 
 - **`secret`**: A shared secret key used to validate the JWT signature.
+- **`jwksFile`**: 
 - **`publicKey`**: The path to a public key file or the raw content of the public key (in PEM format) used to validate the JWT signature.
 - **`jwksUrl`**: The URL of a JSON Web Key Set (JWKS) endpoint. This is used to dynamically fetch public keys for token validation.
+- **`algo`**: 
+- **`issuer`**:
+- **`audience`**: (Optional)
 
 ---
 
@@ -47,6 +51,9 @@ middlewares:
         - "/*"
       rule:
         secret: MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo...
+        algo: "" # Optional
+        issuer: "" # Optional
+        jwksFile: "" # Optional
         publicKey: "" # File path to the certificate or raw certificate content
         jwksUrl: ""   # URL to fetch JWKS for dynamic key resolution
         forwardAuthorization: false # Whether to forward the Authorization header
