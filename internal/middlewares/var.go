@@ -39,6 +39,7 @@ var (
 	RedisClient *redis.Client
 	limiter     *redis_rate.Limiter
 	logger      = log.InitLogger()
+	jwtAlgo     = []string{"RS256", "HS256", "ES256"}
 )
 
 // Paths of known bot user agents

@@ -18,10 +18,15 @@
 package internal
 
 import (
+	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"io"
 	"os"
 	"strings"
 )
@@ -31,12 +36,25 @@ func loadRSAPublicKey(input string) (*rsa.PublicKey, error) {
 	var data []byte
 	var err error
 
-	if strings.Contains(input, "-----BEGIN") {
-		data = []byte(input)
-	} else {
-		data, err = os.ReadFile(input)
+	trimmed := strings.TrimSpace(input)
+
+	switch {
+	case strings.Contains(trimmed, "-----BEGIN"):
+		// Raw PEM content
+		data = []byte(trimmed)
+
+	case isBase64(trimmed):
+		// Base64-encoded PEM content
+		data, err = base64.StdEncoding.DecodeString(trimmed)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file: %w", err)
+			return nil, fmt.Errorf("failed to decode base64 input: %w", err)
+		}
+
+	default:
+		// File path to PEM file
+		data, err = os.ReadFile(trimmed)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read PEM file: %w", err)
 		}
 	}
 
@@ -49,13 +67,10 @@ func loadRSAPublicKey(input string) (*rsa.PublicKey, error) {
 	// Handle different PEM block types
 	switch block.Type {
 	case "PUBLIC KEY":
-		// Parse PKIX public key
 		key, err := x509.ParsePKIXPublicKey(block.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse public key: %w", err)
 		}
-
-		// Ensure it is an RSA public key
 		rsaKey, ok := key.(*rsa.PublicKey)
 		if !ok {
 			return nil, fmt.Errorf("key is not an RSA public key")
@@ -63,13 +78,10 @@ func loadRSAPublicKey(input string) (*rsa.PublicKey, error) {
 		return rsaKey, nil
 
 	case "CERTIFICATE":
-		// Parse the certificate
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse certificate: %w", err)
 		}
-
-		// Extract the public key from the certificate
 		rsaKey, ok := cert.PublicKey.(*rsa.PublicKey)
 		if !ok {
 			return nil, fmt.Errorf("certificate does not contain an RSA public key")
@@ -79,4 +91,36 @@ func loadRSAPublicKey(input string) (*rsa.PublicKey, error) {
 	default:
 		return nil, fmt.Errorf("unsupported PEM block type: %s", block.Type)
 	}
+}
+
+func loadJWKSFromFile(jwksInput string) (*middlewares.Jwks, error) {
+	trimmed := strings.TrimSpace(jwksInput)
+
+	var reader io.Reader
+
+	if isBase64(trimmed) {
+		decoded, err := base64.StdEncoding.DecodeString(trimmed)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode base64 JWKS content: %w", err)
+		}
+		reader = bytes.NewReader(decoded)
+	} else {
+		file, err := os.Open(trimmed)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open JWKS file: %w", err)
+		}
+		defer func() {
+			if cerr := file.Close(); cerr != nil {
+				logger.Error("Error closing JWKS file", "error", cerr)
+			}
+		}()
+		reader = file
+	}
+
+	var keySet middlewares.Jwks
+	if err := json.NewDecoder(reader).Decode(&keySet); err != nil {
+		return nil, fmt.Errorf("failed to decode JWKS content: %w", err)
+	}
+
+	return &keySet, nil
 }
