@@ -29,11 +29,11 @@ import (
 	"net/http"
 )
 
-type jwks struct {
-	Keys []jwk `json:"keys"`
+type Jwks struct {
+	Keys []Jwk `json:"keys"`
 }
 
-type jwk struct {
+type Jwk struct {
 	Kid string `json:"kid"`
 	Kty string `json:"kty"`
 	N   string `json:"n"`   // RSA modulus
@@ -43,7 +43,7 @@ type jwk struct {
 	Y   string `json:"y"`   // for EC
 }
 
-func fetchJWKS(jwksURL string) (*jwks, error) {
+func fetchJWKS(jwksURL string) (*Jwks, error) {
 	resp, err := http.Get(jwksURL)
 	if err != nil {
 		return nil, err
@@ -55,14 +55,14 @@ func fetchJWKS(jwksURL string) (*jwks, error) {
 		}
 	}(resp.Body)
 
-	var keySet jwks
+	var keySet Jwks
 	if err := json.NewDecoder(resp.Body).Decode(&keySet); err != nil {
 		return nil, err
 	}
 	return &keySet, nil
 }
 
-func (j *jwks) getKey(kid string) (interface{}, error) {
+func (j *Jwks) getKey(kid string) (interface{}, error) {
 	for _, key := range j.Keys {
 		if key.Kid == kid {
 			switch key.Kty {
@@ -70,6 +70,8 @@ func (j *jwks) getKey(kid string) (interface{}, error) {
 				return parseRSAPublicKey(key.N, key.E)
 			case "EC":
 				return parseECDSAPublicKey(key.Crv, key.X, key.Y)
+			default:
+				return nil, fmt.Errorf("unsupported key type: %s", key.Kty)
 			}
 		}
 	}

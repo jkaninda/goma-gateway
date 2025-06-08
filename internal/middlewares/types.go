@@ -84,12 +84,17 @@ type ProxyResponseError struct {
 
 // JwtAuth  stores JWT configuration
 type JwtAuth struct {
-	Path    string
-	Paths   []string
-	Origins []string
-	Secret  string
-	JwksUrl string
-	RsaKey  *rsa.PublicKey
+	Path                 string
+	Paths                []string
+	Origins              []string
+	Algo                 string
+	Issuer               string
+	Audience             string
+	Secret               string
+	JwksFile             *Jwks
+	JwksUrl              string
+	RsaKey               *rsa.PublicKey
+	ForwardAuthorization bool
 }
 
 // AuthenticationMiddleware Define struct

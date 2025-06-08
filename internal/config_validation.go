@@ -131,7 +131,7 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 		// checking middleware applied to routes
 		for _, middleware := range route.Middlewares {
 			if !slices.Contains(midNames, middleware) {
-				logger.Warn("Couldn't find a middleware with the name: %s | route: %s", middleware, route.Name)
+				logger.Warn("Couldn't find a middleware with the name", "name", middleware, "route", route.Name)
 			}
 		}
 	}

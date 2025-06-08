@@ -25,13 +25,12 @@ import (
 
 func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contentType := r.Header.Get("Content-Type")
 
 		if !isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
 			next.ServeHTTP(w, r)
 			return
 		}
-
+		contentType := r.Header.Get("Content-Type")
 		authHeader, ok := validateHeaders(r, jwtAuth.Origins, w, r, contentType)
 		if !ok {
 			return
@@ -50,21 +49,20 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), jwtAuth.Origins, contentType)
 			return
 		}
-
-		token, err := jwt.Parse(tokenStr, keyFunc, jwt.WithValidMethods([]string{"RS256", "HS256"}), jwt.WithAudience("your-audience"), jwt.WithIssuer("your-issuer"))
+		if jwtAuth.Algo != "" {
+			jwtAlgo = []string{jwtAuth.Algo}
+		}
+		token, err := jwt.Parse(tokenStr, keyFunc, jwt.WithValidMethods(jwtAlgo), jwt.WithAudience(jwtAuth.Audience), jwt.WithIssuer(jwtAuth.Issuer))
 		if err != nil {
-			logger.Error("Invalid token", "error", err)
+			logger.Warn("Invalid token", "error", err)
 			RespondWithError(w, r, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), jwtAuth.Origins, contentType)
 			return
 		}
-
 		if !token.Valid {
-			logger.Error("Token is invalid")
+			logger.Warn("Token is invalid")
 			RespondWithError(w, r, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), jwtAuth.Origins, contentType)
 			return
 		}
-
-		// You can inject token claims into context here if needed.
 
 		next.ServeHTTP(w, r)
 	})
@@ -87,13 +85,13 @@ func validateHeaders(r *http.Request, origins []string, w http.ResponseWriter, r
 }
 func (jwtAuth JwtAuth) resolveKeyFunc() (jwt.Keyfunc, error) {
 	if jwtAuth.JwksUrl != "" {
+		logger.Debug("Using JwksUrl ", "url", jwtAuth.JwksUrl)
 		// Manual JWKS fetch
 		return func(token *jwt.Token) (interface{}, error) {
 			kid, ok := token.Header["kid"].(string)
 			if !ok {
 				return nil, fmt.Errorf("missing 'kid' in JWT header")
 			}
-			// You can cache this JWKS response for performance
 			jwks, err := fetchJWKS(jwtAuth.JwksUrl)
 			if err != nil {
 				return nil, err
@@ -103,12 +101,19 @@ func (jwtAuth JwtAuth) resolveKeyFunc() (jwt.Keyfunc, error) {
 	}
 
 	if jwtAuth.Secret != "" {
+		logger.Debug("Using Secret ", "secret", "***")
 		return func(token *jwt.Token) (interface{}, error) {
 			return []byte(jwtAuth.Secret), nil
 		}, nil
 	}
-
+	if len(jwtAuth.JwksFile.Keys) != 0 {
+		logger.Debug("Using JWKS File", "file", "***")
+		return func(token *jwt.Token) (interface{}, error) {
+			return jwtAuth.JwksFile, nil
+		}, nil
+	}
 	if jwtAuth.RsaKey != nil {
+		logger.Debug("Using RsaKey", "key", "***")
 		return func(token *jwt.Token) (interface{}, error) {
 			return jwtAuth.RsaKey, nil
 		}, nil
