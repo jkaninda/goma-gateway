@@ -109,7 +109,11 @@ func (jwtAuth JwtAuth) resolveKeyFunc() (jwt.Keyfunc, error) {
 	if len(jwtAuth.JwksFile.Keys) != 0 {
 		logger.Debug("Using JWKS File", "file", "***")
 		return func(token *jwt.Token) (interface{}, error) {
-			return jwtAuth.JwksFile, nil
+			kid, ok := token.Header["kid"].(string)
+			if !ok {
+				return nil, fmt.Errorf("missing 'kid' in JWT header")
+			}
+			return jwtAuth.JwksFile.getKey(kid)
 		}, nil
 	}
 	if jwtAuth.RsaKey != nil {
