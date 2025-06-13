@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/logger"
-	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"math/big"
 	"net/http"
@@ -198,9 +197,6 @@ func (cm *CertManager) AutoCert(hosts []string, cacheDir string) {
 		Prompt:     autocert.AcceptTOS,
 		HostPolicy: autocert.HostWhitelist(hosts...),
 		Cache:      autocert.DirCache(cacheDir),
-		Client: &acme.Client{
-			DirectoryURL: "https://acme-staging-v02.api.letsencrypt.org/directory",
-		},
 	}
 }
 
