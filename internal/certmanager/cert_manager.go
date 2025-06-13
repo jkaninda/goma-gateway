@@ -25,7 +25,12 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/jkaninda/logger"
+	"golang.org/x/crypto/acme"
+	"golang.org/x/crypto/acme/autocert"
 	"math/big"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -34,15 +39,17 @@ import (
 
 // CertManager dynamically manages TLS certificates.
 type CertManager struct {
-	mu          sync.RWMutex
-	certs       map[string]*tls.Certificate
-	defaultCert *tls.Certificate
+	mu              sync.RWMutex
+	certs           map[string]*tls.Certificate
+	defaultCert     *tls.Certificate
+	autoCertManager *autocert.Manager
 }
 
 // NewCertManager initializes a CertManager instance.
 func NewCertManager() *CertManager {
 	return &CertManager{
-		certs: make(map[string]*tls.Certificate),
+		certs:           make(map[string]*tls.Certificate),
+		autoCertManager: &autocert.Manager{},
 	}
 }
 
@@ -85,13 +92,36 @@ func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
 
 // GetCertificate retrieves the appropriate certificate for a given ClientHello request.
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	var err error
 	cm.mu.RLock()
-	defer cm.mu.RUnlock()
+	cert := cm.findCertificate(hello.ServerName)
+	cm.mu.RUnlock()
 
-	if cert := cm.findCertificate(hello.ServerName); cert != nil {
+	if cert != nil {
 		return cert, nil
 	}
+	if cm.autoCertManager != nil {
+		cert, err = cm.autoCertManager.GetCertificate(hello)
+		if err != nil {
+			logger.Debug("Error getting certificate", "err", err)
+			return cm.defaultCert, cm.defaultCertError()
+		}
+		logger.Debug("Using autoCertManager")
+		return cert, nil
+	}
+	logger.Debug("Using Default certificate")
 	return cm.defaultCert, cm.defaultCertError()
+}
+
+func (cm *CertManager) AutoCertHandler(router *mux.Router) http.HandlerFunc {
+	acmeHandler := cm.autoCertManager.HTTPHandler(nil)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/") {
+			acmeHandler.ServeHTTP(w, r)
+			return
+		}
+		router.ServeHTTP(w, r)
+	}
 }
 
 // findCertificate searches for a certificate by exact, wildcard, or parent domain match.
@@ -161,6 +191,17 @@ func getWildcardDomain(domain string) string {
 		return "*." + strings.Join(parts[1:], ".")
 	}
 	return ""
+}
+
+func (cm *CertManager) AutoCert(hosts []string, cacheDir string) {
+	cm.autoCertManager = &autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist(hosts...),
+		Cache:      autocert.DirCache(cacheDir),
+		Client: &acme.Client{
+			DirectoryURL: "https://acme-staging-v02.api.letsencrypt.org/directory",
+		},
+	}
 }
 
 // getParentDomain returns the parent domain for a given domain.

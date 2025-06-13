@@ -20,6 +20,7 @@ package internal
 import (
 	"context"
 	"github.com/gorilla/mux"
+	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
@@ -29,10 +30,11 @@ import (
 )
 
 // NewRouter creates a new router instance.
-func (gateway Gateway) NewRouter() Router {
+func (gateway Gateway) NewRouter(certManager *certmanager.CertManager) Router {
 	rt := &router{
 		mux:           mux.NewRouter().StrictSlash(gateway.EnableStrictSlash),
 		enableMetrics: gateway.EnableMetrics,
+		certManager:   certManager,
 	}
 	gateway.addGlobalHandler(rt.mux)
 	return rt
@@ -47,6 +49,8 @@ func (r *router) AddRoutes(rt Router) {
 		}
 		rt.AddRoute(route)
 	}
+	r.addAcmeChallenge(r.certManager)
+
 }
 
 // ServeHTTP handles incoming HTTP requests.
@@ -110,6 +114,7 @@ func (r *router) AddRoute(route Route) {
 		insecureSkipVerify:    route.InsecureSkipVerify,
 	}
 	rRouter.Use(CORSHandler(route.Cors))
+	// rRouter.Use(certManager.AutoCertHandler(rRouter))
 	attachMiddlewares(route, rRouter)
 
 	if r.enableMetrics {
@@ -147,6 +152,10 @@ func (r *router) AddRoute(route Route) {
 // Mux returns the underlying mux router.
 func (r *router) Mux() http.Handler {
 	return r.mux
+}
+
+func (r *router) addAcmeChallenge(certManager *certmanager.CertManager) {
+	r.mux.HandleFunc("/.well-known/acme-challenge/", certManager.AutoCertHandler(r.mux)).Methods("GET")
 }
 
 // addGlobalHandler configures global handlers and middlewares for the router.

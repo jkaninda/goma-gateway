@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-gateway/util"
 	"net"
 	"net/http"
 	"strconv"
@@ -168,4 +169,14 @@ func allowedOrigin(origins []string, origin string) bool {
 	}
 	return false
 
+}
+
+func updateHostNames(routes []Route) {
+	hosts := []string{}
+	for _, route := range routes {
+		if len(route.Hosts) > 0 {
+			hosts = append(hosts, route.Hosts...)
+		}
+	}
+	dynamicHosts = util.RemoveDuplicates(hosts)
 }
