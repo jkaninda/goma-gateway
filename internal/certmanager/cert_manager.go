@@ -25,8 +25,13 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/jkaninda/logger"
+	"golang.org/x/crypto/acme/autocert"
 	"math/big"
+	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -34,15 +39,17 @@ import (
 
 // CertManager dynamically manages TLS certificates.
 type CertManager struct {
-	mu          sync.RWMutex
-	certs       map[string]*tls.Certificate
-	defaultCert *tls.Certificate
+	mu              sync.RWMutex
+	certs           map[string]*tls.Certificate
+	defaultCert     *tls.Certificate
+	autoCertManager *autocert.Manager
 }
 
 // NewCertManager initializes a CertManager instance.
 func NewCertManager() *CertManager {
 	return &CertManager{
-		certs: make(map[string]*tls.Certificate),
+		certs:           make(map[string]*tls.Certificate),
+		autoCertManager: &autocert.Manager{},
 	}
 }
 
@@ -86,12 +93,55 @@ func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
 // GetCertificate retrieves the appropriate certificate for a given ClientHello request.
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	cm.mu.RLock()
-	defer cm.mu.RUnlock()
+	cert := cm.findCertificate(hello.ServerName)
+	cm.mu.RUnlock()
 
-	if cert := cm.findCertificate(hello.ServerName); cert != nil {
+	if cert != nil {
+		logger.Debug("Serving certificate",
+			"server_name", hello.ServerName,
+			"type", "manual",
+		)
 		return cert, nil
 	}
-	return cm.defaultCert, cm.defaultCertError()
+
+	if cm.autoCertManager != nil {
+		acmeCert, err := cm.autoCertManager.GetCertificate(hello)
+		if err == nil {
+			logger.Debug("Serving certificate",
+				"server_name", hello.ServerName,
+				"type", "autocert",
+			)
+			return acmeCert, nil
+		}
+		logger.Error("autocert manager failed",
+			"server_name", hello.ServerName,
+			"error", err.Error(),
+		)
+	}
+
+	if cm.defaultCert != nil {
+		logger.Debug("Serving default certificate",
+			"server_name", hello.ServerName,
+			"type", "default",
+		)
+		return cm.defaultCert, nil
+	}
+
+	logger.Debug("No matching certificate found",
+		"server_name", hello.ServerName,
+	)
+	return nil, os.ErrNotExist
+}
+
+func (cm *CertManager) AutoCertHandler(router *mux.Router) http.HandlerFunc {
+	acmeHandler := cm.autoCertManager.HTTPHandler(nil)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/") {
+			acmeHandler.ServeHTTP(w, r)
+			return
+		}
+		router.ServeHTTP(w, r)
+	}
 }
 
 // findCertificate searches for a certificate by exact, wildcard, or parent domain match.
@@ -103,14 +153,6 @@ func (cm *CertManager) findCertificate(domain string) *tls.Certificate {
 		if cert, exists := cm.certs[d]; exists {
 			return cert
 		}
-	}
-	return nil
-}
-
-// defaultCertError returns an error if no default certificate is set.
-func (cm *CertManager) defaultCertError() error {
-	if cm.defaultCert == nil {
-		return os.ErrNotExist
 	}
 	return nil
 }
@@ -134,6 +176,10 @@ func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, err
 
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
 	if err != nil {
+		logger.Error("Failed to generate self-signed certificate",
+			"domain", domain,
+			"error", err.Error(),
+		)
 		return nil, fmt.Errorf("failed to create certificate: %w", err)
 	}
 
@@ -142,10 +188,14 @@ func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, err
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
+
 		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
 	}
 
 	cm.AddCertificate(domain, tlsCert)
+	logger.Debug("Self-signed certificate generated",
+		"domain", domain,
+	)
 	return &tlsCert, nil
 }
 
@@ -161,6 +211,19 @@ func getWildcardDomain(domain string) string {
 		return "*." + strings.Join(parts[1:], ".")
 	}
 	return ""
+}
+
+func (cm *CertManager) AutoCert(hosts []string, cacheDir string) {
+	jsonCache, err := newJSONCache(filepath.Join(cacheDir, "certificates.json"))
+	if err != nil {
+		logger.Error("Failed to create JSON cache", "error", err)
+		return
+	}
+	cm.autoCertManager = &autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist(hosts...),
+		Cache:      jsonCache,
+	}
 }
 
 // getParentDomain returns the parent domain for a given domain.

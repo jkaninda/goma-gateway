@@ -37,7 +37,7 @@ func (gatewayServer GatewayServer) Start() error {
 	}
 
 	// Create router
-	newRouter := gatewayServer.gateway.NewRouter()
+	newRouter := gatewayServer.gateway.NewRouter(gatewayServer.certManager)
 	newRouter.AddRoutes(newRouter)
 
 	logger.Debug("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
@@ -65,6 +65,7 @@ func (gatewayServer GatewayServer) Start() error {
 	}
 	// Validate entrypoint
 	gatewayServer.gateway.EntryPoints.Validate()
+	gatewayServer.certManager.AutoCert(dynamicHosts, CertsPath)
 
 	httpServer := gatewayServer.createServer(webAddress, newRouter, nil)
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)

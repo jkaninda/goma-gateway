@@ -24,6 +24,7 @@ import (
 var (
 	counter            uint32
 	dynamicRoutes      []Route
+	dynamicHosts       []string
 	dynamicMiddlewares []Middleware
 	redisBased         = false
 	stopChan           = make(chan struct{})
