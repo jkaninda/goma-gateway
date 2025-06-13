@@ -157,14 +157,6 @@ func (cm *CertManager) findCertificate(domain string) *tls.Certificate {
 	return nil
 }
 
-// defaultCertError returns an error if no default certificate is set.
-func (cm *CertManager) defaultCertError() error {
-	if cm.defaultCert == nil {
-		return os.ErrNotExist
-	}
-	return nil
-}
-
 // GenerateCertificate creates a self-signed certificate for a domain.
 func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
