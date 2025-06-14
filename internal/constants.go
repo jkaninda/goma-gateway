@@ -39,7 +39,9 @@ const (
 	BasicAuth           MiddlewareType = "basic"     // basic authentication middlewares
 	BasicAuthMiddleware MiddlewareType = "basicAuth" // basic authentication middlewares
 	JWTAuth             MiddlewareType = "jwt"       // JWT authentication middlewares
+	JWTAuthMiddleware   MiddlewareType = "jwtAuth"   // JWT authentication middlewares
 	OAuth               MiddlewareType = "oauth"     // OAuth authentication middlewares
+	OAuth2              MiddlewareType = "oauth2"    // OAuth authentication middlewares
 	accessPolicy        MiddlewareType = "accessPolicy"
 	addPrefix           MiddlewareType = "addPrefix"
 	rateLimit           MiddlewareType = "rateLimit"

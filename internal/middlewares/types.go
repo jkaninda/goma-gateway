@@ -94,7 +94,10 @@ type JwtAuth struct {
 	JwksFile             *Jwks
 	JwksUrl              string
 	RsaKey               *rsa.PublicKey
+	ClaimsExpression     string
+	ForwardHeaders       map[string]string
 	ForwardAuthorization bool
+	parsedExpression     Expression
 }
 
 // AuthenticationMiddleware Define struct
@@ -183,4 +186,7 @@ type ForwardAuth struct {
 	AuthSignIn                  string
 	EnableHostForwarding        bool
 	Origins                     []string
+}
+type ClaimExpression interface {
+	Evaluate(claims map[string]interface{}) (bool, error)
 }

@@ -13,108 +13,138 @@ Goma Gateway is a lightweight High-Performance Declarative API Gateway Managemen
 
 ## Features
 
-It's designed to be straightforward and efficient, offering a rich set of features, including:
+**Goma Gateway** is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly.
+
 
 ### Core Features
-- **RESTful API Gateway Management**  
-  Simplify the management of your API Gateway with powerful tools.
 
-- **Domain/Host-Based Request Routing**  
-  Route requests based on specific domains or hosts.
+* **RESTful API Gateway Management**
+  Intuitively manage APIs with a clean, declarative configuration system.
 
-- **Multi-Domain Request Routing**  
-  Handle requests across multiple domains seamlessly.
+* **Domain & Host-Based Routing**
+  Route requests by domain or host to different services or environments.
 
-- **Reverse Proxy**  
-  Efficiently forward client requests to backend servers.
+* **Multi-Domain Support**
+  Handle traffic across multiple domains with unified configuration.
 
-- **WebSocket Proxy**  
-  Enable real-time communication via WebSocket support.
+* **Reverse Proxy Support**
+  Forward incoming client requests to backend services seamlessly.
 
-### Security and Control
-- **Cross-Origin Resource Sharing (CORS)**  
-  Define and manage cross-origin policies for secure interactions.
+* **WebSocket Proxying**
+  Enable real-time applications with full WebSocket support.
 
-- **Custom Headers**  
-  Add and modify headers to meet specific requirements.
+---
 
-- **Backend Errors Interceptor**  
-  Catch and handle backend errors effectively.
+### Security & Access Control
 
-- **Block Common Exploits Middleware**
-  - Detect patterns indicating SQL injection attempts.
-  - Identify basic cross-site scripting (XSS) attempts.
+* **TLS with Automatic Certificate Management**
+  Secure your services with built-in TLS support, including:
 
-- **Authentication Middleware**
-  - Support for **ForwardAuth** with client authorization based on request results.
-  - **Basic-Auth** and **OAuth** authentication mechanisms.
-- **Access Policy Middleware**
-  - Control route access by either `allowing` or `denying` requests based on defined rules.
-- **Regex Support for URL Rewriting**
-  - Rewrite URL paths using regex patterns.
-- **Bot Detection Middleware**
-  - Protect your route from bots by blocking requests from known bots.
+  * **Free, Auto-Generated Certificates** via Let's Encrypt.
+  * **Automatic Renewal & Storage** to ensure uninterrupted HTTPS.
+  * **Custom TLS Certificates Support**
 
-### Monitoring and Performance
+  Bring your own TLS certificates when needed:
+  * Fallback to auto-generation when no custom cert is provided.
 
-#### **Logging**
-- **Comprehensive Logging**: Implement detailed logging for all incoming requests and outgoing responses.
-- **Log Levels**: Support multiple log levels (e.g., INFO, DEBUG, ERROR) to capture varying degrees of detail.
+* **Cross-Origin Resource Sharing (CORS)**
+  Define and enforce CORS policies per route for controlled cross-origin access.
 
-### **Metrics**
-- **Performance Monitoring**: Collect and analyze key performance metrics such as response times, error rates, and throughput.
-- **Real-Time Dashboards**: Integrate with monitoring tools (e.g., Prometheus, Grafana) to visualize metrics in real-time.
+* **Custom Header Injection**
+  Add or override HTTP headers for fine-grained request/response control.
 
-#### **Rate Limiting**
-- **In-Memory Rate Limiting**:
-  - Throttle requests based on client IP addresses using in-memory storage.
-  - Suitable for single-instance applications or low-traffic scenarios.
-- **Distributed Rate Limiting**:
-  - Use Redis for scalable, client IP-based rate limiting across multiple application instances.
-  - Configure rate limits (e.g., requests per minute) to prevent abuse and ensure fair usage.
+* **Authentication Middleware**
 
-#### **Load Balancing**
-- **Round-Robin Algorithm**: Distributes incoming requests evenly across backend servers, ensuring balanced resource utilization.
-- **Weighted Algorithm**: Distributes incoming requests based on predefined weights, allowing for prioritized traffic allocation to specific servers.
-- **Health Checks**: Continuously monitors the health of backend servers to ensure only healthy servers receive traffic.
-- **Scalability**: Enables seamless horizontal scaling by adding or removing backend servers without downtime.
-- **Integrated Health Checks**: Automatically monitors the health of backend servers to maintain high availability.
+  * **ForwardAuth** support for external authorization services.
+  * Built-in support for **Basic Auth**, **JWT**, and **OAuth**.
+
+* **Access Policy Enforcement**
+  Allow or deny traffic based on route-specific rules (IP, headers, methods, etc.).
+
+* **Exploit Protection Middleware**
+  Block common attack patterns like:
+
+  * SQL injection attempts.
+  * Cross-site scripting (XSS).
+
+* **Regex URL Rewriting**
+  Modify request paths on the fly using powerful regex rules.
+
+* **Bot Detection**
+  Identify and block traffic from known bots using user-agent analysis.
+
+* **HTTP Method Restrictions**
+  Explicitly restrict which HTTP methods are allowed per route.
+
+### Monitoring & Observability
+
+* **Comprehensive Logging**
+  Capture full request/response details with support for log levels (INFO, DEBUG, ERROR).
+
+* **Metrics Collection**
+  Track key metrics like response times, error rates, and throughput.
+  Integrates with **Prometheus**, **Grafana**, and other observability platforms.
+
+### Rate Limiting & Throttling
+
+* **In-Memory Rate Limiting**
+  IP-based throttling suitable for single-instance deployments.
+
+* **Distributed Rate Limiting with Redis**
+  Scalable enforcement of request limits across multiple gateway instances.
+
+* **Customizable Policies**
+  Configure thresholds (e.g., X requests per Y seconds) to protect APIs.
+
+
+###  Load Balancing
+
+* **Round-Robin & Weighted Algorithms**
+  Distribute traffic evenly or based on weight preferences across backend targets.
+
+* **Integrated Health Checks**
+  Automatically route traffic only to healthy upstream services.
+
+* **Horizontal Scalability**
+  Add or remove backends dynamically, without restarting the gateway.
 
 
 
-#### **HTTP Caching**
-- **Cache Implementation**: Enable HTTP caching for routes to improve response times and reduce server load.
-- **Cache Storage Options**:
-  - **In-Memory Cache**: Suitable for single-instance applications or temporary caching.
-  - **Redis Cache**: Ideal for distributed caching across multiple instances.
-  - **Cache Control Headers**: Support for `Cache-Control`, `and X-Cache-Status` headers for fine-grained cache management.
-  - **Cache Invalidation**: Implement strategies to invalidate stale cache entries (e.g., time-based or event-based invalidation).
+### Performance Optimization
+
+* **HTTP Caching**
+  Speed up responses and reduce load with route-based caching strategies.
+
+* **Pluggable Cache Backends**
+
+  * **In-Memory** for low-latency, single-node setups.
+  * **Redis** for distributed, multi-node cache sharing.
+
+* **Fine-Grained Control**
+
+  * Respect standard `Cache-Control` headers.
+  * Custom headers like `X-Cache-Status` for transparency.
+  * Time or event-based cache invalidation strategies.
 
 
-### Configuration and Flexibility
+### Configuration & Extensibility
 
-- **Support for Multiple Route and Middleware Configuration Files**  
-  Easily organize and manage routes by splitting them across multiple `.yml` or `.yaml` files for improved maintainability and clarity.
+* **Modular Config Files**
+  Split and organize routes and middleware using multiple `.yml` or `.yaml` files for clarity.
 
-- **Dynamic Configuration Reload**
-  - Reload configurations seamlessly without server restarts, ensuring uninterrupted service.
-  - Dynamically enable or disable routes with zero downtime, allowing for flexible, real-time adjustments.
+* **Live Configuration Reload**
+  * Apply configuration changes on the fly — no server restarts required.
+  * Dynamically enable or disable routes with zero downtime, allowing for flexible, real-time adjustments.
 
-- **TLS Integration**  
-  Secure communication through built-in TLS support, enhancing data protection and user trust.
+* **Kubernetes CRD Integration**
 
-- **HTTP Method Restrictions**  
-  Enforce HTTP method restrictions on specific routes, providing granular control and improved security.
+  * Manage routes, gateways, and middleware via Kubernetes-native CRDs.
+  * GitOps-friendly for declarative and version-controlled configuration.
 
-- **Kubernetes CRD Integration**
-  - Leverage Kubernetes-native Custom Resource Definitions (CRDs) for streamlined management of gateways, routes, and middleware.
-  - Define and configure gateways, routes, and middleware directly within Kubernetes manifests for seamless operator-focused workflows.
-
-- **Declarative API Gateway Management**  
-  Adopt a declarative approach to API gateway management, enabling you to:
+* **Declarative API Gateway Management**  
+  Adopt a declarative approach to API Gateway Management, enabling you to:
   - Define routes and middleware programmatically for consistent, code-driven configuration.
   - Integrate GitOps workflows to version control your gateway configurations, ensuring traceable and automated deployments.
-
 
 ----
 Architecture:

@@ -65,7 +65,9 @@ func (gatewayServer GatewayServer) Start() error {
 	}
 	// Validate entrypoint
 	gatewayServer.gateway.EntryPoints.Validate()
-	gatewayServer.certManager.AutoCert(dynamicHosts, CertsPath)
+
+	// Add AutoCert
+	gatewayServer.certManager.AutoCert(hostNames(dynamicRoutes), CertsPath)
 
 	httpServer := gatewayServer.createServer(webAddress, newRouter, nil)
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)

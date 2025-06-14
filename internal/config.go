@@ -124,7 +124,7 @@ func (gatewayServer GatewayServer) InitLogger() {
 
 	// Update logger with config
 	logger = log.InitLogger()
-	middlewares.UpdateLogger()
+	middlewares.InitLogger(logger)
 
 }
 
@@ -167,16 +167,6 @@ func handleDeprecations(route *Route) {
 		}
 		route.ErrorInterceptor.Enabled = true
 	}
-	// TODO: to remove in up coming version
-	if len(route.Backends) > 0 {
-		for i := range route.Backends {
-			if route.Backends[i].Endpoint == "" {
-				route.Backends[i].Endpoint = route.Backends[i].EndPointD
-			}
-
-		}
-	}
-
 }
 func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.RouteErrorInterceptor) {
 	if gatewayInterceptor.Enabled {

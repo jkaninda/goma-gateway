@@ -98,9 +98,6 @@ type Backend struct {
 	unavailable bool
 	// Endpoint defines the endpoint of the backend
 	Endpoint string `yaml:"endpoint,omitempty"`
-	// EndPointD
-	// Deprecated, use Endpoint,  replaced by endpoint in YAML
-	EndPointD string `yaml:"endPoint,omitempty"`
 	// Weight defines Weight for weighted algorithm, it optional
 	Weight int `yaml:"weight,omitempty"`
 }

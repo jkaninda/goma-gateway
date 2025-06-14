@@ -18,20 +18,19 @@
 package internal
 
 import (
-	"github.com/jkaninda/goma-gateway/internal/log"
+	logger2 "github.com/jkaninda/logger"
 )
 
 var (
 	counter            uint32
 	dynamicRoutes      []Route
-	dynamicHosts       []string
 	dynamicMiddlewares []Middleware
 	redisBased         = false
 	stopChan           = make(chan struct{})
 	reloaded           = false
 	webAddress         = ":8080"
 	webSecureAddress   = ":8443"
-	logger             = log.InitLogger()
+	logger             = logger2.Default()
 )
 
 type contextKey string

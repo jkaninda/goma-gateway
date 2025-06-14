@@ -20,7 +20,7 @@ package middlewares
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/log"
+	logger2 "github.com/jkaninda/logger"
 )
 
 // generateMD5Crypt implements the MD5 crypt algorithm
@@ -133,7 +133,6 @@ func encodeMD5Hash(digest []byte) string {
 
 	return string(result)
 }
-func UpdateLogger() {
-	logger = log.InitLogger()
-
+func InitLogger(l *logger2.Logger) {
+	logger = l
 }
