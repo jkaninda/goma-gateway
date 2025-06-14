@@ -171,7 +171,7 @@ func applyRedirectSchemeMiddleware(mid Middleware, r *mux.Router) {
 		logger.Error("Error", "error", err)
 		return
 	}
-	redirectSch := middlewares.RedirectScheme{
+	redirectSch := &middlewares.RedirectScheme{
 		Scheme:    redirectSchemeMid.Scheme,
 		Port:      redirectSchemeMid.Port,
 		Permanent: redirectSchemeMid.Permanent,

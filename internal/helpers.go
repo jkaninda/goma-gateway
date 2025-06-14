@@ -171,12 +171,45 @@ func allowedOrigin(origins []string, origin string) bool {
 
 }
 
-func updateHostNames(routes []Route) {
-	hosts := []string{}
+func hostNames(routes []Route) []string {
+	hosts := extractHostsFromRoutes(routes)
+	if len(hosts) == 0 {
+		_ = []string{}
+		return nil
+	}
+
+	port := getPortOrDefault(webAddress)
+	hostsWithPort := addPortToHosts(hosts, port)
+	return util.RemoveDuplicates(hostsWithPort)
+}
+
+// extractHostsFromRoutes collects all hosts from routes that have hosts defined
+func extractHostsFromRoutes(routes []Route) []string {
+	var hosts []string
 	for _, route := range routes {
 		if len(route.Hosts) > 0 {
 			hosts = append(hosts, route.Hosts...)
 		}
 	}
-	dynamicHosts = util.RemoveDuplicates(hosts)
+	return hosts
+}
+
+// getPortOrDefault extracts port from webAddress or returns default port "8080"
+func getPortOrDefault(address string) string {
+	port, err := util.GetPortFromAddress(address)
+	if err != nil {
+		logger.Error("Error extracting port from address, using default",
+			"address", address, "error", err, "default_port", "8080")
+		return "8080"
+	}
+	return strconv.Itoa(port)
+}
+
+// addPortToHosts appends the specified port to each host
+func addPortToHosts(hosts []string, port string) []string {
+	hostsWithPort := make([]string, len(hosts))
+	for i, host := range hosts {
+		hostsWithPort[i] = fmt.Sprintf("%s:%s", host, port)
+	}
+	return hostsWithPort
 }
