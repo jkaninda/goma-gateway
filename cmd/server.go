@@ -35,7 +35,7 @@ var ServerCmd = &cobra.Command{
 			configFile = internal.GetConfigPaths()
 		}
 		ctx := context.Background()
-		g := internal.GatewayServer{}
+		g := &internal.GatewayServer{}
 		gs, err := g.Config(configFile, ctx)
 		if err != nil {
 			fmt.Printf("Could not load configuration: %v\n", err)

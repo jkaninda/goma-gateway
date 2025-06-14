@@ -34,7 +34,7 @@ func init() {
 }
 
 // Initialize initializes the routes
-func (gatewayServer GatewayServer) Initialize() error {
+func (gatewayServer *GatewayServer) Initialize() error {
 	gateway := gatewayServer.gateway
 	handleGatewayDeprecations(&gateway)
 	dynamicRoutes = gateway.Routes
