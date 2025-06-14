@@ -17,7 +17,9 @@
 
 package internal
 
-import "github.com/jkaninda/goma-gateway/internal/log"
+import (
+	logger2 "github.com/jkaninda/logger"
+)
 
 var (
 	counter            uint32
@@ -29,7 +31,7 @@ var (
 	reloaded           = false
 	webAddress         = ":8080"
 	webSecureAddress   = ":8443"
-	logger             = log.InitLogger()
+	logger             = logger2.Default()
 )
 
 type contextKey string

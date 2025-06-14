@@ -25,18 +25,20 @@ import (
 
 func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		if !isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
 			next.ServeHTTP(w, r)
 			return
 		}
+
 		contentType := r.Header.Get("Content-Type")
 		authHeader, ok := validateHeaders(r, jwtAuth.Origins, w, r, contentType)
 		if !ok {
+			logger.Warn("Invalid or missing headers", "path", r.URL.Path)
 			return
 		}
 
 		if !strings.HasPrefix(authHeader, "Bearer ") {
+			logger.Warn("Authorization header missing Bearer prefix", "path", r.URL.Path)
 			RespondWithError(w, r, http.StatusUnauthorized, "Missing Bearer prefix", jwtAuth.Origins, contentType)
 			return
 		}
@@ -45,34 +47,49 @@ func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 
 		keyFunc, err := jwtAuth.resolveKeyFunc()
 		if err != nil {
-			logger.Error("Failed to resolve key function", "error", err)
+			logger.Error("Failed to resolve JWT key function", "error", err)
 			RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), jwtAuth.Origins, contentType)
 			return
 		}
+
 		if jwtAuth.Algo != "" {
 			jwtAlgo = []string{jwtAuth.Algo}
 		}
-		token, err := jwt.Parse(tokenStr, keyFunc, jwt.WithValidMethods(jwtAlgo), jwt.WithAudience(jwtAuth.Audience), jwt.WithIssuer(jwtAuth.Issuer))
+
+		token, err := jwt.Parse(tokenStr, keyFunc,
+			jwt.WithValidMethods(jwtAlgo),
+			jwt.WithAudience(jwtAuth.Audience),
+			jwt.WithIssuer(jwtAuth.Issuer),
+		)
+
 		if err != nil || !token.Valid {
-			logger.Warn("Invalid or expired token", "error", err)
+			logger.Warn("Invalid or expired JWT token", "error", err)
 			RespondWithError(w, r, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), jwtAuth.Origins, contentType)
 			return
 		}
 
 		if jwtAuth.ClaimsExpression != "" {
-			if ok, err = jwtAuth.validateJWTClaims(token); !ok {
-				logger.Error("Error validating claims", "error", err)
+			valid, err := jwtAuth.validateJWTClaims(token)
+			if err != nil {
+				logger.Error("Failed to validate JWT claims", "error", err)
+				RespondWithError(w, r, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), jwtAuth.Origins, contentType)
+				return
+			}
+			if !valid {
+				logger.Warn("JWT claims did not meet required expression")
 				RespondWithError(w, r, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), jwtAuth.Origins, contentType)
 				return
 			}
 		}
+
 		if !jwtAuth.ForwardAuthorization {
 			r.Header.Del("Authorization")
 		}
-		if jwtAuth.ForwardHeaders != nil {
-			err = jwtAuth.forwardHeadersFromClaims(token, r.Header)
-			if err != nil {
 
+		if jwtAuth.ForwardHeaders != nil {
+			if err := jwtAuth.forwardHeadersFromClaims(token, r.Header); err != nil {
+				logger.Error("Failed to forward headers from claims", "error", err)
+				RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), jwtAuth.Origins, contentType)
 				return
 			}
 		}

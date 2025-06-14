@@ -124,7 +124,7 @@ func (gatewayServer GatewayServer) InitLogger() {
 
 	// Update logger with config
 	logger = log.InitLogger()
-	middlewares.UpdateLogger()
+	middlewares.InitLogger(logger)
 
 }
 

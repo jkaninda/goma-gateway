@@ -65,9 +65,9 @@ middlewares:
       algo: "RS256"
       forwardAuthorization: false
       claimsExpression: >
-        Equals(`email_verified`, true) &&
-        OneOf(`user.role`, "admin", "owner") &&
-        Contains(`tags`, "vip", "premium", "gold")
+        Equals(`email_verified`, `true`) &&
+        OneOf(`user.role`, `admin`, `owner`) &&
+        Contains(`tags`, `vip`, `premium`, `gold`)
       forwardHeaders:
         Role: role
         Email: user.profile.email
