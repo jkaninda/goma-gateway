@@ -23,7 +23,7 @@ import (
 	"strings"
 )
 
-func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
+func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		if !isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
@@ -59,9 +59,9 @@ func (jwtAuth JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if jwtAuth.Claims != nil {
+		if jwtAuth.ClaimsExpression != "" {
 			if ok, err = jwtAuth.validateJWTClaims(token); !ok {
-				logger.Warn("Error validating claims", "error", err)
+				logger.Error("Error validating claims", "error", err)
 				RespondWithError(w, r, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), jwtAuth.Origins, contentType)
 				return
 			}
@@ -96,7 +96,7 @@ func validateHeaders(r *http.Request, origins []string, w http.ResponseWriter, r
 
 	return authHeader, true
 }
-func (jwtAuth JwtAuth) resolveKeyFunc() (jwt.Keyfunc, error) {
+func (jwtAuth *JwtAuth) resolveKeyFunc() (jwt.Keyfunc, error) {
 	if jwtAuth.JwksUrl != "" {
 		logger.Debug("Using JwksUrl ", "url", jwtAuth.JwksUrl)
 		// Manual JWKS fetch
@@ -139,174 +139,36 @@ func (jwtAuth JwtAuth) resolveKeyFunc() (jwt.Keyfunc, error) {
 	return nil, fmt.Errorf("no JWT secret, RSA key, or JWKS URL configured")
 }
 
-func (jwtAuth JwtAuth) validateJWTClaims(token *jwt.Token) (bool, error) {
-	// Get claims as MapClaims
+// Updated validateJWTClaims method
+func (jwtAuth *JwtAuth) validateJWTClaims(token *jwt.Token) (bool, error) {
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return false, fmt.Errorf("invalid claims format")
 	}
 
-	// Validate each required claim
-	for key, expectedValue := range jwtAuth.Claims {
-		// Handle nested keys
-		keys := strings.Split(key, ".")
-		var current interface{} = map[string]interface{}(claims)
-		var found bool
-
-		// Traverse nested keys
-		for _, k := range keys {
-			// logger.info("Validating claims", "key", k)
-
-			if m, ok := current.(map[string]interface{}); ok {
-				if val, exists := m[k]; exists {
-					current = val
-					found = true
-				} else {
-					found = false
-					break
-				}
-			} else {
-				found = false
-				break
+	// Use expression-based validation if available
+	if jwtAuth.ClaimsExpression != "" {
+		// Parse expression if not already cached
+		if jwtAuth.parsedExpression == nil {
+			expr, err := ParseExpression(jwtAuth.ClaimsExpression)
+			if err != nil {
+				return false, fmt.Errorf("failed to parse claims expression: %v", err)
 			}
+			jwtAuth.parsedExpression = expr
 		}
 
-		if !found {
-			return false, fmt.Errorf("claim '%s' not found", key)
+		result, err := jwtAuth.parsedExpression.Evaluate(claims)
+		if err != nil {
+			return false, fmt.Errorf("expression evaluation failed: %v", err)
 		}
-
-		// Check the value
-		switch ev := expectedValue.(type) {
-		case string:
-			// For string values, do direct comparison
-			if cv, ok := current.(string); !ok || cv != ev {
-				return false, fmt.Errorf("claim '%s' value '%v' doesn't match expected '%v'", key, current, ev)
-			}
-		case []string:
-			// For []string, check if any of the values match (OR condition)
-			if cv, ok := current.(string); ok {
-				found := false
-				for _, v := range ev {
-					if cv == v {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return false, fmt.Errorf("claim '%s' value '%v' doesn't match any of expected values %v", key, current, ev)
-				}
-			} else if cvSlice, ok := current.([]interface{}); ok {
-				// Handle case where claim is an array
-				found := false
-				for _, claimVal := range cvSlice {
-					if claimStr, ok := claimVal.(string); ok {
-						for _, expectedVal := range ev {
-							if claimStr == expectedVal {
-								found = true
-								break
-							}
-						}
-						if found {
-							break
-						}
-					}
-				}
-				if !found {
-					return false, fmt.Errorf("claim '%s' array doesn't contain any of expected values %v", key, ev)
-				}
-			} else {
-				return false, fmt.Errorf("claim '%s' is not a string or string array value", key)
-			}
-		case []interface{}:
-			// Handle []interface{} for more flexible array matching
-			switch cv := current.(type) {
-			case string:
-				found := false
-				for _, v := range ev {
-					if vStr, ok := v.(string); ok && cv == vStr {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return false, fmt.Errorf("claim '%s' value '%v' doesn't match any of expected values %v", key, current, ev)
-				}
-			case []interface{}:
-				found := false
-				for _, claimVal := range cv {
-					for _, expectedVal := range ev {
-						if claimVal == expectedVal {
-							found = true
-							break
-						}
-					}
-					if found {
-						break
-					}
-				}
-				if !found {
-					return false, fmt.Errorf("claim '%s' array doesn't contain any of expected values %v", key, ev)
-				}
-			default:
-				return false, fmt.Errorf("claim '%s' type doesn't match expected array type", key)
-			}
-		case float64:
-			// Handle numeric claims
-			if cv, ok := current.(float64); !ok || cv != ev {
-				return false, fmt.Errorf("claim '%s' value '%v' doesn't match expected '%v'", key, current, ev)
-			}
-		case bool:
-			// Handle boolean claims
-			if cv, ok := current.(bool); !ok || cv != ev {
-				return false, fmt.Errorf("claim '%s' value '%v' doesn't match expected '%v'", key, current, ev)
-			}
-		default:
-			// Generic comparison for other types
-			if current != expectedValue {
-				return false, fmt.Errorf("claim '%s' value '%v' doesn't match expected '%v'", key, current, expectedValue)
-			}
-		}
+		return result, nil
 	}
 
-	return true, nil
-}
-
-// Helper function to validate standard JWT claims if needed
-func (jwtAuth JwtAuth) validateStandardClaims(claims jwt.MapClaims) error {
-	// Validate issuer if specified
-	if jwtAuth.Issuer != "" {
-		if iss, ok := claims["iss"].(string); !ok || iss != jwtAuth.Issuer {
-			return fmt.Errorf("invalid issuer")
-		}
-	}
-
-	// Validate audience if specified
-	if jwtAuth.Audience != "" {
-		if aud, ok := claims["aud"].(string); ok {
-			if aud != jwtAuth.Audience {
-				return fmt.Errorf("invalid audience")
-			}
-		} else if audSlice, ok := claims["aud"].([]interface{}); ok {
-			found := false
-			for _, a := range audSlice {
-				if audStr, ok := a.(string); ok && audStr == jwtAuth.Audience {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return fmt.Errorf("invalid audience")
-			}
-		} else {
-			return fmt.Errorf("audience claim missing or invalid")
-		}
-	}
-
-	return nil
+	return true, nil // No claims validation configured
 }
 
 // forwardHeadersFromClaims extracts values from JWT claims and sets them as HTTP headers
-func (jwtAuth JwtAuth) forwardHeadersFromClaims(token *jwt.Token, headers map[string][]string) error {
+func (jwtAuth *JwtAuth) forwardHeadersFromClaims(token *jwt.Token, headers map[string][]string) error {
 	// Get claims as MapClaims
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
@@ -338,7 +200,7 @@ func (jwtAuth JwtAuth) forwardHeadersFromClaims(token *jwt.Token, headers map[st
 }
 
 // extractNestedClaimValue extracts a value from JWT claims using dot notation for nested keys
-func (jwtAuth JwtAuth) extractNestedClaimValue(claims jwt.MapClaims, claimKey string) (interface{}, error) {
+func (jwtAuth *JwtAuth) extractNestedClaimValue(claims jwt.MapClaims, claimKey string) (interface{}, error) {
 	// Handle nested keys using dot notation (e.g., "user.profile.email")
 	keys := strings.Split(claimKey, ".")
 	var current interface{} = map[string]interface{}(claims)
@@ -360,7 +222,7 @@ func (jwtAuth JwtAuth) extractNestedClaimValue(claims jwt.MapClaims, claimKey st
 }
 
 // formatHeaderValue converts a claim value to a header string
-func (jwtAuth JwtAuth) formatHeaderValue(claimValue interface{}) string {
+func (jwtAuth *JwtAuth) formatHeaderValue(claimValue interface{}) string {
 	// Convert claim value to string
 	switch cv := claimValue.(type) {
 	case string:

@@ -17,9 +17,7 @@
 
 package internal
 
-import (
-	"github.com/jkaninda/goma-gateway/internal/log"
-)
+import "github.com/jkaninda/goma-gateway/internal/log"
 
 var (
 	counter            uint32

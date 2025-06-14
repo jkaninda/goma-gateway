@@ -60,7 +60,7 @@ type JWTRuleMiddleware struct {
 	JwksUrl              string            `yaml:"jwksUrl,omitempty"`
 	JwksFile             string            `yaml:"jwksFile,omitempty"`
 	ForwardAuthorization bool              `yaml:"forwardAuthorization,omitempty"`
-	Claims               map[string]any    `yaml:"claims,omitempty"`
+	ClaimsExpression     string            `yaml:"claimsExpression,omitempty"`
 	ForwardHeaders       map[string]string `yaml:"forwardHeaders,omitempty"`
 }
 type OauthRulerMiddleware struct {

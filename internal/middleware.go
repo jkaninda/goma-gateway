@@ -387,7 +387,7 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 	jwtAuth := middlewares.JwtAuth{
 		Path:                 route.Path,
 		Paths:                routeMiddleware.Paths,
-		Claims:               jwt.Claims,
+		ClaimsExpression:     jwt.ClaimsExpression,
 		ForwardHeaders:       jwt.ForwardHeaders,
 		ForwardAuthorization: jwt.ForwardAuthorization,
 		RsaKey:               key,
