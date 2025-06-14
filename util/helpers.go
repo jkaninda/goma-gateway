@@ -19,6 +19,7 @@ package util
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
@@ -327,4 +328,28 @@ func RemoveDuplicates[T comparable](elements []T) []T {
 	}
 
 	return result
+}
+func GetPortFromAddress(addr string) (int, error) {
+	if strings.HasPrefix(addr, ":") {
+		portStr := addr[1:]
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return 0, fmt.Errorf("invalid port: %v", err)
+		}
+		return port, nil
+	}
+
+	// Split host and port using net.SplitHostPort
+	_, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse address: %v", err)
+	}
+
+	// Convert port string to integer
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid port: %v", err)
+	}
+
+	return port, nil
 }

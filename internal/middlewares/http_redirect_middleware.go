@@ -29,28 +29,52 @@ type RedirectScheme struct {
 	Permanent bool
 }
 
-// Middleware is a middleware that redirects HTTP scheme.
-func (h RedirectScheme) Middleware(next http.Handler) http.Handler {
+// Middleware redirects requests to the specified scheme (e.g., HTTP to HTTPS).
+// ACME challenge requests are always allowed through without redirection.
+func (rs *RedirectScheme) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if scheme(r) != h.Scheme {
-			httpsURL := fmt.Sprintf("%s://%s%s", h.Scheme, r.Host, r.URL.Path)
-			if h.Port >= 0 {
-				host := strings.Split(r.Host, ":")[0]
-				httpsURL = fmt.Sprintf("%s://%s:%d%s", h.Scheme, host, h.Port, r.URL.Path)
-
-			}
-			if r.URL.RawQuery != "" {
-				httpsURL += "?" + r.URL.RawQuery
-			}
-			// Redirect URL
-			if h.Permanent {
-				http.Redirect(w, r, httpsURL, http.StatusMovedPermanently)
-				return
-			}
-			http.Redirect(w, r, httpsURL, http.StatusFound)
+		if !rs.shouldRedirect(r) {
+			next.ServeHTTP(w, r)
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		targetURL := rs.buildRedirectURL(r)
+		http.Redirect(w, r, targetURL, rs.redirectStatusCode())
 	})
+}
+
+// shouldRedirect determines if the request should be redirected based on scheme
+// and whether it's an ACME challenge request
+func (rs *RedirectScheme) shouldRedirect(r *http.Request) bool {
+	if scheme(r) == rs.Scheme || rs.isACMEChallenge(r) {
+		return false
+	}
+	return true
+}
+
+// isACMEChallenge checks if the request is for an ACME challenge
+func (rs *RedirectScheme) isACMEChallenge(r *http.Request) bool {
+	return strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/")
+}
+
+// redirectStatusCode returns the appropriate HTTP status code for redirection
+func (rs *RedirectScheme) redirectStatusCode() int {
+	if rs.Permanent {
+		return http.StatusMovedPermanently
+	}
+	return http.StatusFound
+}
+
+func (rs *RedirectScheme) buildRedirectURL(r *http.Request) string {
+	host := r.Host
+	if rs.Port >= 0 {
+		host = strings.Split(host, ":")[0]
+		host = fmt.Sprintf("%s:%d", host, rs.Port)
+	}
+
+	url := fmt.Sprintf("%s://%s%s", rs.Scheme, host, r.URL.Path)
+	if r.URL.RawQuery != "" {
+		url += "?" + r.URL.RawQuery
+	}
+	return url
 }

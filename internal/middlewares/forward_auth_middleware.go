@@ -99,12 +99,12 @@ func authRequest(f ForwardAuth, w http.ResponseWriter, req *http.Request, conten
 			logger.Error("Proxy error authenticating request", "error", err)
 
 		} else {
-			logger.Error("Unauthorized access, proxy authentication resulted with error", "path", req.URL.Path, "status", authResp.StatusCode)
+			logger.Warn("Unauthorized access, proxy authentication resulted with error", "path", req.URL.Path, "status", authResp.StatusCode)
 		}
 		return false, authResp
 	}
 	defer func(Body io.ReadCloser) {
-		err := Body.Close()
+		err = Body.Close()
 		if err != nil {
 			logger.Error("Error closing response body", "error", err)
 		}
