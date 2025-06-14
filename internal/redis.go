@@ -21,7 +21,7 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
-func (gatewayServer GatewayServer) initRedis() {
+func (gatewayServer *GatewayServer) initRedis() {
 	if len(gatewayServer.gateway.Redis.Addr) != 0 {
 		logger.Info("Initializing Redis...")
 		middlewares.InitRedis(gatewayServer.gateway.Redis.Addr, gatewayServer.gateway.Redis.Password)
@@ -29,7 +29,7 @@ func (gatewayServer GatewayServer) initRedis() {
 
 }
 
-func (gatewayServer GatewayServer) closeRedis() {
+func (gatewayServer *GatewayServer) closeRedis() {
 	if middlewares.RedisClient != nil {
 		if err := middlewares.RedisClient.Close(); err != nil {
 			logger.Error("Error closing Redis", "error", err)

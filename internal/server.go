@@ -29,7 +29,7 @@ import (
 )
 
 // Start / Start starts the server
-func (gatewayServer GatewayServer) Start() error {
+func (gatewayServer *GatewayServer) Start() error {
 	logger.Info("Initializing routes...")
 	err := gatewayServer.Initialize()
 	if err != nil {
@@ -79,7 +79,7 @@ func (gatewayServer GatewayServer) Start() error {
 	return gatewayServer.shutdown(httpServer, httpsServer)
 }
 
-func (gatewayServer GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
+func (gatewayServer *GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
 	return &http.Server{
 		Addr:         addr,
 		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
@@ -90,7 +90,7 @@ func (gatewayServer GatewayServer) createServer(addr string, handler http.Handle
 	}
 }
 
-func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Server) {
+func (gatewayServer *GatewayServer) startServers(httpServer, httpsServer *http.Server) {
 	go func() {
 		logger.Info("Starting Web server on", "addr", webAddress)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -107,7 +107,7 @@ func (gatewayServer GatewayServer) startServers(httpServer, httpsServer *http.Se
 
 }
 
-func (gatewayServer GatewayServer) shutdown(httpServer, httpsServer *http.Server) error {
+func (gatewayServer *GatewayServer) shutdown(httpServer, httpsServer *http.Server) error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

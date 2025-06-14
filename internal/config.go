@@ -37,7 +37,7 @@ import (
 )
 
 // Config reads config file and returns Gateway
-func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewayServer, error) {
+func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewayServer, error) {
 	if util.FileExists(configFile) {
 		buf, err := os.ReadFile(configFile)
 		if err != nil {
@@ -116,7 +116,7 @@ func (GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySer
 }
 
 // InitLogger sets environment variables and initialize the logger
-func (gatewayServer GatewayServer) InitLogger() {
+func (gatewayServer *GatewayServer) InitLogger() {
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.Log.Level)
 	util.SetEnv("GOMA_LOG_FILE", gatewayServer.gateway.Log.FilePath)
