@@ -25,7 +25,7 @@ import (
 	"strings"
 )
 
-func (gatewayServer GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
+func (gatewayServer *GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
 	certs := loadTLS(gatewayServer.gateway.TLS)
 	cert, err := loadGatewayCertificate(gatewayServer)
 	if err == nil && cert != nil {
@@ -70,7 +70,7 @@ func loadTLS(t TLS) []tls.Certificate {
 }
 
 // loadGatewayCertificate loads a certificate for the gateway server, handling both deprecated and new fields.
-func loadGatewayCertificate(gatewayServer GatewayServer) (*tls.Certificate, error) {
+func loadGatewayCertificate(gatewayServer *GatewayServer) (*tls.Certificate, error) {
 	loadCertificate := func(cert, key, warnMsg string) (*tls.Certificate, error) {
 		if cert != "" || key != "" {
 			if warnMsg != "" {
