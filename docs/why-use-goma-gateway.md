@@ -1,5 +1,5 @@
 ---
-title: Overview
+title: Why Use Goma Gateway ?
 layout: home
 nav_order: 2
 ---
