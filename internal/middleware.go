@@ -311,11 +311,11 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Route
 	switch routeMiddleware.Type {
 	case BasicAuth, BasicAuthMiddleware:
 		applyBasicAuthMiddleware(route, routeMiddleware, r)
-	case JWTAuth:
+	case JWTAuth, JWTAuthMiddleware:
 		applyJWTAuthMiddleware(route, routeMiddleware, r)
 	case forwardAuth:
 		applyForwardAuthMiddleware(route, routeMiddleware, r)
-	case OAuth:
+	case OAuth, OAuth2:
 		applyOAuthMiddleware(route, routeMiddleware, r)
 	default:
 		if !doesExist(routeMiddleware.Type) {
@@ -385,16 +385,19 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 		}
 	}
 	jwtAuth := middlewares.JwtAuth{
-		Path:     route.Path,
-		Paths:    routeMiddleware.Paths,
-		RsaKey:   key,
-		Algo:     jwt.Alg,
-		JwksFile: jwksFile,
-		Secret:   jwt.Secret,
-		JwksUrl:  jwt.JwksUrl,
-		Issuer:   jwt.Issuer,
-		Audience: jwt.Audience,
-		Origins:  route.Cors.Origins,
+		Path:                 route.Path,
+		Paths:                routeMiddleware.Paths,
+		Claims:               jwt.Claims,
+		ForwardHeaders:       jwt.ForwardHeaders,
+		ForwardAuthorization: jwt.ForwardAuthorization,
+		RsaKey:               key,
+		Algo:                 jwt.Alg,
+		JwksFile:             jwksFile,
+		Secret:               jwt.Secret,
+		JwksUrl:              jwt.JwksUrl,
+		Issuer:               jwt.Issuer,
+		Audience:             jwt.Audience,
+		Origins:              route.Cors.Origins,
 	}
 
 	r.Use(jwtAuth.AuthMiddleware)

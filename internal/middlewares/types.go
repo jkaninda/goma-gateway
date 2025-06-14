@@ -94,6 +94,8 @@ type JwtAuth struct {
 	JwksFile             *Jwks
 	JwksUrl              string
 	RsaKey               *rsa.PublicKey
+	Claims               map[string]interface{}
+	ForwardHeaders       map[string]string
 	ForwardAuthorization bool
 }
 
