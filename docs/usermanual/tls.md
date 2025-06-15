@@ -15,10 +15,12 @@ Goma Gateway supports TLS encryption for securing traffic between clients and th
 Define global TLS certificates for your routes by specifying certificate and private key pairs.
 
 ### **Configuration Keys**
-| Key        | Type     | Description                                                                                                              |
-|------------|----------|--------------------------------------------------------------------------------------------------------------------------|
-| **`cert`** | `string` | TLS certificate, provided as:<br>• File path (e.g., `/path/to/cert.crt`)<br>• Raw PEM content<br>• Base64-encoded string |
-| **`key`**  | `string` | Private key, provided as:<br>• File path (e.g., `/path/to/key.pem`)<br>• Raw PEM content<br>• Base64-encoded string      |
+
+| Key        | Type     | Description                                                                                                                                |
+|------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| **`cert`** | `string` | TLS certificate, provided as:<ul><li>File path (e.g., `/path/to/cert.crt`)</li><li>Raw PEM content</li><li>Base64-encoded string</li></ul> |
+| **`key`**  | `string` | Private key, provided as:<ul><li>File path (e.g., `/path/to/key.pem`)</li><li>Raw PEM content</li><li>Base64-encoded string</li></ul>      |
+
 
 ### **Example**
 ```yaml
@@ -70,14 +72,15 @@ gateway:
 acme:
   email: "admin@example.com"  # Required for Let's Encrypt account
 ```
-
 ### **Advanced Configuration**
-| Key                | Description                                                                                                   |
-|--------------------|---------------------------------------------------------------------------------------------------------------|
-| **`directoryURL`** | Custom ACME directory (e.g., Let's Encrypt staging: `https://acme-staging-v02.api.letsencrypt.org/directory`) |
-| **`storage`**      | File to store ACME certificates (default: `acme.json`)                                                        |
-| **`challenge`**    | Challenge type (`http-01` or `dns-01`) and DNS provider (e.g., Cloudflare)                                    |
-| **`credentials`**  | Provider-specific credentials (e.g., API tokens)                                                              |
+
+| Key                | Description                                                                                                |
+|--------------------|------------------------------------------------------------------------------------------------------------|
+| **`directoryURL`** | Custom ACME directory, for example:<br><code>https://acme-staging-v02.api.letsencrypt.org/directory</code> |
+| **`storage`**      | File to store ACME certificates (default: <code>acme.json</code>)                                          |
+| **`challenge`**    | Challenge type (<code>http-01</code> or <code>dns-01</code>) and DNS provider (e.g., cloudflare, acme)     |
+| **`credentials`**  | Provider-specific credentials (e.g., API tokens)                                                           |
+
 
 #### **Example (DNS-01 Challenge with Cloudflare)**
 ```yaml
