@@ -22,8 +22,11 @@ import (
 	"crypto/tls"
 	"errors"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -67,9 +70,11 @@ func (gatewayServer *GatewayServer) Start() error {
 	gatewayServer.gateway.EntryPoints.Validate()
 
 	// Add AutoCert
-	gatewayServer.certManager.AutoCert(hostNames(dynamicRoutes), CertsPath)
+	gatewayServer.certManager.AutoCert(hostNames(dynamicRoutes))
 
-	httpServer := gatewayServer.createServer(webAddress, newRouter, nil)
+	httpHandler := gatewayServer.createHTTPHandler(newRouter)
+
+	httpServer := gatewayServer.createServer(webAddress, httpHandler, nil)
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
 
 	// Start HTTP/HTTPS servers
@@ -88,6 +93,24 @@ func (gatewayServer *GatewayServer) createServer(addr string, handler http.Handl
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
 	}
+}
+
+// Create HTTP handler
+func (gatewayServer *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle ACME challenges
+		if strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/") {
+			logger.Debug("Handling ACME challenge", "path", r.URL.Path, "host", r.Host)
+			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
+				Scheme: "http",
+				Host:   "localhost:5002",
+			})
+			// Forward the request
+			proxy.ServeHTTP(w, r)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	})
 }
 
 func (gatewayServer *GatewayServer) startServers(httpServer, httpsServer *http.Server) {
