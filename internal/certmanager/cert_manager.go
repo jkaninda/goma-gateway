@@ -563,7 +563,8 @@ func (cm *CertManager) AutoCert(hosts []RouteHost) {
 	cm.mu.Unlock()
 
 	cm.startRenewalService()
-	logger.Debug("AutoCert configured", "hosts", hosts)
+	cm.startAcmeService()
+	logger.Debug("AutoCert configured", "route_count", len(hosts))
 }
 
 func (cm *CertManager) createCertificateInfo(cert *tls.Certificate) (*CertificateInfo, error) {
@@ -797,6 +798,15 @@ func (cm *CertManager) storeCertificateInfo(domains []string, certInfo *Certific
 
 	for _, domain := range domains {
 		cm.certs[domain] = certInfo
+	}
+}
+func (cm *CertManager) startAcmeService() {
+	for _, rh := range cm.allowedHosts {
+		if cert := cm.getExistingValidCertificate(rh.Hosts[0]); cert != nil {
+			continue
+		}
+		// Select the first host
+		go cm.tryACME(rh.Hosts[0])
 	}
 }
 
