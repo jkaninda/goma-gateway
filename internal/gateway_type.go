@@ -17,7 +17,9 @@
 
 package internal
 
-import "github.com/jkaninda/goma-gateway/internal/middlewares"
+import (
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+)
 
 // Gateway contains the configuration options for the Goma Proxy Gateway.
 type Gateway struct {

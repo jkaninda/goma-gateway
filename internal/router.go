@@ -36,7 +36,6 @@ func (gateway Gateway) NewRouter(certManager *certmanager.CertManager) Router {
 		enableMetrics: gateway.EnableMetrics,
 		certManager:   certManager,
 	}
-	gateway.addGlobalHandler(rt.mux)
 	return rt
 }
 
@@ -49,7 +48,6 @@ func (r *router) AddRoutes(rt Router) {
 		}
 		rt.AddRoute(route)
 	}
-	r.addAcmeChallenge(r.certManager)
 
 }
 
@@ -78,6 +76,8 @@ func (r *router) UpdateHandler(gateway Gateway) {
 	stopChan = make(chan struct{})
 	// Routes background healthcheck
 	routesHealthCheck(dynamicRoutes, stopChan)
+	// Update HostWhitelist
+	r.certManager.AutoCert(hostNames(dynamicRoutes))
 	logger.Info("Configuration successfully reloaded")
 }
 
@@ -152,10 +152,6 @@ func (r *router) AddRoute(route Route) {
 // Mux returns the underlying mux router.
 func (r *router) Mux() http.Handler {
 	return r.mux
-}
-
-func (r *router) addAcmeChallenge(certManager *certmanager.CertManager) {
-	r.mux.HandleFunc("/.well-known/acme-challenge/", certManager.AutoCertHandler(r.mux)).Methods("GET")
 }
 
 // addGlobalHandler configures global handlers and middlewares for the router.

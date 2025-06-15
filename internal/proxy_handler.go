@@ -99,7 +99,6 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 			"url", r.URL.Path,
 			"status", rec.statusCode,
 			"duration", formatted,
-			"host", r.Host,
 			"route", h.Name,
 			"client_ip", getRealIP(r),
 			"request_id", requestID,

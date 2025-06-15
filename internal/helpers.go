@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/util"
+	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"net"
 	"net/http"
 	"strconv"
@@ -171,21 +171,21 @@ func allowedOrigin(origins []string, origin string) bool {
 
 }
 
-func hostNames(routes []Route) []string {
+func hostNames(routes []Route) []certmanager.RouteHost {
 	hosts := extractHostsFromRoutes(routes)
 	if len(hosts) == 0 {
-		_ = []string{}
+		_ = []certmanager.RouteHost{}
 		return nil
 	}
-	return util.RemoveDuplicates(hosts)
+	return hosts
 }
 
 // extractHostsFromRoutes collects all hosts from routes that have hosts defined
-func extractHostsFromRoutes(routes []Route) []string {
-	var hosts []string
+func extractHostsFromRoutes(routes []Route) []certmanager.RouteHost {
+	var hosts []certmanager.RouteHost
 	for _, route := range routes {
-		if len(route.Hosts) > 0 {
-			hosts = append(hosts, route.Hosts...)
+		if len(route.Hosts) > 0 && !route.Disabled {
+			hosts = append(hosts, certmanager.RouteHost{Name: route.Name, Hosts: route.Hosts})
 		}
 	}
 	return hosts
