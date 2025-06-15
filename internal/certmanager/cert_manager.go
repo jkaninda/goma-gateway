@@ -644,19 +644,16 @@ func (cm *CertManager) getExistingValidCertificate(serverName string) *tls.Certi
 	return nil
 }
 
-func (cm *CertManager) tryACME(serverName string) *tls.Certificate {
+func (cm *CertManager) tryACME(serverName string) {
 	if allowed, routeHost := cm.isHostAllowed(serverName); allowed {
-		cert, err := cm.obtainCertificate(routeHost)
-		if err == nil {
-			logger.Debug("Serving certificate", "server_name", serverName, "type", "acme")
-			return cert
+		_, err := cm.obtainCertificate(routeHost)
+		if err != nil {
+			logger.Error("ACME certificate acquisition failed",
+				"server_name", serverName,
+				"error", err.Error(),
+			)
 		}
-		logger.Error("ACME certificate acquisition failed",
-			"server_name", serverName,
-			"error", err.Error(),
-		)
 	}
-	return nil
 }
 
 func (cm *CertManager) getDefaultCertificate(serverName string) (*tls.Certificate, error) {
