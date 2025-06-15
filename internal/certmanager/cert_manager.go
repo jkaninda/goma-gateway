@@ -711,6 +711,10 @@ func (cm *CertManager) checkExistingValidCertificate(routeHost RouteHost) *tls.C
 }
 
 func (cm *CertManager) requestNewCertificate(routeHost RouteHost) (*tls.Certificate, error) {
+
+	if cm.acme == nil || cm.legoClient == nil {
+		return nil, errors.New("ACME certificate hasn't been initialized")
+	}
 	// Check if another request is already in progress for these domains
 	if cm.isRequestInProgress(routeHost.Hosts) {
 		return nil, fmt.Errorf("certificate request already in progress for domains: %v", routeHost.Hosts)
