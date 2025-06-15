@@ -123,7 +123,7 @@ type CertManager struct {
 // NewCertManager creates a new CertManager instance
 func NewCertManager(acme Acme) (*CertManager, error) {
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create cache directory: %w", err)
+		logger.Error("failed to create certs directory", "error", err.Error())
 	}
 	if acme.Storage != "" {
 		acmeFile = acme.Storage
