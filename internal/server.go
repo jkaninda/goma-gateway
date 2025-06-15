@@ -72,9 +72,7 @@ func (gatewayServer *GatewayServer) Start() error {
 	// Add AutoCert
 	gatewayServer.certManager.AutoCert(hostNames(dynamicRoutes))
 
-	httpHandler := gatewayServer.createHTTPHandler(newRouter)
-
-	httpServer := gatewayServer.createServer(webAddress, httpHandler, nil)
+	httpServer := gatewayServer.createServer(webAddress, gatewayServer.createHTTPHandler(newRouter), nil)
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
 
 	// Start HTTP/HTTPS servers
