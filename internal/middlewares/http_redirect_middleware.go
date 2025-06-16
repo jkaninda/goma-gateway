@@ -67,7 +67,7 @@ func (rs *RedirectScheme) redirectStatusCode() int {
 
 func (rs *RedirectScheme) buildRedirectURL(r *http.Request) string {
 	host := r.Host
-	if rs.Port >= 0 {
+	if rs.Port > 0 {
 		host = strings.Split(host, ":")[0]
 		host = fmt.Sprintf("%s:%d", host, rs.Port)
 	}

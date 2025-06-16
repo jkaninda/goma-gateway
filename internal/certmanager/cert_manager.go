@@ -41,7 +41,6 @@ import (
 	"github.com/jkaninda/logger"
 	"math/big"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -123,21 +122,21 @@ type CertManager struct {
 // NewCertManager creates a new CertManager instance
 func NewCertManager(manager CertificateManager) (*CertManager, error) {
 	logger.Debug("Initializing CertManager")
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		logger.Error("failed to create certs directory", "error", err.Error())
-	}
-	if manager.Acme.StorageFile != "" {
-		acmeFile = manager.Acme.StorageFile
+
+	storageConfig, err := initializeStorageConfig(manager.Acme.StorageFile)
+	if err != nil {
+		err = fmt.Errorf("failed to initialize storage configuration: %w", err)
 	}
 	cm := &CertManager{
 		certs:              make(map[string]*CertificateInfo),
 		customCerts:        make(map[string]*CertificateInfo),
-		cacheDir:           cacheDir,
-		storageFile:        filepath.Join(cacheDir, acmeFile),
+		cacheDir:           storageConfig.CacheDir,
+		storageFile:        storageConfig.StorageFile,
 		email:              manager.Acme.Email,
 		certificateManager: &manager,
 	}
-	return cm, nil
+
+	return cm, err
 }
 
 func (cm *CertManager) Initialize() error {
@@ -564,7 +563,9 @@ func (cm *CertManager) AutoCert(hosts []RouteHost) {
 	cm.mu.Unlock()
 
 	cm.startRenewalService()
-	cm.startAcmeService()
+	go func() {
+		cm.startAcmeService()
+	}()
 	logger.Debug("AutoCert configured", "route_count", len(hosts))
 }
 
@@ -800,11 +801,16 @@ func (cm *CertManager) storeCertificateInfo(domains []string, certInfo *Certific
 }
 func (cm *CertManager) startAcmeService() {
 	for _, rh := range cm.allowedHosts {
-		if cert := cm.getExistingValidCertificate(rh.Hosts[0]); cert != nil {
+		host := rh.Hosts[0]
+
+		if cert := cm.getExistingValidCertificate(host); cert != nil {
+			continue
+		}
+		if _, inProgress := cm.inProgressRequests[host]; inProgress {
 			continue
 		}
 		// Select the first host
-		go cm.tryACME(rh.Hosts[0])
+		cm.tryACME(host)
 	}
 }
 

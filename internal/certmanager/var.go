@@ -26,10 +26,10 @@ var (
 	CertAcmeProvider   CertProvider = "acme"
 	CertVaultProvider  CertProvider = "vault"
 	acmeFile                        = "acme.json"
+	cacheDir                        = "/etc/letsencrypt"
 )
 
 const (
-	cacheDir          = "/etc/letsencrypt"
 	httpChallengePort = "5002"
 	configVersion     = "1.0"
 )
