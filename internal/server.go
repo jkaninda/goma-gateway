@@ -68,7 +68,6 @@ func (gatewayServer *GatewayServer) Start() error {
 	}
 	// Validate entrypoint
 	gatewayServer.gateway.EntryPoints.Validate()
-	
 	httpServer := gatewayServer.createServer(webAddress, gatewayServer.createHTTPHandler(newRouter), nil)
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
 
