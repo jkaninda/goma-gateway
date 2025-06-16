@@ -856,13 +856,27 @@ func (cm *CertManager) obtainNewCertificateForDomain(domain string) (*tls.Certif
 }
 
 func (cm *CertManager) findCertificateInfo(domain string) *CertificateInfo {
+	// check for exact match in both cert maps
 	if certInfo, exists := cm.certs[domain]; exists {
 		return certInfo
 	}
-	// Fall back custom certs
 	if certInfo, exists := cm.customCerts[domain]; exists {
 		return certInfo
 	}
+
+	// Check if the requested domain is covered by any existing certificate's domains list
+	for _, certInfo := range cm.certs {
+		if cm.domainMatchesCertificate(domain, certInfo) {
+			return certInfo
+		}
+	}
+	for _, certInfo := range cm.customCerts {
+		if cm.domainMatchesCertificate(domain, certInfo) {
+			return certInfo
+		}
+	}
+
+	// Fall back to wildcard and parent domain matching
 	for _, d := range []string{getWildcardDomain(domain), getParentDomain(domain)} {
 		if certInfo, exists := cm.certs[d]; exists {
 			return certInfo
@@ -873,7 +887,22 @@ func (cm *CertManager) findCertificateInfo(domain string) *CertificateInfo {
 			return certInfo
 		}
 	}
+
 	return nil
+}
+func (cm *CertManager) domainMatchesCertificate(requestedDomain string, certInfo *CertificateInfo) bool {
+	for _, certDomain := range certInfo.Domains {
+		if requestedDomain == certDomain {
+			return true
+		}
+		if strings.HasPrefix(certDomain, "*.") {
+			wildcardBase := certDomain[2:]
+			if strings.HasSuffix(requestedDomain, "."+wildcardBase) || requestedDomain == wildcardBase {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Self-signed certificate generation
