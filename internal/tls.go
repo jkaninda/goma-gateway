@@ -146,3 +146,14 @@ func isBase64(input string) bool {
 	_, err := base64.StdEncoding.DecodeString(input)
 	return err == nil
 }
+func startAutoCert() {
+	err := certManager.Initialize()
+	if err != nil {
+		logger.Error("Failed to initialize Acme", "error", err)
+		return
+	}
+	// Add AutoCert
+	if certManager != nil && certManager.AcmeInitialized() {
+		certManager.AutoCert(hostNames(dynamicRoutes))
+	}
+}

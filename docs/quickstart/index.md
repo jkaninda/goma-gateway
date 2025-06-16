@@ -43,7 +43,9 @@ Launch the Goma Gateway server with the validated configuration:
 ```shell
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
+ -v "${PWD}/letsencrypt:/etc/letsencrypt" \
  -p 8080:8080 \
+ -p 8443:8443 \
  jkaninda/goma-gateway server --config /etc/goma/config.yml
 ```
 ### Next Steps

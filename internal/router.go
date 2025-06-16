@@ -20,7 +20,6 @@ package internal
 import (
 	"context"
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
@@ -30,11 +29,10 @@ import (
 )
 
 // NewRouter creates a new router instance.
-func (gateway Gateway) NewRouter(certManager *certmanager.CertManager) Router {
+func (gateway Gateway) NewRouter() Router {
 	rt := &router{
 		mux:           mux.NewRouter().StrictSlash(gateway.EnableStrictSlash),
 		enableMetrics: gateway.EnableMetrics,
-		certManager:   certManager,
 	}
 	return rt
 }

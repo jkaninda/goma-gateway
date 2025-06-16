@@ -40,7 +40,7 @@ func (gatewayServer *GatewayServer) Start() error {
 	}
 
 	// Create router
-	newRouter := gatewayServer.gateway.NewRouter(gatewayServer.certManager)
+	newRouter := gatewayServer.gateway.NewRouter()
 	newRouter.AddRoutes(newRouter)
 
 	logger.Debug("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
@@ -48,15 +48,15 @@ func (gatewayServer *GatewayServer) Start() error {
 	defer gatewayServer.closeRedis()
 	// Configure TLS
 	tlsConfig := &tls.Config{
-		GetCertificate: gatewayServer.certManager.GetCertificate,
+		GetCertificate: certManager.GetCertificate,
 	}
 	// Generate default certificate
-	certificate, err := gatewayServer.certManager.GenerateDefaultCertificate()
+	certificate, err := certManager.GenerateDefaultCertificate()
 	if err != nil {
 		return err
 	}
 	// Add default certificate
-	gatewayServer.certManager.AddCertificate("default", *certificate)
+	certManager.AddCertificate("default", *certificate)
 	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
 		printRoute(dynamicRoutes)
 	}
@@ -68,10 +68,7 @@ func (gatewayServer *GatewayServer) Start() error {
 	}
 	// Validate entrypoint
 	gatewayServer.gateway.EntryPoints.Validate()
-
-	// Add AutoCert
-	gatewayServer.certManager.AutoCert(hostNames(dynamicRoutes))
-
+	
 	httpServer := gatewayServer.createServer(webAddress, gatewayServer.createHTTPHandler(newRouter), nil)
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
 

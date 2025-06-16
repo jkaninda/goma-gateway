@@ -115,71 +115,76 @@ type CertManager struct {
 	email              string
 	allowedHosts       []RouteHost
 	renewalTicker      *time.Ticker
-	httpChallenge      bool
-	acme               *Acme
+	certificateManager *CertificateManager
 	inProgressRequests map[string]bool
+	acmeInitialized    bool
 }
 
 // NewCertManager creates a new CertManager instance
-func NewCertManager(acme Acme) (*CertManager, error) {
+func NewCertManager(manager CertificateManager) (*CertManager, error) {
+	logger.Debug("Initializing CertManager")
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		logger.Error("failed to create certs directory", "error", err.Error())
 	}
-	if acme.Storage != "" {
-		acmeFile = acme.Storage
+	if manager.Acme.StorageFile != "" {
+		acmeFile = manager.Acme.StorageFile
 	}
 	cm := &CertManager{
-		certs:         make(map[string]*CertificateInfo),
-		customCerts:   make(map[string]*CertificateInfo),
-		cacheDir:      cacheDir,
-		storageFile:   filepath.Join(cacheDir, acmeFile),
-		email:         acme.Email,
-		acme:          &acme,
-		httpChallenge: true,
+		certs:              make(map[string]*CertificateInfo),
+		customCerts:        make(map[string]*CertificateInfo),
+		cacheDir:           cacheDir,
+		storageFile:        filepath.Join(cacheDir, acmeFile),
+		email:              manager.Acme.Email,
+		certificateManager: &manager,
 	}
-	if acme.Email == "" {
-		cm.httpChallenge = false
-		return cm, nil
-	}
-	if err := cm.initialize(); err != nil {
-		return nil, err
-	}
-
 	return cm, nil
 }
 
-func (cm *CertManager) initialize() error {
+func (cm *CertManager) Initialize() error {
+	if cm.certificateManager.Acme.Email == "" {
+		return fmt.Errorf("no email provided")
+	}
+	if cm.certificateManager.Provider == CertVaultProvider {
+		return fmt.Errorf("vault provider not yet implemented")
+	}
 	if err := cm.loadFromStorage(); err != nil {
 		logger.Debug("No existing storage found, creating new user", "error", err)
 		if err = cm.createNewUser(); err != nil {
+			logger.Error("Failed to create new user", "error", err)
 			return fmt.Errorf("failed to create new user: %w", err)
 		}
 	}
-	if cm.acme.Challenge.Type == DNS01 {
-		if cm.acme.Challenge.Provider == "" && cm.acme.Challenge.Credentials.ApiToken == "" {
-			return fmt.Errorf("no challenge provider or api token provided")
+	if cm.certificateManager.Acme.ChallengeType == DNS01 {
+		if cm.certificateManager.Acme.DnsProvider == "" && cm.certificateManager.Acme.Credentials.ApiToken == "" {
+			logger.Error("No challenge type for DNS01 challenge")
+			return fmt.Errorf("no challenge type for DNS01 challenge")
 		}
 	}
 	if err := cm.setupLegoClient(); err != nil {
-		return fmt.Errorf("failed to setup ACME client: %w", err)
+		logger.Error("Failed to setup lego client", "error", err)
+		return fmt.Errorf("failed to setup lego client: %w", err)
 	}
-
+	logger.Debug("Registering user")
 	if err := cm.registerUser(); err != nil {
+		logger.Error("Failed to register user", "error", err)
 		return fmt.Errorf("failed to register user: %w", err)
 	}
 
 	if err := cm.setupChallenges(); err != nil {
-		return fmt.Errorf("failed to setup HTTP challenge: %w", err)
+		logger.Error("Failed to setup challenges", "error", err)
+		return fmt.Errorf("failed to setup challenges: %w", err)
 	}
+	cm.acmeInitialized = true
 	return nil
-
 }
-
+func (cm *CertManager) AcmeInitialized() bool {
+	return cm.acmeInitialized
+}
 func (cm *CertManager) setupLegoClient() error {
 	config := lego.NewConfig(cm.user)
 	config.Certificate.KeyType = certcrypto.RSA2048
-	if cm.acme.DirectoryURL != "" {
-		config.CADirURL = cm.acme.DirectoryURL
+	if cm.certificateManager.Acme.DirectoryURL != "" {
+		config.CADirURL = cm.certificateManager.Acme.DirectoryURL
 	}
 	client, err := lego.NewClient(config)
 	if err != nil {
@@ -203,7 +208,7 @@ func (cm *CertManager) createNewUser() error {
 	return nil
 }
 
-// Storage operations
+// StorageFile operations
 func (cm *CertManager) loadFromStorage() error {
 	data, err := os.ReadFile(cm.storageFile)
 	if err != nil {
@@ -328,7 +333,7 @@ func (cm *CertManager) saveToStorage() error {
 	defer cm.mu.RUnlock()
 
 	storage := CertificateStorage{
-		Version:   "1.0",
+		Version:   configVersion,
 		UpdatedAt: time.Now(),
 	}
 
@@ -521,38 +526,34 @@ func (cm *CertManager) registerUser() error {
 
 func (cm *CertManager) setupChallenges() error {
 	// Handle DNS challenge if configured
-	if cm.acme.Challenge.Type == DNS01 {
+	if cm.certificateManager.Acme.ChallengeType == DNS01 {
 		provider, err := cm.createDNSProvider()
 		if err != nil {
 			return fmt.Errorf("failed to create DNS provider: %w", err)
 		}
-		logger.Debug("Challenges enabled", "provider", provider)
+		logger.Debug("DnsProvider enabled", "provider", provider)
 		return cm.legoClient.Challenge.SetDNS01Provider(provider)
 	}
 	// Handle HTTP challenge if configured
-	if cm.httpChallenge {
-		logger.Debug("Challenges enabled, using HTTP01")
-		return cm.legoClient.Challenge.SetHTTP01Provider(http01.NewProviderServer("", httpChallengePort))
+	logger.Debug("Challenges enabled, using HTTP01")
+	return cm.legoClient.Challenge.SetHTTP01Provider(http01.NewProviderServer("", httpChallengePort))
 
-	}
-
-	return nil
 }
 
 func (cm *CertManager) createDNSProvider() (challenge.Provider, error) {
-	switch cm.acme.Challenge.Provider {
+	switch cm.certificateManager.Acme.DnsProvider {
 	case cloudflareProvider:
-		credentials := cm.acme.Challenge.Credentials
+		credentials := cm.certificateManager.Acme.Credentials
 		if credentials.ApiToken == "" {
 			return nil, errors.New("cloudflare API token is required")
 		}
 		cfg := cloudflare.NewDefaultConfig()
 		cfg.AuthToken = credentials.ApiToken
 		return cloudflare.NewDNSProviderConfig(cfg)
-	case Route53Provider:
+	case route53Provider:
 		return nil, errors.New("route53 provider not yet implemented")
 	default:
-		return nil, fmt.Errorf("unsupported DNS provider: %s", cm.acme.Challenge.Provider)
+		return nil, fmt.Errorf("unsupported DNS provider: %s", cm.certificateManager.Acme.DnsProvider)
 	}
 }
 
@@ -638,7 +639,7 @@ func (cm *CertManager) getExistingValidCertificate(serverName string) *tls.Certi
 
 	certInfo := cm.findCertificateInfo(serverName)
 	if certInfo != nil && time.Until(certInfo.Expires) > 24*time.Hour {
-		logger.Debug("Serving certificate", "server_name", serverName, "type", "manual")
+		logger.Debug("Serving certificate", "server_name", serverName, "status", "valid")
 		return certInfo.Certificate
 	}
 	return nil
@@ -710,7 +711,7 @@ func (cm *CertManager) checkExistingValidCertificate(routeHost RouteHost) *tls.C
 
 func (cm *CertManager) requestNewCertificate(routeHost RouteHost) (*tls.Certificate, error) {
 
-	if cm.acme == nil || cm.legoClient == nil {
+	if !cm.acmeInitialized {
 		return nil, errors.New("ACME certificate hasn't been initialized")
 	}
 	// Check if another request is already in progress for these domains
@@ -826,7 +827,7 @@ func (cm *CertManager) renewCertificates() {
 
 	for _, domain := range certsToRenew {
 		logger.Debug("Renewing certificate", "domain", domain)
-		if _, err := cm.renewCertificate(domain); err != nil {
+		if _, err := cm.obtainNewCertificateForDomain(domain); err != nil {
 			logger.Error("Failed to renew certificate", "domain", domain, "error", err)
 		}
 	}
@@ -845,68 +846,12 @@ func (cm *CertManager) getCertificatesToRenew() []string {
 	return certsToRenew
 }
 
-func (cm *CertManager) renewCertificate(domain string) (*tls.Certificate, error) {
-	certInfo := cm.getCertificateInfo(domain)
-	if certInfo == nil || certInfo.Resource == nil {
-		return cm.obtainNewCertificateForDomain(domain)
-	}
-
-	return cm.renewExistingCertificate(certInfo)
-}
-
-func (cm *CertManager) getCertificateInfo(domain string) *CertificateInfo {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	return cm.certs[domain]
-}
-
 func (cm *CertManager) obtainNewCertificateForDomain(domain string) (*tls.Certificate, error) {
 	allowed, routeHost := cm.isHostAllowed(domain)
 	if !allowed {
 		return nil, fmt.Errorf("domain %q is not in the allowed hosts list", domain)
 	}
 	return cm.obtainCertificate(routeHost)
-}
-
-func (cm *CertManager) renewExistingCertificate(certInfo *CertificateInfo) (*tls.Certificate, error) {
-	renewed, err := cm.legoClient.Certificate.Renew(*certInfo.Resource, true, false, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to renew certificate: %w", err)
-	}
-
-	cert, err := tls.X509KeyPair(renewed.Certificate, renewed.PrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create renewed TLS certificate: %w", err)
-	}
-
-	newCertInfo := cm.createCertificateInfoFromRenewal(&cert, certInfo.Domains, renewed)
-	cm.updateCertificateInfo(certInfo.Domains, newCertInfo)
-
-	logger.Debug("Certificate renewed", "domains", certInfo.Domains)
-	return &cert, nil
-}
-
-func (cm *CertManager) createCertificateInfoFromRenewal(cert *tls.Certificate, domains []string, resource *certificate.Resource) *CertificateInfo {
-	parsedCert, _ := x509.ParseCertificate(cert.Certificate[0])
-	return &CertificateInfo{
-		Certificate: cert,
-		Domains:     domains,
-		Expires:     parsedCert.NotAfter,
-		Resource:    resource,
-	}
-}
-
-func (cm *CertManager) updateCertificateInfo(domains []string, certInfo *CertificateInfo) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	for _, d := range domains {
-		cm.certs[d] = certInfo
-	}
-
-	if err := cm.saveToStorage(); err != nil {
-		logger.Error("Failed to save renewed certificate to storage", "error", err)
-	}
 }
 
 func (cm *CertManager) findCertificateInfo(domain string) *CertificateInfo {
