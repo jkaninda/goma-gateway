@@ -18,6 +18,7 @@
 package internal
 
 import (
+	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	logger2 "github.com/jkaninda/logger"
 )
 
@@ -31,6 +32,7 @@ var (
 	webAddress         = ":8080"
 	webSecureAddress   = ":8443"
 	logger             = logger2.Default()
+	certManager        *certmanager.CertManager
 )
 
 type contextKey string

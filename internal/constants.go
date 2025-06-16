@@ -36,10 +36,10 @@ const (
 // ************** Middlewares types ***************
 const (
 	AccessMiddleware    MiddlewareType = "access"    // access middlewares
-	BasicAuth           MiddlewareType = "basic"     // basic authentication middlewares
-	BasicAuthMiddleware MiddlewareType = "basicAuth" // basic authentication middlewares
-	JWTAuth             MiddlewareType = "jwt"       // JWT authentication middlewares
-	JWTAuthMiddleware   MiddlewareType = "jwtAuth"   // JWT authentication middlewares
+	BasicAuthMiddleware MiddlewareType = "basic"     // basic authentication middlewares
+	BasicAuth           MiddlewareType = "basicAuth" // basic authentication middlewares
+	JWTAuthMiddleware   MiddlewareType = "jwt"       // JWT authentication middlewares
+	JWTAuth             MiddlewareType = "jwtAuth"   // JWT authentication middlewares
 	OAuth               MiddlewareType = "oauth"     // OAuth authentication middlewares
 	OAuth2              MiddlewareType = "oauth2"    // OAuth authentication middlewares
 	accessPolicy        MiddlewareType = "accessPolicy"

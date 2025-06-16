@@ -287,10 +287,11 @@ services:
     image: jkaninda/goma-gateway
     command: server -c config.yaml
     ports:
-      - "8080:8080"
-      - "8443:8443"
+      - "80:8080"
+      - "443:8443"
     volumes:
       - ./:/etc/goma/
+      - ./letsencrypt:/etc/letsencrypt
 ```
 
 

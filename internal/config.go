@@ -49,14 +49,10 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", configFile, err)
 		}
-		certManager, err := certmanager.NewCertManager(c.Acme)
-		if err != nil {
-			return nil, fmt.Errorf("creating cert manager: %w", err)
-		}
 		return &GatewayServer{
 			ctx:         ctx,
-			certManager: certManager,
 			configFile:  configFile,
+			certManager: c.CertificateManager,
 			version:     c.Version,
 			gateway:     c.GatewayConfig,
 			middlewares: c.Middlewares,
@@ -77,13 +73,9 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", ConfigFile, err)
 		}
-		certManager, err := certmanager.NewCertManager(c.Acme)
-		if err != nil {
-			return nil, fmt.Errorf("creating cert manager: %w", err)
-		}
 		return &GatewayServer{
 			ctx:         ctx,
-			certManager: certManager,
+			certManager: c.CertificateManager,
 			configFile:  ConfigFile,
 			gateway:     c.GatewayConfig,
 			middlewares: c.Middlewares,
@@ -113,15 +105,11 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 	if err != nil {
 		return nil, fmt.Errorf("in file %q: %w", ConfigFile, err)
 	}
-	certManager, err := certmanager.NewCertManager(c.Acme)
-	if err != nil {
-		return nil, fmt.Errorf("creating cert manager: %w", err)
-	}
 	logger.Info("Generating new configuration file...done")
 	return &GatewayServer{
 		ctx:         ctx,
 		configFile:  ConfigFile,
-		certManager: certManager,
+		certManager: c.CertificateManager,
 		gateway:     c.GatewayConfig,
 		middlewares: c.Middlewares,
 	}, nil
@@ -336,6 +324,7 @@ func initConfig(configFile string) error {
 				},
 			},
 		},
+		CertificateManager: certmanager.CertificateManager{Provider: certmanager.CertAcmeProvider},
 	}
 	yamlData, err := yaml.Marshal(&conf)
 	if err != nil {

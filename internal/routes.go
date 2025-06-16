@@ -19,6 +19,7 @@ package internal
 
 import (
 	"github.com/gorilla/mux"
+	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
@@ -79,11 +80,19 @@ func (gatewayServer *GatewayServer) Initialize() error {
 		// Routes background healthcheck
 		routesHealthCheck(dynamicRoutes, stopChan)
 	}
+
+	certManager, err = certmanager.NewCertManager(gatewayServer.certManager)
+	if err != nil {
+		logger.Error("Error creating certificate manager", "error", err)
+	}
 	// Load gateway routes certificates
 	certs, _, _ := gatewayServer.initTLS()
 	if len(certs) > 0 {
-		gatewayServer.certManager.AddCertificates(certs)
+		certManager.AddCertificates(certs)
+
 	}
+	// Start acme service
+	go startAutoCert()
 	return nil
 }
 

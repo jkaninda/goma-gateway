@@ -17,35 +17,19 @@
 
 package certmanager
 
-type Acme struct {
-	Email         string    `yaml:"email,omitempty"`
-	DirectoryURL  string    `yaml:"directoryURL,omitempty"`
-	Storage       string    `yaml:"storage,omitempty"`
-	TermsAccepted bool      `yaml:"termsAccepted,omitempty"`
-	Challenge     Challenge `yaml:"challenge,omitempty"`
-}
-
-type Challenge struct {
-	Type        ChallengeType `yaml:"type,omitempty"`
-	Provider    ProviderType  `yaml:"provider,omitempty"`
-	Credentials Credentials   `yaml:"credentials,omitempty"`
-}
-type Credentials struct {
-	ApiToken string `yaml:"apiToken,omitempty" env:"GOMA_CREDENTIALS_API_TOKEN, overwrite"`
-}
-type ChallengeType string
-type ProviderType string
-
 var (
 	HTTP01 ChallengeType = "http-01"
 	DNS01  ChallengeType = "dns-01"
 
-	cloudflareProvider ProviderType = "cloudflare"
-	Route53Provider    ProviderType = "route53"
+	cloudflareProvider DnsProvider  = "cloudflare"
+	route53Provider    DnsProvider  = "route53"
+	CertAcmeProvider   CertProvider = "acme"
+	CertVaultProvider  CertProvider = "vault"
 	acmeFile                        = "acme.json"
 )
 
 const (
-	cacheDir          = "/etc/goma/certs"
+	cacheDir          = "/etc/letsencrypt"
 	httpChallengePort = "5002"
+	configVersion     = "1.0"
 )

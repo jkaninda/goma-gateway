@@ -58,7 +58,13 @@ gateway:
 ## **Automatic Certificates with Let's Encrypt (ACME)**
 Goma Gateway supports ACME providers like Let's Encrypt for automatic certificate issuance and renewal.
 
+> Volume: Certificates and related data are stored in the container under /etc/letsencrypt.
+
+
 ### **Basic Configuration**
+
+To enable automatic certificate management, define at least the email for your ACME account and ensure the gateway is listening on ports 80 (for HTTP-01 challenges) and 443 (for HTTPS).
+
 ```yaml
 version: 2
 gateway:
@@ -69,30 +75,35 @@ gateway:
       address: ":443"   # HTTPS endpoint
   routes: []            # Define routes as needed
 
-acme:
-  email: "admin@example.com"  # Required for Let's Encrypt account
+certificateManager:
+  acme:
+    email: "admin@example.com"  # Email used for ACME registration and expiry notices
 ```
 ### **Advanced Configuration**
+
+The `CertificateManager` block supports further customization:
+
 
 | Key                | Description                                                                                                |
 |--------------------|------------------------------------------------------------------------------------------------------------|
 | **`directoryURL`** | Custom ACME directory, for example:<br><code>https://acme-staging-v02.api.letsencrypt.org/directory</code> |
-| **`storage`**      | File to store ACME certificates (default: <code>acme.json</code>)                                          |
+| **`storageFile`**  | File to store ACME certificates (default: <code>acme.json</code>)                                          |
 | **`challenge`**    | Challenge type (<code>http-01</code> or <code>dns-01</code>) and DNS provider (e.g., cloudflare, acme)     |
 | **`credentials`**  | Provider-specific credentials (e.g., API tokens)                                                           |
 
 
 #### **Example (DNS-01 Challenge with Cloudflare)**
 ```yaml
-acme:
-  email: "admin@example.com"
-  directoryURL: "https://acme-staging-v02.api.letsencrypt.org/directory"
-  storage: "acme.json"
-  challenge:
-    type: dns-01           # Use DNS challenge
-    provider: cloudflare   # Supported DNS provider
-  credentials:
-    apiToken: "xxx-xxx-xxx" # Cloudflare API token
+certificateManager:
+  provider: acme
+  acme:
+    email: "admin@example.com"
+    directoryUrl: "https://acme-staging-v02.api.letsencrypt.org/directory"
+    storageFile: "acme.json"
+    challengeType: dns-01
+    dnsProvider: cloudflare
+    credentials:
+      apiToken: xxx-xxx-xxx
 ```
 
 ---
