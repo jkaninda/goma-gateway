@@ -19,7 +19,6 @@ package internal
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"net/http"
 	"sync"
 )
@@ -35,6 +34,5 @@ type Router interface {
 type router struct {
 	mux           *mux.Router
 	enableMetrics bool
-	certManager   *certmanager.CertManager
 	sync.RWMutex
 }

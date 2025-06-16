@@ -171,21 +171,9 @@ func applyRedirectSchemeMiddleware(mid Middleware, r *mux.Router) {
 		logger.Error("Invalid redirect scheme middleware configuration", "error", err)
 		return
 	}
-	port := rule.Port
-	if port == 0 {
-		switch rule.Scheme {
-		case "http":
-			port = 80
-		case "https":
-			port = 443
-		default:
-			logger.Error("Unknown scheme, defaulting to port 443", "scheme", rule.Scheme)
-			port = 443
-		}
-	}
 	redirect := &middlewares.RedirectScheme{
 		Scheme:    rule.Scheme,
-		Port:      port,
+		Port:      rule.Port,
 		Permanent: rule.Permanent,
 	}
 

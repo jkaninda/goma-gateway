@@ -48,3 +48,7 @@ type Vault struct {
 	Token   string `yaml:"token,omitempty"`
 	Role    string `yaml:"role,omitempty"`
 }
+type StorageConfig struct {
+	CacheDir    string
+	StorageFile string
+}
