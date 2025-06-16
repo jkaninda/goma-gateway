@@ -372,7 +372,7 @@ func (cm *CertManager) saveCertificatesToStorage(storage *CertificateStorage) {
 			continue
 		}
 
-		storedCert, err := cm.saveCertificateToStorage(domain, certInfo, false)
+		storedCert, err := cm.saveCertificateToStorage(domain, certInfo)
 		if err != nil {
 			logger.Error("Failed to save certificate to storage",
 				"domain", domain, "error", err)
@@ -442,7 +442,7 @@ func (cm *CertManager) saveRegistration(user *LegoUser, stored *StoredUserAccoun
 	return nil
 }
 
-func (cm *CertManager) saveCertificateToStorage(domain string, certInfo *CertificateInfo, isDefault bool) (*StoredCertificate, error) {
+func (cm *CertManager) saveCertificateToStorage(domain string, certInfo *CertificateInfo) (*StoredCertificate, error) {
 	if certInfo.Certificate == nil {
 		return nil, fmt.Errorf("certificate is nil")
 	}
