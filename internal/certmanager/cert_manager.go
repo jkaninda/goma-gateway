@@ -62,7 +62,6 @@ type (
 		Domains     []string  `json:"domains"`
 		Expires     time.Time `json:"expires"`
 		IssuedAt    time.Time `json:"issued_at"`
-		IsDefault   bool      `json:"is_default"`
 	}
 
 	CertificateStorage struct {
@@ -235,11 +234,8 @@ func (cm *CertManager) loadFromStorage() error {
 			continue
 		}
 
-		if storedCert.IsDefault {
-			cm.defaultCert = certInfo.Certificate
-		} else {
-			cm.certs[storedCert.Domain] = certInfo
-		}
+		cm.certs[storedCert.Domain] = certInfo
+
 	}
 
 	logger.Debug("Loaded data from storage", "certificates", len(storage.Certificates))
@@ -468,7 +464,6 @@ func (cm *CertManager) saveCertificateToStorage(domain string, certInfo *Certifi
 		Domains:     certInfo.Domains,
 		Expires:     certInfo.Expires,
 		IssuedAt:    time.Now(),
-		IsDefault:   isDefault,
 	}, nil
 }
 
