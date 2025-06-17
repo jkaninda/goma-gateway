@@ -133,13 +133,6 @@ func (r *router) AddRoute(route Route) {
 		Origins:     route.Cors.Origins,
 	}
 	rRouter.Use(proxyHandler.handler)
-
-	if route.EnableBotDetection {
-		logger.Debug("Bot detection enabled", "route", route.Name)
-		bot := middlewares.BotDetection{}
-		rRouter.Use(bot.BotDetectionMiddleware)
-	}
-
 	if len(route.Hosts) > 0 {
 		for _, host := range route.Hosts {
 			rRouter.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
@@ -173,8 +166,8 @@ func (g *Gateway) addGlobalHandler(mux *mux.Router) {
 	mux.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
 	mux.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
 
-	if g.BlockCommonExploits {
-		logger.Debug("Block common exploits enabled")
+	if g.EnableExploitProtection {
+		logger.Debug("Block exploit protection enabled")
 		mux.Use(middlewares.BlockExploitsMiddleware)
 	}
 

@@ -62,11 +62,12 @@ type Route struct {
 	DisableHostForwarding bool `yaml:"disableHostForwarding"`
 	// ErrorInterceptor provides configuration for handling backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
-	// BlockCommonExploits enables or disables blocking of common exploit patterns
+	// EnableExploitProtection enables or disables blocking of common exploit patterns
 	// such as SQL injection or simple XSS attempts.
+	EnableExploitProtection bool `yaml:"enableExploitProtection,omitempty"`
+	// BlockCommonExploits
+	// Deprecated, use EnableExploitProtection
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
-	// EnableBotDetection enables or disables bot detection for this route.
-	EnableBotDetection bool `yaml:"enableBotDetection,omitempty"`
 	// TLS contains the TLS configuration for the route.
 	TLS TLS `yaml:"tls,omitempty"`
 	// Middlewares lists middleware names to apply to this route.

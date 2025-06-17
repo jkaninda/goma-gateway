@@ -33,7 +33,10 @@ type Gateway struct {
 	ReadTimeout int `yaml:"readTimeout" env:"GOMA_READ_TIMEOUT, overwrite"`
 	// IdleTimeout defines the timeout (in seconds) for idle connections.
 	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
-	// BlockCommonExploits enables or disables blocking of common exploit patterns.
+	// EnableExploitProtection enables or disables blocking of common exploit patterns.
+	EnableExploitProtection bool `yaml:"enableExploitProtection,omitempty"`
+	// BlockCommonExploits
+	// Deprecated, use EnableExploitProtection
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	// Log defines the logging config
 	Log Log `yaml:"log"`

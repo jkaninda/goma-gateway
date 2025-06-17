@@ -149,13 +149,6 @@ func (r *Route) validateRoute() {
 	}
 
 }
-func (r *Route) handleDeprecations() {
-	if r.Disabled {
-		logger.Warn("Deprecation: disabled is deprecated, please use enabled")
-		r.Enabled = false
-	}
-
-}
 func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.RouteErrorInterceptor) {
 	if gatewayInterceptor.Enabled {
 		route.ErrorInterceptor.Errors = append(route.ErrorInterceptor.Errors, gatewayInterceptor.Errors...)
@@ -175,12 +168,31 @@ func InitConfig(configFile string) error {
 	return initConfig(configFile)
 
 }
+
+// *************** DEPRECATIONS ******************************
+func (r *Route) handleDeprecations() {
+	if r.Disabled {
+		logger.Warn("Deprecation: disabled is deprecated, please use enabled")
+		r.Enabled = false
+	}
+	if r.BlockCommonExploits {
+		r.EnableExploitProtection = true
+		logger.Warn("Deprecation: blockCommonExploits is deprecated, please use enableExploitProtection")
+	}
+}
+
 func (g *Gateway) handleDeprecations() {
 	if len(g.ExtraConfig.Directory) == 0 {
 		g.ExtraConfig.Directory = ExtraDir
 	}
+	if g.BlockCommonExploits {
+		g.EnableExploitProtection = true
+		logger.Warn("Deprecation: blockCommonExploits is deprecated, please use enableExploitProtection")
+	}
 
 }
+
+// *************** END DEPRECATIONS ******************************
 
 // initConfig initializes configs
 func initConfig(configFile string) error {
