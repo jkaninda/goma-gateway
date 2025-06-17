@@ -34,7 +34,7 @@ type Route struct {
 	// Deprecated, use Enabled
 	Disabled bool `yaml:"disabled,omitempty"`
 	// Enabled specifies whether the route is enabled.
-	Enabled bool `yaml:"enabled" default:"true"`
+	Enabled bool `yaml:"enabled,omitempty" default:"true"`
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
