@@ -71,6 +71,9 @@ func (gatewayServer *GatewayServer) Start() error {
 	httpServer := gatewayServer.createServer(webAddress, gatewayServer.createHTTPHandler(newRouter), nil)
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
 
+	// Start acme service
+	go startAutoCert()
+
 	// Start HTTP/HTTPS servers
 	gatewayServer.startServers(httpServer, httpsServer)
 

@@ -34,6 +34,7 @@ func (g *Gateway) NewRouter() Router {
 		mux:           mux.NewRouter().StrictSlash(g.EnableStrictSlash),
 		enableMetrics: g.EnableMetrics,
 	}
+	gateway.addGlobalHandler(rt.mux)
 	return rt
 }
 
