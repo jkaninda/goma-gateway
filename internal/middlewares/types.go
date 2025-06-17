@@ -118,14 +118,12 @@ type AccessListMiddleware struct {
 // AuthBasic contains Basic auth configuration
 type AuthBasic struct {
 	// Route path
-	Path     string
-	Paths    []string
-	Realm    string
-	Users    []string `yaml:"users"`
-	Username string
-	Password string
-	Headers  map[string]string
-	Params   map[string]string
+	Path    string
+	Paths   []string
+	Realm   string
+	Users   []string `yaml:"users"`
+	Headers map[string]string
+	Params  map[string]string
 }
 
 // InterceptErrors contains backend status code errors to intercept

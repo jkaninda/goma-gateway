@@ -31,10 +31,10 @@ import (
 // printRoute prints routes
 func printRoute(routes []Route) {
 	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Name", "Disabled", "Priority", "Path", "Rewrite"})
+	t.AppendHeader(table.Row{"Name", "Enabled", "Priority", "Path", "Rewrite"})
 	for _, route := range routes {
 
-		t.AppendRow(table.Row{goutils.TruncateText(route.Name, 20), route.Disabled, route.Priority, goutils.TruncateText(route.Path, 20), route.Rewrite})
+		t.AppendRow(table.Row{goutils.TruncateText(route.Name, 20), route.Enabled, route.Priority, goutils.TruncateText(route.Path, 20), route.Rewrite})
 
 	}
 	fmt.Println(t.Render())
@@ -184,7 +184,7 @@ func hostNames(routes []Route) []certmanager.RouteHost {
 func extractHostsFromRoutes(routes []Route) []certmanager.RouteHost {
 	var hosts []certmanager.RouteHost
 	for _, route := range routes {
-		if len(route.Hosts) > 0 && !route.Disabled {
+		if len(route.Hosts) > 0 && route.Enabled {
 			hosts = append(hosts, certmanager.RouteHost{Name: route.Name, Hosts: route.Hosts})
 		}
 	}

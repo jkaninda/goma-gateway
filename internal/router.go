@@ -29,10 +29,10 @@ import (
 )
 
 // NewRouter creates a new router instance.
-func (gateway Gateway) NewRouter() Router {
+func (g *Gateway) NewRouter() Router {
 	rt := &router{
-		mux:           mux.NewRouter().StrictSlash(gateway.EnableStrictSlash),
-		enableMetrics: gateway.EnableMetrics,
+		mux:           mux.NewRouter().StrictSlash(g.EnableStrictSlash),
+		enableMetrics: g.EnableMetrics,
 	}
 	return rt
 }
@@ -40,7 +40,7 @@ func (gateway Gateway) NewRouter() Router {
 // AddRoutes adds multiple routes from another router.
 func (r *router) AddRoutes(rt Router) {
 	for _, route := range dynamicRoutes {
-		if route.Disabled {
+		if !route.Enabled {
 			logger.Info("Proxies Route is disabled", "route", route.Name)
 			continue
 		}
@@ -65,7 +65,7 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // UpdateHandler updates the router's handler based on the gateway configuration.
-func (r *router) UpdateHandler(gateway Gateway) {
+func (r *router) UpdateHandler(gateway *Gateway) {
 	close(stopChan)
 	reloaded = true
 	r.mux = mux.NewRouter().StrictSlash(gateway.EnableStrictSlash)
@@ -155,43 +155,28 @@ func (r *router) Mux() http.Handler {
 }
 
 // addGlobalHandler configures global handlers and middlewares for the router.
-func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
+func (g *Gateway) addGlobalHandler(mux *mux.Router) {
 	heath := HealthCheckRoute{
-		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,
+		DisableRouteHealthCheckError: g.DisableRouteHealthCheckError,
 		Routes:                       dynamicRoutes,
 	}
 
-	if gateway.EnableMetrics {
+	if g.EnableMetrics {
 		logger.Debug("Metrics enabled")
 		mux.Path("/metrics").Handler(promhttp.Handler())
 	}
 
-	if !gateway.DisableHealthCheckStatus {
-		mux.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET") // Deprecated
+	if !g.DisableHealthCheckStatus {
 		mux.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
 	}
 
-	mux.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET") // Deprecated
 	mux.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
 	mux.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
 
-	if gateway.BlockCommonExploits {
+	if g.BlockCommonExploits {
 		logger.Debug("Block common exploits enabled")
 		mux.Use(middlewares.BlockExploitsMiddleware)
 	}
 
-	if gateway.RateLimit > 0 {
-		rLimit := middlewares.RateLimit{
-			Id:         "global_rate",
-			Unit:       "second",
-			Requests:   gateway.RateLimit,
-			Origins:    gateway.Cors.Origins,
-			Hosts:      []string{},
-			RedisBased: redisBased,
-		}
-		limiter := rLimit.NewRateLimiterWindow()
-		mux.Use(limiter.RateLimitMiddleware())
-	}
-
-	mux.Use(CORSHandler(gateway.Cors))
+	mux.Use(CORSHandler(g.Cors))
 }

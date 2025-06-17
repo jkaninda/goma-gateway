@@ -68,11 +68,6 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 				unauthorizedResponse(w, r, realm, contentType)
 				return
 			}
-		} else {
-			if parts[0] != basicAuth.Username || parts[1] != basicAuth.Password {
-				unauthorizedResponse(w, r, realm, contentType)
-				return
-			}
 		}
 		next.ServeHTTP(w, r)
 	})

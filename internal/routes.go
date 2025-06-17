@@ -22,7 +22,6 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"sort"
 )
@@ -37,7 +36,7 @@ func init() {
 // Initialize initializes the routes
 func (gatewayServer *GatewayServer) Initialize() error {
 	gateway := gatewayServer.gateway
-	handleGatewayDeprecations(&gateway)
+	gateway.handleDeprecations()
 	dynamicRoutes = gateway.Routes
 	dynamicMiddlewares = gatewayServer.middlewares
 	// Load Extra Middlewares
@@ -74,7 +73,7 @@ func (gatewayServer *GatewayServer) Initialize() error {
 		})
 	}
 	// Update Routes
-	dynamicRoutes = validateRoutes(gateway, dynamicRoutes)
+	dynamicRoutes = validateRoutes(*gateway, dynamicRoutes)
 
 	if !reloaded {
 		// Routes background healthcheck
@@ -102,8 +101,6 @@ func attachMiddlewares(route Route, router *mux.Router) {
 		logger.Debug("Block common exploits enabled")
 		router.Use(middlewares.BlockExploitsMiddleware)
 	}
-	// Apply route rate limit // Deprecated
-	applyRateLimit(route, router)
 
 	for _, middleware := range route.Middlewares {
 		if len(middleware) == 0 {
@@ -119,21 +116,4 @@ func attachMiddlewares(route Route, router *mux.Router) {
 		// Apply middlewares by type
 		applyMiddlewareByType(mid, route, router)
 	}
-}
-
-func applyRateLimit(route Route, router *mux.Router) {
-	if route.RateLimit == 0 {
-		return
-	}
-
-	rateLimit := middlewares.RateLimit{
-		Unit:       "minute",
-		Id:         util.Slug(route.Name),
-		Requests:   route.RateLimit,
-		Origins:    route.Cors.Origins,
-		Hosts:      route.Hosts,
-		RedisBased: redisBased,
-	}
-	limiter := rateLimit.NewRateLimiterWindow()
-	router.Use(limiter.RateLimitMiddleware())
 }

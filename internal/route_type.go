@@ -31,7 +31,10 @@ type Route struct {
 	// Priority, Determines route matching order
 	Priority int `yaml:"priority,omitempty"`
 	// Disabled specifies whether the route is disabled.
-	Disabled bool `yaml:"disabled"`
+	// Deprecated, use Enabled
+	Disabled bool `yaml:"disabled,omitempty"`
+	// Enabled specifies whether the route is enabled.
+	Enabled bool `yaml:"enabled" default:"true"`
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
@@ -47,8 +50,6 @@ type Route struct {
 	InsecureSkipVerify bool `yaml:"insecureSkipVerify"`
 	// HealthCheck contains configuration for monitoring the health of backends.
 	HealthCheck RouteHealthCheck `yaml:"healthCheck,omitempty"`
-	// RateLimit specifies the maximum number of requests allowed per minute for this route.
-	RateLimit int `yaml:"rateLimit,omitempty"` // Deprecated
 	// DisableHostForwarding disables the forwarding of host-related headers.
 	//
 	// The headers affected are:
@@ -59,11 +60,6 @@ type Route struct {
 	//
 	// If disabled, the backend may not match routes correctly.
 	DisableHostForwarding bool `yaml:"disableHostForwarding"`
-	// DisableHostFording is deprecated and replaced by DisableHostForwarding.
-	DisableHostFording bool `yaml:"disableHostFording,omitempty"` // Deprecated
-	// InterceptErrors contains HTTP status codes for intercepting backend errors.
-	// Deprecated: Use ErrorInterceptor for more advanced error handling.
-	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
 	// ErrorInterceptor provides configuration for handling backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// BlockCommonExploits enables or disables blocking of common exploit patterns
@@ -104,3 +100,10 @@ type Backend struct {
 
 // Backends defines List of backend servers to route traffic to
 type Backends []Backend
+
+func (r *Route) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	r.Enabled = true
+
+	type tmp Route
+	return unmarshal((*tmp)(r))
+}

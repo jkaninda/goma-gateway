@@ -27,10 +27,6 @@ import (
 
 func (gatewayServer *GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
 	certs := loadTLS(gatewayServer.gateway.TLS)
-	cert, err := loadGatewayCertificate(gatewayServer)
-	if err == nil && cert != nil {
-		certs = append(certs, *cert)
-	}
 	if len(certs) > 0 {
 		return certs, true, nil
 	}
@@ -67,32 +63,6 @@ func loadTLS(t TLS) []tls.Certificate {
 	}
 
 	return certs
-}
-
-// loadGatewayCertificate loads a certificate for the gateway server, handling both deprecated and new fields.
-func loadGatewayCertificate(gatewayServer *GatewayServer) (*tls.Certificate, error) {
-	loadCertificate := func(cert, key, warnMsg string) (*tls.Certificate, error) {
-		if cert != "" || key != "" {
-			if warnMsg != "" {
-				logger.Warn("sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead")
-			}
-			return loadCertAndKey(cert, key)
-		}
-		return nil, nil
-	}
-
-	// Check deprecated fields
-	cert, err := loadCertificate(
-		gatewayServer.gateway.SSLCertFile,
-		gatewayServer.gateway.SSLKeyFile,
-		"sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead",
-	)
-	if err != nil {
-		return cert, err
-	}
-
-	// Check new fields
-	return loadCertificate(gatewayServer.gateway.TlsCertFile, gatewayServer.gateway.TlsKeyFile, "")
 }
 
 // loadCertAndKey loads a certificate and private key from file paths or raw PEM content.

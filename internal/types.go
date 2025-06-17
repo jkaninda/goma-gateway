@@ -25,10 +25,8 @@ import (
 )
 
 type BasicRuleMiddleware struct {
-	Realm    string   `yaml:"realm,omitempty"`
-	Users    []string `yaml:"users"`
-	Username string   `yaml:"username,omitempty"` // Deprecated, use Users
-	Password string   `yaml:"password,omitempty"` // Deprecated, use Users
+	Realm string   `yaml:"realm,omitempty"`
+	Users []string `yaml:"users"`
 }
 type ForwardAuthRuleMiddleware struct {
 	AuthURL                     string   `yaml:"authUrl"`
@@ -113,7 +111,8 @@ type GatewayConfig struct {
 	// GatewayConfig holds Gateway config
 	GatewayConfig Gateway `yaml:"gateway"`
 	// Middlewares holds proxy middlewares
-	Middlewares        []Middleware                   `yaml:"middlewares"`
+	Middlewares []Middleware `yaml:"middlewares"`
+	// CertificateManager holds acme configuration
 	CertificateManager certmanager.CertificateManager `yaml:"certificateManager"`
 }
 
@@ -122,7 +121,7 @@ type GatewayServer struct {
 	certManager certmanager.CertificateManager
 	configFile  string
 	version     string
-	gateway     Gateway
+	gateway     *Gateway
 	middlewares []Middleware
 }
 type HealthCheckRoute struct {

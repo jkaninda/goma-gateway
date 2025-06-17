@@ -244,8 +244,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 		logger.Error(fmt.Sprintf("Error: %v", err.Error()))
 		return
 	}
-
-	if rule.RequestsPerUnit != 0 && route.RateLimit == 0 {
+	if rule.RequestsPerUnit != 0 {
 		rt := middlewares.RateLimit{
 			Unit:       rule.Unit,
 			Id:         util.Slug(route.Name),
@@ -337,14 +336,12 @@ func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Ro
 	}
 
 	authBasic := middlewares.AuthBasic{
-		Path:     route.Path,
-		Paths:    routeMiddleware.Paths,
-		Realm:    rule.Realm,
-		Users:    rule.Users,
-		Username: rule.Username,
-		Password: rule.Password,
-		Headers:  nil,
-		Params:   nil,
+		Path:    route.Path,
+		Paths:   routeMiddleware.Paths,
+		Realm:   rule.Realm,
+		Users:   rule.Users,
+		Headers: nil,
+		Params:  nil,
 	}
 
 	r.Use(authBasic.AuthMiddleware)

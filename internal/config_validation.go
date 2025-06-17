@@ -42,7 +42,7 @@ func CheckConfig(fileName string) error {
 	gateway := &GatewayServer{
 		ctx:         nil,
 		version:     c.Version,
-		gateway:     c.GatewayConfig,
+		gateway:     &c.GatewayConfig,
 		middlewares: c.Middlewares,
 	}
 	dynamicRoutes = gateway.gateway.Routes
@@ -59,19 +59,6 @@ func CheckConfig(fileName string) error {
 	fmt.Println("Checking middlewares...done")
 	// Check additional routes
 	fmt.Println("Checking routes...")
-	// Load Extra Routes
-	if len(gateway.gateway.ExtraRoutes.Directory) != 0 {
-		extraRoutes, err := loadExtraRoutes(gateway.gateway.ExtraRoutes.Directory)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err.Error())
-		}
-		if len(extraRoutes) == 0 {
-			fmt.Printf("no extra routes found in %s\n", gateway.gateway.ExtraRoutes.Directory)
-		} else {
-			dynamicRoutes = append(dynamicRoutes, extraRoutes...)
-			fmt.Printf("Loaded %d extra routes from %s\n", len(extraRoutes), gateway.gateway.ExtraRoutes.Directory)
-		}
-	}
 	// Check routes
 	checkRoutes(dynamicRoutes, gateway.middlewares)
 	fmt.Println("Checking routes...done")
