@@ -88,11 +88,14 @@ func (gatewayServer *GatewayServer) Initialize() error {
 	// Load gateway routes certificates
 	certs, _, _ := gatewayServer.initTLS()
 	if len(certs) > 0 {
+		logger.Debug("Loaded certificates", "count", len(certs))
 		certManager.AddCertificates(certs)
 
 	}
 	// Start acme service
-	go startAutoCert()
+	if reloaded {
+		go startAutoCert()
+	}
 	return nil
 }
 

@@ -575,10 +575,157 @@ func (cm *CertManager) AutoCert(hosts []RouteHost) {
 	cm.mu.Unlock()
 
 	cm.startRenewalService()
+	// Start ACME service synchronously to ensure proper initialization
 	go func() {
-		cm.startAcmeService()
+		if err := cm.startAcmeService(); err != nil {
+			logger.Error("ACME service failed", "error", err)
+		}
 	}()
 	logger.Debug("AutoCert configured", "route_count", len(hosts))
+}
+
+// Sequential ACME service that waits for each certificate request to complete
+func (cm *CertManager) startAcmeService() error {
+	logger.Info("Starting ACME service", "total_routes", len(cm.allowedHosts))
+	successCount := 0
+	errorCount := 0
+	skippedCount := 0
+
+	for i, rh := range cm.allowedHosts {
+		// Select the first host from the route
+		host := rh.Hosts[0]
+
+		logger.Debug("Processing route",
+			"route_name", rh.Name,
+			"host", host,
+			"progress", fmt.Sprintf("%d/%d", i+1, len(cm.allowedHosts)))
+
+		// Check if certificate already exists and is valid
+		if cert := cm.getExistingValidCertificate(host); cert != nil {
+			logger.Debug("Certificate already exists and is valid",
+				"host", host,
+				"route", rh.Name)
+			skippedCount++
+			continue
+		}
+
+		// Check if request is already in progress
+		if cm.isRequestInProgress(rh.Hosts) {
+			logger.Debug("Certificate request already in progress",
+				"host", host,
+				"route", rh.Name)
+			skippedCount++
+			continue
+		}
+
+		// Request certificate and wait for completion
+		logger.Info("Requesting certificate",
+			"route", rh.Name,
+			"host", host,
+			"domains", rh.Hosts)
+
+		cert, err := cm.requestCertificateSync(rh)
+		if err != nil {
+			logger.Error("Failed to obtain certificate",
+				"route", rh.Name,
+				"host", host,
+				"domains", rh.Hosts,
+				"error", err)
+			errorCount++
+
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		if cert != nil {
+			logger.Info("Successfully obtained certificate",
+				"route", rh.Name,
+				"host", host,
+				"domains", rh.Hosts)
+			successCount++
+		}
+
+		time.Sleep(2 * time.Second)
+	}
+
+	logger.Info("ACME service completed",
+		"total", len(cm.allowedHosts),
+		"success", successCount,
+		"errors", errorCount,
+		"skipped", skippedCount)
+
+	if errorCount > 0 && successCount == 0 {
+		return fmt.Errorf("all certificate requests failed (%d errors)", errorCount)
+	}
+
+	return nil
+}
+
+// Synchronous certificate request
+func (cm *CertManager) requestCertificateSync(routeHost RouteHost) (*tls.Certificate, error) {
+	if !cm.acmeInitialized {
+		return nil, errors.New("ACME client hasn't been initialized")
+	}
+
+	if cert := cm.checkExistingValidCertificate(routeHost); cert != nil {
+		return cert, nil
+	}
+
+	// Check if another request is already in progress for these domains
+	if cm.isRequestInProgress(routeHost.Hosts) {
+		return nil, fmt.Errorf("certificate request already in progress for domains: %v", routeHost.Hosts)
+	}
+
+	cm.markRequestInProgress(routeHost.Hosts, true)
+	defer cm.markRequestInProgress(routeHost.Hosts, false)
+
+	logger.Debug("Requesting new certificate",
+		"route", routeHost.Name,
+		"domains", routeHost.Hosts)
+
+	// Create the certificate request
+	request := certificate.ObtainRequest{
+		Domains: routeHost.Hosts,
+		Bundle:  true,
+	}
+
+	// Make the actual ACME request (this blocks until complete)
+	certificates, err := cm.legoClient.Certificate.Obtain(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain certificate from ACME: %w", err)
+	}
+
+	// Create TLS certificate from the obtained certificate
+	cert, err := tls.X509KeyPair(certificates.Certificate, certificates.PrivateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
+	}
+
+	certInfo := cm.createCertificateInfoFromACME(&cert, routeHost.Hosts, certificates)
+	cm.storeCertificateInfo(routeHost.Hosts, certInfo)
+
+	// Save to persistent storage
+	if err = cm.saveToStorage(); err != nil {
+		logger.Error("Failed to save certificate to storage",
+			"route", routeHost.Name,
+			"error", err)
+	}
+
+	return &cert, nil
+}
+
+// Renewal service
+func (cm *CertManager) startRenewalService() {
+	if cm.renewalTicker != nil {
+		cm.renewalTicker.Stop()
+	}
+
+	cm.renewalTicker = time.NewTicker(24 * time.Hour)
+	go func() {
+		for range cm.renewalTicker.C {
+			cm.renewCertificates()
+		}
+	}()
 }
 
 func (cm *CertManager) createCertificateInfo(cert *tls.Certificate) (*CertificateInfo, error) {
@@ -783,7 +930,7 @@ func (cm *CertManager) verifyCertificateChain(certPEM []byte) error {
 	roots, err := x509.SystemCertPool()
 	if err != nil {
 		logger.Warn("Failed to load system cert pool", "error", err)
-		return nil // Don't fail if system pool unavailable
+		return nil
 	}
 
 	opts := x509.VerifyOptions{Roots: roots}
@@ -838,34 +985,6 @@ func (cm *CertManager) storeCertificateInfo(domains []string, certInfo *Certific
 	for _, domain := range domains {
 		cm.certs[domain] = certInfo
 	}
-}
-func (cm *CertManager) startAcmeService() {
-	for _, rh := range cm.allowedHosts {
-		host := rh.Hosts[0]
-
-		if cert := cm.getExistingValidCertificate(host); cert != nil {
-			continue
-		}
-		if _, inProgress := cm.inProgressRequests[host]; inProgress {
-			continue
-		}
-		// Select the first host
-		cm.tryACME(host)
-	}
-}
-
-// Renewal service
-func (cm *CertManager) startRenewalService() {
-	if cm.renewalTicker != nil {
-		cm.renewalTicker.Stop()
-	}
-
-	cm.renewalTicker = time.NewTicker(24 * time.Hour)
-	go func() {
-		for range cm.renewalTicker.C {
-			cm.renewCertificates()
-		}
-	}()
 }
 
 func (cm *CertManager) renewCertificates() {
