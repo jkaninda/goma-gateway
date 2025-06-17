@@ -32,4 +32,7 @@ var (
 const (
 	httpChallengePort = "5002"
 	configVersion     = "1.0"
+	gomaEnv           = "GOMA_ENV"
+	local             = "local"
+	development       = "development"
 )

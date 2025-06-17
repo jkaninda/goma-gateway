@@ -18,6 +18,7 @@
 package certmanager
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -40,6 +41,7 @@ import (
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/jkaninda/logger"
 	"math/big"
+	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -183,6 +185,17 @@ func (cm *CertManager) setupLegoClient() error {
 	config.Certificate.KeyType = certcrypto.RSA2048
 	if cm.certificateManager.Acme.DirectoryURL != "" {
 		config.CADirURL = cm.certificateManager.Acme.DirectoryURL
+
+		if os.Getenv(gomaEnv) == development || os.Getenv(gomaEnv) == local {
+			logger.Warn("Using development environment")
+			config.HTTPClient = &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				},
+			}
+		}
 	}
 	client, err := lego.NewClient(config)
 	if err != nil {
@@ -447,10 +460,14 @@ func (cm *CertManager) saveCertificateToStorage(domain string, certInfo *Certifi
 		return nil, fmt.Errorf("certificate is nil")
 	}
 
-	certPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certInfo.Certificate.Certificate[0],
-	})
+	var certPEMBuffer bytes.Buffer
+	for _, certDER := range certInfo.Certificate.Certificate {
+		certPEM := pem.EncodeToMemory(&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: certDER,
+		})
+		certPEMBuffer.Write(certPEM)
+	}
 
 	keyPEM, err := marshalCertificatePrivateKey(certInfo.Certificate.PrivateKey)
 	if err != nil {
@@ -459,7 +476,7 @@ func (cm *CertManager) saveCertificateToStorage(domain string, certInfo *Certifi
 
 	return &StoredCertificate{
 		Domain:      domain,
-		Certificate: base64.StdEncoding.EncodeToString(certPEM),
+		Certificate: base64.StdEncoding.EncodeToString(certPEMBuffer.Bytes()),
 		PrivateKey:  base64.StdEncoding.EncodeToString(keyPEM),
 		Domains:     certInfo.Domains,
 		Expires:     certInfo.Expires,
@@ -618,12 +635,16 @@ func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
 
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	serverName := hello.ServerName
+	logger.Debug("Certificate request", "server_name", serverName)
 
 	if cert := cm.getExistingValidCertificate(serverName); cert != nil {
 		return cert, nil
 	}
+	logger.Debug("No valid certificate found, using default", "server_name", serverName)
 	// Kick off ACME request in background
-	go cm.tryACME(serverName)
+	go func() {
+		cm.tryACME(serverName)
+	}()
 
 	// Return default certificate immediately
 	return cm.getDefaultCertificate(serverName)
@@ -729,7 +750,9 @@ func (cm *CertManager) requestNewCertificate(routeHost RouteHost) (*tls.Certific
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain certificate: %w", err)
 	}
-
+	if err = cm.verifyCertificateChain(certificates.Certificate); err != nil {
+		logger.Warn("Certificate chain verification failed", "error", err)
+	}
 	cert, err := tls.X509KeyPair(certificates.Certificate, certificates.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
@@ -744,6 +767,28 @@ func (cm *CertManager) requestNewCertificate(routeHost RouteHost) (*tls.Certific
 
 	logger.Info("Successfully obtained new certificate", "route", routeHost.Name, "domains", routeHost.Hosts)
 	return &cert, nil
+}
+func (cm *CertManager) verifyCertificateChain(certPEM []byte) error {
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return fmt.Errorf("failed to decode certificate PEM")
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse certificate: %w", err)
+	}
+
+	// Try to verify against system root CAs
+	roots, err := x509.SystemCertPool()
+	if err != nil {
+		logger.Warn("Failed to load system cert pool", "error", err)
+		return nil // Don't fail if system pool unavailable
+	}
+
+	opts := x509.VerifyOptions{Roots: roots}
+	_, err = cert.Verify(opts)
+	return err
 }
 func (cm *CertManager) isRequestInProgress(domains []string) bool {
 	cm.mu.Lock()
