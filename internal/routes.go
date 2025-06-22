@@ -73,29 +73,43 @@ func (gatewayServer *GatewayServer) Initialize() error {
 			return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
 		})
 	}
+	logger.Debug("Validating routes", "count", len(dynamicRoutes))
+
 	// Update Routes
 	dynamicRoutes = validateRoutes(gateway, dynamicRoutes)
 
 	if !reloaded {
+		logger.Debug("Starting routes healthcheck...")
 		// Routes background healthcheck
 		routesHealthCheck(dynamicRoutes, stopChan)
+		logger.Debug("Routes healthcheck started")
 	}
-
-	certManager, err = certmanager.NewCertManager(gatewayServer.certManager)
-	if err != nil {
-		logger.Error("Error creating certificate manager", "error", err)
+	if certManager == nil {
+		logger.Debug("Creating certificate manager...")
+		certManager, err = certmanager.NewCertManager(gatewayServer.certManager)
+		if err != nil {
+			logger.Error("Error creating certificate manager", "error", err)
+		}
+		logger.Debug("Initializing certificate manager...")
+		err = certManager.Initialize()
+		if err != nil {
+			logger.Error("Failed to initialize Acme", "error", err)
+		}
 	}
+	logger.Debug("Loading tls certificates...")
 	// Load gateway routes certificates
-	certs, _, _ := gatewayServer.initTLS()
-	if len(certs) > 0 {
-		logger.Debug("Loaded certificates", "count", len(certs))
+	certs, _, err := gatewayServer.initTLS()
+	if err == nil && len(certs) > 0 {
 		certManager.AddCertificates(certs)
+		logger.Debug("Loaded tls certificates", "count", len(certs))
 
 	}
-	// Start acme service
-	if reloaded {
-		go startAutoCert()
+
+	// update domains in certManager
+	if certManager != nil && certManager.AcmeInitialized() {
+		certManager.UpdateDomains(hostNames(dynamicRoutes))
 	}
+
 	return nil
 }
 

@@ -114,8 +114,6 @@ type CertManager struct {
 	allowedHosts       []Domain
 	renewalTicker      *time.Ticker
 	inProgressRequests map[string]bool
-	isRunning          bool
-	cond               *sync.Cond
 	acmeInitialized    bool
 }
 
@@ -132,13 +130,16 @@ func NewCertManager(config CertificateManager) (*CertManager, error) {
 		config:             &config,
 		storageFile:        storageConfig.StorageFile,
 		cacheDir:           storageConfig.CacheDir,
-		cond:               sync.NewCond(&sync.Mutex{}),
 		inProgressRequests: make(map[string]bool),
 	}, nil
 }
 
 // Initialize sets up the certificate manager
 func (cm *CertManager) Initialize() error {
+	if cm.acmeInitialized {
+		logger.Debug("Already initialized")
+		return nil // Already initialized
+	}
 	if err := cm.validateConfig(); err != nil {
 		return err
 	}
@@ -160,7 +161,6 @@ func (cm *CertManager) Initialize() error {
 	if err := cm.setupChallenges(); err != nil {
 		return fmt.Errorf("failed to setup challenges: %w", err)
 	}
-	cm.cond = sync.NewCond(&cm.mu)
 	cm.acmeInitialized = true
 	return nil
 }
@@ -285,28 +285,51 @@ func (cm *CertManager) AutoCert(domains []Domain) {
 	if err := cm.processCertificates(); err != nil {
 		logger.Error("Error processing certificates", "error", err)
 	}
+	logger.Debug("AutoCert process started", "domains", len(domains))
+}
+func (cm *CertManager) UpdateDomains(domains []Domain) {
+	if !cm.acmeInitialized {
+		logger.Debug("ACME client not initialized, skipping domain update")
+		return
+	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	cm.allowedHosts = domains
+	logger.Debug("Updated allowed hosts", "count", len(cm.allowedHosts))
+	logger.Debug("Resetting in-progress requests due to domain update")
+
+	// Start processing certificates immediately
+	go func() {
+		if err := cm.processCertificates(); err != nil {
+			logger.Error("Error processing certificates after domain update", "error", err)
+		}
+	}()
+
 }
 
 func (cm *CertManager) processCertificates() error {
 	stats := &ProcessingStats{}
+	var wg sync.WaitGroup
 
-	go cm.waitForCompletion()
-
-	for i, domain := range cm.allowedHosts {
-		logger.Debug("Processing domain", "index", i+1, "total", len(cm.allowedHosts), "domain", domain.Name)
+	for _, domain := range cm.allowedHosts {
 		if cm.shouldSkipDomain(domain, stats) {
 			continue
 		}
 
-		if err := cm.processDomain(domain, stats); err != nil {
-			time.Sleep(errorDelay)
-			continue
-		}
-
-		time.Sleep(requestDelay)
+		wg.Add(1)
+		go func(d Domain) {
+			defer wg.Done()
+			if err := cm.processDomain(d, stats); err != nil {
+				time.Sleep(errorDelay)
+				return
+			}
+			time.Sleep(requestDelay)
+		}(domain)
 	}
 
-	logger.Info("Processing complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
+	wg.Wait()
+	logger.Debug("Processing complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
 	return cm.validateProcessingResults(stats)
 }
 
@@ -314,21 +337,31 @@ func (cm *CertManager) requestNewCertificate(host string, stats *ProcessingStats
 	if stats == nil {
 		stats = &ProcessingStats{}
 	}
-	if cm.isRunning {
-		return nil
-	}
+
+	logger.Debug("=== requestNewCertificate called ===", "host", host)
+	cm.mu.RLock()
+	logger.Debug("Current allowed hosts", "count", len(cm.allowedHosts))
+	logger.Debug("Requesting new certificate", "domain", host, "hosts_count", len(cm.allowedHosts))
+	cm.mu.RUnlock()
+
 	allowed, domain := cm.isHostAllowed(host)
+	logger.Debug("isHostAllowed", "allowed", allowed, "host", host, "domain", domain)
 	if !allowed {
 		stats.Skipped++
-		logger.Debug("Skipping certificate renewal", "host", host, "domain", domain.Name)
+		logger.Debug("Skipping certificate request, domain not recognized", "host", host)
 		return nil
 	}
 	if cm.shouldSkipDomain(domain, stats) {
 		stats.Skipped++
 		return nil
 	}
+	key := cm.getRequestKey(domain.Hosts)
+	inProgress := cm.isRequestInProgress(domain.Hosts)
+	logger.Debug("Request state", "inProgress", inProgress, "requestKey", key)
+
 	if err := cm.processDomain(domain, stats); err != nil {
 		if !errors.Is(err, ErrAlreadyInProgress) {
+			logger.Error("Failed to process domain", "domain", domain.Hosts[0], "error", err)
 			time.Sleep(errorDelay)
 			return err
 		}
@@ -382,8 +415,6 @@ func (cm *CertManager) renewCertificates() {
 	stats := &ProcessingStats{}
 
 	logger.Debug("Renewing certificates", "count", len(certsToRenew))
-	go cm.waitForCompletion()
-
 	for _, host := range certsToRenew {
 		err := cm.requestNewCertificate(host, stats)
 		if err != nil {
@@ -392,6 +423,7 @@ func (cm *CertManager) renewCertificates() {
 		}
 		time.Sleep(requestDelay)
 	}
+	logger.Debug("Certificate renewal complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
 }
 func (cm *CertManager) getCertificatesToRenew() []string {
 	cm.mu.RLock()
@@ -413,8 +445,6 @@ func (cm *CertManager) requestCertificateSync(domain Domain) (*tls.Certificate, 
 	}
 
 	if cert := cm.checkExistingValidCertificate(domain); cert != nil {
-		cm.isRunning = false
-		cm.cond.Signal()
 		return cert, nil
 	}
 
@@ -426,23 +456,21 @@ func (cm *CertManager) requestCertificateSync(domain Domain) (*tls.Certificate, 
 }
 
 func (cm *CertManager) performCertificateRequest(domain Domain) (*tls.Certificate, error) {
+	httpChallengeMu.Lock()
+	defer httpChallengeMu.Unlock()
+
 	cm.markRequestInProgress(domain.Hosts, true)
 	defer cm.markRequestInProgress(domain.Hosts, false)
-	cm.isRunning = true
 	certificates, err := cm.legoClient.Certificate.Obtain(certificate.ObtainRequest{
 		Domains: domain.Hosts,
 		Bundle:  true,
 	})
 	if err != nil {
-		cm.cond.Signal()
-		cm.isRunning = false
 		return nil, fmt.Errorf("failed to obtain certificate from ACME: %w", err)
 	}
 
 	cert, err := tls.X509KeyPair(certificates.Certificate, certificates.PrivateKey)
 	if err != nil {
-		cm.cond.Signal()
-		cm.isRunning = false
 		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
 	}
 
@@ -452,23 +480,27 @@ func (cm *CertManager) performCertificateRequest(domain Domain) (*tls.Certificat
 	if err = cm.saveToStorage(); err != nil {
 		logger.Error("Failed to save certificate to storage", "error", err)
 	}
-	cm.cond.Signal()
-	cm.isRunning = false
 	return &cert, nil
 }
 
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	serverName := hello.ServerName
 
+	if len(cm.certs) == 0 && cm.customCerts == nil {
+		logger.Debug("No certificates available, returning default certificate")
+		return cm.getDefaultCertificate()
+	}
+
 	if cert := cm.getExistingValidCertificate(serverName); cert != nil {
 		return cert, nil
 	}
+	logger.Debug("Certificate not found or invalid", "server_name", serverName)
 	go func() {
 		if err := cm.requestNewCertificate(serverName, nil); err != nil {
 			logger.Error("Background certificate processing failed", "error", err)
 		}
 	}()
-
+	logger.Debug("Returning default certificate for server name", "server_name", serverName)
 	return cm.getDefaultCertificate()
 }
 
@@ -620,10 +652,8 @@ func (cm *CertManager) storeCertificateInfo(domains []string, certInfo *Certific
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	// Remove any existing certificates that overlap with these domains
 	cm.removeOverlappingCertificates(domains)
 
-	// Store the new certificate for all domains
 	for _, domain := range domains {
 		cm.certs[domain] = certInfo
 	}
@@ -660,6 +690,7 @@ func (cm *CertManager) addCertificateInfo(domain string, certInfo *CertificateIn
 
 // AddCertificates adds multiple certificates to the CertManager
 func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
+	logger.Debug("Adding certificates to cert-manager", "certs", len(certs))
 	for _, cert := range certs {
 		commonName, sanNames, err := getCertificateDetails(&cert)
 		if err != nil {
@@ -673,6 +704,7 @@ func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
 			}
 		}
 	}
+	logger.Debug("Certificates added to cert-manager", "count", len(certs))
 }
 
 // Certificates returns all certificates managed by the CertManager
@@ -775,7 +807,10 @@ func (cm *CertManager) AcmeInitialized() bool {
 func (cm *CertManager) isHostAllowed(host string) (bool, Domain) {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-
+	if len(cm.allowedHosts) == 0 {
+		logger.Debug("No allowed hosts configured, returning false for host", "host", host)
+		return false, Domain{}
+	}
 	for _, route := range cm.allowedHosts {
 		for _, pattern := range route.Hosts {
 			if strings.EqualFold(host, pattern) {
@@ -800,17 +835,6 @@ func (cm *CertManager) Close() {
 	if err := cm.saveToStorage(); err != nil {
 		logger.Error("Error saving final state", "error", err)
 	}
-}
-func (cm *CertManager) waitForCompletion() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	for cm.isRunning {
-		logger.Debug("Waiting for in-progress requests to complete", "count", len(cm.inProgressRequests))
-		cm.cond.Wait()
-		logger.Debug("In-progress requests completed")
-	}
-	logger.Debug("Certificate processing complete: all in-progress requests finished")
 }
 
 // Storage Operations - these would need to be implemented based on your storage requirements
