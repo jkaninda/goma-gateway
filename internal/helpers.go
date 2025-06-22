@@ -171,21 +171,21 @@ func allowedOrigin(origins []string, origin string) bool {
 
 }
 
-func hostNames(routes []Route) []certmanager.RouteHost {
+func hostNames(routes []Route) []certmanager.Domain {
 	hosts := extractHostsFromRoutes(routes)
 	if len(hosts) == 0 {
-		_ = []certmanager.RouteHost{}
+		_ = []certmanager.Domain{}
 		return nil
 	}
 	return hosts
 }
 
 // extractHostsFromRoutes collects all hosts from routes that have hosts defined
-func extractHostsFromRoutes(routes []Route) []certmanager.RouteHost {
-	var hosts []certmanager.RouteHost
+func extractHostsFromRoutes(routes []Route) []certmanager.Domain {
+	var hosts []certmanager.Domain
 	for _, route := range routes {
 		if len(route.Hosts) > 0 && !route.Disabled {
-			hosts = append(hosts, certmanager.RouteHost{Name: route.Name, Hosts: route.Hosts})
+			hosts = append(hosts, certmanager.Domain{Name: route.Name, Hosts: route.Hosts})
 		}
 	}
 	return hosts

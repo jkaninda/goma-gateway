@@ -17,22 +17,34 @@
 
 package certmanager
 
+import (
+	"errors"
+	"time"
+)
+
 var (
 	HTTP01 ChallengeType = "http-01"
 	DNS01  ChallengeType = "dns-01"
 
-	cloudflareProvider DnsProvider  = "cloudflare"
-	route53Provider    DnsProvider  = "route53"
-	CertAcmeProvider   CertProvider = "acme"
-	CertVaultProvider  CertProvider = "vault"
-	acmeFile                        = "acme.json"
-	cacheDir                        = "/etc/letsencrypt"
+	cloudflareProvider   DnsProvider  = "cloudflare"
+	route53Provider      DnsProvider  = "route53"
+	CertAcmeProvider     CertProvider = "acme"
+	CertVaultProvider    CertProvider = "vault"
+	acmeFile                          = "acme.json"
+	cacheDir                          = "/etc/letsencrypt"
+	ErrAlreadyInProgress              = errors.New("certificate renewal already in progress, please wait for the current process to finish")
 )
 
 const (
-	httpChallengePort = "5002"
-	configVersion     = "1.0"
-	gomaEnv           = "GOMA_ENV"
-	local             = "local"
-	development       = "development"
+	httpChallengePort     = "5002"
+	configVersion         = "1.0"
+	gomaEnv               = "GOMA_ENV"
+	local                 = "local"
+	development           = "development"
+	renewalCheckInterval  = 24 * time.Hour
+	certificateBufferTime = 24 * time.Hour
+	renewalBufferTime     = 30 * 24 * time.Hour // 30 days
+	requestDelay          = 15 * time.Second
+	errorDelay            = 20 * time.Second
+	rsaKeySize            = 2048
 )
