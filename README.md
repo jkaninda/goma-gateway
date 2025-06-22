@@ -224,7 +224,7 @@ Goma Gateway provides the following health check endpoints:
 
 ### 5. Simple Deployment with Docker Compose
 
-Here’s an example of deploying Goma Gateway using Docker Compose:
+Here’s a simple example of deploying Goma Gateway using Docker Compose:
 
 Create a file named `config.yaml`:
 
@@ -234,7 +234,12 @@ gateway:
   # Timeout settings (in seconds)
   writeTimeout: 15 
   readTimeout: 15 
-  idleTimeout: 30 
+  idleTimeout: 30
+  entryPoints:
+    web:
+      address: ":80"
+    webSecure:
+      address: ":443"
   # Route definitions
   routes:
     # First route definition - simple proxy to example.com
@@ -261,7 +266,7 @@ gateway:
           weight: 3           
       healthCheck:
         path: /
-        interval: 15s
+        interval: 30s
         timeout: 10s 
         healthyStatuses:       
           - 200
@@ -278,6 +283,12 @@ middlewares:
       users:                  # Authorized users
         - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia #password
         - user:password
+# Certificate management configuration
+certificateManager:
+  acme:
+    ## Uncomment email to enable Let's Encrypt
+   # email: admin@example.com # Email for ACME registration
+    storageFile: /etc/letsencrypt/acme.json
 ```
 
 ```shell
@@ -287,8 +298,8 @@ services:
     image: jkaninda/goma-gateway
     command: server -c config.yaml
     ports:
-      - "80:8080"
-      - "443:8443"
+      - "80:80"
+      - "443:443"
     volumes:
       - ./:/etc/goma/
       - ./letsencrypt:/etc/letsencrypt

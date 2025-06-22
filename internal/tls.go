@@ -154,6 +154,8 @@ func startAutoCert() {
 	}
 	// Add AutoCert
 	if certManager != nil && certManager.AcmeInitialized() {
-		certManager.AutoCert(hostNames(dynamicRoutes))
+		go func() {
+			certManager.AutoCert(hostNames(dynamicRoutes))
+		}()
 	}
 }
