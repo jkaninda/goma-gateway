@@ -159,6 +159,11 @@ func isBase64(input string) bool {
 }
 func startAutoCert() {
 	time.Sleep(waitDelay)
+	logger.Debug("Initializing certificate manager...")
+	err := certManager.Initialize()
+	if err != nil {
+		logger.Error("Failed to initialize Acme", "error", err)
+	}
 	logger.Debug("Starting AutoCert service")
 	if certManager != nil && certManager.AcmeInitialized() {
 		certManager.AutoCert(hostNames(dynamicRoutes))

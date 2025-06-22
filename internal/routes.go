@@ -90,11 +90,6 @@ func (gatewayServer *GatewayServer) Initialize() error {
 		if err != nil {
 			logger.Error("Error creating certificate manager", "error", err)
 		}
-		logger.Debug("Initializing certificate manager...")
-		err = certManager.Initialize()
-		if err != nil {
-			logger.Error("Failed to initialize Acme", "error", err)
-		}
 	}
 	logger.Debug("Loading tls certificates...")
 	// Load gateway routes certificates
