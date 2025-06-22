@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"time"
 )
 
 func (gatewayServer *GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
@@ -35,33 +37,42 @@ func (gatewayServer *GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
 
 // loadTLS initializes a TLS configuration by loading certificates from dynamic routes.
 func loadTLS(t TLS) []tls.Certificate {
-	certs := make([]tls.Certificate, 0)
+	var mu sync.Mutex
+	certs := []tls.Certificate{}
 
-	// Helper function to load certificates and append them to the config
+	var wg sync.WaitGroup
+
 	loadCertificates := func(t TLS, context string) {
+		defer wg.Done()
+		localCerts := []tls.Certificate{}
+
 		for _, key := range t.Keys {
 			if key.Key == "" && key.Cert == "" {
 				logger.Error(fmt.Sprintf("Error TLS: no certificate or key file provided for %s", context))
 				continue
 			}
-
 			certificate, err := loadCertAndKey(key.Cert, key.Key)
 			if err != nil {
-				logger.Error(fmt.Sprintf("Error loading server certificate for %s: %v", context, err))
+				logger.Error(fmt.Sprintf("Error loading certificate for %s", context), "error", err)
 				continue
 			}
-			certs = append(certs, *certificate)
+			localCerts = append(localCerts, *certificate)
 		}
+
+		mu.Lock()
+		certs = append(certs, localCerts...)
+		mu.Unlock()
 	}
 
-	// Load certificates for the gateway
-	loadCertificates(t, "the gateway")
+	wg.Add(1)
+	go loadCertificates(t, "the gateway")
 
-	// Load certificates for dynamic routes
 	for _, route := range dynamicRoutes {
-		loadCertificates(route.TLS, fmt.Sprintf("route: %s", route.Name))
+		wg.Add(1)
+		go loadCertificates(route.TLS, fmt.Sprintf("route: %s", route.Name))
 	}
 
+	wg.Wait()
 	return certs
 }
 
@@ -117,15 +128,10 @@ func isBase64(input string) bool {
 	return err == nil
 }
 func startAutoCert() {
-	err := certManager.Initialize()
-	if err != nil {
-		logger.Error("Failed to initialize Acme", "error", err)
-		return
-	}
-	// Add AutoCert
+	time.Sleep(waitDelay)
+	logger.Debug("Starting AutoCert service")
 	if certManager != nil && certManager.AcmeInitialized() {
-		go func() {
-			certManager.AutoCert(hostNames(dynamicRoutes))
-		}()
+		certManager.AutoCert(hostNames(dynamicRoutes))
 	}
+
 }

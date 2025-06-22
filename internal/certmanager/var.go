@@ -19,6 +19,7 @@ package certmanager
 
 import (
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -33,6 +34,7 @@ var (
 	acmeFile                          = "acme.json"
 	cacheDir                          = "/etc/letsencrypt"
 	ErrAlreadyInProgress              = errors.New("certificate renewal already in progress, please wait for the current process to finish")
+	httpChallengeMu      sync.Mutex
 )
 
 const (

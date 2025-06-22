@@ -65,6 +65,7 @@ func (gatewayServer *GatewayServer) watchExtraConfig(r Router) {
 						logger.Error("Failed to reload configuration", "error", err)
 					} else {
 						// Update the routes
+						logger.Debug("Updating routes")
 						r.UpdateHandler(gatewayServer.gateway)
 					}
 

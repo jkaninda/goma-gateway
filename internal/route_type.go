@@ -83,10 +83,12 @@ type ExtraMiddleware struct {
 	Middlewares []Middleware `yaml:"middlewares"`
 }
 type TLS struct {
-	Keys []struct {
-		Cert string `yaml:"cert"`
-		Key  string `yaml:"key"`
-	} `yaml:"keys,omitempty"`
+	Keys []TLSKey `yaml:"keys,omitempty"`
+}
+
+type TLSKey struct {
+	Cert string `yaml:"cert"`
+	Key  string `yaml:"key"`
 }
 
 // Backend defines backend server to route traffic to
