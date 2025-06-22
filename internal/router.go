@@ -77,7 +77,9 @@ func (r *router) UpdateHandler(gateway *Gateway) {
 	routesHealthCheck(dynamicRoutes, stopChan)
 	// Update HostWhitelist
 	if certManager != nil && certManager.AcmeInitialized() {
-		certManager.AutoCert(hostNames(dynamicRoutes))
+		go func() {
+			certManager.AutoCert(hostNames(dynamicRoutes))
+		}()
 	}
 	logger.Info("Configuration successfully reloaded")
 }

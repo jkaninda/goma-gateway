@@ -1,20 +1,3 @@
-/*
- * Copyright 2024 Jonas Kaninda
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 package certmanager
 
 import (
@@ -32,13 +15,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/go-acme/lego/v4/certcrypto"
-	"github.com/go-acme/lego/v4/certificate"
-	"github.com/go-acme/lego/v4/challenge"
-	"github.com/go-acme/lego/v4/challenge/http01"
-	"github.com/go-acme/lego/v4/lego"
-	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
-	"github.com/go-acme/lego/v4/registration"
 	"github.com/jkaninda/logger"
 	"math/big"
 	"net/http"
@@ -47,20 +23,46 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/http01"
+	"github.com/go-acme/lego/v4/lego"
+	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
+	"github.com/go-acme/lego/v4/registration"
 )
+
+// Domain represents a domain configuration
+type Domain struct {
+	Name  string
+	Hosts []string
+}
+
+// Credentials holds authentication credentials for providers
+
+// AcmeConfig holds ACME-specific configuration
+type AcmeConfig struct {
+	Email         string      `json:"email"`
+	DirectoryURL  string      `json:"directory_url"`
+	ChallengeType string      `json:"challenge_type"`
+	DnsProvider   string      `json:"dns_provider"`
+	StorageFile   string      `json:"storage_file"`
+	Credentials   Credentials `json:"credentials"`
+}
 
 // Storage types
 type (
 	StoredUserAccount struct {
 		Email        string `json:"email"`
-		PrivateKey   string `json:"private_key"`  // base64 encoded
-		Registration string `json:"registration"` // base64 encoded JSON
+		PrivateKey   string `json:"private_key"`
+		Registration string `json:"registration"`
 	}
 
 	StoredCertificate struct {
 		Domain      string    `json:"domain"`
-		Certificate string    `json:"certificate"` // base64 encoded PEM
-		PrivateKey  string    `json:"private_key"` // base64 encoded PEM
+		Certificate string    `json:"certificate"`
+		PrivateKey  string    `json:"private_key"`
 		Domains     []string  `json:"domains"`
 		Expires     time.Time `json:"expires"`
 		IssuedAt    time.Time `json:"issued_at"`
@@ -72,37 +74,33 @@ type (
 		Version      string               `json:"version"`
 		UpdatedAt    time.Time            `json:"updated_at"`
 	}
-)
-
-type (
-	RouteHost struct {
-		Name  string
-		Hosts []string
+	ProcessingStats struct {
+		Success int
+		Errors  int
+		Skipped int
 	}
 )
 
-type (
-	LegoUser struct {
-		Email        string
-		Registration *registration.Resource
-		key          crypto.PrivateKey
-	}
-)
+// CertificateInfo contains certificate information
+type CertificateInfo struct {
+	Certificate *tls.Certificate
+	Domains     []string
+	Expires     time.Time
+	Resource    *certificate.Resource
+}
+
+// LegoUser implements the lego User interface
+type LegoUser struct {
+	Email        string
+	Registration *registration.Resource
+	key          crypto.PrivateKey
+}
 
 func (u *LegoUser) GetEmail() string                        { return u.Email }
 func (u *LegoUser) GetRegistration() *registration.Resource { return u.Registration }
 func (u *LegoUser) GetPrivateKey() crypto.PrivateKey        { return u.key }
 
-type (
-	CertificateInfo struct {
-		Certificate *tls.Certificate
-		Domains     []string
-		Expires     time.Time
-		Resource    *certificate.Resource
-	}
-)
-
-// CertManager manages TLS certificates including ACME (Let's Encrypt) certificates
+// CertManager manages TLS certificates including ACME certificates
 type CertManager struct {
 	mu                 sync.RWMutex
 	certs              map[string]*CertificateInfo
@@ -110,102 +108,80 @@ type CertManager struct {
 	defaultCert        *tls.Certificate
 	legoClient         *lego.Client
 	user               *LegoUser
-	cacheDir           string
+	config             *CertificateManager
 	storageFile        string
-	email              string
-	allowedHosts       []RouteHost
+	cacheDir           string
+	allowedHosts       []Domain
 	renewalTicker      *time.Ticker
-	certificateManager *CertificateManager
 	inProgressRequests map[string]bool
+	isRunning          bool
+	cond               *sync.Cond
 	acmeInitialized    bool
 }
 
 // NewCertManager creates a new CertManager instance
-func NewCertManager(manager CertificateManager) (*CertManager, error) {
-	logger.Debug("Initializing CertManager")
-
-	storageConfig, err := initializeStorageConfig(manager.Acme.StorageFile)
+func NewCertManager(config CertificateManager) (*CertManager, error) {
+	storageConfig, err := initializeStorageConfig(config.Acme.StorageFile)
 	if err != nil {
-		err = fmt.Errorf("failed to initialize storage configuration: %w", err)
+		return nil, fmt.Errorf("failed to initialize storage configuration: %w", err)
 	}
-	cm := &CertManager{
+
+	return &CertManager{
 		certs:              make(map[string]*CertificateInfo),
 		customCerts:        make(map[string]*CertificateInfo),
-		cacheDir:           storageConfig.CacheDir,
+		config:             &config,
 		storageFile:        storageConfig.StorageFile,
-		email:              manager.Acme.Email,
-		certificateManager: &manager,
-	}
-
-	return cm, err
+		cacheDir:           storageConfig.CacheDir,
+		cond:               sync.NewCond(&sync.Mutex{}),
+		inProgressRequests: make(map[string]bool),
+	}, nil
 }
 
+// Initialize sets up the certificate manager
 func (cm *CertManager) Initialize() error {
-	if cm.certificateManager.Acme.Email == "" {
-		return fmt.Errorf("no email provided")
+	if err := cm.validateConfig(); err != nil {
+		return err
 	}
-	if cm.certificateManager.Provider == CertVaultProvider {
-		return fmt.Errorf("vault provider not yet implemented")
-	}
+
 	if err := cm.loadFromStorage(); err != nil {
-		logger.Debug("No existing storage found, creating new user", "error", err)
-		if err = cm.createNewUser(); err != nil {
-			logger.Error("Failed to create new user", "error", err)
+		if err := cm.createNewUser(); err != nil {
 			return fmt.Errorf("failed to create new user: %w", err)
 		}
 	}
-	if cm.certificateManager.Acme.ChallengeType == DNS01 {
-		if cm.certificateManager.Acme.DnsProvider == "" && cm.certificateManager.Acme.Credentials.ApiToken == "" {
-			logger.Error("No challenge type for DNS01 challenge")
-			return fmt.Errorf("no challenge type for DNS01 challenge")
-		}
-	}
+
 	if err := cm.setupLegoClient(); err != nil {
-		logger.Error("Failed to setup lego client", "error", err)
 		return fmt.Errorf("failed to setup lego client: %w", err)
 	}
-	logger.Debug("Registering user")
+
 	if err := cm.registerUser(); err != nil {
-		logger.Error("Failed to register user", "error", err)
 		return fmt.Errorf("failed to register user: %w", err)
 	}
 
 	if err := cm.setupChallenges(); err != nil {
-		logger.Error("Failed to setup challenges", "error", err)
 		return fmt.Errorf("failed to setup challenges: %w", err)
 	}
+	cm.cond = sync.NewCond(&cm.mu)
 	cm.acmeInitialized = true
 	return nil
 }
-func (cm *CertManager) AcmeInitialized() bool {
-	return cm.acmeInitialized
-}
-func (cm *CertManager) setupLegoClient() error {
-	config := lego.NewConfig(cm.user)
-	config.Certificate.KeyType = certcrypto.RSA2048
-	if cm.certificateManager.Acme.DirectoryURL != "" {
-		config.CADirURL = cm.certificateManager.Acme.DirectoryURL
 
-		if os.Getenv(gomaEnv) == development || os.Getenv(gomaEnv) == local {
-			logger.Warn("Using development environment")
-			config.HTTPClient = &http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					},
-				},
-			}
+// validateConfig validates the configuration
+func (cm *CertManager) validateConfig() error {
+	if cm.config.Acme.Email == "" {
+		return errors.New("no email provided")
+	}
+	if cm.config.Provider == CertVaultProvider {
+		return errors.New("vault provider not yet implemented")
+	}
+	if cm.config.Acme.ChallengeType == DNS01 {
+		if cm.config.Acme.DnsProvider == "" && cm.config.Acme.Credentials.ApiToken == "" {
+			return errors.New("no DNS provider or API token configured for DNS01 challenge")
 		}
 	}
-	client, err := lego.NewClient(config)
-	if err != nil {
-		return fmt.Errorf("failed to create ACME client: %w", err)
-	}
-	cm.legoClient = client
 	return nil
 }
 
-// User management
+// User Management
 func (cm *CertManager) createNewUser() error {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -213,13 +189,631 @@ func (cm *CertManager) createNewUser() error {
 	}
 
 	cm.user = &LegoUser{
-		Email: cm.email,
+		Email: cm.config.Acme.Email,
 		key:   privateKey,
 	}
 	return nil
 }
 
-// StorageFile operations
+func (cm *CertManager) registerUser() error {
+	if cm.user.Registration != nil {
+		return nil
+	}
+
+	reg, err := cm.legoClient.Registration.Register(registration.RegisterOptions{
+		TermsOfServiceAgreed: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to register user: %w", err)
+	}
+
+	cm.user.Registration = reg
+	return cm.saveToStorage()
+}
+
+// setupLegoClient sets up the ACME client using the lego library
+func (cm *CertManager) setupLegoClient() error {
+	config := lego.NewConfig(cm.user)
+	config.Certificate.KeyType = certcrypto.RSA2048
+
+	if cm.config.Acme.DirectoryURL != "" {
+		config.CADirURL = cm.config.Acme.DirectoryURL
+		cm.configureInsecureClientIfNeeded(config)
+	}
+
+	client, err := lego.NewClient(config)
+	if err != nil {
+		return fmt.Errorf("failed to create ACME client: %w", err)
+	}
+
+	cm.legoClient = client
+	return nil
+}
+
+func (cm *CertManager) configureInsecureClientIfNeeded(config *lego.Config) {
+	env := os.Getenv(gomaEnv)
+	if env == development || env == local {
+		config.HTTPClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+	}
+}
+
+// Challenge Setup
+func (cm *CertManager) setupChallenges() error {
+	if cm.config.Acme.ChallengeType == DNS01 {
+		provider, err := cm.createDNSProvider()
+		if err != nil {
+			return fmt.Errorf("failed to create DNS provider: %w", err)
+		}
+		return cm.legoClient.Challenge.SetDNS01Provider(provider)
+	}
+
+	// Default to HTTP01
+	return cm.legoClient.Challenge.SetHTTP01Provider(
+		http01.NewProviderServer("", httpChallengePort),
+	)
+}
+
+func (cm *CertManager) createDNSProvider() (challenge.Provider, error) {
+	switch cm.config.Acme.DnsProvider {
+	case cloudflareProvider:
+		if cm.config.Acme.Credentials.ApiToken == "" {
+			return nil, errors.New("cloudflare API token is required")
+		}
+		cfg := cloudflare.NewDefaultConfig()
+		cfg.AuthToken = cm.config.Acme.Credentials.ApiToken
+		return cloudflare.NewDNSProviderConfig(cfg)
+	case route53Provider:
+		return nil, errors.New("route53 provider not yet implemented")
+	default:
+		return nil, fmt.Errorf("unsupported DNS provider: %s", cm.config.Acme.DnsProvider)
+	}
+}
+
+// AutoCert starts the automatic certificate management process
+func (cm *CertManager) AutoCert(domains []Domain) {
+	cm.mu.Lock()
+	cm.allowedHosts = domains
+	cm.mu.Unlock()
+
+	cm.startRenewalService()
+	if err := cm.processCertificates(); err != nil {
+		logger.Error("Error processing certificates", "error", err)
+	}
+}
+
+func (cm *CertManager) processCertificates() error {
+	stats := &ProcessingStats{}
+
+	go cm.waitForCompletion()
+
+	for i, domain := range cm.allowedHosts {
+		logger.Debug("Processing domain", "index", i+1, "total", len(cm.allowedHosts), "domain", domain.Name)
+		if cm.shouldSkipDomain(domain, stats) {
+			continue
+		}
+
+		if err := cm.processDomain(domain, stats); err != nil {
+			time.Sleep(errorDelay)
+			continue
+		}
+
+		time.Sleep(requestDelay)
+	}
+
+	logger.Info("Processing complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
+	return cm.validateProcessingResults(stats)
+}
+
+func (cm *CertManager) requestNewCertificate(host string, stats *ProcessingStats) error {
+	if stats == nil {
+		stats = &ProcessingStats{}
+	}
+	if cm.isRunning {
+		return nil
+	}
+	allowed, domain := cm.isHostAllowed(host)
+	if !allowed {
+		stats.Skipped++
+		logger.Debug("Skipping certificate renewal", "host", host, "domain", domain.Name)
+		return nil
+	}
+	if cm.shouldSkipDomain(domain, stats) {
+		stats.Skipped++
+		return nil
+	}
+	if err := cm.processDomain(domain, stats); err != nil {
+		if !errors.Is(err, ErrAlreadyInProgress) {
+			time.Sleep(errorDelay)
+			return err
+		}
+		logger.Debug("Certificate request already in progress", "host", host, "domain", domain.Name)
+		return nil
+
+	}
+
+	stats.Success++
+	time.Sleep(requestDelay)
+	return nil
+}
+
+func (cm *CertManager) shouldSkipDomain(domain Domain, stats *ProcessingStats) bool {
+	if len(domain.Hosts) == 0 {
+		stats.Skipped++
+		return true
+	}
+	if cm.getExistingValidCertificate(domain.Hosts[0]) != nil {
+		stats.Skipped++
+		return true
+	}
+	if cm.isRequestInProgress(domain.Hosts) {
+		stats.Skipped++
+		return true
+	}
+	return false
+}
+
+func (cm *CertManager) processDomain(domain Domain, stats *ProcessingStats) error {
+	cert, err := cm.requestCertificateSync(domain)
+	if err != nil {
+		stats.Errors++
+		return err
+	}
+	if cert != nil {
+		stats.Success++
+	}
+	return nil
+}
+
+func (cm *CertManager) validateProcessingResults(stats *ProcessingStats) error {
+	if stats.Errors > 0 && stats.Success == 0 {
+		return fmt.Errorf("all certificate requests failed (%d errors)", stats.Errors)
+	}
+	return nil
+}
+
+func (cm *CertManager) renewCertificates() {
+	certsToRenew := cm.getCertificatesToRenew()
+	stats := &ProcessingStats{}
+
+	logger.Debug("Renewing certificates", "count", len(certsToRenew))
+	go cm.waitForCompletion()
+
+	for _, host := range certsToRenew {
+		err := cm.requestNewCertificate(host, stats)
+		if err != nil {
+			logger.Error("Error renewing certificate", "host", host, "error", err)
+			continue
+		}
+		time.Sleep(requestDelay)
+	}
+}
+func (cm *CertManager) getCertificatesToRenew() []string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	var certsToRenew []string
+	for domain, certInfo := range cm.certs {
+		if certInfo.Resource != nil && time.Until(certInfo.Expires) < renewalBufferTime {
+			certsToRenew = append(certsToRenew, domain)
+		}
+	}
+	return certsToRenew
+}
+
+// Certificate Request
+func (cm *CertManager) requestCertificateSync(domain Domain) (*tls.Certificate, error) {
+	if !cm.acmeInitialized {
+		return nil, errors.New("ACME client not initialized")
+	}
+
+	if cert := cm.checkExistingValidCertificate(domain); cert != nil {
+		cm.isRunning = false
+		cm.cond.Signal()
+		return cert, nil
+	}
+
+	if cm.isRequestInProgress(domain.Hosts) {
+		return nil, fmt.Errorf("certificate request already in progress for domains: %v", domain.Hosts)
+	}
+
+	return cm.performCertificateRequest(domain)
+}
+
+func (cm *CertManager) performCertificateRequest(domain Domain) (*tls.Certificate, error) {
+	cm.markRequestInProgress(domain.Hosts, true)
+	defer cm.markRequestInProgress(domain.Hosts, false)
+	cm.isRunning = true
+	certificates, err := cm.legoClient.Certificate.Obtain(certificate.ObtainRequest{
+		Domains: domain.Hosts,
+		Bundle:  true,
+	})
+	if err != nil {
+		cm.cond.Signal()
+		cm.isRunning = false
+		return nil, fmt.Errorf("failed to obtain certificate from ACME: %w", err)
+	}
+
+	cert, err := tls.X509KeyPair(certificates.Certificate, certificates.PrivateKey)
+	if err != nil {
+		cm.cond.Signal()
+		cm.isRunning = false
+		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
+	}
+
+	certInfo := cm.createCertificateInfoFromACME(&cert, domain.Hosts, certificates)
+	cm.storeCertificateInfo(domain.Hosts, certInfo)
+
+	if err = cm.saveToStorage(); err != nil {
+		logger.Error("Failed to save certificate to storage", "error", err)
+	}
+	cm.cond.Signal()
+	cm.isRunning = false
+	return &cert, nil
+}
+
+func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	serverName := hello.ServerName
+
+	if cert := cm.getExistingValidCertificate(serverName); cert != nil {
+		return cert, nil
+	}
+	go func() {
+		if err := cm.requestNewCertificate(serverName, nil); err != nil {
+			logger.Error("Background certificate processing failed", "error", err)
+		}
+	}()
+
+	return cm.getDefaultCertificate()
+}
+
+func (cm *CertManager) getExistingValidCertificate(serverName string) *tls.Certificate {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	certInfo := cm.findCertificateInfo(serverName)
+	if certInfo != nil && cm.isCertificateValid(certInfo) {
+		return certInfo.Certificate
+	}
+	return nil
+}
+
+func (cm *CertManager) isCertificateValid(certInfo *CertificateInfo) bool {
+	return time.Until(certInfo.Expires) > certificateBufferTime
+}
+
+func (cm *CertManager) getDefaultCertificate() (*tls.Certificate, error) {
+	if cm.defaultCert != nil {
+		return cm.defaultCert, nil
+	}
+	return nil, os.ErrNotExist
+}
+
+// Certificate Management Helpers
+func (cm *CertManager) checkExistingValidCertificate(domain Domain) *tls.Certificate {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	for _, host := range domain.Hosts {
+		if certInfo, exists := cm.certs[host]; exists && cm.isCertificateValid(certInfo) {
+			return certInfo.Certificate
+		}
+	}
+	return nil
+}
+
+func (cm *CertManager) findCertificateInfo(domain string) *CertificateInfo {
+	// Check exact matches first
+	if certInfo := cm.findExactMatch(domain); certInfo != nil {
+		return certInfo
+	}
+
+	// Check domain matches in certificate SAN lists
+	if certInfo := cm.findDomainMatch(domain); certInfo != nil {
+		return certInfo
+	}
+
+	// Check wildcard and parent domain matches
+	return cm.findWildcardMatch(domain)
+}
+
+func (cm *CertManager) findExactMatch(domain string) *CertificateInfo {
+	if certInfo, exists := cm.certs[domain]; exists {
+		return certInfo
+	}
+	if certInfo, exists := cm.customCerts[domain]; exists {
+		return certInfo
+	}
+	return nil
+}
+
+func (cm *CertManager) findDomainMatch(domain string) *CertificateInfo {
+	for _, certInfo := range cm.certs {
+		if cm.domainMatchesCertificate(domain, certInfo) {
+			return certInfo
+		}
+	}
+	for _, certInfo := range cm.customCerts {
+		if cm.domainMatchesCertificate(domain, certInfo) {
+			return certInfo
+		}
+	}
+	return nil
+}
+
+func (cm *CertManager) findWildcardMatch(domain string) *CertificateInfo {
+	wildcardDomains := []string{getWildcardDomain(domain), getParentDomain(domain)}
+
+	for _, d := range wildcardDomains {
+		if d == "" {
+			continue
+		}
+		if certInfo, exists := cm.certs[d]; exists {
+			return certInfo
+		}
+		if certInfo, exists := cm.customCerts[d]; exists {
+			return certInfo
+		}
+	}
+	return nil
+}
+
+func (cm *CertManager) domainMatchesCertificate(requestedDomain string, certInfo *CertificateInfo) bool {
+	for _, certDomain := range certInfo.Domains {
+		if cm.matchesDomain(requestedDomain, certDomain) {
+			return true
+		}
+	}
+	return false
+}
+
+func (cm *CertManager) matchesDomain(requested, cert string) bool {
+	if requested == cert {
+		return true
+	}
+
+	if strings.HasPrefix(cert, "*.") {
+		wildcardBase := cert[2:]
+		return strings.HasSuffix(requested, "."+wildcardBase) || requested == wildcardBase
+	}
+
+	return false
+}
+
+// Request Progress Tracking
+func (cm *CertManager) isRequestInProgress(domains []string) bool {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	return cm.inProgressRequests[cm.getRequestKey(domains)]
+}
+
+func (cm *CertManager) markRequestInProgress(domains []string, inProgress bool) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.inProgressRequests[cm.getRequestKey(domains)] = inProgress
+}
+
+func (cm *CertManager) getRequestKey(domains []string) string {
+	sorted := make([]string, len(domains))
+	copy(sorted, domains)
+	sort.Strings(sorted)
+	return strings.Join(sorted, ",")
+}
+
+// Certificate Storage and Info Management
+func (cm *CertManager) createCertificateInfoFromACME(cert *tls.Certificate, domains []string, resource *certificate.Resource) *CertificateInfo {
+	parsedCert, _ := x509.ParseCertificate(cert.Certificate[0])
+	return &CertificateInfo{
+		Certificate: cert,
+		Domains:     domains,
+		Expires:     parsedCert.NotAfter,
+		Resource:    resource,
+	}
+}
+
+func (cm *CertManager) storeCertificateInfo(domains []string, certInfo *CertificateInfo) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Remove any existing certificates that overlap with these domains
+	cm.removeOverlappingCertificates(domains)
+
+	// Store the new certificate for all domains
+	for _, domain := range domains {
+		cm.certs[domain] = certInfo
+	}
+}
+
+func (cm *CertManager) removeOverlappingCertificates(newDomains []string) {
+	for domain := range cm.certs {
+		if containsAny(newDomains, cm.certs[domain].Domains) {
+			delete(cm.certs, domain)
+		}
+	}
+}
+
+// AddCertificate adds a single certificate to the CertManager
+func (cm *CertManager) AddCertificate(domain string, cert tls.Certificate) {
+	certInfo, err := cm.createCertificateInfo(&cert)
+	if err != nil {
+		logger.Error("Error creating certificate info", "error", err)
+		return
+	}
+	cm.addCertificateInfo(domain, certInfo)
+}
+
+func (cm *CertManager) addCertificateInfo(domain string, certInfo *CertificateInfo) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if domain == "default" {
+		cm.defaultCert = certInfo.Certificate
+	} else {
+		cm.customCerts[domain] = certInfo
+	}
+}
+
+// AddCertificates adds multiple certificates to the CertManager
+func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
+	for _, cert := range certs {
+		commonName, sanNames, err := getCertificateDetails(&cert)
+		if err != nil {
+			continue
+		}
+
+		allDomains := append([]string{commonName}, sanNames...)
+		for _, domain := range allDomains {
+			if domain != "" {
+				cm.AddCertificate(domain, cert)
+			}
+		}
+	}
+}
+
+// Certificates returns all certificates managed by the CertManager
+func (cm *CertManager) Certificates() map[string]*CertificateInfo {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	allCerts := make(map[string]*CertificateInfo)
+
+	for domain, certInfo := range cm.certs {
+		allCerts[domain] = certInfo
+	}
+	for domain, certInfo := range cm.customCerts {
+		allCerts[domain] = certInfo
+	}
+
+	return allCerts
+}
+
+func (cm *CertManager) createCertificateInfo(cert *tls.Certificate) (*CertificateInfo, error) {
+	commonName, sanNames, err := getCertificateDetails(cert)
+	if err != nil {
+		return nil, err
+	}
+
+	parsedCert, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return nil, err
+	}
+
+	return &CertificateInfo{
+		Certificate: cert,
+		Domains:     append([]string{commonName}, sanNames...),
+		Expires:     parsedCert.NotAfter,
+	}, nil
+}
+
+// Renewal Service
+func (cm *CertManager) startRenewalService() {
+	if cm.renewalTicker != nil {
+		logger.Debug("Stopping existing renewal ticker")
+		cm.renewalTicker.Stop()
+	}
+
+	cm.renewalTicker = time.NewTicker(renewalCheckInterval)
+	go func() {
+		for range cm.renewalTicker.C {
+			cm.renewCertificates()
+		}
+	}()
+}
+
+// GenerateCertificate generates a self-signed certificate for the given domain
+func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, error) {
+	key, err := rsa.GenerateKey(rand.Reader, rsaKeySize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate private key: %w", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: domain},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(1, 0, 0),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create certificate: %w", err)
+	}
+
+	keyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	})
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	})
+
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
+	}
+
+	cm.AddCertificate(domain, tlsCert)
+	return &tlsCert, nil
+}
+
+func (cm *CertManager) GenerateDefaultCertificate() (*tls.Certificate, error) {
+	return cm.GenerateCertificate("GOMA DEFAULT CERT")
+}
+
+func (cm *CertManager) AcmeInitialized() bool {
+	return cm.acmeInitialized
+}
+func (cm *CertManager) isHostAllowed(host string) (bool, Domain) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	for _, route := range cm.allowedHosts {
+		for _, pattern := range route.Hosts {
+			if strings.EqualFold(host, pattern) {
+				return true, route
+			}
+			if strings.HasPrefix(pattern, "*.") {
+				suffix := pattern[1:]
+				if strings.HasSuffix(host, suffix) {
+					return true, route
+				}
+			}
+		}
+	}
+	return false, Domain{}
+}
+
+func (cm *CertManager) Close() {
+	if cm.renewalTicker != nil {
+		cm.renewalTicker.Stop()
+	}
+
+	if err := cm.saveToStorage(); err != nil {
+		logger.Error("Error saving final state", "error", err)
+	}
+}
+func (cm *CertManager) waitForCompletion() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	for cm.isRunning {
+		logger.Debug("Waiting for in-progress requests to complete", "count", len(cm.inProgressRequests))
+		cm.cond.Wait()
+		logger.Debug("In-progress requests completed")
+	}
+	logger.Debug("Certificate processing complete: all in-progress requests finished")
+}
+
+// Storage Operations - these would need to be implemented based on your storage requirements
 func (cm *CertManager) loadFromStorage() error {
 	data, err := os.ReadFile(cm.storageFile)
 	if err != nil {
@@ -253,87 +847,7 @@ func (cm *CertManager) loadFromStorage() error {
 
 	logger.Debug("Loaded data from storage", "certificates", len(storage.Certificates))
 	return nil
-}
 
-func (cm *CertManager) loadUserFromStorage(stored *StoredUserAccount) (*LegoUser, error) {
-	keyData, err := base64.StdEncoding.DecodeString(stored.PrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode private key: %w", err)
-	}
-
-	block, _ := pem.Decode(keyData)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
-
-	privateKey, err := parsePrivateKey(block)
-	if err != nil {
-		return nil, err
-	}
-
-	user := &LegoUser{
-		Email: stored.Email,
-		key:   privateKey,
-	}
-
-	if stored.Registration != "" {
-		if err := cm.loadRegistration(stored, user); err != nil {
-			logger.Error("Failed to load registration", "error", err)
-		}
-	}
-
-	return user, nil
-}
-
-func parsePrivateKey(block *pem.Block) (crypto.PrivateKey, error) {
-	switch block.Type {
-	case "EC PRIVATE KEY":
-		return x509.ParseECPrivateKey(block.Bytes)
-	case "RSA PRIVATE KEY":
-		return x509.ParsePKCS1PrivateKey(block.Bytes)
-	case "PRIVATE KEY":
-		return x509.ParsePKCS8PrivateKey(block.Bytes)
-	default:
-		return nil, fmt.Errorf("unsupported private key type: %s", block.Type)
-	}
-}
-
-func (cm *CertManager) loadRegistration(stored *StoredUserAccount, user *LegoUser) error {
-	regData, err := base64.StdEncoding.DecodeString(stored.Registration)
-	if err != nil {
-		return fmt.Errorf("failed to decode registration: %w", err)
-	}
-
-	var reg registration.Resource
-	if err := json.Unmarshal(regData, &reg); err != nil {
-		return fmt.Errorf("failed to unmarshal registration: %w", err)
-	}
-
-	user.Registration = &reg
-	return nil
-}
-
-func (cm *CertManager) loadCertificateFromStorage(stored *StoredCertificate) (*CertificateInfo, error) {
-	certData, err := base64.StdEncoding.DecodeString(stored.Certificate)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode certificate: %w", err)
-	}
-
-	keyData, err := base64.StdEncoding.DecodeString(stored.PrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode private key: %w", err)
-	}
-
-	cert, err := tls.X509KeyPair(certData, keyData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
-	}
-
-	return &CertificateInfo{
-		Certificate: &cert,
-		Domains:     stored.Domains,
-		Expires:     stored.Expires,
-	}, nil
 }
 
 func (cm *CertManager) saveToStorage() error {
@@ -371,8 +885,6 @@ func (cm *CertManager) saveToStorage() error {
 
 func (cm *CertManager) saveCertificatesToStorage(storage *CertificateStorage) {
 	savedDomains := make(map[string]bool)
-
-	// First process all certificates
 	for domain, certInfo := range cm.certs {
 		alreadySaved := false
 		for _, d := range certInfo.Domains {
@@ -425,7 +937,6 @@ func (cm *CertManager) saveUserToStorage(user *LegoUser) (*StoredUserAccount, er
 
 	return stored, nil
 }
-
 func marshalPrivateKey(key crypto.PrivateKey) ([]byte, string, error) {
 	var keyBytes []byte
 	var keyType string
@@ -511,619 +1022,86 @@ func marshalCertificatePrivateKey(privateKey crypto.PrivateKey) ([]byte, error) 
 		}), nil
 	}
 }
-
-// ACME operations
-func (cm *CertManager) registerUser() error {
-	if cm.user.Registration != nil {
-		logger.Debug("User already registered")
-		return nil
-	}
-
-	reg, err := cm.legoClient.Registration.Register(registration.RegisterOptions{
-		TermsOfServiceAgreed: true,
-	})
+func (cm *CertManager) loadUserFromStorage(stored *StoredUserAccount) (*LegoUser, error) {
+	keyData, err := base64.StdEncoding.DecodeString(stored.PrivateKey)
 	if err != nil {
-		return fmt.Errorf("failed to register user: %w", err)
+		return nil, fmt.Errorf("failed to decode private key: %w", err)
 	}
 
-	cm.user.Registration = reg
-	logger.Debug("User registered with ACME provider", "email", cm.email)
-
-	if err := cm.saveToStorage(); err != nil {
-		logger.Error("Failed to save user registration to storage", "error", err)
+	block, _ := pem.Decode(keyData)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block")
 	}
-	return nil
-}
 
-func (cm *CertManager) setupChallenges() error {
-	// Handle DNS challenge if configured
-	if cm.certificateManager.Acme.ChallengeType == DNS01 {
-		provider, err := cm.createDNSProvider()
-		if err != nil {
-			return fmt.Errorf("failed to create DNS provider: %w", err)
+	privateKey, err := parsePrivateKey(block)
+	if err != nil {
+		return nil, err
+	}
+
+	user := &LegoUser{
+		Email: stored.Email,
+		key:   privateKey,
+	}
+
+	if stored.Registration != "" {
+		if err := cm.loadRegistration(stored, user); err != nil {
+			logger.Error("Failed to load registration", "error", err)
 		}
-		logger.Debug("DnsProvider enabled", "provider", provider)
-		return cm.legoClient.Challenge.SetDNS01Provider(provider)
 	}
-	// Handle HTTP challenge if configured
-	logger.Debug("Challenges enabled, using HTTP01")
-	return cm.legoClient.Challenge.SetHTTP01Provider(http01.NewProviderServer("", httpChallengePort))
 
+	return user, nil
 }
-
-func (cm *CertManager) createDNSProvider() (challenge.Provider, error) {
-	switch cm.certificateManager.Acme.DnsProvider {
-	case cloudflareProvider:
-		credentials := cm.certificateManager.Acme.Credentials
-		if credentials.ApiToken == "" {
-			return nil, errors.New("cloudflare API token is required")
-		}
-		cfg := cloudflare.NewDefaultConfig()
-		cfg.AuthToken = credentials.ApiToken
-		return cloudflare.NewDNSProviderConfig(cfg)
-	case route53Provider:
-		return nil, errors.New("route53 provider not yet implemented")
+func parsePrivateKey(block *pem.Block) (crypto.PrivateKey, error) {
+	switch block.Type {
+	case "EC PRIVATE KEY":
+		return x509.ParseECPrivateKey(block.Bytes)
+	case "RSA PRIVATE KEY":
+		return x509.ParsePKCS1PrivateKey(block.Bytes)
+	case "PRIVATE KEY":
+		return x509.ParsePKCS8PrivateKey(block.Bytes)
 	default:
-		return nil, fmt.Errorf("unsupported DNS provider: %s", cm.certificateManager.Acme.DnsProvider)
+		return nil, fmt.Errorf("unsupported private key type: %s", block.Type)
 	}
 }
 
-// Certificate management
-func (cm *CertManager) AutoCert(hosts []RouteHost) {
-	cm.mu.Lock()
-	cm.allowedHosts = hosts
-	cm.mu.Unlock()
-
-	cm.startRenewalService()
-	// Start ACME service synchronously to ensure proper initialization
-	go func() {
-		if err := cm.startAcmeService(); err != nil {
-			logger.Error("ACME service failed", "error", err)
-		}
-	}()
-	logger.Debug("AutoCert configured", "route_count", len(hosts))
-}
-
-// Sequential ACME service that waits for each certificate request to complete
-func (cm *CertManager) startAcmeService() error {
-	logger.Info("Starting ACME service", "total_routes", len(cm.allowedHosts))
-	successCount := 0
-	errorCount := 0
-	skippedCount := 0
-
-	for i, rh := range cm.allowedHosts {
-		// Select the first host from the route
-		host := rh.Hosts[0]
-
-		logger.Debug("Processing route",
-			"route_name", rh.Name,
-			"host", host,
-			"progress", fmt.Sprintf("%d/%d", i+1, len(cm.allowedHosts)))
-
-		// Check if certificate already exists and is valid
-		if cert := cm.getExistingValidCertificate(host); cert != nil {
-			logger.Debug("Certificate already exists and is valid",
-				"host", host,
-				"route", rh.Name)
-			skippedCount++
-			continue
-		}
-
-		// Check if request is already in progress
-		if cm.isRequestInProgress(rh.Hosts) {
-			logger.Debug("Certificate request already in progress",
-				"host", host,
-				"route", rh.Name)
-			skippedCount++
-			continue
-		}
-
-		// Request certificate and wait for completion
-		logger.Info("Requesting certificate",
-			"route", rh.Name,
-			"host", host,
-			"domains", rh.Hosts)
-
-		cert, err := cm.requestCertificateSync(rh)
-		if err != nil {
-			logger.Error("Failed to obtain certificate",
-				"route", rh.Name,
-				"host", host,
-				"domains", rh.Hosts,
-				"error", err)
-			errorCount++
-
-			time.Sleep(5 * time.Second)
-			continue
-		}
-
-		if cert != nil {
-			logger.Info("Successfully obtained certificate",
-				"route", rh.Name,
-				"host", host,
-				"domains", rh.Hosts)
-			successCount++
-		}
-
-		time.Sleep(2 * time.Second)
+func (cm *CertManager) loadRegistration(stored *StoredUserAccount, user *LegoUser) error {
+	regData, err := base64.StdEncoding.DecodeString(stored.Registration)
+	if err != nil {
+		return fmt.Errorf("failed to decode registration: %w", err)
 	}
 
-	logger.Info("ACME service completed",
-		"total", len(cm.allowedHosts),
-		"success", successCount,
-		"errors", errorCount,
-		"skipped", skippedCount)
-
-	if errorCount > 0 && successCount == 0 {
-		return fmt.Errorf("all certificate requests failed (%d errors)", errorCount)
+	var reg registration.Resource
+	if err := json.Unmarshal(regData, &reg); err != nil {
+		return fmt.Errorf("failed to unmarshal registration: %w", err)
 	}
 
+	user.Registration = &reg
 	return nil
 }
 
-// Synchronous certificate request
-func (cm *CertManager) requestCertificateSync(routeHost RouteHost) (*tls.Certificate, error) {
-	if !cm.acmeInitialized {
-		return nil, errors.New("ACME client hasn't been initialized")
-	}
-
-	if cert := cm.checkExistingValidCertificate(routeHost); cert != nil {
-		return cert, nil
-	}
-
-	// Check if another request is already in progress for these domains
-	if cm.isRequestInProgress(routeHost.Hosts) {
-		return nil, fmt.Errorf("certificate request already in progress for domains: %v", routeHost.Hosts)
-	}
-
-	cm.markRequestInProgress(routeHost.Hosts, true)
-	defer cm.markRequestInProgress(routeHost.Hosts, false)
-
-	logger.Debug("Requesting new certificate",
-		"route", routeHost.Name,
-		"domains", routeHost.Hosts)
-
-	// Create the certificate request
-	request := certificate.ObtainRequest{
-		Domains: routeHost.Hosts,
-		Bundle:  true,
-	}
-
-	// Make the actual ACME request (this blocks until complete)
-	certificates, err := cm.legoClient.Certificate.Obtain(request)
+func (cm *CertManager) loadCertificateFromStorage(stored *StoredCertificate) (*CertificateInfo, error) {
+	certData, err := base64.StdEncoding.DecodeString(stored.Certificate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to obtain certificate from ACME: %w", err)
+		return nil, fmt.Errorf("failed to decode certificate: %w", err)
 	}
 
-	// Create TLS certificate from the obtained certificate
-	cert, err := tls.X509KeyPair(certificates.Certificate, certificates.PrivateKey)
+	keyData, err := base64.StdEncoding.DecodeString(stored.PrivateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode private key: %w", err)
+	}
+
+	cert, err := tls.X509KeyPair(certData, keyData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
 	}
 
-	certInfo := cm.createCertificateInfoFromACME(&cert, routeHost.Hosts, certificates)
-	cm.storeCertificateInfo(routeHost.Hosts, certInfo)
-
-	// Save to persistent storage
-	if err = cm.saveToStorage(); err != nil {
-		logger.Error("Failed to save certificate to storage",
-			"route", routeHost.Name,
-			"error", err)
-	}
-
-	return &cert, nil
-}
-
-// Renewal service
-func (cm *CertManager) startRenewalService() {
-	if cm.renewalTicker != nil {
-		cm.renewalTicker.Stop()
-	}
-
-	cm.renewalTicker = time.NewTicker(24 * time.Hour)
-	go func() {
-		for range cm.renewalTicker.C {
-			cm.renewCertificates()
-		}
-	}()
-}
-
-func (cm *CertManager) createCertificateInfo(cert *tls.Certificate) (*CertificateInfo, error) {
-	commonName, sanNames, err := getCertificateDetails(cert)
-	if err != nil {
-		return nil, err
-	}
-
-	parsedCert, err := x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return nil, err
-	}
-
 	return &CertificateInfo{
-		Certificate: cert,
-		Domains:     append([]string{commonName}, sanNames...),
-		Expires:     parsedCert.NotAfter,
+		Certificate: &cert,
+		Domains:     stored.Domains,
+		Expires:     stored.Expires,
 	}, nil
 }
 
-func (cm *CertManager) AddCertificate(domain string, cert tls.Certificate) {
-	certInfo, err := cm.createCertificateInfo(&cert)
-	if err != nil {
-		logger.Error("Failed to get certificate details", "error", err)
-		return
-	}
-
-	cm.AddCertificateInfo(domain, certInfo)
-}
-func (cm *CertManager) AddCertificateInfo(domain string, certInfo *CertificateInfo) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	if domain == "default" {
-		cm.defaultCert = certInfo.Certificate
-	} else {
-		cm.customCerts[domain] = certInfo
-	}
-}
-
-func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
-	for _, cert := range certs {
-		commonName, sanNames, err := getCertificateDetails(&cert)
-		if err != nil {
-			continue
-		}
-		for _, domain := range append([]string{commonName}, sanNames...) {
-			if domain != "" {
-				cm.AddCertificate(domain, cert)
-			}
-		}
-	}
-}
-
-func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	serverName := hello.ServerName
-	logger.Debug("Certificate request", "server_name", serverName)
-
-	if cert := cm.getExistingValidCertificate(serverName); cert != nil {
-		return cert, nil
-	}
-	logger.Debug("No valid certificate found, using default", "server_name", serverName)
-	// Kick off ACME request in background
-	go func() {
-		cm.tryACME(serverName)
-	}()
-
-	// Return default certificate immediately
-	return cm.getDefaultCertificate(serverName)
-}
-
-func (cm *CertManager) getExistingValidCertificate(serverName string) *tls.Certificate {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	certInfo := cm.findCertificateInfo(serverName)
-	if certInfo != nil && time.Until(certInfo.Expires) > 24*time.Hour {
-		logger.Debug("Serving certificate", "server_name", serverName, "status", "valid")
-		return certInfo.Certificate
-	}
-	return nil
-}
-
-func (cm *CertManager) tryACME(serverName string) {
-	if allowed, routeHost := cm.isHostAllowed(serverName); allowed {
-		_, err := cm.obtainCertificate(routeHost)
-		if err != nil {
-			logger.Error("ACME certificate acquisition failed",
-				"server_name", serverName,
-				"error", err.Error(),
-			)
-		}
-	}
-}
-
-func (cm *CertManager) getDefaultCertificate(serverName string) (*tls.Certificate, error) {
-	if cm.defaultCert != nil {
-		logger.Debug("Serving default certificate", "server_name", serverName, "type", "default")
-		return cm.defaultCert, nil
-	}
-
-	logger.Debug("No matching certificate found", "server_name", serverName)
-	return nil, os.ErrNotExist
-}
-
-func (cm *CertManager) isHostAllowed(host string) (bool, RouteHost) {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	for _, route := range cm.allowedHosts {
-		for _, pattern := range route.Hosts {
-			if strings.EqualFold(host, pattern) {
-				return true, route
-			}
-			if strings.HasPrefix(pattern, "*.") {
-				suffix := pattern[1:]
-				if strings.HasSuffix(host, suffix) {
-					return true, route
-				}
-			}
-		}
-	}
-	return false, RouteHost{}
-}
-
-func (cm *CertManager) obtainCertificate(routeHost RouteHost) (*tls.Certificate, error) {
-	if cert := cm.checkExistingValidCertificate(routeHost); cert != nil {
-		return cert, nil
-	}
-
-	return cm.requestNewCertificate(routeHost)
-}
-
-func (cm *CertManager) checkExistingValidCertificate(routeHost RouteHost) *tls.Certificate {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	for _, domain := range routeHost.Hosts {
-		if certInfo, exists := cm.certs[domain]; exists {
-			if time.Until(certInfo.Expires) > 24*time.Hour {
-				return certInfo.Certificate
-			}
-		}
-	}
-	return nil
-}
-
-func (cm *CertManager) requestNewCertificate(routeHost RouteHost) (*tls.Certificate, error) {
-
-	if !cm.acmeInitialized {
-		return nil, errors.New("ACME certificate hasn't been initialized")
-	}
-	// Check if another request is already in progress for these domains
-	if cm.isRequestInProgress(routeHost.Hosts) {
-		return nil, fmt.Errorf("certificate request already in progress for domains: %v", routeHost.Hosts)
-	}
-
-	// Mark request as in progress
-	cm.markRequestInProgress(routeHost.Hosts, true)
-	defer cm.markRequestInProgress(routeHost.Hosts, false)
-
-	logger.Debug("Requesting new certificate", "route", routeHost.Name, "domains", routeHost.Hosts)
-	request := certificate.ObtainRequest{
-		Domains: routeHost.Hosts,
-		Bundle:  true,
-	}
-
-	certificates, err := cm.legoClient.Certificate.Obtain(request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain certificate: %w", err)
-	}
-	if err = cm.verifyCertificateChain(certificates.Certificate); err != nil {
-		logger.Warn("Certificate chain verification failed", "error", err)
-	}
-	cert, err := tls.X509KeyPair(certificates.Certificate, certificates.PrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
-	}
-
-	certInfo := cm.createCertificateInfoFromACME(&cert, routeHost.Hosts, certificates)
-	cm.storeCertificateInfo(routeHost.Hosts, certInfo)
-
-	if err = cm.saveToStorage(); err != nil {
-		logger.Error("Failed to save certificate to storage", "error", err)
-	}
-
-	logger.Info("Successfully obtained new certificate", "route", routeHost.Name, "domains", routeHost.Hosts)
-	return &cert, nil
-}
-func (cm *CertManager) verifyCertificateChain(certPEM []byte) error {
-	block, _ := pem.Decode(certPEM)
-	if block == nil {
-		return fmt.Errorf("failed to decode certificate PEM")
-	}
-
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return fmt.Errorf("failed to parse certificate: %w", err)
-	}
-
-	// Try to verify against system root CAs
-	roots, err := x509.SystemCertPool()
-	if err != nil {
-		logger.Warn("Failed to load system cert pool", "error", err)
-		return nil
-	}
-
-	opts := x509.VerifyOptions{Roots: roots}
-	_, err = cert.Verify(opts)
-	return err
-}
-func (cm *CertManager) isRequestInProgress(domains []string) bool {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	key := cm.getRequestKey(domains)
-	return cm.inProgressRequests[key]
-}
-
-func (cm *CertManager) markRequestInProgress(domains []string, inProgress bool) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	if cm.inProgressRequests == nil {
-		cm.inProgressRequests = make(map[string]bool)
-	}
-
-	key := cm.getRequestKey(domains)
-	cm.inProgressRequests[key] = inProgress
-}
-
-func (cm *CertManager) getRequestKey(domains []string) string {
-	sort.Strings(domains)
-	return strings.Join(domains, ",")
-}
-
-func (cm *CertManager) createCertificateInfoFromACME(cert *tls.Certificate, domains []string, resource *certificate.Resource) *CertificateInfo {
-	parsedCert, _ := x509.ParseCertificate(cert.Certificate[0])
-	return &CertificateInfo{
-		Certificate: cert,
-		Domains:     domains,
-		Expires:     parsedCert.NotAfter,
-		Resource:    resource,
-	}
-}
-
-func (cm *CertManager) storeCertificateInfo(domains []string, certInfo *CertificateInfo) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	for domain := range cm.certs {
-		if containsAny(domains, cm.certs[domain].Domains) {
-			delete(cm.certs, domain)
-		}
-	}
-
-	for _, domain := range domains {
-		cm.certs[domain] = certInfo
-	}
-}
-
-func (cm *CertManager) renewCertificates() {
-	certsToRenew := cm.getCertificatesToRenew()
-
-	for _, domain := range certsToRenew {
-		logger.Debug("Renewing certificate", "domain", domain)
-		if _, err := cm.obtainNewCertificateForDomain(domain); err != nil {
-			logger.Error("Failed to renew certificate", "domain", domain, "error", err)
-		}
-	}
-}
-
-func (cm *CertManager) getCertificatesToRenew() []string {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	var certsToRenew []string
-	for domain, certInfo := range cm.certs {
-		if certInfo.Resource != nil && time.Until(certInfo.Expires) < 30*24*time.Hour {
-			certsToRenew = append(certsToRenew, domain)
-		}
-	}
-	return certsToRenew
-}
-
-func (cm *CertManager) obtainNewCertificateForDomain(domain string) (*tls.Certificate, error) {
-	allowed, routeHost := cm.isHostAllowed(domain)
-	if !allowed {
-		return nil, fmt.Errorf("domain %q is not in the allowed hosts list", domain)
-	}
-	return cm.obtainCertificate(routeHost)
-}
-
-func (cm *CertManager) findCertificateInfo(domain string) *CertificateInfo {
-	// check for exact match in both cert maps
-	if certInfo, exists := cm.certs[domain]; exists {
-		return certInfo
-	}
-	if certInfo, exists := cm.customCerts[domain]; exists {
-		return certInfo
-	}
-
-	// Check if the requested domain is covered by any existing certificate's domains list
-	for _, certInfo := range cm.certs {
-		if cm.domainMatchesCertificate(domain, certInfo) {
-			return certInfo
-		}
-	}
-	for _, certInfo := range cm.customCerts {
-		if cm.domainMatchesCertificate(domain, certInfo) {
-			return certInfo
-		}
-	}
-
-	// Fall back to wildcard and parent domain matching
-	for _, d := range []string{getWildcardDomain(domain), getParentDomain(domain)} {
-		if certInfo, exists := cm.certs[d]; exists {
-			return certInfo
-		}
-	}
-	for _, d := range []string{getWildcardDomain(domain), getParentDomain(domain)} {
-		if certInfo, exists := cm.customCerts[d]; exists {
-			return certInfo
-		}
-	}
-
-	return nil
-}
-func (cm *CertManager) domainMatchesCertificate(requestedDomain string, certInfo *CertificateInfo) bool {
-	for _, certDomain := range certInfo.Domains {
-		if requestedDomain == certDomain {
-			return true
-		}
-		if strings.HasPrefix(certDomain, "*.") {
-			wildcardBase := certDomain[2:]
-			if strings.HasSuffix(requestedDomain, "."+wildcardBase) || requestedDomain == wildcardBase {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// Self-signed certificate generation
-func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, error) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate private key: %w", err)
-	}
-
-	template := x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: domain},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(1, 0, 0),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-	}
-
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
-	if err != nil {
-		logger.Error("Failed to generate self-signed certificate",
-			"domain", domain,
-			"error", err.Error(),
-		)
-		return nil, fmt.Errorf("failed to create certificate: %w", err)
-	}
-
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-
-	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
-	}
-
-	cm.AddCertificate(domain, tlsCert)
-	logger.Debug("Self-signed certificate generated", "domain", domain)
-	return &tlsCert, nil
-}
-
-func (cm *CertManager) GenerateDefaultCertificate() (*tls.Certificate, error) {
-	return cm.GenerateCertificate("GOMA DEFAULT CERT")
-}
-
-// Cleanup
-func (cm *CertManager) Close() {
-	if cm.renewalTicker != nil {
-		cm.renewalTicker.Stop()
-	}
-
-	if err := cm.saveToStorage(); err != nil {
-		logger.Error("Failed to save final state to storage", "error", err)
-	}
-}
-
-// Helper functions
 func getWildcardDomain(domain string) string {
 	parts := strings.Split(domain, ".")
 	if len(parts) > 2 {
@@ -1142,12 +1120,12 @@ func getParentDomain(domain string) string {
 
 func getCertificateDetails(cert *tls.Certificate) (string, []string, error) {
 	if cert == nil || len(cert.Certificate) == 0 {
-		return "", nil, fmt.Errorf("no certificate data found")
+		return "", nil, errors.New("no certificate data found")
 	}
 
 	parsedCert, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to parse certificate: %v", err)
+		return "", nil, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
 	return parsedCert.Subject.CommonName, parsedCert.DNSNames, nil
