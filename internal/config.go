@@ -119,8 +119,9 @@ func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
 	}
 	if gatewayServer.CertificateManager != nil {
 		logger.Warn("`certificateManager` is deprecated, use `certManager` instead.")
+		return gatewayServer.CertificateManager
 	}
-	return gatewayServer.CertificateManager
+	return &certmanager.Config{}
 }
 
 // InitLogger sets environment variables and initialize the logger

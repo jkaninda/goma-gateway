@@ -167,7 +167,7 @@ func (cm *CertManager) Initialize() error {
 
 // validateConfig validates the configuration
 func (cm *CertManager) validateConfig() error {
-	if cm.config.Acme.Email == "" {
+	if cm.config == nil || cm.config.Acme.Email == "" {
 		return errors.New("no email provided")
 	}
 	if cm.config.Provider == CertVaultProvider {
