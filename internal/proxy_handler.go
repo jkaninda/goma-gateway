@@ -97,6 +97,7 @@ func (h ProxyHandler) handler(next http.Handler) http.Handler {
 		logFields := []any{
 			"method", r.Method,
 			"url", r.URL.Path,
+			"host", r.Host,
 			"status", rec.statusCode,
 			"duration", formatted,
 			"route", h.Name,
