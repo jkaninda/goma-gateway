@@ -21,13 +21,14 @@ import "github.com/jkaninda/goma-gateway/internal/middlewares"
 
 // Route defines a gateway route configuration.
 type Route struct {
+	// Name provides a descriptive name for the route.
+	Name string `yaml:"name"`
 	// Path specifies the route's path.
 	Path string `yaml:"path"`
 	// Rewrite rewrites the incoming request path to a desired path.
 	//
 	// For example, `/cart` to `/` rewrites `/cart` to `/`.
-	// Name provides a descriptive name for the route.
-	Name string `yaml:"name"`
+	Rewrite string `yaml:"rewrite,omitempty"`
 	// Priority, Determines route matching order
 	Priority int `yaml:"priority,omitempty"`
 	// Disabled specifies whether the route is disabled.
@@ -38,15 +39,18 @@ type Route struct {
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
-	Cors    Cors   `yaml:"cors,omitempty"`
-	Rewrite string `yaml:"rewrite,omitempty"`
+	Cors Cors `yaml:"cors,omitempty"`
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
 	Methods []string `yaml:"methods"`
 	// Destination defines the primary backend URL for this route.
+	// Deprecated, use Target
 	Destination string `yaml:"destination,omitempty"`
+	// Target defines the primary backend URL for this route.
+	Target string `yaml:"target,omitempty"`
 	// Backends specifies a list of backend URLs for load balancing.
 	Backends Backends `yaml:"backends,omitempty"`
 	// InsecureSkipVerify disables SSL/TLS verification for the backend.
+	// Deprecated, use security
 	InsecureSkipVerify bool `yaml:"insecureSkipVerify"`
 	// HealthCheck contains configuration for monitoring the health of backends.
 	HealthCheck RouteHealthCheck `yaml:"healthCheck,omitempty"`
@@ -59,6 +63,7 @@ type Route struct {
 	// - Scheme
 	//
 	// If disabled, the backend may not match routes correctly.
+	// Deprecated, use security.forwardHostHeaders
 	DisableHostForwarding bool `yaml:"disableHostForwarding"`
 	// ErrorInterceptor provides configuration for handling backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
@@ -69,7 +74,8 @@ type Route struct {
 	// Deprecated, use EnableExploitProtection
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	// TLS contains the TLS configuration for the route.
-	TLS TLS `yaml:"tls,omitempty"`
+	TLS      TLS      `yaml:"tls,omitempty"`
+	Security Security `yaml:"security,omitempty"`
 	// Middlewares lists middleware names to apply to this route.
 	Middlewares []string `yaml:"middlewares"`
 }
@@ -101,6 +107,15 @@ type Backend struct {
 	Weight int `yaml:"weight,omitempty"`
 }
 
+type Security struct {
+	TLS struct {
+		SkipVerification bool   `yaml:"skipVerification,omitempty"`
+		RootCAs          string `yaml:"rootCAs,omitempty"`
+	} `yaml:"tls,omitempty"`
+	ForwardHostHeaders      bool `yaml:"forwardHostHeaders,omitempty" default:"true"`
+	EnableExploitProtection bool `yaml:"enableExploitProtection,omitempty"`
+}
+
 // Backends defines List of backend servers to route traffic to
 type Backends []Backend
 
@@ -108,5 +123,11 @@ func (r *Route) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	r.Enabled = true
 
 	type tmp Route
+	return unmarshal((*tmp)(r))
+}
+
+func (r *Security) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	r.ForwardHostHeaders = true
+	type tmp Security
 	return unmarshal((*tmp)(r))
 }

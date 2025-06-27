@@ -95,25 +95,27 @@ func (r *router) AddRoute(route Route) {
 	}
 
 	rRouter := r.mux.PathPrefix(route.Path).Subrouter()
-	if route.DisableHostForwarding {
-		logger.Debug("Host forwarding disabled", "route", route.Name)
-	}
 	// Add route methods to Cors Allowed methods
 	route.Cors.AllowMethods = append(route.Cors.AllowMethods, route.Methods...)
 	// Remove duplicated methods
 	route.Cors.AllowMethods = util.RemoveDuplicates(route.Cors.AllowMethods)
-
+	certPool, err := loadCertPool(route.Security.TLS.RootCAs)
+	if err != nil {
+		logger.Error("Error loading certificate pool", "error", err)
+	}
 	proxyRoute := ProxyRoute{
-		name:                  route.Name,
-		path:                  route.Path,
-		rewrite:               route.Rewrite,
-		destination:           route.Destination,
-		backends:              route.Backends,
-		weightedBased:         route.Backends.HasPositiveWeight(),
-		methods:               route.Methods,
-		disableHostForwarding: route.DisableHostForwarding,
-		cors:                  route.Cors,
-		insecureSkipVerify:    route.InsecureSkipVerify,
+		name:          route.Name,
+		path:          route.Path,
+		rewrite:       route.Rewrite,
+		target:        route.Target,
+		backends:      route.Backends,
+		weightedBased: route.Backends.HasPositiveWeight(),
+		methods:       route.Methods,
+		//	disableHostForwarding: route.DisableHostForwarding,
+		cors: route.Cors,
+		//	insecureSkipVerify:    route.InsecureSkipVerify,
+		security: route.Security,
+		certPool: certPool,
 	}
 	rRouter.Use(CORSHandler(route.Cors))
 	attachMiddlewares(route, rRouter)

@@ -76,8 +76,8 @@ func checkRoutes(routes []Route, middlewares []Middleware) {
 		if len(route.Name) == 0 {
 			fmt.Printf("Warning: route name is empty, index: [%d]\n", index)
 		}
-		if route.Destination == "" && len(route.Backends) == 0 {
-			fmt.Printf("Error: no destination or backends specified for route: %s | index: [%d] \n", route.Name, index)
+		if route.Destination == "" && route.Target == "" && len(route.Backends) == 0 {
+			fmt.Printf("Error: no target or backends specified for route: %s | index: [%d] \n", route.Name, index)
 		}
 		// checking middleware applied to routes
 		for _, middleware := range route.Middlewares {
@@ -101,19 +101,19 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 	midNames := middlewareNames(middlewares)
 	for _, route := range routes {
 		if len(route.Name) == 0 {
-			des := route.Destination
+			des := route.Target
 			if des == "" {
 				if len(route.Backends) > 0 {
 					des = route.Backends[0].Endpoint
 				}
 			}
-			return fmt.Errorf("route name is empty, route with destination: %s", des)
+			return fmt.Errorf("route name is empty, route with target: %s", des)
 		}
 		if route.Path == "" {
 			return fmt.Errorf("route [%s] has en empty path", route.Name)
 		}
-		if route.Destination == "" && len(route.Backends) == 0 {
-			return fmt.Errorf("no destination or backends specified for route: %s ", route.Name)
+		if route.Destination == "" && route.Target == "" && len(route.Backends) == 0 {
+			return fmt.Errorf("no target or backends specified for route: %s ", route.Name)
 		}
 		// checking middleware applied to routes
 		for _, middleware := range route.Middlewares {

@@ -19,7 +19,9 @@ package internal
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -102,6 +104,35 @@ func loadCertAndKey(certInput, keyInput string) (*tls.Certificate, error) {
 	}
 
 	return &cert, nil
+}
+func loadCertPool(rootCA string) (*x509.CertPool, error) {
+	certPool := x509.NewCertPool()
+	if rootCA == "" {
+		// Load system root CAs
+		systemCertPool, err := x509.SystemCertPool()
+		if err != nil {
+			systemCertPool = x509.NewCertPool()
+		}
+		return systemCertPool, nil
+	}
+
+	decodeBase64IfNeeded := func(input string) ([]byte, error) {
+		trimmedInput := strings.TrimSpace(input)
+		if isBase64(trimmedInput) {
+			return base64.StdEncoding.DecodeString(trimmedInput)
+		}
+		return []byte(trimmedInput), nil
+	}
+
+	certPEMBlock, err := decodeCertOrKey(rootCA, decodeBase64IfNeeded)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process certificate: %w", err)
+	}
+	if ok := certPool.AppendCertsFromPEM(certPEMBlock); !ok {
+		return nil, errors.New("failed to parse root certificate")
+	}
+
+	return certPool, nil
 }
 
 // decodeCertOrKey processes PEM or file-based input.

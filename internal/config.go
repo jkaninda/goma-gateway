@@ -154,8 +154,8 @@ func (r *Route) validateRoute() {
 	if len(r.Name) == 0 {
 		logger.Fatal("Route name is required")
 	}
-	if len(r.Destination) == 0 && len(r.Backends) == 0 {
-		logger.Fatal("Route backend error, destination or backends should not be empty", "route", r.Name)
+	if len(r.Destination) == 0 && len(r.Target) == 0 && len(r.Backends) == 0 {
+		logger.Fatal("Route backend error, target or backends should not be empty", "route", r.Name)
 	}
 
 }
@@ -186,8 +186,22 @@ func (r *Route) handleDeprecations() {
 		r.Enabled = false
 	}
 	if r.BlockCommonExploits {
-		r.EnableExploitProtection = true
-		logger.Warn("Deprecation: blockCommonExploits is deprecated, please use enableExploitProtection")
+		r.Security.EnableExploitProtection = true
+		logger.Warn("Deprecation: blockCommonExploits is deprecated, please use `security.enableExploitProtection`")
+	}
+	if r.InsecureSkipVerify {
+		logger.Warn("Deprecation:insecureSkipVerify is deprecated, please use `security.tls.skipVerification`")
+		r.Security.TLS.SkipVerification = true
+	}
+	if r.DisableHostForwarding {
+		r.Security.ForwardHostHeaders = false
+	}
+	if r.Destination != "" && len(r.Backends) == 0 {
+		logger.Warn("Deprecation: destination is deprecated, please use `target`")
+		if r.Target == "" {
+			r.Target = r.Destination
+
+		}
 	}
 }
 
