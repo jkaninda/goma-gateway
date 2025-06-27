@@ -108,7 +108,7 @@ type CertManager struct {
 	defaultCert        *tls.Certificate
 	legoClient         *lego.Client
 	user               *LegoUser
-	config             *CertificateManager
+	config             *Config
 	storageFile        string
 	cacheDir           string
 	allowedHosts       []Domain
@@ -118,7 +118,7 @@ type CertManager struct {
 }
 
 // NewCertManager creates a new CertManager instance
-func NewCertManager(config CertificateManager) (*CertManager, error) {
+func NewCertManager(config *Config) (*CertManager, error) {
 	storageConfig, err := initializeStorageConfig(config.Acme.StorageFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage configuration: %w", err)
@@ -127,7 +127,7 @@ func NewCertManager(config CertificateManager) (*CertManager, error) {
 	return &CertManager{
 		certs:              make(map[string]*CertificateInfo),
 		customCerts:        make(map[string]*CertificateInfo),
-		config:             &config,
+		config:             config,
 		storageFile:        storageConfig.StorageFile,
 		cacheDir:           storageConfig.CacheDir,
 		inProgressRequests: make(map[string]bool),
