@@ -40,14 +40,17 @@ func (gateway Gateway) NewRouter() Router {
 
 // AddRoutes adds multiple routes from another router.
 func (r *router) AddRoutes(rt Router) {
+	logger.Debug("=========== Adding routes to the router =========", "routes", len(dynamicRoutes))
 	for _, route := range dynamicRoutes {
+		logger.Debug("Adding route", "route", route.Name, "path", route.Path, "hosts", route.Hosts)
 		if route.Disabled {
-			logger.Info("Proxies Route is disabled", "route", route.Name)
+			logger.Debug("Skipping disabled route", "route", route.Name, "path", route.Path)
+			logger.Info("Proxies Route is disabled", "route", route.Name, "path", route.Path)
 			continue
 		}
 		rt.AddRoute(route)
 	}
-
+	logger.Debug("Finished adding routes to the router")
 }
 
 // ServeHTTP handles incoming HTTP requests.
@@ -67,28 +70,24 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // UpdateHandler updates the router's handler based on the gateway configuration.
 func (r *router) UpdateHandler(gateway Gateway) {
+
+	logger.Debug("Updating handler", "routes", len(dynamicRoutes))
 	close(stopChan)
 	reloaded = true
+	logger.Debug("Updating router with new routes")
 	r.mux = mux.NewRouter().StrictSlash(gateway.EnableStrictSlash)
 	gateway.addGlobalHandler(r.mux)
 	r.AddRoutes(r)
 	stopChan = make(chan struct{})
 	// Routes background healthcheck
+	logger.Debug("Adding routes healthcheck...")
 	routesHealthCheck(dynamicRoutes, stopChan)
-	// Update HostWhitelist
-	if certManager != nil && certManager.AcmeInitialized() {
-		go func() {
-			certManager.AutoCert(hostNames(dynamicRoutes))
-		}()
-	}
-	logger.Info("Configuration successfully reloaded")
+	logger.Info("Configuration successfully reloaded", "routes", len(dynamicRoutes))
 }
 
 // AddRoute adds a single route to the router.
 func (r *router) AddRoute(route Route) {
-	r.Lock()
-	defer r.Unlock()
-
+	logger.Debug("Adding route", "route", route.Name, "path", route.Path, "hosts", route.Hosts)
 	if len(route.Path) == 0 {
 		logger.Error("Error, path is empty in route", "route", route.Name)
 		logger.Error("Route path ignored", "path", route.Path)
@@ -117,7 +116,6 @@ func (r *router) AddRoute(route Route) {
 		insecureSkipVerify:    route.InsecureSkipVerify,
 	}
 	rRouter.Use(CORSHandler(route.Cors))
-	// rRouter.Use(certManager.AutoCertHandler(rRouter))
 	attachMiddlewares(route, rRouter)
 
 	if r.enableMetrics {
@@ -159,6 +157,7 @@ func (r *router) Mux() http.Handler {
 
 // addGlobalHandler configures global handlers and middlewares for the router.
 func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
+	logger.Debug("Adding global handler", "routes", len(dynamicRoutes))
 	heath := HealthCheckRoute{
 		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,
 		Routes:                       dynamicRoutes,
@@ -197,4 +196,5 @@ func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
 	}
 
 	mux.Use(CORSHandler(gateway.Cors))
+	logger.Debug("Added global handler", "routes", len(dynamicRoutes))
 }

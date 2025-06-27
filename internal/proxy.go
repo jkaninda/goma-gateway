@@ -112,7 +112,7 @@ func handlePreflight(proxyRoute ProxyRoute, w http.ResponseWriter, r *http.Reque
 
 // setForwardedHeaders sets headers for forwarding client information.
 func setForwardedHeaders(r *http.Request) {
-	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
+	r.Header.Set("X-Forwarded-Host", r.Host)
 	r.Header.Set("X-Forwarded-For", getRealIP(r))
 	r.Header.Set("X-Real-IP", getRealIP(r))
 	r.Header.Set("X-Forwarded-Proto", scheme(r))
