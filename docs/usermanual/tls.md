@@ -75,7 +75,7 @@ gateway:
       address: ":443"   # HTTPS endpoint
   routes: []            # Define routes as needed
 
-certificateManager:
+certManager:
   acme:
     email: "admin@example.com"  # Email used for ACME registration and expiry notices
 ```
@@ -94,7 +94,7 @@ The `CertificateManager` block supports further customization:
 
 #### **Example (DNS-01 Challenge with Cloudflare)**
 ```yaml
-certificateManager:
+certManager:
   provider: acme
   acme:
     email: "admin@example.com"

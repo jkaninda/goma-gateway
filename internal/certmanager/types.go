@@ -17,7 +17,7 @@
 
 package certmanager
 
-type CertificateManager struct {
+type Config struct {
 	Provider CertProvider `yaml:"provider,omitempty"`
 	Acme     Acme         `yaml:"acme,omitempty"`
 	Vault    Vault        `yaml:"vault,omitempty"`

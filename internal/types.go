@@ -113,12 +113,15 @@ type GatewayConfig struct {
 	// Middlewares holds proxy middlewares
 	Middlewares []Middleware `yaml:"middlewares"`
 	// CertificateManager holds acme configuration
-	CertificateManager certmanager.CertificateManager `yaml:"certificateManager"`
+	// Deprecated
+	CertificateManager *certmanager.Config `yaml:"certificateManager,omitempty"`
+	// CertManager hols CertManager config
+	CertManager *certmanager.Config `yaml:"certManager"`
 }
 
 type GatewayServer struct {
 	ctx         context.Context
-	certManager certmanager.CertificateManager
+	certManager *certmanager.Config
 	configFile  string
 	version     string
 	gateway     *Gateway

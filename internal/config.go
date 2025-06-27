@@ -51,7 +51,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		return &GatewayServer{
 			ctx:         ctx,
 			configFile:  configFile,
-			certManager: c.CertificateManager,
+			certManager: c.GetCertManagerConfig(),
 			version:     c.Version,
 			gateway:     &c.GatewayConfig,
 			middlewares: c.Middlewares,
@@ -74,7 +74,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		}
 		return &GatewayServer{
 			ctx:         ctx,
-			certManager: c.CertificateManager,
+			certManager: c.GetCertManagerConfig(),
 			configFile:  ConfigFile,
 			gateway:     &c.GatewayConfig,
 			middlewares: c.Middlewares,
@@ -108,10 +108,19 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 	return &GatewayServer{
 		ctx:         ctx,
 		configFile:  ConfigFile,
-		certManager: c.CertificateManager,
 		gateway:     &c.GatewayConfig,
+		certManager: c.GetCertManagerConfig(),
 		middlewares: c.Middlewares,
 	}, nil
+}
+func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
+	if gatewayServer.CertManager != nil {
+		return gatewayServer.CertManager
+	}
+	if gatewayServer.CertificateManager != nil {
+		logger.Warn("`certificateManager` is deprecated, use `certManager` instead.")
+	}
+	return gatewayServer.CertificateManager
 }
 
 // InitLogger sets environment variables and initialize the logger
@@ -320,7 +329,7 @@ func initConfig(configFile string) error {
 				},
 			},
 		},
-		CertificateManager: certmanager.CertificateManager{Provider: certmanager.CertAcmeProvider},
+		CertManager: &certmanager.Config{Provider: certmanager.CertAcmeProvider, Acme: certmanager.Acme{Email: ""}},
 	}
 	yamlData, err := yaml.Marshal(&conf)
 	if err != nil {
