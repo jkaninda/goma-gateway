@@ -235,6 +235,7 @@ gateway:
   writeTimeout: 15 
   readTimeout: 15 
   idleTimeout: 30
+  # Optional, default port 8080
   entryPoints:
     web:
       address: ":80"
@@ -249,7 +250,7 @@ gateway:
       rewrite: ''             # Path rewrite rule (empty means no rewrite)
       destination: https://example.com  # Target URL for this route
       disableHostForwarding: true  # Don't forward the original host header
-      cors: {}                # CORS settings (empty means default/disabled)
+      cors: {}                # CORS settings
       middlewares:
         - basic-auth          # Apply basic authentication middleware
     # Second route definition
@@ -276,7 +277,7 @@ gateway:
 # Middleware definitions
 middlewares:
   - name: basic-auth          # Middleware identifier
-    type: basic               # Middleware type (basic auth)
+    type: basicAuth               # Middleware type (basic auth)
     paths:
       - /*                    # Apply to all paths
     rule:
@@ -284,7 +285,7 @@ middlewares:
         - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia #password
         - user:password
 # Certificate management configuration
-certificateManager:
+certManager:
   acme:
     ## Uncomment email to enable Let's Encrypt
    # email: admin@example.com # Email for ACME registration
