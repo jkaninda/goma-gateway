@@ -52,6 +52,10 @@ const (
 	redirectScheme      MiddlewareType = "redirectScheme"
 	bodyLimit           MiddlewareType = "bodyLimit"
 )
+const (
+	ProtocolTCP Protocol = "tcp"
+	ProtocolUDP Protocol = "udp"
+)
 
 // ************** CORS ***************
 const (

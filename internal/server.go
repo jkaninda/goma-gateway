@@ -74,6 +74,13 @@ func (gatewayServer *GatewayServer) Start() error {
 	// Start acme service
 	go startAutoCert()
 
+	// start proxy
+
+	gatewayServer.proxyServer = NewProxyServer(gatewayServer.gateway.EntryPoints.PassThrough.Forwards, gatewayServer.ctx)
+	err = gatewayServer.proxyServer.Start()
+	if err != nil {
+		logger.Fatal("Failed to start proxy server", "error", err)
+	}
 	// Start HTTP/HTTPS servers
 	gatewayServer.startServers(httpServer, httpsServer)
 
@@ -135,7 +142,7 @@ func (gatewayServer *GatewayServer) shutdown(httpServer, httpsServer *http.Serve
 
 	shutdownCtx, cancel := context.WithTimeout(gatewayServer.ctx, 10*time.Second)
 	defer cancel()
-
+	logger.Info("Shutting down HTTP/HTTPS servers")
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Error shutting down HTTP server", "error", err)
 	}
@@ -143,6 +150,8 @@ func (gatewayServer *GatewayServer) shutdown(httpServer, httpsServer *http.Serve
 	if err := httpsServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Error shutting down HTTPS server", "error", err)
 	}
-
+	// stop proxy server
+	gatewayServer.proxyServer.Stop()
+	logger.Info("Goma Gateway stopped")
 	return nil
 }

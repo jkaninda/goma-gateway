@@ -161,6 +161,14 @@ func validateEntrypoint(entrypoint string) bool {
 
 	return true
 }
+func isPortValid(port int) bool {
+	if port < 1 || port > 65535 {
+		logger.Error("Invalid port number", "port", port)
+		return false
+	}
+	return true
+}
+
 func allowedOrigin(origins []string, origin string) bool {
 	for _, o := range origins {
 		if o == "*" || o == origin {

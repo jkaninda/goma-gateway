@@ -21,6 +21,8 @@ import (
 	"context"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"net"
+	"sync"
 	"time"
 )
 
@@ -122,10 +124,28 @@ type GatewayConfig struct {
 type GatewayServer struct {
 	ctx         context.Context
 	certManager *certmanager.Config
+	proxyServer *ProxyServer
 	configFile  string
 	version     string
 	gateway     *Gateway
 	middlewares []Middleware
+}
+type ProxyServer struct {
+	rules    []ForwardRule
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup
+	shutdown chan struct{}
+}
+type udpSession struct {
+	clientConn   net.PacketConn
+	clientAddr   net.Addr
+	targetConn   net.Conn
+	rule         ForwardRule
+	lastActivity time.Time
+	done         chan struct{}
+	ctx          context.Context
+	cancel       context.CancelFunc
 }
 type HealthCheckRoute struct {
 	DisableRouteHealthCheckError bool
