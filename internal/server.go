@@ -74,14 +74,10 @@ func (gatewayServer *GatewayServer) Start() error {
 	// Start acme service
 	go startAutoCert()
 
-	// start proxy
-
+	// Create proxy instance
 	gatewayServer.proxyServer = NewProxyServer(gatewayServer.gateway.EntryPoints.PassThrough.Forwards, gatewayServer.ctx)
-	err = gatewayServer.proxyServer.Start()
-	if err != nil {
-		logger.Fatal("Failed to start proxy server", "error", err)
-	}
-	// Start HTTP/HTTPS servers
+
+	// Start HTTP/HTTPS and proxy servers
 	gatewayServer.startServers(httpServer, httpsServer)
 
 	// Handle graceful shutdown
@@ -118,6 +114,10 @@ func (gatewayServer *GatewayServer) createHTTPHandler(handler http.Handler) http
 }
 
 func (gatewayServer *GatewayServer) startServers(httpServer, httpsServer *http.Server) {
+	// Start proxy server
+	if err := gatewayServer.proxyServer.Start(); err != nil {
+		logger.Fatal("Failed to start proxy server", "error", err)
+	}
 	go func() {
 		logger.Info("Starting Web server on", "addr", webAddress)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

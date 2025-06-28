@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	goutils "github.com/jkaninda/go-utils"
 	"io"
 	"net"
 	"sync"
@@ -368,14 +369,16 @@ func (ps *ProxyServer) handleTCPConnection(clientConn net.Conn, rule ForwardRule
 		return
 	}
 	defer ps.closeConnection(serverConn, "server")
-
+	startTime := time.Now()
 	logger.Info("TCP Proxying started",
 		"client", clientConn.RemoteAddr(), "target", rule.Target)
 
 	ps.proxyData(clientConn, serverConn)
 
+	formatted := goutils.FormatDuration(time.Since(startTime), 2)
 	logger.Info("TCP Connection closed",
-		"client", clientConn.RemoteAddr(), "target", rule.Target)
+		"client", clientConn.RemoteAddr(), "target", rule.Target,
+		"duration", formatted)
 }
 
 func (ps *ProxyServer) dialWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
