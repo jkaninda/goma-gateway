@@ -244,8 +244,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 		logger.Error(fmt.Sprintf("Error: %v", err.Error()))
 		return
 	}
-
-	if rule.RequestsPerUnit != 0 && route.RateLimit == 0 {
+	if rule.RequestsPerUnit != 0 {
 		rt := middlewares.RateLimit{
 			Unit:       rule.Unit,
 			Id:         util.Slug(route.Name),
@@ -311,6 +310,8 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Route
 	switch routeMiddleware.Type {
 	case BasicAuth, BasicAuthMiddleware:
 		applyBasicAuthMiddleware(route, routeMiddleware, r)
+	case LDAPAuthMiddleware, LDAPAuth:
+		applyLdapAuthMiddleware(route, routeMiddleware, r)
 	case JWTAuth, JWTAuthMiddleware:
 		applyJWTAuthMiddleware(route, routeMiddleware, r)
 	case forwardAuth:
@@ -319,7 +320,7 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Route
 		applyOAuthMiddleware(route, routeMiddleware, r)
 	default:
 		if !doesExist(routeMiddleware.Type) {
-			logger.Error("Unknown middleware type, ", "type", routeMiddleware.Type)
+			logger.Error("Unknown middleware type, middleware not applied ", "type", routeMiddleware.Type)
 		}
 	}
 }
@@ -332,22 +333,50 @@ func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Ro
 		return
 	}
 	if err := rule.validate(); err != nil {
-		logger.Error("Error", "error", err)
+		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
 
-	authBasic := middlewares.AuthBasic{
-		Path:     route.Path,
-		Paths:    routeMiddleware.Paths,
-		Realm:    rule.Realm,
-		Users:    rule.Users,
-		Username: rule.Username,
-		Password: rule.Password,
-		Headers:  nil,
-		Params:   nil,
+	authBasic := &middlewares.AuthBasic{
+		Path:            route.Path,
+		Paths:           routeMiddleware.Paths,
+		Realm:           rule.Realm,
+		Users:           rule.Users,
+		ForwardUsername: rule.ForwardUsername,
 	}
 
 	r.Use(authBasic.AuthMiddleware)
+	r.Use(CORSHandler(route.Cors))
+}
+
+// applyLdapAuthMiddleware applies LDAP Authentication middleware
+func applyLdapAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+	rule := &LdapRuleMiddleware{}
+	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
+		logger.Error("Error middleware not applied", "error", err)
+		return
+	}
+	if err := rule.validate(); err != nil {
+		logger.Error("Error middleware not applied", "error", err)
+		return
+	}
+
+	basicAuth := &middlewares.AuthBasic{
+		Path:            route.Path,
+		Paths:           routeMiddleware.Paths,
+		Realm:           rule.Realm,
+		ForwardUsername: rule.ForwardUsername,
+		Ldap: &middlewares.LDAP{
+			URL:                rule.URL,
+			BaseDN:             rule.BaseDN,
+			BindDN:             rule.BindDN,
+			BindPass:           rule.BindPass,
+			UserFilter:         rule.UserFilter,
+			StartTLS:           rule.StartTLS,
+			InsecureSkipVerify: rule.InsecureSkipVerify,
+		},
+	}
+	r.Use(basicAuth.AuthMiddleware)
 	r.Use(CORSHandler(route.Cors))
 }
 
@@ -384,7 +413,7 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 
 		}
 	}
-	jwtAuth := middlewares.JwtAuth{
+	jwtAuth := &middlewares.JwtAuth{
 		Path:                 route.Path,
 		Paths:                routeMiddleware.Paths,
 		ClaimsExpression:     rule.ClaimsExpression,
@@ -416,7 +445,7 @@ func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.
 		return
 	}
 
-	auth := middlewares.ForwardAuth{
+	auth := &middlewares.ForwardAuth{
 		AuthURL:                     rule.AuthURL,
 		AuthSignIn:                  rule.AuthSignIn,
 		EnableHostForwarding:        rule.EnableHostForwarding,

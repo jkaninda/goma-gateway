@@ -117,15 +117,12 @@ type AccessListMiddleware struct {
 
 // AuthBasic contains Basic auth configuration
 type AuthBasic struct {
-	// Route path
-	Path     string
-	Paths    []string
-	Realm    string
-	Users    []string `yaml:"users"`
-	Username string
-	Password string
-	Headers  map[string]string
-	Params   map[string]string
+	Path            string
+	Paths           []string
+	Realm           string
+	Users           []string
+	ForwardUsername bool
+	Ldap            *LDAP
 }
 
 // InterceptErrors contains backend status code errors to intercept
@@ -190,3 +187,5 @@ type ForwardAuth struct {
 type ClaimExpression interface {
 	Evaluate(claims map[string]interface{}) (bool, error)
 }
+
+// Ldap

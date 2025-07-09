@@ -27,7 +27,7 @@ type Router interface {
 	AddRoute(route Route)
 	AddRoutes(route Router)
 	Mux() http.Handler
-	UpdateHandler(Gateway)
+	UpdateHandler(*Gateway)
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 

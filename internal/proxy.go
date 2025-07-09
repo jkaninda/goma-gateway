@@ -132,7 +132,7 @@ func createProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w h
 
 // createSingleHostProxy creates a reverse proxy for a single backend.
 func createSingleHostProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
-	backendURL, err := url.Parse(proxyRoute.destination)
+	backendURL, err := url.Parse(proxyRoute.target)
 	if err != nil {
 		logger.Error("Error parsing backend URL", "error", err)
 		middlewares.RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), nil, contentType)
@@ -140,7 +140,7 @@ func createSingleHostProxy(proxyRoute ProxyRoute, r *http.Request, contentType s
 	}
 
 	// Update the headers to allow for SSL redirection if host forwarding is disabled
-	if proxyRoute.disableHostForwarding {
+	if !proxyRoute.security.ForwardHostHeaders {
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}
@@ -173,7 +173,8 @@ func createRoundRobinProxy(proxyRoute ProxyRoute, r *http.Request, contentType s
 func createProxyTransport(proxyRoute ProxyRoute) *http.Transport {
 	return &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: proxyRoute.insecureSkipVerify,
+			InsecureSkipVerify: proxyRoute.security.TLS.SkipVerification,
+			RootCAs:            proxyRoute.certPool,
 		},
 	}
 }
@@ -207,7 +208,7 @@ func NewWeightedReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputil.
 	if err != nil {
 		return nil, fmt.Errorf("error parsing backend URL for route %s: %v", proxyRoute.name, err)
 	}
-	if proxyRoute.disableHostForwarding {
+	if !proxyRoute.security.ForwardHostHeaders {
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}
@@ -228,7 +229,7 @@ func NewRoundRobinReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputi
 
 	// Parse the backend URL and update the request
 	backendURL, _ := url.Parse(backend.Endpoint)
-	if proxyRoute.disableHostForwarding {
+	if !proxyRoute.security.ForwardHostHeaders {
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}

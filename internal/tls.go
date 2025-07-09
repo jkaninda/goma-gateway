@@ -19,7 +19,9 @@ package internal
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -29,10 +31,6 @@ import (
 
 func (gatewayServer *GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
 	certs := loadTLS(gatewayServer.gateway.TLS)
-	cert, err := loadGatewayCertificate(gatewayServer)
-	if err == nil && cert != nil {
-		certs = append(certs, *cert)
-	}
 	if len(certs) > 0 {
 		return certs, true, nil
 	}
@@ -80,32 +78,6 @@ func loadTLS(t TLS) []tls.Certificate {
 	return certs
 }
 
-// loadGatewayCertificate loads a certificate for the gateway server, handling both deprecated and new fields.
-func loadGatewayCertificate(gatewayServer *GatewayServer) (*tls.Certificate, error) {
-	loadCertificate := func(cert, key, warnMsg string) (*tls.Certificate, error) {
-		if cert != "" || key != "" {
-			if warnMsg != "" {
-				logger.Warn("sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead")
-			}
-			return loadCertAndKey(cert, key)
-		}
-		return nil, nil
-	}
-
-	// Check deprecated fields
-	cert, err := loadCertificate(
-		gatewayServer.gateway.SSLCertFile,
-		gatewayServer.gateway.SSLKeyFile,
-		"sslCertFile and sslKeyFile are deprecated, please use tlsCertFile and tlsKeyFile instead",
-	)
-	if err != nil {
-		return cert, err
-	}
-
-	// Check new fields
-	return loadCertificate(gatewayServer.gateway.TlsCertFile, gatewayServer.gateway.TlsKeyFile, "")
-}
-
 // loadCertAndKey loads a certificate and private key from file paths or raw PEM content.
 func loadCertAndKey(certInput, keyInput string) (*tls.Certificate, error) {
 	decodeBase64IfNeeded := func(input string) ([]byte, error) {
@@ -132,6 +104,35 @@ func loadCertAndKey(certInput, keyInput string) (*tls.Certificate, error) {
 	}
 
 	return &cert, nil
+}
+func loadCertPool(rootCA string) (*x509.CertPool, error) {
+	certPool := x509.NewCertPool()
+	if rootCA == "" {
+		// Load system root CAs
+		systemCertPool, err := x509.SystemCertPool()
+		if err != nil {
+			systemCertPool = x509.NewCertPool()
+		}
+		return systemCertPool, nil
+	}
+
+	decodeBase64IfNeeded := func(input string) ([]byte, error) {
+		trimmedInput := strings.TrimSpace(input)
+		if isBase64(trimmedInput) {
+			return base64.StdEncoding.DecodeString(trimmedInput)
+		}
+		return []byte(trimmedInput), nil
+	}
+
+	certPEMBlock, err := decodeCertOrKey(rootCA, decodeBase64IfNeeded)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process certificate: %w", err)
+	}
+	if ok := certPool.AppendCertsFromPEM(certPEMBlock); !ok {
+		return nil, errors.New("failed to parse root certificate")
+	}
+
+	return certPool, nil
 }
 
 // decodeCertOrKey processes PEM or file-based input.

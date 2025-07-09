@@ -39,6 +39,8 @@ const (
 	BasicAuthMiddleware MiddlewareType = "basic"     // basic authentication middlewares
 	BasicAuth           MiddlewareType = "basicAuth" // basic authentication middlewares
 	JWTAuthMiddleware   MiddlewareType = "jwt"       // JWT authentication middlewares
+	LDAPAuthMiddleware  MiddlewareType = "ldapAuth"  // JWT authentication middlewares
+	LDAPAuth            MiddlewareType = "ldap"      // JWT authentication middlewares
 	JWTAuth             MiddlewareType = "jwtAuth"   // JWT authentication middlewares
 	OAuth               MiddlewareType = "oauth"     // OAuth authentication middlewares
 	OAuth2              MiddlewareType = "oauth2"    // OAuth authentication middlewares
@@ -51,6 +53,10 @@ const (
 	httpCache           MiddlewareType = "httpCache"
 	redirectScheme      MiddlewareType = "redirectScheme"
 	bodyLimit           MiddlewareType = "bodyLimit"
+)
+const (
+	ProtocolTCP Protocol = "tcp"
+	ProtocolUDP Protocol = "udp"
 )
 
 // ************** CORS ***************

@@ -31,10 +31,10 @@ import (
 // printRoute prints routes
 func printRoute(routes []Route) {
 	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Name", "Disabled", "Priority", "Path", "Rewrite"})
+	t.AppendHeader(table.Row{"Name", "Enabled", "Priority", "Path", "Rewrite"})
 	for _, route := range routes {
 
-		t.AppendRow(table.Row{goutils.TruncateText(route.Name, 20), route.Disabled, route.Priority, goutils.TruncateText(route.Path, 20), route.Rewrite})
+		t.AppendRow(table.Row{goutils.TruncateText(route.Name, 20), route.Enabled, route.Priority, goutils.TruncateText(route.Path, 20), route.Rewrite})
 
 	}
 	fmt.Println(t.Render())
@@ -161,6 +161,14 @@ func validateEntrypoint(entrypoint string) bool {
 
 	return true
 }
+func isPortValid(port int) bool {
+	if port < 1 || port > 65535 {
+		logger.Error("Invalid port number", "port", port)
+		return false
+	}
+	return true
+}
+
 func allowedOrigin(origins []string, origin string) bool {
 	for _, o := range origins {
 		if o == "*" || o == origin {
@@ -184,7 +192,7 @@ func hostNames(routes []Route) []certmanager.Domain {
 func extractHostsFromRoutes(routes []Route) []certmanager.Domain {
 	var hosts []certmanager.Domain
 	for _, route := range routes {
-		if len(route.Hosts) > 0 && !route.Disabled {
+		if len(route.Hosts) > 0 && route.Enabled {
 			hosts = append(hosts, certmanager.Domain{Name: route.Name, Hosts: route.Hosts})
 		}
 	}
