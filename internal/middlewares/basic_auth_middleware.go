@@ -28,7 +28,7 @@ import (
 )
 
 // AuthMiddleware checks for the Authorization header and verifies the credentials
-func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
+func (basicAuth *AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !isPathMatching(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
 			next.ServeHTTP(w, r)
@@ -62,14 +62,20 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if len(basicAuth.Users) > 0 {
-			if !validateCredentials(parts[0], parts[1], basicAuth.Users) {
+		if len(basicAuth.Users) > 0 || basicAuth.Ldap != nil {
+			if !basicAuth.validateCredentials(parts[0], parts[1]) {
 				logger.Debug("Invalid credentials", "auth", "basicAuth", "username", parts[0])
 				unauthorizedResponse(w, r, realm, contentType)
 				return
 			}
+			if basicAuth.ForwardUsername {
+				r.Header.Set("username", parts[0])
+			}
+			next.ServeHTTP(w, r)
+			return
 		}
-		next.ServeHTTP(w, r)
+		unauthorizedResponse(w, r, realm, contentType)
+		return
 	})
 }
 
@@ -78,21 +84,25 @@ func unauthorizedResponse(w http.ResponseWriter, r *http.Request, realm, content
 	RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), nil, contentType)
 }
 
-func validateCredentials(username, password string, users []string) bool {
-	for _, entry := range users {
-		u := strings.SplitN(entry, ":", 2)
-		if len(u) != 2 {
-			logger.Debug("Skipping invalid user entry", "entry", entry)
-			continue
-		}
-		storedUser, storedHash := u[0], u[1]
-		if username == storedUser {
-			ok, err := ValidatePassword(password, storedHash)
-			if err != nil {
-				logger.Error("Password validation error", "err", err)
-				return false
+func (basicAuth *AuthBasic) validateCredentials(username, password string) bool {
+	if basicAuth.Ldap != nil {
+		return basicAuth.Ldap.authenticateLDAP(username, password)
+	} else {
+		for _, entry := range basicAuth.Users {
+			u := strings.SplitN(entry, ":", 2)
+			if len(u) != 2 {
+				logger.Debug("Skipping invalid user entry", "entry", entry)
+				continue
 			}
-			return ok
+			storedUser, storedHash := u[0], u[1]
+			if username == storedUser {
+				ok, err := ValidatePassword(password, storedHash)
+				if err != nil {
+					logger.Error("Password validation error", "err", err)
+					return false
+				}
+				return ok
+			}
 		}
 	}
 	return false
