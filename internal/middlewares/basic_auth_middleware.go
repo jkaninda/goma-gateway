@@ -69,7 +69,7 @@ func (basicAuth *AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 				return
 			}
 			if basicAuth.ForwardUsername {
-				w.Header().Set("username", parts[0])
+				r.Header.Set("username", parts[0])
 			}
 			next.ServeHTTP(w, r)
 			return
