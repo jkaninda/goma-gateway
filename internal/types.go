@@ -27,8 +27,20 @@ import (
 )
 
 type BasicRuleMiddleware struct {
-	Realm string   `yaml:"realm,omitempty"`
-	Users []string `yaml:"users"`
+	Realm           string   `yaml:"realm,omitempty"`
+	Users           []string `yaml:"users"`
+	ForwardUsername bool     `yaml:"forwardUsername"`
+}
+type LdapRuleMiddleware struct {
+	Realm              string `yaml:"realm,omitempty"`
+	ForwardUsername    bool   `yaml:"forwardUsername"`
+	URL                string `yaml:"url"`
+	BaseDN             string `yaml:"baseDN"`
+	BindDN             string `yaml:"bindDN"`
+	BindPass           string `yaml:"bindPass"`
+	UserFilter         string `yaml:"userFilter"`
+	StartTLS           bool   `yaml:"startTLS"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify"`
 }
 type ForwardAuthRuleMiddleware struct {
 	AuthURL                     string   `yaml:"authUrl"`

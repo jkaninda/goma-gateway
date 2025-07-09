@@ -240,10 +240,10 @@ func initConfig(configFile string) error {
 			},
 			Routes: []Route{
 				{
-					Name:        "example",
-					Path:        "/",
-					Methods:     []string{"GET", "PATCH", "OPTIONS"},
-					Destination: "https://example.com",
+					Name:    "example",
+					Path:    "/",
+					Methods: []string{"GET", "PATCH", "OPTIONS"},
+					Target:  "https://example.com",
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
 						Interval:        "30s",
@@ -414,6 +414,15 @@ func (r RedirectSchemeRuleMiddleware) validate() error {
 func (basicAuth BasicRuleMiddleware) validate() error {
 	if len(basicAuth.Users) == 0 {
 		return fmt.Errorf("empty users in basic auth middlewares")
+	}
+	return nil
+}
+func (l LdapRuleMiddleware) validate() error {
+	if l.URL == "" {
+		return fmt.Errorf("LDAP URL is required")
+	}
+	if l.BaseDN == "" {
+		return fmt.Errorf("LDAP BaseDN is required")
 	}
 	return nil
 }
