@@ -77,7 +77,10 @@ func (l *LDAP) connect() (*ldap.Conn, error) {
 	if !strings.HasPrefix(l.URL, "ldaps://") && l.StartTLS {
 		err = conn.StartTLS(&tls.Config{InsecureSkipVerify: l.InsecureSkipVerify})
 		if err != nil {
-			conn.Close()
+			err = conn.Close()
+			if err != nil {
+				return nil, err
+			}
 			return nil, fmt.Errorf("failed to start TLS: %w", err)
 		}
 	}

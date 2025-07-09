@@ -75,7 +75,6 @@ func (basicAuth *AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		unauthorizedResponse(w, r, realm, contentType)
-		return
 	})
 }
 
