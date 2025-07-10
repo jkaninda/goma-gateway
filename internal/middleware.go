@@ -375,6 +375,9 @@ func applyLdapAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rou
 			StartTLS:           rule.StartTLS,
 			InsecureSkipVerify: rule.InsecureSkipVerify,
 		},
+		ConnPoolBurst: rule.ConnPool.Burst,
+		ConnPoolSize:  rule.ConnPool.Size,
+		ConnPoolTTL:   rule.ConnPool.TTL,
 	}
 	r.Use(basicAuth.AuthMiddleware)
 	r.Use(CORSHandler(route.Cors))

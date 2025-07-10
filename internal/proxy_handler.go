@@ -54,7 +54,7 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 }
 
 // ProxyHandler intercepts responses based on the status code
-func (h ProxyHandler) handler(next http.Handler) http.Handler {
+func (h *ProxyHandler) handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		requestID := getRequestID(r)

@@ -32,8 +32,13 @@ type BasicRuleMiddleware struct {
 	ForwardUsername bool     `yaml:"forwardUsername"`
 }
 type LdapRuleMiddleware struct {
-	Realm              string `yaml:"realm,omitempty"`
-	ForwardUsername    bool   `yaml:"forwardUsername"`
+	Realm           string `yaml:"realm,omitempty"`
+	ForwardUsername bool   `yaml:"forwardUsername"`
+	ConnPool        struct {
+		Size  int    `yaml:"size"`
+		Burst int    `yaml:"burst"`
+		TTL   string `yaml:"ttl"`
+	} `yaml:"connPool,omitempty"`
 	URL                string `yaml:"url"`
 	BaseDN             string `yaml:"baseDN"`
 	BindDN             string `yaml:"bindDN"`

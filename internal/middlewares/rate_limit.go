@@ -32,7 +32,7 @@ func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			contentType := r.Header.Get("Content-Type")
 
 			if !rl.Allow() {
-				logger.Error("Too many requests from this address", "ip", getRealIP(r), "url", r.URL, "user_agent", r.UserAgent())
+				logger.Warn("Too many requests from this address", "ip", getRealIP(r), "url", r.URL, "user_agent", r.UserAgent())
 				// Rate limit exceeded, return a 429 Too Many Requests response
 				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusForbidden), nil, contentType)
 				return
