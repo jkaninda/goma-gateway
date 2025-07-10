@@ -82,7 +82,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 // Returns false and sends an error response if the method is not allowed.
 func validateMethod(proxyRoute ProxyRoute, method string, w http.ResponseWriter, r *http.Request, contentType string) bool {
 	if len(proxyRoute.methods) > 0 && !slices.Contains(proxyRoute.methods, method) {
-		logger.Error("Method not allowed", "method", method, "allowed_methods", proxyRoute.methods)
+		logger.Warn("Method not allowed", "method", method, "allowed_methods", proxyRoute.methods)
 		middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, method), proxyRoute.cors.Origins, contentType)
 		return false
 	}

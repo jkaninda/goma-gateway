@@ -19,6 +19,7 @@ package middlewares
 
 import (
 	"crypto/rsa"
+	"golang.org/x/time/rate"
 	"sync"
 	"time"
 )
@@ -123,6 +124,13 @@ type AuthBasic struct {
 	Users           []string
 	ForwardUsername bool
 	Ldap            *LDAP
+	ConnPoolSize    int
+	ConnPoolBurst   int
+	ConnPoolTTL     string
+	rateLimiter     *rate.Limiter
+	rateLimitMu     sync.RWMutex
+	rateLimitTTL    time.Duration
+	rateLimitInit   sync.Once
 }
 
 // InterceptErrors contains backend status code errors to intercept
