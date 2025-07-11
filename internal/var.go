@@ -20,7 +20,6 @@ package internal
 import (
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	logger2 "github.com/jkaninda/logger"
-	"time"
 )
 
 var (
@@ -34,5 +33,5 @@ var (
 	webSecureAddress   = ":8443"
 	logger             = logger2.Default()
 	certManager        *certmanager.CertManager
-	waitDelay          = 5 * time.Second
+	// waitDelay          = 5 * time.Second
 )
