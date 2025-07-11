@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -35,25 +34,36 @@ type responseRecorder struct {
 	http.ResponseWriter
 	statusCode int
 	body       *bytes.Buffer
+	intercept  bool
 }
 
 // newResponseRecorder creates a new responseRecorder
-func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
+func newResponseRecorder(w http.ResponseWriter, intercept bool) *responseRecorder {
 	return &responseRecorder{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
-		body:           &bytes.Buffer{},
+		body: func() *bytes.Buffer {
+			if intercept {
+				return &bytes.Buffer{}
+			}
+			return nil
+		}(),
+		intercept: intercept,
 	}
 }
 
 // WriteHeader writes the status code to the response
 func (rec *responseRecorder) WriteHeader(code int) {
 	rec.statusCode = code
+	rec.ResponseWriter.WriteHeader(code)
 }
 
 // ProxyHandler proxies requests to the backend
 func (rec *responseRecorder) Write(data []byte) (int, error) {
-	return rec.body.Write(data)
+	if rec.intercept && rec.body != nil {
+		return rec.body.Write(data)
+	}
+	return rec.ResponseWriter.Write(data)
 }
 
 // Wrap intercepts responses based on the status code
@@ -63,39 +73,37 @@ func (h *ProxyHandler) Wrap(next http.Handler) http.Handler {
 		requestID := getRequestID(r)
 
 		if isWebSocketRequest(r) || isSSE(r) {
-			// Skip for WebSocket upgrades or Server-Sent Events
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Determine content type
 		contentType := h.ContentType
 		if contentType == "" {
 			contentType = r.Header.Get("Content-Type")
 		}
-
-		// Get request content length
 		contentLength := r.Header.Get("Content-Length")
 		if contentLength == "" {
 			contentLength = "0"
 		}
 
-		// Record the response for interception
-		rec := newResponseRecorder(w)
+		intercept := h.Enabled && len(h.Errors) > 0
+		rec := newResponseRecorder(w, intercept)
+
 		next.ServeHTTP(rec, r)
-		// Delete server header
+
+		// Cleanup headers
 		rec.Header().Del("Server")
 		rec.Header().Set("Proxied-By", GatewayName)
 		rec.Header().Set(RequestIDHeader, requestID)
 
-		// Retrieve the request start time from context
 		if val := r.Context().Value(CtxRequestStartTime); val != nil {
 			startTime = val.(time.Time)
 		}
 		if val := r.Context().Value(CtxRequestIDHeader); val != nil {
 			requestID = val.(string)
 		}
-		formatted := goutils.FormatDuration(time.Since(startTime), 2)
+		duration := goutils.FormatDuration(time.Since(startTime), 2)
+
 		logFields := []any{
 			"request_id", requestID,
 			"method", r.Method,
@@ -105,10 +113,8 @@ func (h *ProxyHandler) Wrap(next http.Handler) http.Handler {
 			"client_ip", getRealIP(r),
 			"referer", r.Referer(),
 			"status", rec.statusCode,
-			"duration", formatted,
+			"duration", duration,
 			"request_content_length", contentLength,
-			"response_content_length", strconv.Itoa(rec.body.Len()),
-			"response_content_type", rec.Header().Get("Content-Type"),
 			"route", h.Name,
 			"user_agent", r.UserAgent(),
 		}
@@ -116,23 +122,16 @@ func (h *ProxyHandler) Wrap(next http.Handler) http.Handler {
 			logFields = append(logFields, "backend", backend.String())
 		}
 
-		// No interception logic needed
-		if !h.Enabled || len(h.Errors) == 0 {
-			logProxyResponse(rec.statusCode, "Proxied request", logFields...)
-			// Copy recorded response to the client
+		// Handle error interception
+		if intercept {
+			if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
+				logProxyResponse(rec.statusCode, "Proxied request resulted in error", logFields...)
+				middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
+				return
+			}
 			writeResponse(w, rec)
-			return
 		}
-
-		// Check if the response should be intercepted
-		if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
-			logProxyResponse(rec.statusCode, "Proxied request resulted in error", logFields...)
-			middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
-			return
-		}
-
 		logProxyResponse(rec.statusCode, "Proxied request", logFields...)
-		writeResponse(w, rec)
 	})
 }
 
