@@ -127,7 +127,7 @@ func (r *router) AddRoute(route Route) {
 		rRouter.Use(pr.PrometheusMiddleware)
 	}
 
-	proxyHandler := ProxyHandler{
+	proxyHandler := &ProxyHandler{
 		Name:        route.Name,
 		Enabled:     route.ErrorInterceptor.Enabled,
 		ContentType: route.ErrorInterceptor.ContentType,

@@ -17,7 +17,10 @@
 
 package util
 
-const MainExample = "Initialize config: config init --output config.yml\n" +
-	"Start server: server \n" +
-	"Start server with custom config file: server --config config.yml \n" +
-	"Check config file: config check --config config.yml"
+const (
+	MainExample = "Initialize config: config init --output config.yml\n" +
+		"Start server: server \n" +
+		"Start server with custom config file: server --config config.yml \n" +
+		"Check config file: config check --config config.yml"
+	GatewayName = "Goma Gateway"
+)

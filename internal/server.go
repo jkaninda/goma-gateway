@@ -66,13 +66,12 @@ func (gatewayServer *GatewayServer) Start() error {
 		go gatewayServer.watchExtraConfig(newRouter)
 
 	}
+	// Start acme service
+	go startAutoCert()
 	// Validate entrypoint
 	gatewayServer.gateway.EntryPoints.Validate()
 	httpServer := gatewayServer.createServer(webAddress, gatewayServer.createHTTPHandler(newRouter), nil)
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
-
-	// Start acme service
-	go startAutoCert()
 
 	// Create proxy instance
 	gatewayServer.proxyServer = NewProxyServer(gatewayServer.gateway.EntryPoints.PassThrough.Forwards, gatewayServer.ctx)
