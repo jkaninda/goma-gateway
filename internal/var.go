@@ -33,5 +33,4 @@ var (
 	webSecureAddress   = ":8443"
 	logger             = logger2.Default()
 	certManager        *certmanager.CertManager
-	// waitDelay          = 5 * time.Second
 )
