@@ -27,6 +27,7 @@ const (
 	CertsPath                            = ConfigDir + "certs"
 	CtxRequestStartTime       contextKey = "requestStartTime"
 	CtxRequestIDHeader        contextKey = "requestID"
+	CtxSelectedBackend        contextKey = "selectedBackend"
 	RequestIDHeader                      = "X-Goma-Request-ID"
 	GomaAccessToken                      = "goma_access_token"
 	GomaRefreshToken                     = "goma_refresh_token"

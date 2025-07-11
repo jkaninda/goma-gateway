@@ -238,3 +238,4 @@ type RedirectSchemeRuleMiddleware struct {
 type BodyLimitRuleMiddleware struct {
 	Limit string `yaml:"limit"`
 }
+type contextKey string
