@@ -18,6 +18,7 @@
 package internal
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -34,38 +35,38 @@ import (
 
 // ProxyHandler is the main handler for proxying incoming HTTP requests.
 // It handles method validation, CORS headers, backend selection, and request rewriting.
-func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
+func (proxyRoute *ProxyRoute) ProxyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract the Content-Type header from the request
 		contentType := r.Header.Get("Content-Type")
 
 		// Validate if the HTTP method is allowed
-		if !validateMethod(proxyRoute, r.Method, w, r, contentType) {
+		if !proxyRoute.validateMethod(r.Method, w, r, contentType) {
 			return
 		}
 
 		// Set CORS headers from the CORS configuration
-		setCORSHeaders(w, proxyRoute.cors.Headers)
+		proxyRoute.applyCORSHeaders(w)
 
 		// Handle preflight requests (OPTIONS) for CORS
-		if handlePreflight(proxyRoute, w, r) {
+		if proxyRoute.handlePreflight(w, r) {
 			return
 		}
 
 		// Set headers for forwarding client information
-		setForwardedHeaders(r)
+		proxyRoute.forwardedHeaders(r)
 
 		// Create a reverse proxy based on the configuration
-		proxy, err := createProxy(proxyRoute, r, contentType, w)
+		proxy, err := proxyRoute.createProxy(r, contentType, w)
 		if err != nil {
 			return
 		}
 
 		// Rewrite the request path if necessary
-		rewritePath(r, proxyRoute)
+		proxyRoute.rewritePath(r)
 
 		// Configure the proxy transport to allow insecure SSL verification if enabled
-		proxy.Transport = createProxyTransport(proxyRoute)
+		proxy.Transport = proxyRoute.createProxyTransport()
 
 		// Set a custom header to indicate the request is proxied
 		w.Header().Set("Proxied-By", GatewayName)
@@ -80,7 +81,7 @@ func (proxyRoute ProxyRoute) ProxyHandler() http.HandlerFunc {
 
 // validateMethod checks if the HTTP method is allowed for the request.
 // Returns false and sends an error response if the method is not allowed.
-func validateMethod(proxyRoute ProxyRoute, method string, w http.ResponseWriter, r *http.Request, contentType string) bool {
+func (proxyRoute *ProxyRoute) validateMethod(method string, w http.ResponseWriter, r *http.Request, contentType string) bool {
 	if len(proxyRoute.methods) > 0 && !slices.Contains(proxyRoute.methods, method) {
 		logger.Warn("Method not allowed", "method", method, "allowed_methods", proxyRoute.methods)
 		middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed, fmt.Sprintf("%d %s method is not allowed", http.StatusMethodNotAllowed, method), proxyRoute.cors.Origins, contentType)
@@ -89,16 +90,16 @@ func validateMethod(proxyRoute ProxyRoute, method string, w http.ResponseWriter,
 	return true
 }
 
-// setCORSHeaders sets the CORS headers from the provided configuration.
-func setCORSHeaders(w http.ResponseWriter, headers map[string]string) {
-	for k, v := range headers {
+// applyCORSHeaders sets the CORS headers from the provided configuration.
+func (proxyRoute *ProxyRoute) applyCORSHeaders(w http.ResponseWriter) {
+	for k, v := range proxyRoute.cors.Headers {
 		w.Header().Set(k, v)
 	}
 }
 
 // handlePreflight handles preflight requests (OPTIONS) for CORS.
 // Returns true if the request is a preflight request and has been handled.
-func handlePreflight(proxyRoute ProxyRoute, w http.ResponseWriter, r *http.Request) bool {
+func (proxyRoute *ProxyRoute) handlePreflight(w http.ResponseWriter, r *http.Request) bool {
 	if allowedOrigin(proxyRoute.cors.Origins, r.Header.Get("Origin")) {
 		logger.Debug("Handling preflight request,", "origin", r.Header.Get("Origin"))
 		w.Header().Set(accessControlAllowOrigin, r.Header.Get("Origin"))
@@ -110,8 +111,8 @@ func handlePreflight(proxyRoute ProxyRoute, w http.ResponseWriter, r *http.Reque
 	return false
 }
 
-// setForwardedHeaders sets headers for forwarding client information.
-func setForwardedHeaders(r *http.Request) {
+// forwardedHeaders sets headers for forwarding client information.
+func (proxyRoute *ProxyRoute) forwardedHeaders(r *http.Request) {
 	r.Header.Set("X-Forwarded-Host", r.Host)
 	r.Header.Set("X-Forwarded-For", getRealIP(r))
 	r.Header.Set("X-Real-IP", getRealIP(r))
@@ -120,18 +121,18 @@ func setForwardedHeaders(r *http.Request) {
 
 // createProxy creates a reverse proxy based on the configuration.
 // It selects between single-host, weighted, or round-robin load balancing.
-func createProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
+func (proxyRoute *ProxyRoute) createProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
 	if len(proxyRoute.backends) == 0 {
-		return createSingleHostProxy(proxyRoute, r, contentType, w)
+		return proxyRoute.createSingleHostProxy(r, contentType, w)
 	}
 	if proxyRoute.weightedBased {
-		return createWeightedProxy(proxyRoute, r, contentType, w)
+		return proxyRoute.createWeightedProxy(r, contentType, w)
 	}
-	return createRoundRobinProxy(proxyRoute, r, contentType, w)
+	return proxyRoute.createRoundRobinProxy(r, contentType, w)
 }
 
 // createSingleHostProxy creates a reverse proxy for a single backend.
-func createSingleHostProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
+func (proxyRoute *ProxyRoute) createSingleHostProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
 	backendURL, err := url.Parse(proxyRoute.target)
 	if err != nil {
 		logger.Error("Error parsing backend URL", "error", err)
@@ -144,13 +145,12 @@ func createSingleHostProxy(proxyRoute ProxyRoute, r *http.Request, contentType s
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}
-
 	return httputil.NewSingleHostReverseProxy(backendURL), nil
 }
 
 // createWeightedProxy creates a reverse proxy using weighted load balancing.
-func createWeightedProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
-	proxy, err := NewWeightedReverseProxy(proxyRoute, r)
+func (proxyRoute *ProxyRoute) createWeightedProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
+	proxy, err := proxyRoute.NewWeightedReverseProxy(r)
 	if err != nil {
 		logger.Error("Failed to create weighted reverse proxy", "route", proxyRoute.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unavailable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
@@ -159,8 +159,8 @@ func createWeightedProxy(proxyRoute ProxyRoute, r *http.Request, contentType str
 }
 
 // createRoundRobinProxy creates a reverse proxy using round-robin load balancing.
-func createRoundRobinProxy(proxyRoute ProxyRoute, r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
-	proxy, err := NewRoundRobinReverseProxy(proxyRoute, r)
+func (proxyRoute *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
+	proxy, err := proxyRoute.NewRoundRobinReverseProxy(r)
 	if err != nil {
 		logger.Error("Failed to create round-robin reverse proxy", "route", proxyRoute.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%d service unavailable", http.StatusServiceUnavailable), proxyRoute.cors.Origins, contentType)
@@ -170,7 +170,7 @@ func createRoundRobinProxy(proxyRoute ProxyRoute, r *http.Request, contentType s
 
 // createProxyTransport creates custom transport for the reverse proxy.
 // It allows insecure SSL verification if enabled in the configuration.
-func createProxyTransport(proxyRoute ProxyRoute) *http.Transport {
+func (proxyRoute *ProxyRoute) createProxyTransport() *http.Transport {
 	return &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: proxyRoute.security.TLS.SkipVerification,
@@ -180,7 +180,7 @@ func createProxyTransport(proxyRoute ProxyRoute) *http.Transport {
 }
 
 // rewritePath rewrites the request path if it matches the configured prefix.
-func rewritePath(r *http.Request, proxyRoute ProxyRoute) {
+func (proxyRoute *ProxyRoute) rewritePath(r *http.Request) {
 	if proxyRoute.path != "" && proxyRoute.rewrite != "" {
 		// Rewrite the path if it matches the prefix
 		if strings.HasPrefix(r.URL.Path, fmt.Sprintf("%s/", proxyRoute.path)) {
@@ -190,7 +190,7 @@ func rewritePath(r *http.Request, proxyRoute ProxyRoute) {
 }
 
 // NewWeightedReverseProxy creates a reverse proxy that uses a weighted load balancing algorithm.
-func NewWeightedReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputil.ReverseProxy, error) {
+func (proxyRoute *ProxyRoute) NewWeightedReverseProxy(r *http.Request) (*httputil.ReverseProxy, error) {
 	// Check if there are any available backends
 	availableBackend := proxyRoute.backends.AvailableBackend()
 	if len(availableBackend) == 0 {
@@ -202,6 +202,9 @@ func NewWeightedReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputil.
 	if backend == nil {
 		return nil, fmt.Errorf("no available backends for route=%s", proxyRoute.name)
 	}
+
+	// Save backend in context
+	r = r.WithContext(context.WithValue(r.Context(), CtxSelectedBackend, backend))
 
 	// Parse the backend URL and update the request
 	backendURL, err := url.Parse(backend.Endpoint)
@@ -216,7 +219,7 @@ func NewWeightedReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputil.
 }
 
 // NewRoundRobinReverseProxy creates a reverse proxy that uses a round-robin load balancing algorithm.
-func NewRoundRobinReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputil.ReverseProxy, error) {
+func (proxyRoute *ProxyRoute) NewRoundRobinReverseProxy(r *http.Request) (*httputil.ReverseProxy, error) {
 	// Check if there are any available backends
 	availableBackend := proxyRoute.backends.AvailableBackend()
 	if len(availableBackend) == 0 {
@@ -226,6 +229,9 @@ func NewRoundRobinReverseProxy(proxyRoute ProxyRoute, r *http.Request) (*httputi
 
 	index := atomic.AddUint32(&counter, 1) % uint32(len(availableBackend))
 	backend := proxyRoute.backends[index]
+
+	// Save backend in context
+	r = r.WithContext(context.WithValue(r.Context(), CtxSelectedBackend, backend))
 
 	// Parse the backend URL and update the request
 	backendURL, _ := url.Parse(backend.Endpoint)

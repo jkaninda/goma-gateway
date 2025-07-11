@@ -36,5 +36,3 @@ var (
 	certManager        *certmanager.CertManager
 	waitDelay          = 5 * time.Second
 )
-
-type contextKey string

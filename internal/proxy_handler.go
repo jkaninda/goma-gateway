@@ -24,14 +24,18 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 )
 
 // responseRecorder is a custom http.ResponseWriter that captures the response status code and body
 type responseRecorder struct {
 	http.ResponseWriter
-	statusCode int
-	body       *bytes.Buffer
+	statusCode    int
+	body          *bytes.Buffer
+	headerWritten bool
 }
 
 // newResponseRecorder creates a new responseRecorder
@@ -44,17 +48,21 @@ func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
 }
 
 // WriteHeader writes the status code to the response
-func (rec *responseRecorder) WriteHeader(code int) {
-	rec.statusCode = code
+func (recorder *responseRecorder) WriteHeader(statusCode int) {
+	if recorder.headerWritten {
+		return
+	}
+	recorder.statusCode = statusCode
+	recorder.headerWritten = true
 }
 
 // ProxyHandler proxies requests to the backend
-func (rec *responseRecorder) Write(data []byte) (int, error) {
-	return rec.body.Write(data)
+func (recorder *responseRecorder) Write(data []byte) (int, error) {
+	return recorder.body.Write(data)
 }
 
-// ProxyHandler intercepts responses based on the status code
-func (h *ProxyHandler) handler(next http.Handler) http.Handler {
+// Wrap intercepts responses based on the status code
+func (h *ProxyHandler) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		requestID := getRequestID(r)
@@ -93,18 +101,24 @@ func (h *ProxyHandler) handler(next http.Handler) http.Handler {
 			requestID = val.(string)
 		}
 		formatted := goutils.FormatDuration(time.Since(startTime), 2)
-
 		logFields := []any{
+			"request_id", requestID,
 			"method", r.Method,
-			"url", r.URL.Path,
+			"url", r.URL.RequestURI(),
+			"http_version", r.Proto,
 			"host", r.Host,
+			"client_ip", getRealIP(r),
+			"referer", r.Referer(),
 			"status", rec.statusCode,
 			"duration", formatted,
+			"request_content_length", contentLength,
+			"response_content_length", strconv.Itoa(rec.body.Len()),
+			"response_content_type", rec.Header().Get("Content-Type"),
 			"route", h.Name,
-			"client_ip", getRealIP(r),
-			"request_id", requestID,
-			"content_length", contentLength,
 			"user_agent", r.UserAgent(),
+		}
+		if backend, ok := r.Context().Value(CtxSelectedBackend).(*url.URL); ok {
+			logFields = append(logFields, "backend", backend.String())
 		}
 
 		// No interception logic needed
@@ -128,9 +142,11 @@ func (h *ProxyHandler) handler(next http.Handler) http.Handler {
 }
 
 // writeResponse writes the recorded response to the client
-func writeResponse(w http.ResponseWriter, rec *responseRecorder) {
-	w.WriteHeader(rec.statusCode)
-	_, _ = io.Copy(w, rec.body)
+func writeResponse(w http.ResponseWriter, recorder *responseRecorder) {
+	if !recorder.headerWritten {
+		w.WriteHeader(recorder.statusCode)
+	}
+	_, _ = io.Copy(w, recorder.body)
 }
 
 func getRequestID(r *http.Request) string {
@@ -138,7 +154,7 @@ func getRequestID(r *http.Request) string {
 	if requestID != "" {
 		return requestID
 	}
-	return uuid.NewString()
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
 }
 func logProxyResponse(status int, msg string, fields ...any) {
 	switch {

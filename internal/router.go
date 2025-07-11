@@ -63,7 +63,6 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	ctx := context.WithValue(req.Context(), CtxRequestStartTime, startTime)
 	ctx = context.WithValue(ctx, CtxRequestIDHeader, requestID)
-
 	req = req.WithContext(ctx)
 	r.mux.ServeHTTP(w, req)
 }
@@ -135,7 +134,7 @@ func (r *router) AddRoute(route Route) {
 		Errors:      route.ErrorInterceptor.Errors,
 		Origins:     route.Cors.Origins,
 	}
-	rRouter.Use(proxyHandler.handler)
+	rRouter.Use(proxyHandler.Wrap)
 
 	if len(route.Hosts) > 0 {
 		for _, host := range route.Hosts {
