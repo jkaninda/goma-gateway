@@ -24,7 +24,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 )
 
 func (gatewayServer *GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
@@ -158,7 +157,6 @@ func isBase64(input string) bool {
 	return err == nil
 }
 func startAutoCert() {
-	time.Sleep(waitDelay)
 	logger.Debug("Initializing certificate manager...")
 	err := certManager.Initialize()
 	if err != nil {
