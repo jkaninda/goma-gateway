@@ -24,121 +24,166 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
 // responseRecorder is a custom http.ResponseWriter that captures the response status code and body
 type responseRecorder struct {
 	http.ResponseWriter
-	statusCode int
-	body       *bytes.Buffer
+	statusCode  int
+	body        *bytes.Buffer
+	header      http.Header
+	intercept   bool
+	wroteHeader bool
 }
 
 // newResponseRecorder creates a new responseRecorder
-func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
+func newResponseRecorder(w http.ResponseWriter, intercept bool) *responseRecorder {
 	return &responseRecorder{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
-		body:           &bytes.Buffer{},
+		intercept:      intercept,
+		header:         make(http.Header),
+		body: func() *bytes.Buffer {
+			if intercept {
+				return &bytes.Buffer{}
+			}
+			return nil
+		}(),
 	}
+}
+
+func (rec *responseRecorder) Header() http.Header {
+	return rec.header
 }
 
 // WriteHeader writes the status code to the response
 func (rec *responseRecorder) WriteHeader(code int) {
+	if rec.wroteHeader {
+		return
+	}
 	rec.statusCode = code
+	rec.wroteHeader = true
+
+	rec.header.Del("Server")
+	rec.header.Set("Proxied-By", GatewayName)
+
+	dst := rec.ResponseWriter.Header()
+	for k := range dst {
+		delete(dst, k)
+	}
+	for k, vv := range rec.header {
+		for _, v := range vv {
+			dst.Add(k, v)
+		}
+	}
+	rec.ResponseWriter.WriteHeader(code)
 }
 
-// ProxyHandler proxies requests to the backend
 func (rec *responseRecorder) Write(data []byte) (int, error) {
-	return rec.body.Write(data)
+	if !rec.wroteHeader {
+		rec.WriteHeader(rec.statusCode)
+	}
+	if rec.intercept && rec.body != nil {
+		return rec.body.Write(data)
+	}
+	return rec.ResponseWriter.Write(data)
 }
 
-// ProxyHandler intercepts responses based on the status code
-func (h ProxyHandler) handler(next http.Handler) http.Handler {
+// Wrap intercepts responses based on the status code
+func (h *ProxyHandler) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		requestID := getRequestID(r)
 
 		if isWebSocketRequest(r) || isSSE(r) {
-			// Skip for WebSocket upgrades or Server-Sent Events
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Determine content type
 		contentType := h.ContentType
 		if contentType == "" {
 			contentType = r.Header.Get("Content-Type")
 		}
-
-		// Get request content length
 		contentLength := r.Header.Get("Content-Length")
 		if contentLength == "" {
 			contentLength = "0"
 		}
 
-		// Record the response for interception
-		rec := newResponseRecorder(w)
-		next.ServeHTTP(rec, r)
-		// Delete server header
-		rec.Header().Del("Server")
-		rec.Header().Set("Proxied-By", GatewayName)
-		rec.Header().Set(RequestIDHeader, requestID)
+		intercept := h.Enabled && len(h.Errors) > 0
+		rec := newResponseRecorder(w, intercept)
 
-		// Retrieve the request start time from context
 		if val := r.Context().Value(CtxRequestStartTime); val != nil {
 			startTime = val.(time.Time)
 		}
 		if val := r.Context().Value(CtxRequestIDHeader); val != nil {
 			requestID = val.(string)
 		}
-		formatted := goutils.FormatDuration(time.Since(startTime), 2)
+		rec.Header().Set(RequestIDHeader, requestID)
+
+		next.ServeHTTP(rec, r)
+
+		duration := goutils.FormatDuration(time.Since(startTime), 2)
 
 		logFields := []any{
-			"method", r.Method,
-			"url", r.URL.Path,
-			"host", r.Host,
-			"status", rec.statusCode,
-			"duration", formatted,
-			"route", h.Name,
-			"client_ip", getRealIP(r),
 			"request_id", requestID,
-			"content_length", contentLength,
+			"method", r.Method,
+			"url", r.URL.RequestURI(),
+			"http_version", r.Proto,
+			"host", r.Host,
+			"client_ip", getRealIP(r),
+			"referer", r.Referer(),
+			"status", rec.statusCode,
+			"duration", duration,
+			"request_content_length", contentLength,
+			"route", h.Name,
 			"user_agent", r.UserAgent(),
 		}
 
-		// No interception logic needed
-		if !h.Enabled || len(h.Errors) == 0 {
-			logProxyResponse(rec.statusCode, "Proxied request", logFields...)
-			// Copy recorded response to the client
+		// Intercept only if enabled and needed
+		if intercept {
+			if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
+				logProxyResponse(rec.statusCode, "Proxied request resulted in error", logFields...)
+				middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
+				return
+			}
+			// Only write response if the body was intercepted
 			writeResponse(w, rec)
+			logProxyResponse(rec.statusCode, "Proxied request", logFields...)
 			return
 		}
-
-		// Check if the response should be intercepted
-		if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
-			logProxyResponse(rec.statusCode, "Proxied request resulted in error", logFields...)
-			middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
-			return
+		// No interception
+		if !rec.wroteHeader {
+			rec.WriteHeader(rec.statusCode)
 		}
-
 		logProxyResponse(rec.statusCode, "Proxied request", logFields...)
-		writeResponse(w, rec)
 	})
 }
 
 // writeResponse writes the recorded response to the client
 func writeResponse(w http.ResponseWriter, rec *responseRecorder) {
-	w.WriteHeader(rec.statusCode)
-	_, _ = io.Copy(w, rec.body)
-}
+	dst := w.Header()
+	for k := range dst {
+		delete(dst, k)
+	}
+	for k, vv := range rec.header {
+		for _, v := range vv {
+			dst.Add(k, v)
+		}
+	}
 
+	w.WriteHeader(rec.statusCode)
+	if rec.body != nil {
+		_, _ = io.Copy(w, rec.body)
+	}
+}
 func getRequestID(r *http.Request) string {
 	requestID := r.Header.Get("X-Request-ID")
 	if requestID != "" {
 		return requestID
 	}
-	return uuid.NewString()
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
 }
 func logProxyResponse(status int, msg string, fields ...any) {
 	switch {

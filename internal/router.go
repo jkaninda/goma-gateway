@@ -126,14 +126,14 @@ func (r *router) AddRoute(route Route) {
 		rRouter.Use(pr.PrometheusMiddleware)
 	}
 
-	proxyHandler := ProxyHandler{
+	proxyHandler := &ProxyHandler{
 		Name:        route.Name,
 		Enabled:     route.ErrorInterceptor.Enabled,
 		ContentType: route.ErrorInterceptor.ContentType,
 		Errors:      route.ErrorInterceptor.Errors,
 		Origins:     route.Cors.Origins,
 	}
-	rRouter.Use(proxyHandler.handler)
+	rRouter.Use(proxyHandler.Wrap)
 
 	if route.EnableBotDetection {
 		logger.Debug("Bot detection enabled", "route", route.Name)
