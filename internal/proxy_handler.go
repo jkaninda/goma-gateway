@@ -33,9 +33,8 @@ import (
 // responseRecorder is a custom http.ResponseWriter that captures the response status code and body
 type responseRecorder struct {
 	http.ResponseWriter
-	statusCode    int
-	body          *bytes.Buffer
-	headerWritten bool
+	statusCode int
+	body       *bytes.Buffer
 }
 
 // newResponseRecorder creates a new responseRecorder
@@ -48,17 +47,13 @@ func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
 }
 
 // WriteHeader writes the status code to the response
-func (recorder *responseRecorder) WriteHeader(statusCode int) {
-	if recorder.headerWritten {
-		return
-	}
-	recorder.statusCode = statusCode
-	recorder.headerWritten = true
+func (rec *responseRecorder) WriteHeader(code int) {
+	rec.statusCode = code
 }
 
 // ProxyHandler proxies requests to the backend
-func (recorder *responseRecorder) Write(data []byte) (int, error) {
-	return recorder.body.Write(data)
+func (rec *responseRecorder) Write(data []byte) (int, error) {
+	return rec.body.Write(data)
 }
 
 // Wrap intercepts responses based on the status code
@@ -143,9 +138,7 @@ func (h *ProxyHandler) Wrap(next http.Handler) http.Handler {
 
 // writeResponse writes the recorded response to the client
 func writeResponse(w http.ResponseWriter, recorder *responseRecorder) {
-	if !recorder.headerWritten {
-		w.WriteHeader(recorder.statusCode)
-	}
+	w.WriteHeader(recorder.statusCode)
 	_, _ = io.Copy(w, recorder.body)
 }
 
