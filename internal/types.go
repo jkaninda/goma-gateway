@@ -180,7 +180,7 @@ type AccessPolicyRuleMiddleware struct {
 	Action       string   `yaml:"action,omitempty"` // action, ALLOW or DENY
 	SourceRanges []string `yaml:"sourceRanges"`     //  list of Ips
 }
-type ProxyHandler struct {
+type ProxyMiddleware struct {
 	Name        string
 	Enabled     bool
 	ContentType string

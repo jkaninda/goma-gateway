@@ -22,8 +22,8 @@ import (
 	"github.com/google/uuid"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -36,6 +36,10 @@ type responseRecorder struct {
 	header      http.Header
 	intercept   bool
 	wroteHeader bool
+	intercepted bool
+	bodySize    int64
+	maxBodySize int64 // Maximum body size to buffer (50MB)
+	skipBuffer  bool
 }
 
 // newResponseRecorder creates a new responseRecorder
@@ -45,12 +49,8 @@ func newResponseRecorder(w http.ResponseWriter, intercept bool) *responseRecorde
 		statusCode:     http.StatusOK,
 		intercept:      intercept,
 		header:         make(http.Header),
-		body: func() *bytes.Buffer {
-			if intercept {
-				return &bytes.Buffer{}
-			}
-			return nil
-		}(),
+		body:           bytes.NewBuffer(nil),
+		maxBodySize:    50 * 1024 * 1024, // 50MB limit
 	}
 }
 
@@ -69,30 +69,56 @@ func (rec *responseRecorder) WriteHeader(code int) {
 	rec.header.Del("Server")
 	rec.header.Set("Proxied-By", GatewayName)
 
-	dst := rec.ResponseWriter.Header()
-	for k := range dst {
-		delete(dst, k)
+	// Check if we should bypass buffering based on content type and headers
+	if rec.intercept && shouldBypassBodyIntercept(rec.header) {
+		rec.skipBuffer = true
 	}
-	for k, vv := range rec.header {
-		for _, v := range vv {
-			dst.Add(k, v)
+
+	// Only write headers to original response if not intercepting or bypassing
+	if !rec.intercept || rec.skipBuffer {
+		copyHeaders(rec.ResponseWriter.Header(), rec.header)
+		if !rec.wroteHeader {
+			rec.ResponseWriter.WriteHeader(code)
 		}
 	}
-	rec.ResponseWriter.WriteHeader(code)
 }
 
 func (rec *responseRecorder) Write(data []byte) (int, error) {
 	if !rec.wroteHeader {
+		rec.wroteHeader = true
 		rec.WriteHeader(rec.statusCode)
 	}
-	if rec.intercept && rec.body != nil {
-		return rec.body.Write(data)
+
+	// If not intercepting or bypassing, write directly
+	if !rec.intercept || rec.skipBuffer {
+		return rec.ResponseWriter.Write(data)
 	}
-	return rec.ResponseWriter.Write(data)
+
+	// If intercepting, check size limits and buffer accordingly
+	dataSize := int64(len(data))
+
+	if rec.bodySize+dataSize <= rec.maxBodySize {
+		rec.bodySize += dataSize
+		return rec.body.Write(data)
+	} else {
+		rec.skipBuffer = true
+		if rec.body.Len() > 0 {
+			copyHeaders(rec.ResponseWriter.Header(), rec.header)
+			rec.wroteHeader = true
+			rec.ResponseWriter.WriteHeader(rec.statusCode)
+			_, err := rec.ResponseWriter.Write(rec.body.Bytes())
+			if err != nil {
+				return 0, err
+			}
+			rec.body = nil // Free the buffer memory
+		}
+		// Write current data directly to original response
+		return rec.ResponseWriter.Write(data)
+	}
 }
 
 // Wrap intercepts responses based on the status code
-func (h *ProxyHandler) Wrap(next http.Handler) http.Handler {
+func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		requestID := getRequestID(r)
@@ -141,42 +167,87 @@ func (h *ProxyHandler) Wrap(next http.Handler) http.Handler {
 			"user_agent", r.UserAgent(),
 		}
 
-		// Intercept only if enabled and needed
 		if intercept {
-			if ok, message := middlewares.CanIntercept(rec.statusCode, h.Errors); ok {
-				logProxyResponse(rec.statusCode, "Proxied request resulted in error", logFields...)
-				middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
-				return
+			if ok, message := middlewares.ShouldIntercept(rec.statusCode, h.Errors); ok {
+				rec.intercepted = true
+				logger.Debug("================== Intercepting response")
+
+				if !rec.skipBuffer {
+					copyHeaders(w.Header(), rec.header)
+					logProxyResponse(rec.statusCode, "Proxied request resulted in error", logFields...)
+					middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
+					return
+				} else {
+					logger.Debug("Response body too large for interception, already written")
+				}
+			} else {
+				logger.Debug("============ Response not intercepted")
+
+				// Not intercepting
+				if !rec.skipBuffer {
+					copyHeaders(w.Header(), rec.header)
+					if rec.wroteHeader {
+						w.WriteHeader(rec.statusCode)
+					}
+					if rec.body != nil && rec.body.Len() > 0 {
+						_, err := w.Write(rec.body.Bytes())
+						if err != nil {
+							return
+						}
+					}
+				}
 			}
-			// Only write response if the body was intercepted
-			writeResponse(w, rec)
-			logProxyResponse(rec.statusCode, "Proxied request", logFields...)
-			return
-		}
-		// No interception
-		if !rec.wroteHeader {
-			rec.WriteHeader(rec.statusCode)
 		}
 		logProxyResponse(rec.statusCode, "Proxied request", logFields...)
 	})
 }
 
-// writeResponse writes the recorded response to the client
-func writeResponse(w http.ResponseWriter, rec *responseRecorder) {
-	dst := w.Header()
+func copyHeaders(dst, src http.Header) {
 	for k := range dst {
 		delete(dst, k)
 	}
-	for k, vv := range rec.header {
+	for k, vv := range src {
 		for _, v := range vv {
 			dst.Add(k, v)
 		}
 	}
+}
 
-	w.WriteHeader(rec.statusCode)
-	if rec.body != nil {
-		_, _ = io.Copy(w, rec.body)
+// shouldBypassBodyIntercept checks if we should bypass body interception based on content type and headers
+func shouldBypassBodyIntercept(header http.Header) bool {
+	contentDisposition := header.Get("Content-Disposition")
+	contentType := header.Get("Content-Type")
+	contentLengthStr := header.Get("Content-Length")
+
+	// Skip file downloads
+	if strings.Contains(contentDisposition, "attachment") {
+		return true
 	}
+
+	// Skip binary content types, but allow JSON and XML
+	if strings.HasPrefix(contentType, "application/") {
+		if strings.Contains(contentType, "json") ||
+			strings.Contains(contentType, "xml") ||
+			strings.Contains(contentType, "text") {
+			return false
+		}
+		return true
+	}
+
+	// Skip video and audio content
+	if strings.HasPrefix(contentType, "video/") ||
+		strings.HasPrefix(contentType, "audio/") {
+		return true
+	}
+
+	// Skip large content based on Content-Length header
+	if contentLengthStr != "" {
+		if size, err := strconv.Atoi(contentLengthStr); err == nil && size > 50*1024*1024 { // 50MB
+			return true
+		}
+	}
+
+	return false
 }
 func getRequestID(r *http.Request) string {
 	requestID := r.Header.Get("X-Request-ID")
