@@ -126,14 +126,14 @@ func (r *router) AddRoute(route Route) {
 		rRouter.Use(pr.PrometheusMiddleware)
 	}
 
-	proxyHandler := &ProxyHandler{
+	proxyMiddleware := &ProxyMiddleware{
 		Name:        route.Name,
 		Enabled:     route.ErrorInterceptor.Enabled,
 		ContentType: route.ErrorInterceptor.ContentType,
 		Errors:      route.ErrorInterceptor.Errors,
 		Origins:     route.Cors.Origins,
 	}
-	rRouter.Use(proxyHandler.Wrap)
+	rRouter.Use(proxyMiddleware.Wrap)
 
 	if route.EnableBotDetection {
 		logger.Debug("Bot detection enabled", "route", route.Name)
@@ -194,7 +194,5 @@ func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
 		limiter := rLimit.NewRateLimiterWindow()
 		mux.Use(limiter.RateLimitMiddleware())
 	}
-
-	mux.Use(CORSHandler(gateway.Cors))
 	logger.Debug("Added global handler", "routes", len(dynamicRoutes))
 }

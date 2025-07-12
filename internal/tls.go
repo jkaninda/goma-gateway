@@ -160,7 +160,7 @@ func startAutoCert() {
 	logger.Debug("Initializing certificate manager...")
 	err := certManager.Initialize()
 	if err != nil {
-		logger.Error("Failed to initialize Acme", "error", err)
+		return
 	}
 	logger.Debug("Starting AutoCert service")
 	if certManager != nil && certManager.AcmeInitialized() {

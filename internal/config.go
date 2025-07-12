@@ -147,6 +147,7 @@ func validateRoutes(gateway Gateway, routes []Route) []Route {
 	for i := range routes {
 		handleDeprecations(&routes[i])
 		mergeGatewayErrorInterceptor(&routes[i], gateway.ErrorInterceptor)
+		mergeGatewayCors(&routes[i], &gateway.Cors)
 	}
 
 	return routes
@@ -187,7 +188,23 @@ func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.R
 		}
 	}
 }
-
+func mergeGatewayCors(route *Route, cors *Cors) {
+	if cors == nil {
+		return
+	}
+	if isZeroCors(route.Cors) {
+		route.Cors = *cors
+	}
+}
+func isZeroCors(c Cors) bool {
+	return len(c.Origins) == 0 &&
+		len(c.AllowedHeaders) == 0 &&
+		len(c.Headers) == 0 &&
+		len(c.ExposeHeaders) == 0 &&
+		c.MaxAge == 0 &&
+		len(c.AllowMethods) == 0 &&
+		!c.AllowCredentials
+}
 func GetConfigPaths() string {
 	return util.GetStringEnv("GOMA_CONFIG_FILE", ConfigFile)
 }

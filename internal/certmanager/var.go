@@ -35,6 +35,7 @@ var (
 	cacheDir                          = "/etc/letsencrypt"
 	ErrAlreadyInProgress              = errors.New("certificate renewal already in progress, please wait for the current process to finish")
 	httpChallengeMu      sync.Mutex
+	ErrorNoEmail         = errors.New("no email address provided")
 )
 
 const (
