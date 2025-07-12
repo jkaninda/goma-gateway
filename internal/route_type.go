@@ -17,7 +17,9 @@
 
 package internal
 
-import "github.com/jkaninda/goma-gateway/internal/middlewares"
+import (
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+)
 
 // Route defines a gateway route configuration.
 type Route struct {
@@ -121,13 +123,7 @@ type Backends []Backend
 
 func (r *Route) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	r.Enabled = true
-
+	r.Security.ForwardHostHeaders = true
 	type tmp Route
-	return unmarshal((*tmp)(r))
-}
-
-func (r *Security) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	r.ForwardHostHeaders = true
-	type tmp Security
 	return unmarshal((*tmp)(r))
 }

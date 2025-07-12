@@ -110,11 +110,9 @@ func (r *router) AddRoute(route Route) {
 		backends:      route.Backends,
 		weightedBased: route.Backends.HasPositiveWeight(),
 		methods:       route.Methods,
-		//	disableHostForwarding: route.DisableHostForwarding,
-		cors: route.Cors,
-		//	insecureSkipVerify:    route.InsecureSkipVerify,
-		security: route.Security,
-		certPool: certPool,
+		cors:          route.Cors,
+		security:      route.Security,
+		certPool:      certPool,
 	}
 	rRouter.Use(CORSHandler(route.Cors))
 	attachMiddlewares(route, rRouter)

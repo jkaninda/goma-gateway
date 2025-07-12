@@ -142,6 +142,7 @@ func (proxyRoute *ProxyRoute) createSingleHostProxy(r *http.Request, contentType
 
 	// Update the headers to allow for SSL redirection if host forwarding is disabled
 	if !proxyRoute.security.ForwardHostHeaders {
+		logger.Debug(">>> Forwarding host headers disabled")
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}
@@ -212,6 +213,7 @@ func (proxyRoute *ProxyRoute) NewWeightedReverseProxy(r *http.Request) (*httputi
 		return nil, fmt.Errorf("error parsing backend URL for route %s: %v", proxyRoute.name, err)
 	}
 	if !proxyRoute.security.ForwardHostHeaders {
+		logger.Debug(">>> Forwarding host headers")
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}
@@ -236,6 +238,7 @@ func (proxyRoute *ProxyRoute) NewRoundRobinReverseProxy(r *http.Request) (*httpu
 	// Parse the backend URL and update the request
 	backendURL, _ := url.Parse(backend.Endpoint)
 	if !proxyRoute.security.ForwardHostHeaders {
+		logger.Debug(">>> Forwarding host headers")
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}

@@ -136,6 +136,7 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 		"url", r.URL.Path,
 		"status", statusCode,
 		"host", r.Host,
+		"referer", r.Referer(),
 		"duration", formatted,
 		"client_ip", getRealIP(r),
 		"request_id", requestID,
