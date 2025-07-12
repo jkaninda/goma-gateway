@@ -141,6 +141,10 @@ func (cm *CertManager) Initialize() error {
 		return nil // Already initialized
 	}
 	if err := cm.validateConfig(); err != nil {
+		if errors.Is(err, ErrorNoEmail) {
+			return err
+		}
+		logger.Error("Failed to validate Acme config", "error", err)
 		return err
 	}
 
@@ -168,7 +172,7 @@ func (cm *CertManager) Initialize() error {
 // validateConfig validates the configuration
 func (cm *CertManager) validateConfig() error {
 	if cm.config == nil || cm.config.Acme.Email == "" {
-		return errors.New("no email provided")
+		return ErrorNoEmail
 	}
 	if cm.config.Provider == CertVaultProvider {
 		return errors.New("vault provider not yet implemented")

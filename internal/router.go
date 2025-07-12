@@ -127,14 +127,14 @@ func (r *router) AddRoute(route Route) {
 		rRouter.Use(pr.PrometheusMiddleware)
 	}
 
-	proxyHandler := &ProxyHandler{
+	proxyMiddleware := &ProxyMiddleware{
 		Name:        route.Name,
 		Enabled:     route.ErrorInterceptor.Enabled,
 		ContentType: route.ErrorInterceptor.ContentType,
 		Errors:      route.ErrorInterceptor.Errors,
 		Origins:     route.Cors.Origins,
 	}
-	rRouter.Use(proxyHandler.Wrap)
+	rRouter.Use(proxyMiddleware.Wrap)
 
 	if len(route.Hosts) > 0 {
 		for _, host := range route.Hosts {
