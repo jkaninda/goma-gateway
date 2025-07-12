@@ -22,7 +22,7 @@ import (
 	"net/http"
 )
 
-func CanIntercept(status int, routeErrors []RouteError) (bool, string) {
+func ShouldIntercept(status int, routeErrors []RouteError) (bool, string) {
 	for _, routeError := range routeErrors {
 		if status == routeError.Status || status == routeError.Code {
 			if routeError.Body != "" {
