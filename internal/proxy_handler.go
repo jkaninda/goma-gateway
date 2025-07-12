@@ -185,17 +185,6 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 	})
 }
 
-func copyHeaders(dst, src http.Header) {
-	for k := range dst {
-		delete(dst, k)
-	}
-	for k, vv := range src {
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
-	}
-}
-
 // shouldBypassBodyIntercept checks if we should bypass body interception based on content type and headers
 func shouldBypassBodyIntercept(header http.Header) bool {
 	contentDisposition := header.Get("Content-Disposition")
