@@ -211,6 +211,7 @@ func (r *Route) handleDeprecations() {
 		r.Security.TLS.SkipVerification = true
 	}
 	if r.DisableHostForwarding {
+		logger.Warn("Deprecation: disableHostForwarding is deprecated, please use `security.forwardHostHeaders`")
 		r.Security.ForwardHostHeaders = false
 	}
 	if r.Destination != "" && len(r.Backends) == 0 {
