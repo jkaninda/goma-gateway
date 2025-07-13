@@ -62,21 +62,33 @@ func (g *Gateway) NewRouter() Router {
 }
 
 // AddRoutes adds multiple routes from another router.
+// AddRoutes adds multiple routes with better error handling and validation
 func (r *router) AddRoutes() error {
-	logger.Debug("=========== Adding routes to the router =========", "routes", len(dynamicRoutes))
+	logger.Debug("Adding routes to router", "count", len(dynamicRoutes))
+
+	var addedCount int
+	var errors []error
+
 	for _, route := range dynamicRoutes {
-		logger.Debug("Adding route", "route", route.Name, "path", route.Path, "hosts", route.Hosts)
 		if !route.Enabled {
 			logger.Debug("Skipping disabled route", "route", route.Name, "path", route.Path)
-			logger.Info("Proxies Route is disabled", "route", route.Name, "path", route.Path)
 			continue
 		}
-		err := r.AddRoute(route)
-		if err != nil {
-			return err
+
+		if err := r.AddRoute(route); err != nil {
+			logger.Error("Failed to add route", "route", route.Name, "error", err)
+			errors = append(errors, fmt.Errorf("route %s: %w", route.Name, err))
+			continue
 		}
+		addedCount++
 	}
-	logger.Debug("Finished adding routes to the router")
+
+	logger.Debug("Finished adding routes", "added", addedCount, "errors", len(errors))
+
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to add %d routes: %v", len(errors), errors)
+	}
+
 	return nil
 }
 
@@ -140,6 +152,9 @@ func (r *router) validateRoute(route Route) error {
 
 // AddRoute adds a single route to the router.
 func (r *router) AddRoute(route Route) error {
+	if err := r.validateRoute(route); err != nil {
+		return fmt.Errorf("route validation failed: %w", err)
+	}
 	// Configure CORS
 	if err := r.configureCORS(&route); err != nil {
 		return fmt.Errorf("failed to configure CORS: %w", err)
