@@ -30,6 +30,7 @@ import (
 	"slices"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 // ProxyHandler is the main handler for proxying incoming HTTP requests.
@@ -178,6 +179,12 @@ func (pr *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string,
 // It allows insecure SSL verification if enabled in the configuration.
 func (pr *ProxyRoute) createProxyTransport() *http.Transport {
 	return &http.Transport{
+		DisableCompression:  false,
+		MaxIdleConns:        250,
+		MaxIdleConnsPerHost: 150,
+		IdleConnTimeout:     90 * time.Second,
+		DialContext:         cachedDialer.DialContext,
+		ForceAttemptHTTP2:   true,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: pr.security.TLS.SkipVerification,
 			RootCAs:            pr.certPool,

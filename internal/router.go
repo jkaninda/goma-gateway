@@ -25,8 +25,23 @@ import (
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
+	"sync"
 	"time"
 )
+
+type Router interface {
+	AddRoute(route Route)
+	AddRoutes(route Router)
+	Mux() http.Handler
+	UpdateHandler(*Gateway)
+	ServeHTTP(http.ResponseWriter, *http.Request)
+}
+
+type router struct {
+	mux           *mux.Router
+	enableMetrics bool
+	sync.RWMutex
+}
 
 // NewRouter creates a new router instance.
 func (g *Gateway) NewRouter() Router {
