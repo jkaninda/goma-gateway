@@ -46,7 +46,7 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 				if isAllowed {
 					next.ServeHTTP(w, r)
 				} else {
-					logger.Error(" IP address in the blocklist, access not allowed", "ip", clientIP)
+					logger.Warn(" IP address in the blocklist, access not allowed", "ip", clientIP)
 					RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), access.Origins, contentType)
 				}
 				return
@@ -55,7 +55,7 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 
 		// Final response for disallowed IPs
 		if isAllowed {
-			logger.Error("IP address not allowed", "ip", clientIP)
+			logger.Warn("IP address not allowed", "ip", clientIP)
 			RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d %s", http.StatusForbidden, http.StatusText(http.StatusForbidden)), access.Origins, contentType)
 		} else {
 			next.ServeHTTP(w, r)
