@@ -41,7 +41,11 @@ func (gatewayServer *GatewayServer) Start() error {
 
 	// Create router
 	newRouter := gatewayServer.gateway.NewRouter()
-	newRouter.AddRoutes(newRouter)
+	err = newRouter.AddRoutes()
+	if err != nil {
+		logger.Error("Failed to add routes", "error", err)
+		return err
+	}
 
 	logger.Debug("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
 	gatewayServer.initRedis()
