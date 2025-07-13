@@ -65,7 +65,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 				err = redisRateLimiter(clientID, rl.unit, rl.requests)
 				if err != nil {
 					logger.Debug("Redis Rate limiter error", "error", err)
-					logger.Error("Too many requests", "ip", clientIP, "url", r.URL, "user_agent", r.UserAgent())
+					logger.Warn("Too many requests", "ip", clientIP, "url", r.URL, "user_agent", r.UserAgent())
 					return
 				}
 			} else {
@@ -82,7 +82,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 				rl.mu.Unlock()
 
 				if client.RequestCount > rl.requests {
-					logger.Error("Too many requests from this address", "ip", clientIP, "url", r.URL, "user_agent", r.UserAgent())
+					logger.Warn("Too many requests from this address", "ip", clientIP, "url", r.URL, "user_agent", r.UserAgent())
 					// Update Origin Cors Headers
 					if allowedOrigin(rl.origins, r.Header.Get("Origin")) {
 						w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
