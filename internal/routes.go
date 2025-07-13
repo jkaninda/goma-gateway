@@ -103,7 +103,7 @@ func (gatewayServer *GatewayServer) Initialize() error {
 	if certManager != nil && certManager.AcmeInitialized() {
 		certManager.UpdateDomains(hostNames(dynamicRoutes))
 	}
-
+	// cachedDialer.ClearCache()
 	return nil
 }
 
