@@ -28,32 +28,27 @@ type Gateway struct {
 	// Redis contains the configuration details for the Redis database.
 	Redis Redis `yaml:"redis,omitempty"`
 	// WriteTimeout defines the timeout (in seconds) for writing responses to clients.
+	// Deprecated
 	WriteTimeout int `yaml:"writeTimeout" env:"GOMA_WRITE_TIMEOUT, overwrite"`
 	// ReadTimeout defines the timeout (in seconds) for reading requests from clients.
+	// Deprecated
 	ReadTimeout int `yaml:"readTimeout" env:"GOMA_READ_TIMEOUT, overwrite"`
 	// IdleTimeout defines the timeout (in seconds) for idle connections.
-	IdleTimeout int        `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
+	// Deprecated
+	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
+	// Timeouts defines server timeout in second
+	Timeouts Timeouts `yaml:"timeouts,omitempty"`
+	// EntryPoints of the server
 	EntryPoints EntryPoint `yaml:"entryPoints,omitempty"`
-	// Grouped monitoring and diagnostics configuration
+	// Monitoring grouped monitoring and diagnostics configuration
 	Monitoring Monitoring `yaml:"monitoring,omitempty"`
-	// EnableExploitProtection enables or disables blocking of common exploit patterns.
-	EnableExploitProtection bool `yaml:"enableExploitProtection,omitempty"`
-	// BlockCommonExploits
-	// Deprecated, use EnableExploitProtection
-	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	// Log defines the logging config
-	Log Log `yaml:"log"`
-	// DisableHealthCheckStatus enables or disables health checks for routes.
-	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus,omitempty"`
-	// DisableRouteHealthCheckError enables or disables logging of backend health check errors.
-	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError,omitempty"`
-	// DisableDisplayRouteOnStart enables or disables the display of routes during server startup.
-	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart,omitempty"`
-	// EnableStrictSlash enables or disables strict routing and trailing slashes.
-	//
+	Log        Log        `yaml:"log"`
+	Networking Networking `yaml:"networking,omitempty"`
 	// When enabled, the router will match the path with or without a trailing slash.
 	EnableStrictSlash bool `yaml:"enableStrictSlash,omitempty"`
 	// EnableMetrics enables or disables server metrics collection.
+	// Deprecated
 	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
 	// ErrorInterceptor provides advanced error-handling configuration for intercepted backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
@@ -123,10 +118,53 @@ type Log struct {
 type Monitoring struct {
 	// EnableMetrics enables or disables server metrics collection.
 	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
+	// Paths sets metrics custom path (default /metrics)
+	Path string `yaml:"path,omitempty"`
+	// Middleware name to apply to this Route
+	Middleware  string      `yaml:"middleware,omitempty"`
+	HealthCheck HealthCheck `yaml:"healthCheck,omitempty"`
+}
+type HealthCheck struct {
+	EnableHealthCheckStatus     bool `yaml:"enableHealthCheckStatus,omitempty"`
+	EnableRouteHealthCheckError bool `yaml:"enableRouteHealthCheckError,omitempty"`
 }
 type Protocol string
 type ForwardRule struct {
 	Protocol Protocol `yaml:"protocol,omitempty"`
 	Port     int      `yaml:"port,omitempty"`
 	Target   string   `yaml:"target,omitempty"`
+}
+type Timeouts struct {
+	Write int `yaml:"write,omitempty" env:"GOMA_WRITE_TIMEOUT,overwrite"`
+	Read  int `yaml:"read,omitempty" env:"GOMA_READ_TIMEOUT,overwrite"`
+	Idle  int `yaml:"idle,omitempty" env:"GOMA_IDLE_TIMEOUT,overwrite"`
+}
+
+type Networking struct {
+	DNSCache      DNSCacheConfig `yaml:"dnsCache,omitempty"`
+	ProxySettings ProxyConfig    `yaml:"proxy,omitempty"`
+}
+type DNSCacheConfig struct {
+	Enable        bool     `yaml:"enable,omitempty"`
+	TTL           int      `yaml:"ttl,omitempty"` // in seconds
+	ClearOnReload bool     `yaml:"clearOnReload,omitempty"`
+	Resolver      []string `yaml:"resolver,omitempty"` // e.g., ["8.8.8.8:53"]
+}
+type ProxyConfig struct {
+	DisableCompression  bool `yaml:"disableCompression,omitempty"`
+	MaxIdleConns        int  `yaml:"maxIdleConns,omitempty"`
+	MaxIdleConnsPerHost int  `yaml:"maxIdleConnsPerHost,omitempty"`
+	// IdleConnTimeout in seconds
+	IdleConnTimeout   int  `yaml:"idleConnTimeout,omitempty"`
+	ForceAttemptHTTP2 bool `yaml:"forceAttemptHTTP2,omitempty"`
+}
+
+func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Proxy
+	g.Networking.ProxySettings.ForceAttemptHTTP2 = true
+	g.Networking.ProxySettings.MaxIdleConns = 250
+	g.Networking.ProxySettings.MaxIdleConnsPerHost = 150
+	g.Networking.ProxySettings.IdleConnTimeout = 90
+	type tmp Gateway
+	return unmarshal((*tmp)(g))
 }

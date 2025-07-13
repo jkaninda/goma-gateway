@@ -227,11 +227,21 @@ func (g *Gateway) handleDeprecations() {
 	if len(g.ExtraConfig.Directory) == 0 {
 		g.ExtraConfig.Directory = ExtraDir
 	}
-	if g.BlockCommonExploits {
-		g.EnableExploitProtection = true
-		logger.Warn("Deprecation: blockCommonExploits is deprecated, please use enableExploitProtection")
+	if g.ReadTimeout > 0 {
+		logger.Warn("Deprecation: readTimeout is deprecated, please use `timeouts.read`")
+		g.Timeouts.Read = g.ReadTimeout
 	}
-
+	if g.WriteTimeout > 0 {
+		logger.Warn("Deprecation: writeTimeout is deprecated, please use `timeouts.write`")
+		g.Timeouts.Write = g.WriteTimeout
+	}
+	if g.IdleTimeout > 0 {
+		logger.Warn("Deprecation: idleTimeout is deprecated, please use `timeouts.idle`")
+		g.Timeouts.Idle = g.IdleTimeout
+	}
+	if g.EnableMetrics {
+		g.Monitoring.EnableMetrics = true
+	}
 }
 
 // *************** END DEPRECATIONS ******************************
@@ -244,9 +254,11 @@ func initConfig(configFile string) error {
 	conf := &GatewayConfig{
 		Version: version.ConfigVersion,
 		GatewayConfig: Gateway{
-			WriteTimeout: 15,
-			ReadTimeout:  15,
-			IdleTimeout:  30,
+			Timeouts: Timeouts{
+				Read:  30,
+				Write: 30,
+				Idle:  30,
+			},
 			ExtraConfig: ExtraRouteConfig{
 				Directory: ExtraDir,
 				Watch:     false,
@@ -268,15 +280,19 @@ func initConfig(configFile string) error {
 						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
 					},
-					DisableHostForwarding: true,
-					Middlewares:           []string{"block-access"},
+					Security: Security{
+						TLS: SecurityTLS{
+							SkipVerification: true,
+						},
+						ForwardHostHeaders: false,
+					},
+					Middlewares: []string{"block-access"},
 				},
 				{
-					Name:                  "api",
-					Path:                  "/",
-					Hosts:                 []string{"app.example.com"},
-					Rewrite:               "/",
-					DisableHostForwarding: false,
+					Name:    "api",
+					Path:    "/",
+					Hosts:   []string{"app.example.com"},
+					Rewrite: "/",
 					Backends: Backends{
 						Backend{Endpoint: "https://api-1.example.com", Weight: 5},
 						Backend{Endpoint: "https://api-2.example.com", Weight: 2},

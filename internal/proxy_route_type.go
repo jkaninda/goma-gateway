@@ -30,4 +30,5 @@ type ProxyRoute struct {
 	cors          Cors
 	security      Security
 	certPool      *x509.CertPool
+	networking    Networking
 }

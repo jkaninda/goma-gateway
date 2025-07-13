@@ -61,9 +61,7 @@ func (gatewayServer *GatewayServer) Start() error {
 	}
 	// Add default certificate
 	certManager.AddCertificate("default", *certificate)
-	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
-		printRoute(dynamicRoutes)
-	}
+	printRoute(dynamicRoutes)
 	// Watch for changes
 	if gatewayServer.gateway.ExtraConfig.Watch {
 		logger.Debug("Dynamic configuration watch enabled")
@@ -90,9 +88,9 @@ func (gatewayServer *GatewayServer) Start() error {
 func (gatewayServer *GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
 	return &http.Server{
 		Addr:         addr,
-		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
-		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
-		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
+		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.Timeouts.Write),
+		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.Timeouts.Read),
+		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.Timeouts.Idle),
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
 	}
@@ -100,16 +98,19 @@ func (gatewayServer *GatewayServer) createServer(addr string, handler http.Handl
 
 // Create HTTP handler
 func (gatewayServer *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
+	// Create the ACME reverse proxy once
+	acmeProxy := httputil.NewSingleHostReverseProxy(&url.URL{
+		Scheme: "http",
+		Host:   acmeServerURL,
+	})
+	acmeProxy.Director = func(req *http.Request) {
+		req.URL.Scheme = "http"
+		req.URL.Host = acmeServerURL
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Handle ACME challenges
 		if strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/") {
 			logger.Debug("Handling ACME challenge", "path", r.URL.Path, "host", r.Host)
-			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
-				Scheme: "http",
-				Host:   "localhost:5002",
-			})
-			// Forward the request
-			proxy.ServeHTTP(w, r)
+			acmeProxy.ServeHTTP(w, r)
 			return
 		}
 		handler.ServeHTTP(w, r)

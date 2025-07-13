@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
-	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"sync"
@@ -42,21 +41,20 @@ type router struct {
 	mux           *mux.Router
 	enableMetrics bool
 	sync.RWMutex
-	gateway *Gateway
+	gateway    *Gateway
+	networking Networking
 }
 
 // NewRouter creates a new router instance.
 func (g *Gateway) NewRouter() Router {
 	rt := &router{
 		mux:           mux.NewRouter().StrictSlash(g.EnableStrictSlash),
-		enableMetrics: g.EnableMetrics,
+		enableMetrics: g.Monitoring.EnableMetrics,
 		gateway:       g,
+		networking:    g.Networking,
 	}
 
-	if err := g.addGlobalHandler(rt.mux); err != nil {
-		logger.Error("Failed to add global handler", "error", err)
-		return nil
-	}
+	g.addGlobalHandler(rt.mux)
 
 	return rt
 }
@@ -113,11 +111,9 @@ func (r *router) UpdateHandler(gateway *Gateway) {
 	reloaded = true
 	logger.Debug("Updating router with new routes")
 	r.mux = mux.NewRouter().StrictSlash(gateway.EnableStrictSlash)
-	err := gateway.addGlobalHandler(r.mux)
-	if err != nil {
-		return
-	}
-	err = r.AddRoutes()
+	gateway.addGlobalHandler(r.mux)
+
+	err := r.AddRoutes()
 	if err != nil {
 		logger.Error("Failed to add routes", "error", err)
 		return
@@ -156,9 +152,7 @@ func (r *router) AddRoute(route Route) error {
 		return fmt.Errorf("route validation failed: %w", err)
 	}
 	// Configure CORS
-	if err := r.configureCORS(&route); err != nil {
-		return fmt.Errorf("failed to configure CORS: %w", err)
-	}
+	r.configureCORS(&route)
 
 	// Load certificates
 	certPool, err := r.loadCertPool(route.Security.TLS.RootCAs)
@@ -178,21 +172,18 @@ func (r *router) AddRoute(route Route) error {
 		cors:          route.Cors,
 		security:      route.Security,
 		certPool:      certPool,
+		networking:    r.networking,
 	}
 	rRouter := r.mux.PathPrefix(route.Path).Subrouter()
 	// Configure handlers
-	if err = r.configureHandlers(route, rRouter, proxyRoute); err != nil {
-		return fmt.Errorf("failed to configure handlers: %w", err)
-	}
+	r.configureHandlers(route, rRouter, proxyRoute)
 	// Add middlewares
-	if err = r.attachMiddlewares(route, rRouter); err != nil {
-		return fmt.Errorf("failed to attach middlewares: %w", err)
-	}
+	r.attachMiddlewares(route, rRouter)
 	return nil
 }
 
 // configureCORS handles CORS configuration with deduplication
-func (r *router) configureCORS(route *Route) error {
+func (r *router) configureCORS(route *Route) {
 	// Add route methods to CORS allowed methods
 	methodsSet := make(map[string]bool)
 
@@ -212,7 +203,6 @@ func (r *router) configureCORS(route *Route) error {
 		route.Cors.AllowMethods = append(route.Cors.AllowMethods, method)
 	}
 
-	return nil
 }
 
 // loadCertPool loads certificate pool with better error handling
@@ -229,7 +219,7 @@ func (r *router) loadCertPool(rootCAs string) (*x509.CertPool, error) {
 }
 
 // attachMiddlewares configures all middlewares for a route
-func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) error {
+func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 	// Proxy middleware
 	proxyMiddleware := &ProxyMiddleware{
 		Name:        route.Name,
@@ -254,11 +244,10 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) error {
 		rRouter.Use(pr.PrometheusMiddleware)
 	}
 
-	return nil
 }
 
 // configureHandlers sets up route handlers
-func (r *router) configureHandlers(route Route, rRouter *mux.Router, proxyRoute *ProxyRoute) error {
+func (r *router) configureHandlers(route Route, rRouter *mux.Router, proxyRoute *ProxyRoute) {
 	handler := proxyRoute.ProxyHandler()
 
 	if len(route.Hosts) > 0 {
@@ -272,7 +261,6 @@ func (r *router) configureHandlers(route Route, rRouter *mux.Router, proxyRoute 
 	} else {
 		rRouter.PathPrefix("").Handler(handler)
 	}
-	return nil
 }
 
 // Mux returns the underlying mux router.
@@ -281,11 +269,11 @@ func (r *router) Mux() http.Handler {
 }
 
 // addGlobalHandler configures global handlers with better error handling
-func (g *Gateway) addGlobalHandler(mux *mux.Router) error {
+func (g *Gateway) addGlobalHandler(mux *mux.Router) {
 	logger.Debug("Adding global handler")
 
 	heath := HealthCheckRoute{
-		DisableRouteHealthCheckError: g.DisableRouteHealthCheckError,
+		DisableRouteHealthCheckError: g.Monitoring.HealthCheck.EnableRouteHealthCheckError,
 		Routes:                       dynamicRoutes,
 	}
 
@@ -296,22 +284,15 @@ func (g *Gateway) addGlobalHandler(mux *mux.Router) error {
 	}
 
 	// Health check endpoints
-	if !g.DisableHealthCheckStatus {
+	if g.Monitoring.HealthCheck.EnableHealthCheckStatus {
 		mux.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
 	}
 
 	mux.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
 	mux.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
 
-	// Security middleware
-	if g.EnableExploitProtection {
-		logger.Debug("Block exploit protection enabled")
-		mux.Use(middlewares.BlockExploitsMiddleware)
-	}
-
 	// Global CORS
 	mux.Use(CORSHandler(g.Cors))
 
 	logger.Debug("Added global handler")
-	return nil
 }
