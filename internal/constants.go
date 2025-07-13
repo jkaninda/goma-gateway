@@ -32,6 +32,7 @@ const (
 	GomaAccessToken                      = "goma_access_token"
 	GomaRefreshToken                     = "goma_refresh_token"
 	StatusClientClosedRequest            = 499
+	acmeServerURL                        = "localhost:5002"
 )
 
 // ************** Middlewares types ***************

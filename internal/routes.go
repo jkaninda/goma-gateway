@@ -109,7 +109,7 @@ func (gatewayServer *GatewayServer) Initialize() error {
 
 // attachMiddlewares attaches middlewares to the route
 func attachMiddlewares(route Route, router *mux.Router) {
-	if route.EnableExploitProtection {
+	if route.Security.EnableExploitProtection {
 		logger.Debug("Block common exploits enabled")
 		router.Use(middlewares.BlockExploitsMiddleware)
 	}

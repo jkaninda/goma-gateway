@@ -69,11 +69,8 @@ type Route struct {
 	DisableHostForwarding bool `yaml:"disableHostForwarding"`
 	// ErrorInterceptor provides configuration for handling backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
-	// EnableExploitProtection enables or disables blocking of common exploit patterns
-	// such as SQL injection or simple XSS attempts.
-	EnableExploitProtection bool `yaml:"enableExploitProtection,omitempty"`
 	// BlockCommonExploits
-	// Deprecated, use EnableExploitProtection
+	// Deprecated
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
 	// TLS contains the TLS configuration for the route.
 	TLS      TLS      `yaml:"tls,omitempty"`
@@ -110,12 +107,13 @@ type Backend struct {
 }
 
 type Security struct {
-	TLS struct {
-		SkipVerification bool   `yaml:"skipVerification,omitempty"`
-		RootCAs          string `yaml:"rootCAs,omitempty"`
-	} `yaml:"tls,omitempty"`
-	ForwardHostHeaders      bool `yaml:"forwardHostHeaders,omitempty" default:"true"`
-	EnableExploitProtection bool `yaml:"enableExploitProtection,omitempty"`
+	ForwardHostHeaders      bool        `yaml:"forwardHostHeaders,omitempty" default:"true"`
+	EnableExploitProtection bool        `yaml:"enableExploitProtection,omitempty"`
+	TLS                     SecurityTLS `yaml:"tls,omitempty"`
+}
+type SecurityTLS struct {
+	SkipVerification bool   `yaml:"skipVerification,omitempty"`
+	RootCAs          string `yaml:"rootCAs,omitempty"`
 }
 
 // Backends defines List of backend servers to route traffic to
