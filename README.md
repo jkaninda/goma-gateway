@@ -208,7 +208,7 @@ Configure routes, middleware, policies, and TLS in a clear and concise YAML form
 Security isn't an afterthought. Goma ships with robust middleware for:
 
 * Automatic HTTPS with **Let's Encrypt** or your own custom TLS certs.
-* Built-in **Auth** support: Basic, JWT, OAuth, and ForwardAuth.
+* Built-in **Auth** support: Basic, JWT, OAuth, LDAP, and ForwardAuth.
 * Protection against **common exploits** like SQLi and XSS.
 * Fine-grained **access control**, method restrictions, and bot detection.
 
