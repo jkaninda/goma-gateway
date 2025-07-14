@@ -6,22 +6,54 @@ nav_order: 4
 ---
 
 
-# Distributed instances
 
-Goma Gateway includes built-in support for Redis-based rate limiting, enabling efficient and scalable deployments.
+## Distributed Instances
 
-By leveraging Redis, the Gateway ensures high-performance request throttling and distributed rate limiting across multiple instances, making it ideal for modern, cloud-native architectures.
+Goma Gateway supports **Redis-based distributed rate limiting and caching**, enabling scalable deployments across multiple instances or nodes.
+
+By connecting to a shared Redis backend, the Gateway synchronizes request throttling and cache states, ensuring consistent behavior in **high-availability** and **load-balanced** environments.
+
+This makes Goma Gateway well-suited for modern **cloud-native**, **containerized**, or **multi-instance** deployments.
+
+---
+
+### Redis Integration
+
+To enable distributed capabilities, configure the `redis` section in your `gateway` configuration. This is **optional**, but highly recommended when running multiple Gateway instances.
+
+---
+
+### Example Configuration
 
 ```yaml
 version: 2
 gateway:
-  writeTimeout: 15
-  readTimeout: 15
-  idleTimeout: 30
-  logLevel: info
-  ## Redis connexion for distributed rate limiting; when using multiple instances | It's optional
+  # Redis connection for distributed rate limiting and caching
   redis:
-    addr: redis:6379
-    password: password
+    addr: redis:6379         # Redis server address (host:port)
+    password: password       # Optional password for Redis authentication
+
+  timeouts:
+    write: 30                # Response write timeout in seconds
+    read: 30                 # Request read timeout in seconds
+    idle: 30                 # Idle connection timeout in seconds
 ```
+
+---
+
+### Features Enabled by Redis
+
+* **Distributed Rate Limiting**: Throttle requests globally across instances.
+* **Shared Caching**: Cache backend responses consistently between nodes (if caching middleware is enabled).
+* **High Availability**: Supports clustered and containerized deployments (e.g., Kubernetes, Docker Swarm, ECS).
+
+---
+
+### Notes
+
+* If Redis is not configured, rate limiting and caching will be local to each instance.
+* Redis must be reachable from all Gateway instances for consistent behavior.
+* TLS or Sentinel support may be added in future versions.
+
+---
 

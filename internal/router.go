@@ -19,38 +19,75 @@ package internal
 
 import (
 	"context"
+	"crypto/x509"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
-	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/util"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
+	"sync"
 	"time"
 )
 
+type Router interface {
+	AddRoute(route Route) error
+	AddRoutes() error
+	Mux() http.Handler
+	UpdateHandler(*Gateway)
+	ServeHTTP(http.ResponseWriter, *http.Request)
+}
+
+type router struct {
+	mux           *mux.Router
+	enableMetrics bool
+	sync.RWMutex
+	gateway    *Gateway
+	networking Networking
+}
+
 // NewRouter creates a new router instance.
-func (gateway Gateway) NewRouter() Router {
+func (g *Gateway) NewRouter() Router {
 	rt := &router{
-		mux:           mux.NewRouter().StrictSlash(gateway.EnableStrictSlash),
-		enableMetrics: gateway.EnableMetrics,
+		mux:           mux.NewRouter().StrictSlash(g.EnableStrictSlash),
+		enableMetrics: g.Monitoring.EnableMetrics,
+		gateway:       g,
+		networking:    g.Networking,
 	}
-	gateway.addGlobalHandler(rt.mux)
+
+	g.addGlobalHandler(rt.mux)
+
 	return rt
 }
 
 // AddRoutes adds multiple routes from another router.
-func (r *router) AddRoutes(rt Router) {
-	logger.Debug("=========== Adding routes to the router =========", "routes", len(dynamicRoutes))
+// AddRoutes adds multiple routes with better error handling and validation
+func (r *router) AddRoutes() error {
+	logger.Debug("Adding routes to router", "count", len(dynamicRoutes))
+
+	var addedCount int
+	var errors []error
+
 	for _, route := range dynamicRoutes {
-		logger.Debug("Adding route", "route", route.Name, "path", route.Path, "hosts", route.Hosts)
-		if route.Disabled {
+		if !route.Enabled {
 			logger.Debug("Skipping disabled route", "route", route.Name, "path", route.Path)
-			logger.Info("Proxies Route is disabled", "route", route.Name, "path", route.Path)
 			continue
 		}
-		rt.AddRoute(route)
+
+		if err := r.AddRoute(route); err != nil {
+			logger.Error("Failed to add route", "route", route.Name, "error", err)
+			errors = append(errors, fmt.Errorf("route %s: %w", route.Name, err))
+			continue
+		}
+		addedCount++
 	}
-	logger.Debug("Finished adding routes to the router")
+
+	logger.Debug("Finished adding routes", "added", addedCount, "errors", len(errors))
+
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to add %d routes: %v", len(errors), errors)
+	}
+
+	return nil
 }
 
 // ServeHTTP handles incoming HTTP requests.
@@ -63,69 +100,127 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	ctx := context.WithValue(req.Context(), CtxRequestStartTime, startTime)
 	ctx = context.WithValue(ctx, CtxRequestIDHeader, requestID)
-
 	req = req.WithContext(ctx)
 	r.mux.ServeHTTP(w, req)
 }
 
 // UpdateHandler updates the router's handler based on the gateway configuration.
-func (r *router) UpdateHandler(gateway Gateway) {
-
+func (r *router) UpdateHandler(gateway *Gateway) {
 	logger.Debug("Updating handler", "routes", len(dynamicRoutes))
 	close(stopChan)
 	reloaded = true
 	logger.Debug("Updating router with new routes")
 	r.mux = mux.NewRouter().StrictSlash(gateway.EnableStrictSlash)
 	gateway.addGlobalHandler(r.mux)
-	r.AddRoutes(r)
-	stopChan = make(chan struct{})
-	// Routes background healthcheck
-	logger.Debug("Adding routes healthcheck...")
-	routesHealthCheck(dynamicRoutes, stopChan)
+
+	err := r.AddRoutes()
+	if err != nil {
+		logger.Error("Failed to add routes", "error", err)
+		return
+	}
+	r.startHealthCheck()
 	logger.Info("Configuration successfully reloaded", "routes", len(dynamicRoutes))
 }
 
+// startHealthCheck starts the health check routine
+func (r *router) startHealthCheck() {
+	stopChan = make(chan struct{})
+	logger.Debug("Starting health check...")
+	routesHealthCheck(dynamicRoutes, stopChan)
+}
+
+// validateRoute performs comprehensive route validation
+func (r *router) validateRoute(route Route) error {
+	if route.Name == "" {
+		return fmt.Errorf("route name cannot be empty")
+	}
+
+	if route.Path == "" {
+		return fmt.Errorf("route path cannot be empty")
+	}
+
+	if route.Target == "" && len(route.Backends) == 0 {
+		return fmt.Errorf("route must have either target or backends")
+	}
+
+	return nil
+}
+
 // AddRoute adds a single route to the router.
-func (r *router) AddRoute(route Route) {
-	logger.Debug("Adding route", "route", route.Name, "path", route.Path, "hosts", route.Hosts)
-	if len(route.Path) == 0 {
-		logger.Error("Error, path is empty in route", "route", route.Name)
-		logger.Error("Route path ignored", "path", route.Path)
-		return
+func (r *router) AddRoute(route Route) error {
+	if err := r.validateRoute(route); err != nil {
+		return fmt.Errorf("route validation failed: %w", err)
+	}
+	// Configure CORS
+	r.configureCORS(&route)
+
+	// Load certificates
+	certPool, err := r.loadCertPool(route.Security.TLS.RootCAs)
+	if err != nil {
+		return fmt.Errorf("failed to load certificate pool: %w", err)
 	}
 
+	// Create proxy route
+	proxyRoute := &ProxyRoute{
+		name:          route.Name,
+		path:          route.Path,
+		rewrite:       route.Rewrite,
+		target:        route.Target,
+		backends:      route.Backends,
+		weightedBased: route.Backends.HasPositiveWeight(),
+		methods:       route.Methods,
+		cors:          route.Cors,
+		security:      route.Security,
+		certPool:      certPool,
+		networking:    r.networking,
+	}
 	rRouter := r.mux.PathPrefix(route.Path).Subrouter()
-	if route.DisableHostForwarding {
-		logger.Debug("Host forwarding disabled", "route", route.Name)
-	}
-	// Add route methods to Cors Allowed methods
-	route.Cors.AllowMethods = append(route.Cors.AllowMethods, route.Methods...)
-	// Remove duplicated methods
-	route.Cors.AllowMethods = util.RemoveDuplicates(route.Cors.AllowMethods)
+	// Configure handlers
+	r.configureHandlers(route, rRouter, proxyRoute)
+	// Add middlewares
+	r.attachMiddlewares(route, rRouter)
+	return nil
+}
 
-	proxyRoute := ProxyRoute{
-		name:                  route.Name,
-		path:                  route.Path,
-		rewrite:               route.Rewrite,
-		destination:           route.Destination,
-		backends:              route.Backends,
-		weightedBased:         route.Backends.HasPositiveWeight(),
-		methods:               route.Methods,
-		disableHostForwarding: route.DisableHostForwarding,
-		cors:                  route.Cors,
-		insecureSkipVerify:    route.InsecureSkipVerify,
-	}
-	rRouter.Use(CORSHandler(route.Cors))
-	attachMiddlewares(route, rRouter)
+// configureCORS handles CORS configuration with deduplication
+func (r *router) configureCORS(route *Route) {
+	// Add route methods to CORS allowed methods
+	methodsSet := make(map[string]bool)
 
-	if r.enableMetrics {
-		pr := metrics.PrometheusRoute{
-			Name: route.Name,
-			Path: route.Path,
-		}
-		rRouter.Use(pr.PrometheusMiddleware)
+	// Add existing CORS methods
+	for _, method := range route.Cors.AllowMethods {
+		methodsSet[method] = true
 	}
 
+	// Add route methods
+	for _, method := range route.Methods {
+		methodsSet[method] = true
+	}
+
+	// Convert back to slice
+	route.Cors.AllowMethods = make([]string, 0, len(methodsSet))
+	for method := range methodsSet {
+		route.Cors.AllowMethods = append(route.Cors.AllowMethods, method)
+	}
+
+}
+
+// loadCertPool loads certificate pool with better error handling
+func (r *router) loadCertPool(rootCAs string) (*x509.CertPool, error) {
+	if len(rootCAs) == 0 {
+		return nil, nil
+	}
+	certPool, err := loadCertPool(rootCAs)
+	if err != nil {
+		logger.Error("Error loading certificate pool", "error", err)
+		return nil, err
+	}
+	return certPool, nil
+}
+
+// attachMiddlewares configures all middlewares for a route
+func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
+	// Proxy middleware
 	proxyMiddleware := &ProxyMiddleware{
 		Name:        route.Name,
 		Enabled:     route.ErrorInterceptor.Enabled,
@@ -134,19 +229,35 @@ func (r *router) AddRoute(route Route) {
 		Origins:     route.Cors.Origins,
 	}
 	rRouter.Use(proxyMiddleware.Wrap)
+	// CORS middleware
+	rRouter.Use(CORSHandler(route.Cors))
 
-	if route.EnableBotDetection {
-		logger.Debug("Bot detection enabled", "route", route.Name)
-		bot := middlewares.BotDetection{}
-		rRouter.Use(bot.BotDetectionMiddleware)
+	// Custom middlewares
+	attachMiddlewares(route, rRouter)
+
+	// Metrics middleware
+	if r.enableMetrics {
+		logger.Debug("Attaching metrics", "route", route.Name, "path", route.Path)
+		rPrometheus := metrics.PrometheusRoute{Name: route.Name, Path: route.Path}
+		rRouter.Use(rPrometheus.PrometheusMiddleware(prometheusMetrics))
 	}
+
+}
+
+// configureHandlers sets up route handlers
+func (r *router) configureHandlers(route Route, rRouter *mux.Router, proxyRoute *ProxyRoute) {
+	handler := proxyRoute.ProxyHandler()
 
 	if len(route.Hosts) > 0 {
 		for _, host := range route.Hosts {
-			rRouter.Host(host).PathPrefix("").Handler(proxyRoute.ProxyHandler())
+			if len(host) > 0 {
+				rRouter.Host(host).PathPrefix("").Handler(handler)
+			} else {
+				rRouter.PathPrefix("").Handler(handler)
+			}
 		}
 	} else {
-		rRouter.PathPrefix("").Handler(proxyRoute.ProxyHandler())
+		rRouter.PathPrefix("").Handler(handler)
 	}
 }
 
@@ -155,44 +266,35 @@ func (r *router) Mux() http.Handler {
 	return r.mux
 }
 
-// addGlobalHandler configures global handlers and middlewares for the router.
-func (gateway Gateway) addGlobalHandler(mux *mux.Router) {
-	logger.Debug("Adding global handler", "routes", len(dynamicRoutes))
+// addGlobalHandler configures global handlers with better error handling
+func (g *Gateway) addGlobalHandler(mux *mux.Router) {
+	logger.Debug("Adding global handler")
+
 	heath := HealthCheckRoute{
-		DisableRouteHealthCheckError: gateway.DisableRouteHealthCheckError,
+		DisableRouteHealthCheckError: g.Monitoring.HealthCheck.EnableRouteHealthCheckError,
 		Routes:                       dynamicRoutes,
 	}
 
-	if gateway.EnableMetrics {
+	// Metrics endpoint
+	if g.Monitoring.EnableMetrics {
 		logger.Debug("Metrics enabled")
-		mux.Path("/metrics").Handler(promhttp.Handler())
+		if g.Monitoring.Path != "" {
+			mux.Path(g.Monitoring.Path).Handler(promhttp.Handler())
+		} else {
+			mux.Path("/metrics").Handler(promhttp.Handler())
+		}
 	}
 
-	if !gateway.DisableHealthCheckStatus {
-		mux.HandleFunc("/health/routes", heath.HealthCheckHandler).Methods("GET") // Deprecated
+	// Health check endpoints
+	if g.Monitoring.HealthCheck.EnableHealthCheckStatus {
 		mux.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
 	}
 
-	mux.HandleFunc("/health/live", heath.HealthReadyHandler).Methods("GET") // Deprecated
 	mux.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
 	mux.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
 
-	if gateway.BlockCommonExploits {
-		logger.Debug("Block common exploits enabled")
-		mux.Use(middlewares.BlockExploitsMiddleware)
-	}
+	// Global CORS
+	mux.Use(CORSHandler(g.Cors))
 
-	if gateway.RateLimit > 0 {
-		rLimit := middlewares.RateLimit{
-			Id:         "global_rate",
-			Unit:       "second",
-			Requests:   gateway.RateLimit,
-			Origins:    gateway.Cors.Origins,
-			Hosts:      []string{},
-			RedisBased: redisBased,
-		}
-		limiter := rLimit.NewRateLimiterWindow()
-		mux.Use(limiter.RateLimitMiddleware())
-	}
-	logger.Debug("Added global handler", "routes", len(dynamicRoutes))
+	logger.Debug("Added global handler")
 }

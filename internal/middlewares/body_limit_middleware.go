@@ -42,6 +42,7 @@ func (b BodyLimit) Middleware(next http.Handler) http.Handler {
 
 		// Check if the body exceeded the limit
 		if lr.N <= 0 {
+			logger.Debug("Request body too large", "limit", b.MaxBytes)
 			RespondWithError(w, r, http.StatusRequestEntityTooLarge, fmt.Sprintf("Request body too large (limit %d bytes)", b.MaxBytes), nil, contentType)
 			return
 		}

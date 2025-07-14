@@ -23,82 +23,87 @@ import (
 
 // Gateway contains the configuration options for the Goma Proxy Gateway.
 type Gateway struct {
-	// SSLCertFile specifies the SSL certificate file.
-	// Deprecated: Use TlsCertFile instead.
-	SSLCertFile string `yaml:"sslCertFile,omitempty" env:"GOMA_SSL_CERT_FILE, overwrite"`
-	// SSLKeyFile specifies the SSL private key file.
-	// Deprecated: Use TlsKeyFile instead.
-	SSLKeyFile string `yaml:"sslKeyFile,omitempty" env:"GOMA_SSL_KEY_FILE, overwrite"`
-	// TlsCertFile specifies the TLS certificate file.
-	// Deprecated: Use TLS instead.
-	TlsCertFile string `yaml:"tlsCertFile,omitempty" env:"GOMA_TLS_CERT_FILE, overwrite"`
-	// TlsKeyFile specifies the TLS private key file.
-	// Deprecated: Use TLS instead.
-	TlsKeyFile string `yaml:"tlsKeyFile,omitempty" env:"GOMA_TLS_KEY_FILE, overwrite"`
 	// TLS specifies a list of tls certificate, cert and key
 	TLS TLS `yaml:"tls,omitempty"`
 	// Redis contains the configuration details for the Redis database.
 	Redis Redis `yaml:"redis,omitempty"`
 	// WriteTimeout defines the timeout (in seconds) for writing responses to clients.
-	WriteTimeout int `yaml:"writeTimeout" env:"GOMA_WRITE_TIMEOUT, overwrite"`
+	// Deprecated
+	WriteTimeout int `yaml:"writeTimeout,omitempty" env:"GOMA_WRITE_TIMEOUT, overwrite"`
 	// ReadTimeout defines the timeout (in seconds) for reading requests from clients.
-	ReadTimeout int `yaml:"readTimeout" env:"GOMA_READ_TIMEOUT, overwrite"`
+	// Deprecated
+	ReadTimeout int `yaml:"readTimeout,omitempty" env:"GOMA_READ_TIMEOUT, overwrite"`
 	// IdleTimeout defines the timeout (in seconds) for idle connections.
-	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
-	// RateLimit specifies the maximum number of requests allowed per minute.
-	RateLimit int `yaml:"rateLimit,omitempty" env:"GOMA_RATE_LIMIT, overwrite"` // Deprecated: RateLimit middleware type
-	// BlockCommonExploits enables or disables blocking of common exploit patterns.
-	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
-	// LogLevel defines the logging level (e.g., info, debug, trace, off).
-	LogLevel string `yaml:"logLevel,omitempty" env:"GOMA_LOG_LEVEL, overwrite"` // Deprecated: Use Log instead
+	// Deprecated
+	IdleTimeout int `yaml:"idleTimeout,omitempty" env:"GOMA_IDLE_TIMEOUT, overwrite"`
+	// Timeouts defines server timeout in second
+	Timeouts Timeouts `yaml:"timeouts,omitempty"`
+	// EntryPoints of the server
+	EntryPoints EntryPoint `yaml:"entryPoints,omitempty"`
+	// Monitoring grouped monitoring and diagnostics configuration
+	Monitoring Monitoring `yaml:"monitoring,omitempty"`
 	// Log defines the logging config
-	Log Log `yaml:"log"`
-	// DisableHealthCheckStatus enables or disables health checks for routes.
-	DisableHealthCheckStatus bool `yaml:"disableHealthCheckStatus,omitempty"`
-	// DisableRouteHealthCheckError enables or disables logging of backend health check errors.
-	DisableRouteHealthCheckError bool `yaml:"disableRouteHealthCheckError,omitempty"`
-	// DisableDisplayRouteOnStart enables or disables the display of routes during server startup.
-	DisableDisplayRouteOnStart bool `yaml:"disableDisplayRouteOnStart,omitempty"`
-	// DisableKeepAlive enables or disables the HTTP Keep-Alive functionality.
-	DisableKeepAlive bool `yaml:"disableKeepAlive,omitempty"`
-	// EnableStrictSlash enables or disables strict routing and trailing slashes.
-	//
+	Log        Log        `yaml:"log"`
+	Networking Networking `yaml:"networking,omitempty"`
 	// When enabled, the router will match the path with or without a trailing slash.
 	EnableStrictSlash bool `yaml:"enableStrictSlash,omitempty"`
 	// EnableMetrics enables or disables server metrics collection.
-	EnableMetrics bool       `yaml:"enableMetrics,omitempty"`
-	EntryPoints   EntryPoint `yaml:"entryPoints,omitempty"`
-	// InterceptErrors holds the status codes to intercept backend errors.
-	// Deprecated: Use ErrorInterceptor for advanced error handling.
-	InterceptErrors []int `yaml:"interceptErrors,omitempty"`
+	// Deprecated
+	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
 	// ErrorInterceptor provides advanced error-handling configuration for intercepted backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// Cors defines the global Cross-Origin Resource Sharing (CORS) configuration for the gateway.
 	Cors Cors `yaml:"cors,omitempty"`
-	// ExtraRoutes specifies additional routes from a directory.
-	// Deprecated: Use ExtraConfig for a broader configuration scope.
-	ExtraRoutes ExtraRouteConfig `yaml:"extraRoutes,omitempty"`
 	// ExtraConfig provides additional configuration, including routes and middleware, from a specified directory.
 	ExtraConfig ExtraRouteConfig `yaml:"extraConfig,omitempty"`
 	// Routes defines the list of proxy routes.
 	Routes []Route `yaml:"routes"`
 }
 type EntryPoint struct {
-	Web       EntryPointAddress `yaml:"web,omitempty"`
-	WebSecure EntryPointAddress `yaml:"webSecure,omitempty"`
+	Web         EntryPointAddress `yaml:"web,omitempty"`
+	WebSecure   EntryPointAddress `yaml:"webSecure,omitempty"`
+	PassThrough EntryPointAddress `yaml:"passThrough,omitempty"`
 }
 type EntryPointAddress struct {
-	Address string `yaml:"address,omitempty"`
+	Address  string        `yaml:"address,omitempty"`
+	Forwards []ForwardRule `yaml:"forwards,omitempty"`
 }
 
 func (p EntryPoint) Validate() {
-	// Check entrypoint ports
-	if len(p.Web.Address) > 0 && validateEntrypoint(p.Web.Address) {
-		webAddress = p.Web.Address
+	// Validate web entry point
+	if addr := p.Web.Address; addr != "" {
+		if validateEntrypoint(addr) {
+			webAddress = addr
+		} else {
+			logger.Warn("Invalid web address", "address", addr)
+		}
 	}
-	if len(p.WebSecure.Address) > 0 && validateEntrypoint(p.WebSecure.Address) {
-		webSecureAddress = p.WebSecure.Address
 
+	// Validate webSecure entry point
+	if addr := p.WebSecure.Address; addr != "" {
+		if validateEntrypoint(addr) {
+			webSecureAddress = addr
+		} else {
+			logger.Warn("Invalid webSecure address", "address", addr)
+		}
+	}
+
+	// Validate passthrough forwards
+	for _, forward := range p.PassThrough.Forwards {
+		if !isPortValid(forward.Port) {
+			logger.Fatal("Invalid forward port", "port", forward.Port)
+		}
+
+		switch forward.Protocol {
+		case ProtocolTCP:
+			logger.Debug("Protocol: TCP", "port", forward.Port, "target", forward.Target)
+		case ProtocolUDP:
+			logger.Debug("Protocol: UDP", "port", forward.Port, "target", forward.Target)
+		case ProtocolTCPUDP:
+			logger.Debug("Protocol: TCP/UDP", "port", forward.Port, "target", forward.Target)
+		default:
+			logger.Fatal("Unknown protocol", "protocol", forward.Protocol, "port", forward.Port)
+		}
 	}
 }
 
@@ -109,4 +114,63 @@ type Log struct {
 	FilePath string `yaml:"filePath,omitempty" env:"GOMA_LOG_FILE, overwrite"`
 	// Format defines the logging format (eg. text, json)
 	Format string `yaml:"format,omitempty" env:"GOMA_LOG_FORMAT, overwrite"`
+}
+
+// Monitoring defines the observability and health-related configuration.
+type Monitoring struct {
+	// EnableMetrics enables or disables server metrics collection.
+	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
+	// Paths sets metrics custom path (default /metrics)
+	Path string `yaml:"path,omitempty"`
+	// Middleware name to apply to this Route
+	Middleware  string      `yaml:"middleware,omitempty"`
+	HealthCheck HealthCheck `yaml:"healthCheck,omitempty"`
+}
+type HealthCheck struct {
+	EnableHealthCheckStatus     bool `yaml:"enableHealthCheckStatus,omitempty"`
+	EnableRouteHealthCheckError bool `yaml:"enableRouteHealthCheckError,omitempty"`
+}
+type Protocol string
+type ForwardRule struct {
+	Protocol Protocol `yaml:"protocol,omitempty"`
+	Port     int      `yaml:"port,omitempty"`
+	Target   string   `yaml:"target,omitempty"`
+}
+type Timeouts struct {
+	Write int `yaml:"write" env:"GOMA_WRITE_TIMEOUT,overwrite"`
+	Read  int `yaml:"read" env:"GOMA_READ_TIMEOUT,overwrite"`
+	Idle  int `yaml:"idle" env:"GOMA_IDLE_TIMEOUT,overwrite"`
+}
+
+type Networking struct {
+	DNSCache      DNSCacheConfig `yaml:"dnsCache,omitempty"`
+	ProxySettings ProxyConfig    `yaml:"proxy,omitempty"`
+}
+type DNSCacheConfig struct {
+	Enable        bool     `yaml:"enable,omitempty"`
+	TTL           int      `yaml:"ttl,omitempty"` // in seconds
+	ClearOnReload bool     `yaml:"clearOnReload,omitempty"`
+	Resolver      []string `yaml:"resolver,omitempty"` // e.g., ["8.8.8.8:53"]
+}
+type ProxyConfig struct {
+	DisableCompression    bool `yaml:"disableCompression"`
+	MaxIdleConns          int  `yaml:"maxIdleConns"`
+	MaxIdleConnsPerHost   int  `yaml:"maxIdleConnsPerHost"`
+	MaxConnsPerHost       int  `yaml:"maxConnsPerHost"`
+	TLSHandshakeTimeout   int  `yaml:"tlsHandshakeTimeout"`
+	ResponseHeaderTimeout int  `yaml:"responseHeaderTimeout"`
+	IdleConnTimeout       int  `yaml:"idleConnTimeout"`
+	ForceAttemptHTTP2     bool `yaml:"forceAttemptHTTP2"`
+}
+
+func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Proxy
+	g.Networking.ProxySettings.ForceAttemptHTTP2 = true
+	g.Networking.ProxySettings.MaxIdleConns = 512
+	g.Networking.ProxySettings.MaxIdleConnsPerHost = 256
+	g.Networking.ProxySettings.MaxConnsPerHost = 256
+	g.Networking.ProxySettings.IdleConnTimeout = 90
+
+	type tmp Gateway
+	return unmarshal((*tmp)(g))
 }

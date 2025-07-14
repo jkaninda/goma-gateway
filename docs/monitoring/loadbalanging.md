@@ -6,97 +6,105 @@ nav_order: 3
 ---
 
 
-# Load Balancing
+## Load Balancing
 
-Goma Gateway supports both **round-robin** and **weighted-based** load balancing algorithms to efficiently distribute incoming traffic across backend servers.
+Goma Gateway includes built-in support for **round-robin** and **weighted** load balancing to efficiently distribute traffic across multiple backend services.
 
-## Key Features
-
-- **Round-Robin Algorithm**: Distributes incoming requests evenly across backend servers, ensuring balanced resource utilization.
-- **Weighted Algorithm**: Distributes incoming requests based on predefined weights, allowing for prioritized traffic allocation to specific servers.
-- **Health Checks**: Continuously monitors the health of backend servers to ensure only healthy servers receive traffic.
-- **Scalability**: Enables seamless horizontal scaling by adding or removing backend servers without downtime.
-- **Integrated Health Checks**: Automatically monitors the health of backend servers to maintain high availability.
+This ensures high availability, scalability, and optimal resource utilization in distributed environments.
 
 ---
 
-## Example Configurations
+###  Key Features
 
-### Round-Robin Based Load Balancing
+* **Round-Robin**: Evenly distributes incoming requests across available backends.
+* **Weighted**: Allocates traffic proportionally based on assigned weights.
+* **Health Checks**: Ensures only healthy backends receive traffic.
+* **Scalable Architecture**: Supports seamless addition/removal of backend servers.
+* **Smart Fallback**: Automatically removes failing backends from the rotation. — Not fully implemented
 
-Below is an example configuration for round-robin load balancing:
+---
+
+## Configuration Examples
+
+### Round-Robin Load Balancing
+
+This example defines three backend servers. Traffic is evenly distributed in a round-robin fashion (default behavior when no weights are specified):
 
 ```yaml
 version: 2
 gateway:
   routes:
-    - path: /
-      name: example route
+    - name: example-route
+      path: /
+      rewrite: /
       hosts:
         - example.com
         - example.localhost
-      rewrite: /
       methods: []
       healthCheck:
         path: "/"
         interval: 30s
         timeout: 10s
         healthyStatuses: [200, 404]
-      ## destination: will be overridden by backends
-      destination: ""
       backends:
         - endpoint: https://example.com
         - endpoint: https://example1.com
         - endpoint: https://example2.com
-      cors: {}
 ```
 
-### Weighted-Based Load Balancing
+---
 
-Below is an example configuration for weighted load balancing, where traffic is distributed based on server weights:
+### Weighted Load Balancing
+
+In this setup, traffic is distributed based on weight values. Higher weights receive a greater share of requests:
 
 ```yaml
-version: 2  # Configuration version
+version: 2
 gateway:
   routes:
-    - path: /  # The path to match for this route
-      name: example route  # A descriptive name for the route
-      hosts:  # List of hostnames this route will handle
+    - name: weighted-example
+      path: /
+      rewrite: /
+      hosts:
         - example.com
-        - example.localhost
-      rewrite: /  # Rewrite the incoming request path (if needed)
-      methods: []  # HTTP methods to allow (empty means all methods are allowed)
-      healthCheck:  # Health check configuration for backend servers
-        path: "/"  # Endpoint to check for health
-        interval: 30s  # Time interval between health checks
-        timeout: 10s  # Timeout for health check requests
-        healthyStatuses: [200, 404]  # HTTP status codes considered healthy
-      ## destination: will be overridden by backends
-      destination: ""  # Placeholder for backend destination (overridden by `backends`)
-      backends:  # List of backend servers with weights for load balancing
-        - endpoint: https://example.com  # Backend server URL
-          weight: 5  # Weight for traffic distribution (higher weight = more traffic)
-        - endpoint: https://example1.com  # Backend server URL
-          weight: 2  # Weight for traffic distribution
-        - endpoint: https://example2.com  # Backend server URL
-          weight: 1  # Weight for traffic distribution
-      cors: {}
+      methods: []
+      healthCheck:
+        path: "/"
+        interval: 30s
+        timeout: 10s
+        healthyStatuses: [200, 404]
+      backends:
+        - endpoint: https://example.com
+          weight: 5
+        - endpoint: https://example1.com
+          weight: 2
+        - endpoint: https://example2.com
+          weight: 1
 ```
 
 ---
 
-## How It Works
+##  How It Works
 
-- **Round-Robin Algorithm**: Requests are distributed sequentially across all available backend servers, ensuring an even distribution of traffic.
-- **Weighted Algorithm**: Requests are distributed proportionally based on the weights assigned to each backend server. For example, a server with a weight of 5 will receive more traffic than a server with a weight of 2.
-- **Health Checks**: The gateway periodically checks the health of backend servers by sending requests to the specified `healthCheck.path`.
-- **Scalability**: You can dynamically add or remove backend servers without interrupting service, making it easy to scale your infrastructure as needed.
+* **Round-Robin**
+  Goma cycles through available backend endpoints in order, ensuring each receives a similar number of requests.
+
+* **Weighted Distribution**
+  Each backend receives traffic proportionally to its configured `weight`. For example, a backend with weight `5` receives 5× more traffic than one with weight `1`.
+
+* **Health Monitoring**
+  Health checks prevent unhealthy backends from receiving requests. Use the `healthCheck` block to define check paths, intervals, timeouts, and valid status codes.
+
+* **Dynamic Scaling**
+  Backends can be added or removed at runtime without requiring a restart, supporting seamless horizontal scaling.
 
 ---
 
-## Notes
+##  Notes
 
-- Ensure that the `healthCheck.path` is correctly configured to reflect a valid endpoint on your backend servers.
-- The `healthyStatuses` field allows you to define which HTTP status codes are considered healthy. For example, `[200, 404]` means that both `200 OK` and `404 Not Found` responses are considered healthy.
-- The `destination` field is overridden by the `backends` configuration, so it can be left empty or omitted.
+* The `target` field is ignored when `backends` are defined; it acts as a fallback.
+* Always ensure the `healthCheck.path` exists on all backend services to avoid false negatives.
+* Common healthy statuses include `200 OK` and optionally `404 Not Found` if used as an intentional empty state.
+* Load balancing is performed per route, giving you granular control over traffic distribution.
 
+---

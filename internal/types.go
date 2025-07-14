@@ -21,14 +21,31 @@ import (
 	"context"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"net"
+	"sync"
 	"time"
 )
 
 type BasicRuleMiddleware struct {
-	Realm    string   `yaml:"realm,omitempty"`
-	Users    []string `yaml:"users"`
-	Username string   `yaml:"username,omitempty"` // Deprecated, use Users
-	Password string   `yaml:"password,omitempty"` // Deprecated, use Users
+	Realm           string   `yaml:"realm,omitempty"`
+	Users           []string `yaml:"users"`
+	ForwardUsername bool     `yaml:"forwardUsername"`
+}
+type LdapRuleMiddleware struct {
+	Realm           string `yaml:"realm,omitempty"`
+	ForwardUsername bool   `yaml:"forwardUsername"`
+	ConnPool        struct {
+		Size  int    `yaml:"size"`
+		Burst int    `yaml:"burst"`
+		TTL   string `yaml:"ttl"`
+	} `yaml:"connPool,omitempty"`
+	URL                string `yaml:"url"`
+	BaseDN             string `yaml:"baseDN"`
+	BindDN             string `yaml:"bindDN"`
+	BindPass           string `yaml:"bindPass"`
+	UserFilter         string `yaml:"userFilter"`
+	StartTLS           bool   `yaml:"startTLS"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify"`
 }
 type ForwardAuthRuleMiddleware struct {
 	AuthURL                     string   `yaml:"authUrl"`
@@ -114,6 +131,7 @@ type GatewayConfig struct {
 	GatewayConfig Gateway `yaml:"gateway"`
 	// Middlewares holds proxy middlewares
 	Middlewares []Middleware `yaml:"middlewares"`
+	// CertificateManager holds acme configuration
 	// Deprecated
 	CertificateManager *certmanager.Config `yaml:"certificateManager,omitempty"`
 	// CertManager hols CertManager config
@@ -123,10 +141,28 @@ type GatewayConfig struct {
 type GatewayServer struct {
 	ctx         context.Context
 	certManager *certmanager.Config
+	proxyServer *ProxyServer
 	configFile  string
 	version     string
-	gateway     Gateway
+	gateway     *Gateway
 	middlewares []Middleware
+}
+type ProxyServer struct {
+	rules    []ForwardRule
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup
+	shutdown chan struct{}
+}
+type udpSession struct {
+	clientConn   net.PacketConn
+	clientAddr   net.Addr
+	targetConn   net.Conn
+	rule         ForwardRule
+	lastActivity time.Time
+	done         chan struct{}
+	ctx          context.Context
+	cancel       context.CancelFunc
 }
 type HealthCheckRoute struct {
 	DisableRouteHealthCheckError bool
@@ -202,3 +238,4 @@ type RedirectSchemeRuleMiddleware struct {
 type BodyLimitRuleMiddleware struct {
 	Limit string `yaml:"limit"`
 }
+type contextKey string

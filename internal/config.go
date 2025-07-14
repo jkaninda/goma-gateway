@@ -32,7 +32,6 @@ import (
 	"golang.org/x/oauth2/gitlab"
 	"golang.org/x/oauth2/google"
 	"gopkg.in/yaml.v3"
-	"net/http"
 	"os"
 )
 
@@ -54,7 +53,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 			configFile:  configFile,
 			certManager: c.GetCertManagerConfig(),
 			version:     c.Version,
-			gateway:     c.GatewayConfig,
+			gateway:     &c.GatewayConfig,
 			middlewares: c.Middlewares,
 		}, nil
 	}
@@ -77,7 +76,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 			ctx:         ctx,
 			certManager: c.GetCertManagerConfig(),
 			configFile:  ConfigFile,
-			gateway:     c.GatewayConfig,
+			gateway:     &c.GatewayConfig,
 			middlewares: c.Middlewares,
 		}, nil
 
@@ -109,8 +108,8 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 	return &GatewayServer{
 		ctx:         ctx,
 		configFile:  ConfigFile,
+		gateway:     &c.GatewayConfig,
 		certManager: c.GetCertManagerConfig(),
-		gateway:     c.GatewayConfig,
 		middlewares: c.Middlewares,
 	}, nil
 }
@@ -127,7 +126,6 @@ func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
 
 // InitLogger sets environment variables and initialize the logger
 func (gatewayServer *GatewayServer) InitLogger() {
-	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.LogLevel)
 	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.Log.Level)
 	util.SetEnv("GOMA_LOG_FILE", gatewayServer.gateway.Log.FilePath)
 	util.SetEnv("GOMA_LOG_FORMAT", gatewayServer.gateway.Log.Format)
@@ -141,11 +139,11 @@ func (gatewayServer *GatewayServer) InitLogger() {
 // validateRoutes validates routes
 func validateRoutes(gateway Gateway, routes []Route) []Route {
 	for _, route := range routes {
-		validateRoute(route)
+		route.validateRoute()
 	}
 
 	for i := range routes {
-		handleDeprecations(&routes[i])
+		routes[i].handleDeprecations()
 		mergeGatewayErrorInterceptor(&routes[i], gateway.ErrorInterceptor)
 		mergeGatewayCors(&routes[i], &gateway.Cors)
 	}
@@ -153,31 +151,14 @@ func validateRoutes(gateway Gateway, routes []Route) []Route {
 	return routes
 }
 
-func validateRoute(route Route) {
-	if len(route.Name) == 0 {
+func (r *Route) validateRoute() {
+	if len(r.Name) == 0 {
 		logger.Fatal("Route name is required")
 	}
-	if len(route.Destination) == 0 && len(route.Backends) == 0 {
-		logger.Fatal("Route backend error, destination or backends should not be empty", "route", route.Name)
+	if len(r.Destination) == 0 && len(r.Target) == 0 && len(r.Backends) == 0 {
+		logger.Fatal("Route backend error, target or backends should not be empty", "route", r.Name)
 	}
 
-}
-func handleDeprecations(route *Route) {
-	if route.DisableHostFording {
-		logger.Warn("Deprecation: disableHostFording is deprecated, please rename it to disableHostForwarding")
-		route.DisableHostForwarding = true
-	}
-
-	if len(route.InterceptErrors) > 0 {
-		logger.Warn("Route InterceptErrors is deprecated, please use errorInterceptor instead.")
-		for _, status := range route.InterceptErrors {
-			route.ErrorInterceptor.Errors = append(route.ErrorInterceptor.Errors, middlewares.RouteError{
-				Status: status,
-				Body:   http.StatusText(status),
-			})
-		}
-		route.ErrorInterceptor.Enabled = true
-	}
 }
 func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.RouteErrorInterceptor) {
 	if gatewayInterceptor.Enabled {
@@ -214,16 +195,56 @@ func InitConfig(configFile string) error {
 	return initConfig(configFile)
 
 }
-func handleGatewayDeprecations(gateway *Gateway) {
-	if len(gateway.ExtraConfig.Directory) == 0 {
-		gateway.ExtraConfig.Directory = ExtraDir
-	}
-	if len(gateway.ExtraRoutes.Directory) > 0 {
-		logger.Warn("Deprecation: extraRoutes is deprecated, please rename it to extraConfig.")
-		gateway.ExtraConfig.Directory = gateway.ExtraRoutes.Directory
-	}
 
+// *************** DEPRECATIONS ******************************
+func (r *Route) handleDeprecations() {
+	if r.Disabled {
+		logger.Warn("Deprecation: disabled is deprecated, please use enabled")
+		r.Enabled = false
+	}
+	if r.BlockCommonExploits {
+		r.Security.EnableExploitProtection = true
+		logger.Warn("Deprecation: blockCommonExploits is deprecated, please use `security.enableExploitProtection`")
+	}
+	if r.InsecureSkipVerify {
+		logger.Warn("Deprecation:insecureSkipVerify is deprecated, please use `security.tls.skipVerification`")
+		r.Security.TLS.SkipVerification = true
+	}
+	if r.DisableHostForwarding {
+		logger.Warn("Deprecation: disableHostForwarding is deprecated, please use `security.forwardHostHeaders`")
+		r.Security.ForwardHostHeaders = false
+	}
+	if r.Destination != "" && len(r.Backends) == 0 {
+		logger.Warn("Deprecation: destination is deprecated, please use `target`")
+		if r.Target == "" {
+			r.Target = r.Destination
+
+		}
+	}
 }
+
+func (g *Gateway) handleDeprecations() {
+	if len(g.ExtraConfig.Directory) == 0 {
+		g.ExtraConfig.Directory = ExtraDir
+	}
+	if g.ReadTimeout > 0 {
+		logger.Warn("Deprecation: readTimeout is deprecated, please use `timeouts.read`")
+		g.Timeouts.Read = g.ReadTimeout
+	}
+	if g.WriteTimeout > 0 {
+		logger.Warn("Deprecation: writeTimeout is deprecated, please use `timeouts.write`")
+		g.Timeouts.Write = g.WriteTimeout
+	}
+	if g.IdleTimeout > 0 {
+		logger.Warn("Deprecation: idleTimeout is deprecated, please use `timeouts.idle`")
+		g.Timeouts.Idle = g.IdleTimeout
+	}
+	if g.EnableMetrics {
+		g.Monitoring.EnableMetrics = true
+	}
+}
+
+// *************** END DEPRECATIONS ******************************
 
 // initConfig initializes configs
 func initConfig(configFile string) error {
@@ -233,39 +254,54 @@ func initConfig(configFile string) error {
 	conf := &GatewayConfig{
 		Version: version.ConfigVersion,
 		GatewayConfig: Gateway{
-			WriteTimeout: 15,
-			ReadTimeout:  15,
-			IdleTimeout:  30,
-			ExtraConfig: ExtraRouteConfig{
-				Directory: ExtraDir,
-				Watch:     false,
+			Timeouts: Timeouts{
+				Read:  30,
+				Write: 30,
+				Idle:  30,
 			},
 			Log: Log{
 				Level:    "info",
 				FilePath: "",
 				Format:   "json",
 			},
+			Monitoring: Monitoring{
+				EnableMetrics: true,
+				Path:          "/metrics",
+				HealthCheck: HealthCheck{
+					EnableHealthCheckStatus:     true,
+					EnableRouteHealthCheckError: true,
+				},
+			},
+			ExtraConfig: ExtraRouteConfig{
+				Directory: ExtraDir,
+				Watch:     false,
+			},
 			Routes: []Route{
 				{
-					Name:        "example",
-					Path:        "/",
-					Methods:     []string{"GET", "PATCH", "OPTIONS"},
-					Destination: "https://example.com",
+					Name:    "example",
+					Path:    "/",
+					Methods: []string{"GET", "PATCH", "OPTIONS"},
+					Target:  "https://example.com",
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
 						Interval:        "30s",
 						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
 					},
-					DisableHostForwarding: true,
-					Middlewares:           []string{"block-access"},
+					Security: Security{
+						TLS: SecurityTLS{
+							SkipVerification: true,
+							RootCAs:          "/etc/goma/certs/root.ca.pem",
+						},
+						ForwardHostHeaders: false,
+					},
+					Middlewares: []string{"block-access"},
 				},
 				{
-					Name:                  "api",
-					Path:                  "/",
-					Hosts:                 []string{"app.example.com"},
-					Rewrite:               "/",
-					DisableHostForwarding: false,
+					Name:    "api",
+					Path:    "/",
+					Hosts:   []string{"app.example.com"},
+					Rewrite: "/",
 					Backends: Backends{
 						Backend{Endpoint: "https://api-1.example.com", Weight: 5},
 						Backend{Endpoint: "https://api-2.example.com", Weight: 2},
@@ -363,7 +399,7 @@ func initConfig(configFile string) error {
 	}
 	return nil
 }
-func (Gateway) Setup(conf string) *Gateway {
+func (g *Gateway) Setup(conf string) *Gateway {
 	if util.FileExists(conf) {
 		buf, err := os.ReadFile(conf)
 		if err != nil {
@@ -419,12 +455,17 @@ func (r RedirectSchemeRuleMiddleware) validate() error {
 
 // validate validates BasicRuleMiddleware
 func (basicAuth BasicRuleMiddleware) validate() error {
-	user := fmt.Sprintf("%s:%s", basicAuth.Username, basicAuth.Password)
-	if user != "" {
-		basicAuth.Users = append(basicAuth.Users, user)
-	}
 	if len(basicAuth.Users) == 0 {
 		return fmt.Errorf("empty users in basic auth middlewares")
+	}
+	return nil
+}
+func (l LdapRuleMiddleware) validate() error {
+	if l.URL == "" {
+		return fmt.Errorf("LDAP URL is required")
+	}
+	if l.BaseDN == "" {
+		return fmt.Errorf("LDAP BaseDN is required")
 	}
 	return nil
 }

@@ -41,7 +41,11 @@ func (gatewayServer *GatewayServer) Start() error {
 
 	// Create router
 	newRouter := gatewayServer.gateway.NewRouter()
-	newRouter.AddRoutes(newRouter)
+	err = newRouter.AddRoutes()
+	if err != nil {
+		logger.Error("Failed to add routes", "error", err)
+		return err
+	}
 
 	logger.Debug("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
 	gatewayServer.initRedis()
@@ -57,16 +61,13 @@ func (gatewayServer *GatewayServer) Start() error {
 	}
 	// Add default certificate
 	certManager.AddCertificate("default", *certificate)
-	if !gatewayServer.gateway.DisableDisplayRouteOnStart {
-		printRoute(dynamicRoutes)
-	}
+	printRoute(dynamicRoutes)
 	// Watch for changes
 	if gatewayServer.gateway.ExtraConfig.Watch {
 		logger.Debug("Dynamic configuration watch enabled")
 		go gatewayServer.watchExtraConfig(newRouter)
 
 	}
-
 	// Start acme service
 	go startAutoCert()
 	// Validate entrypoint
@@ -74,7 +75,10 @@ func (gatewayServer *GatewayServer) Start() error {
 	httpServer := gatewayServer.createServer(webAddress, gatewayServer.createHTTPHandler(newRouter), nil)
 	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
 
-	// Start HTTP/HTTPS servers
+	// Create proxy instance
+	gatewayServer.proxyServer = NewProxyServer(gatewayServer.gateway.EntryPoints.PassThrough.Forwards, gatewayServer.ctx)
+
+	// Start HTTP/HTTPS and proxy servers
 	gatewayServer.startServers(httpServer, httpsServer)
 
 	// Handle graceful shutdown
@@ -84,9 +88,9 @@ func (gatewayServer *GatewayServer) Start() error {
 func (gatewayServer *GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
 	return &http.Server{
 		Addr:         addr,
-		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.WriteTimeout),
-		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.ReadTimeout),
-		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.IdleTimeout),
+		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.Timeouts.Write),
+		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.Timeouts.Read),
+		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.Timeouts.Idle),
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
 	}
@@ -94,16 +98,19 @@ func (gatewayServer *GatewayServer) createServer(addr string, handler http.Handl
 
 // Create HTTP handler
 func (gatewayServer *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
+	// Create the ACME reverse proxy once
+	acmeProxy := httputil.NewSingleHostReverseProxy(&url.URL{
+		Scheme: "http",
+		Host:   acmeServerURL,
+	})
+	acmeProxy.Director = func(req *http.Request) {
+		req.URL.Scheme = "http"
+		req.URL.Host = acmeServerURL
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Handle ACME challenges
 		if strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/") {
 			logger.Debug("Handling ACME challenge", "path", r.URL.Path, "host", r.Host)
-			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
-				Scheme: "http",
-				Host:   "localhost:5002",
-			})
-			// Forward the request
-			proxy.ServeHTTP(w, r)
+			acmeProxy.ServeHTTP(w, r)
 			return
 		}
 		handler.ServeHTTP(w, r)
@@ -111,6 +118,10 @@ func (gatewayServer *GatewayServer) createHTTPHandler(handler http.Handler) http
 }
 
 func (gatewayServer *GatewayServer) startServers(httpServer, httpsServer *http.Server) {
+	// Start proxy server
+	if err := gatewayServer.proxyServer.Start(); err != nil {
+		logger.Fatal("Failed to start proxy server", "error", err)
+	}
 	go func() {
 		logger.Info("Starting Web server on", "addr", webAddress)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -135,7 +146,7 @@ func (gatewayServer *GatewayServer) shutdown(httpServer, httpsServer *http.Serve
 
 	shutdownCtx, cancel := context.WithTimeout(gatewayServer.ctx, 10*time.Second)
 	defer cancel()
-
+	logger.Info("Shutting down HTTP/HTTPS servers")
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Error shutting down HTTP server", "error", err)
 	}
@@ -143,6 +154,8 @@ func (gatewayServer *GatewayServer) shutdown(httpServer, httpsServer *http.Serve
 	if err := httpsServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Error shutting down HTTPS server", "error", err)
 	}
-
+	// stop TCP/UDP server
+	gatewayServer.proxyServer.Stop()
+	logger.Info("Goma Gateway stopped")
 	return nil
 }

@@ -1,7 +1,7 @@
 ---
 title: RedirectScheme
 layout: default
-parent: Middleware
+parent: Middlewares
 nav_order: 11
 ---
 

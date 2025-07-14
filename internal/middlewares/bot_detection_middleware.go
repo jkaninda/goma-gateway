@@ -34,7 +34,7 @@ func (botDetection BotDetection) BotDetectionMiddleware(next http.Handler) http.
 		userAgent := r.Header.Get("User-Agent")
 		for _, bot := range botDetection.UserAgents {
 			if strings.Contains(userAgent, bot) {
-				logger.Error("%s: %s Forbidden - Bots are not allowed", getRealIP(r), r.URL.Path)
+				logger.Warn("%s: %s Forbidden - Bots are not allowed", getRealIP(r), r.URL.Path)
 				RespondWithError(w, r, http.StatusForbidden, "Bots are not allowed", nil, contentType)
 				return
 			}

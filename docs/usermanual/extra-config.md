@@ -8,122 +8,120 @@ nav_order: 3
 
 ## Extra Config
 
-The **Extra Config** feature enables you to define additional routes and middlewares in separate `.yml` or `.yaml` files, stored in a specified directory.
+The **Extra Config** feature allows you to modularize your configuration by placing additional route and middleware definitions in separate `.yaml` or `.yml` files. These files are stored in a specified directory and can be loaded dynamically at runtime.
 
-This approach helps streamline the management of routes and middlewares, especially as configurations grow in size.
+This is especially useful for large deployments where maintaining all routes and middlewares in a single configuration file becomes cumbersome.
 
-When managing many routes and middlewares in a single file, it can become cumbersome.
+---
 
-By using the **Extra Config** feature, you can split configurations into smaller, more manageable files, making them easier to maintain.
+### How It Works
 
-### Example Configuration
+* You define the `extraConfig` block in the main `gateway` configuration.
+* The `directory` field specifies the location where extra config files are stored.
+* If `watch` is enabled, the Gateway monitors the directory for changes and reloads updated configs automatically.
 
-To define extra routes, specify the configuration in the `gateway` section as shown below:
+---
+
+### Example: Gateway Extra Config Block
 
 ```yaml
 version: 2
 gateway:
   ...
-  ## Add additional configuration
   extraConfig:
-    # Directory containing additional configuration files.
-    directory: /etc/goma/extra
-    watch: false  # Set to true to watch for changes in the directory.
+    directory: /etc/goma/extra  # Directory with extra YAML files
+    watch: false                # Set to true to enable live reloading
   routes:
     - path: /
       name: example
 ```
-### Routes Configuration
 
-You can create additional route configurations by placing them in files with a `.yaml` or `.yml` extension inside the `/etc/goma/extra` directory. 
+---
 
-Here’s an example of a route configuration file:
+## Defining Additional Routes
+
+You can split routes into individual or grouped files placed under the directory specified by `extraConfig.directory`. These files must use the `routes:` key at the root level.
+
+### Example: `/etc/goma/extra/routes.yaml`
 
 ```yaml
 routes:
   - path: /order
     name: order-service
-    hosts: []
     rewrite: /
-    methods:
-      - GET
-      - PUT
+    methods: [GET, PUT]
     backends:
-      - endpoint: https://api.example.com  # Backend server URL
-      - endpoint: https://api2.example.com   # Backend server URL
-      - endpoint: https://api3.example.com   # Backend server URL
+      - endpoint: https://api.example.com
+      - endpoint: https://api2.example.com
+      - endpoint: https://api3.example.com
     healthCheck:
       path: /
       interval: 30s
       timeout: 10s
-      healthyStatuses:
-        - 200
-        - 404
+      healthyStatuses: [200, 404]
     cors:
       origins: []
       headers: {}
-    disableHostForwarding: true
-    blockCommonExploits: false
     middlewares:
-      - auth-middleware  # List of middlewares for this route.
+      - auth-middleware
+
   - path: /cart
     name: cart-service
-    hosts: []
-    rewrite: /
-    methods:
-      - GET
-      - PUT
-      - POST
-    destination: http://cart-service:8080
+    methods: [GET, PUT, POST]
+    target: http://cart-service:8080
     healthCheck:
       path: /
       interval: 30s
       timeout: 10s
-      healthyStatuses:
-        - 200
-        - 404
+      healthyStatuses: [200, 404]
     cors:
       origins: []
-      headers: {}
-    rateLimit: 60
-    disableHostForwarding: true
-    blockCommonExploits: false
+      headers: {} 
     middlewares:
-      - auth-middleware  # List of middlewares for this route.
+      - auth-middleware
 ```
-### Extra Middlewares
 
-Similarly to routes, you can define middlewares in separate files stored in the `/etc/goma/extra` directory. 
-These middlewares can be applied globally or to specific routes.
+---
+
+## Defining Additional Middlewares
+
+You can also define middlewares in separate files placed in the same directory. These middlewares can be referenced globally or per route.
+
+### Example: `/etc/goma/extra/middlewares.yaml`
 
 ```yaml
-##### Extra Middlewares
 middlewares:
-  # Basic Authentication middleware.
+  # Basic Authentication middleware
   - name: extra-basic-auth
-    type: basic  # Authentication type (options: basic, jwt, OAuth).
+    type: basicAuth
     paths:
       - /user
       - /admin/*
       - /account
     rule:
-      realm: your-realm # Optional
+      realm: your-realm
       users:
-        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
-        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
-        - admin:admin # Plaintext password
-      # username: admin # Deprecated
-      # password: admin # Deprecated
+        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc=
+        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali
+        - admin:admin
 
-  # Access control middleware to block specific paths.
+  # Access control middleware to block sensitive paths
   - name: extra-api-forbidden-paths
     type: access
-    paths:  # Paths to block.
+    paths:
       - /swagger-ui/*
       - /v2/swagger-ui/*
       - /api-docs/*
       - /internal/*
       - /actuator/*
 ```
+
+---
+
+## Best Practices
+
+* Use descriptive filenames (e.g. `routes-cart.yaml`, `middlewares-auth.yaml`) to organize large sets of configuration files.
+* Combine `watch: true` with file change monitoring tools (like inotify) for seamless updates.
+* Validate all extra configuration files before deployment to ensure consistency and avoid runtime errors.
 
 

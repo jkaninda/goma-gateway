@@ -19,7 +19,7 @@ package internal
 
 // Cors defines the configuration structure for Cross-Origin Resource Sharing (CORS) settings
 type Cors struct {
-	// Origins specifies which origins are allowed to access the resource.
+	// Origins specify which origins are allowed to access the resource.
 	// Examples:
 	// - http://localhost:80
 	// - https://example.com

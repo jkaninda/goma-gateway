@@ -23,12 +23,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/time/rate"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // AuthMiddleware checks for the Authorization header and verifies the credentials
-func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
+func (basicAuth *AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !isPathMatching(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
 			next.ServeHTTP(w, r)
@@ -36,68 +39,119 @@ func (basicAuth AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		contentType := r.Header.Get("Content-Type")
-		realm := basicAuth.Realm
-		if realm == "" {
-			realm = "Restricted"
+		if basicAuth.Realm == "" {
+			basicAuth.Realm = "Restricted"
 		}
 
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Basic ") {
 			logger.Debug("Missing or invalid Authorization header")
-			unauthorizedResponse(w, r, realm, contentType)
+			unauthorizedResponse(w, r, basicAuth.Realm, contentType)
 			return
 		}
 
 		payload, err := base64.StdEncoding.DecodeString(authHeader[len("Basic "):])
 		if err != nil {
 			logger.Debug("Failed to decode base64 auth payload")
-			unauthorizedResponse(w, r, realm, contentType)
+			unauthorizedResponse(w, r, basicAuth.Realm, contentType)
 			return
 		}
 
 		parts := strings.SplitN(string(payload), ":", 2)
 		if len(parts) != 2 {
 			logger.Debug("Malformed Basic auth credentials")
-			unauthorizedResponse(w, r, realm, contentType)
+			unauthorizedResponse(w, r, basicAuth.Realm, contentType)
 			return
 		}
 
-		if len(basicAuth.Users) > 0 {
-			if !validateCredentials(parts[0], parts[1], basicAuth.Users) {
-				logger.Debug("Invalid credentials", "auth", "basicAuth", "username", parts[0])
-				unauthorizedResponse(w, r, realm, contentType)
-				return
-			}
-		} else {
-			if parts[0] != basicAuth.Username || parts[1] != basicAuth.Password {
-				unauthorizedResponse(w, r, realm, contentType)
+		// Rate limiting for LDAP authentication
+		if basicAuth.Ldap != nil {
+			basicAuth.rateLimitInit.Do(basicAuth.initRateLimit)
+
+			// Check rate limit before attempting LDAP authentication
+			if !basicAuth.checkRateLimit() {
+				logger.Warn("Too many requests", "ip", getRealIP(r), "url", r.URL, "user_agent", r.UserAgent())
+				tooManyRequestsResponse(w, r, basicAuth.rateLimitTTL, basicAuth.Realm, contentType)
 				return
 			}
 		}
+
+		if !basicAuth.validateCredentials(parts[0], parts[1]) {
+			logger.Warn("Invalid credentials", "auth", "basicAuth", "username", parts[0], "ip", getRealIP(r))
+			unauthorizedResponse(w, r, basicAuth.Realm, contentType)
+			return
+		}
+
+		if basicAuth.ForwardUsername {
+			r.Header.Set("username", parts[0])
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+func (basicAuth *AuthBasic) initRateLimit() {
+	if basicAuth.ConnPoolSize <= 0 {
+		basicAuth.ConnPoolSize = 10
+	}
+	if basicAuth.ConnPoolBurst <= 0 {
+		basicAuth.ConnPoolBurst = 20
+	}
+
+	// Parse TTL string to duration
+	if basicAuth.ConnPoolTTL != "" {
+		if ttl, err := time.ParseDuration(basicAuth.ConnPoolTTL); err == nil {
+			basicAuth.rateLimitTTL = ttl
+		} else {
+			basicAuth.rateLimitTTL = time.Minute
+		}
+	} else {
+		basicAuth.rateLimitTTL = time.Minute
+	}
+
+	limit := rate.Every(basicAuth.rateLimitTTL / time.Duration(basicAuth.ConnPoolSize))
+	basicAuth.rateLimiter = rate.NewLimiter(limit, basicAuth.ConnPoolBurst)
+}
+
+// checkRateLimit checks if the request should be rate limited
+func (basicAuth *AuthBasic) checkRateLimit() bool {
+	basicAuth.rateLimitMu.RLock()
+	defer basicAuth.rateLimitMu.RUnlock()
+
+	if basicAuth.rateLimiter == nil {
+		return true
+	}
+
+	return basicAuth.rateLimiter.Allow()
 }
 
 func unauthorizedResponse(w http.ResponseWriter, r *http.Request, realm, contentType string) {
 	w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, realm))
 	RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), nil, contentType)
 }
+func tooManyRequestsResponse(w http.ResponseWriter, r *http.Request, ttl time.Duration, realm, contentType string) {
+	w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, realm))
+	w.Header().Set("Retry-After", strconv.Itoa(int(ttl.Seconds())))
+	RespondWithError(w, r, http.StatusTooManyRequests, fmt.Sprintf("%d %s", http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)), nil, contentType)
+}
 
-func validateCredentials(username, password string, users []string) bool {
-	for _, entry := range users {
-		u := strings.SplitN(entry, ":", 2)
-		if len(u) != 2 {
-			logger.Debug("Skipping invalid user entry", "entry", entry)
-			continue
-		}
-		storedUser, storedHash := u[0], u[1]
-		if username == storedUser {
-			ok, err := ValidatePassword(password, storedHash)
-			if err != nil {
-				logger.Error("Password validation error", "err", err)
-				return false
+func (basicAuth *AuthBasic) validateCredentials(username, password string) bool {
+	if basicAuth.Ldap != nil {
+		return basicAuth.Ldap.authenticateLDAP(username, password)
+	} else {
+		for _, entry := range basicAuth.Users {
+			u := strings.SplitN(entry, ":", 2)
+			if len(u) != 2 {
+				logger.Debug("Skipping invalid user entry", "entry", entry)
+				continue
 			}
-			return ok
+			storedUser, storedHash := u[0], u[1]
+			if username == storedUser {
+				ok, err := ValidatePassword(password, storedHash)
+				if err != nil {
+					logger.Error("Password validation error", "err", err)
+					return false
+				}
+				return ok
+			}
 		}
 	}
 	return false
