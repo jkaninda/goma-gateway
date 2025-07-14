@@ -53,6 +53,9 @@ func (ps *ProxyServer) Start() error {
 			go ps.startTCPListener(rule)
 		case ProtocolUDP:
 			go ps.startUDPListener(rule)
+		case ProtocolTCPUDP:
+			go ps.startTCPListener(rule)
+			go ps.startUDPListener(rule)
 		}
 
 	}
@@ -78,6 +81,9 @@ func (ps *ProxyServer) validateRule(rule ForwardRule) error {
 	}
 	if rule.Target == "" {
 		return fmt.Errorf("target cannot be empty")
+	}
+	if rule.Protocol == ProtocolTCPUDP {
+		return nil
 	}
 	if rule.Protocol != ProtocolTCP && rule.Protocol != ProtocolUDP {
 		return fmt.Errorf("unsupported protocol: %s", rule.Protocol)

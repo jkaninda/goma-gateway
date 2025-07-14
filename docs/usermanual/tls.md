@@ -2,7 +2,7 @@
 title: TLS & Let's Encrypt
 layout: default
 parent: User Manual
-nav_order: 7
+nav_order: 8
 ---
 
 # TLS & Let's Encrypt Configuration

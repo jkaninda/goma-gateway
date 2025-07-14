@@ -7,181 +7,265 @@ nav_order: 1
 
 # Gateway
 
-The Gateway serves as the entry point to the server. This section provides options to configure the proxy server, define routes, and specify additional routes. 
+The **Gateway** is the core entry point to your server. It manages inbound traffic, defines routing behavior, and controls security, monitoring, and performance settings.
 
-These settings enable precise control over traffic flow and routing within your deployment.
+This section describes how to configure the gateway to manage traffic effectively across your services.
 
-## Configuration Options
+---
 
-- **`redis`**: Redis configuration settings.
-- **`tls`**: Global TLS configuration .
-- **`writeTimeout`** (`integer`): Timeout for writing responses (in seconds).
-- **`readTimeout`** (`integer`): Timeout for reading requests (in seconds).
-- **`idleTimeout`** (`integer`): Timeout for idle connections (in seconds).
-- **`blockCommonExploits`** (`boolean`): Enable or disable blocking of common exploits.
-- **`disableHealthCheckStatus`** (`boolean`): Enable or disable exposing the health check route status.
-- **`disableRouteHealthCheckError`** (`boolean`): Enable or disable returning health check error responses for routes.
-- **`disableKeepAlive`** (`boolean`): Enable or disable `keepAlive` for the proxy.
-- **`entroiponts`**: Define the network addresses where web servers will listen for incoming HTTP and HTTPS requests.
-- **`enableMetrics`** (`boolean`): Enable or disable server metrics collection.
-- **`enableStrictSlash`** (`boolean`): Enable or disable, the router will match the path with or without a trailing slash.
+## Configuration Overview
 
+You can configure the gateway using the following options:
+
+* **`redis`**: Redis-related configuration.
+* **`tls`**: Global TLS settings for secure communication.
+* **`timeouts`**: Server read/write/idle timeout settings.
+* **`entryPoints`**: Network addresses and ports for incoming HTTP/HTTPS and TCP/UDP traffic.
+* **`networking`**: Proxy networking options (e.g., connection pooling).
+* **`monitoring`**: Metrics and health check configuration.
+* **`enableStrictSlash`** (`boolean`): Whether the router should normalize paths with/without trailing slashes.
+
+---
 
 ## TLS Configuration
 
-Goma Gateway allows you to define global TLS certificates for securing routes.
+Goma Gateway supports global TLS settings to secure incoming requests.
 
-These certificates are used to encrypt traffic between clients and the gateway.
+### Certificate Settings
 
-#### Keys Configuration
+TLS certificates can be configured using the following keys:
 
-You can define a list of TLS certificates for the routes using the following keys:
+* **`cert`** (`string`):
+  The TLS certificate, provided as:
 
-- **`cert`** (`string`):  
-  Specifies the TLS certificate. This can be provided as:
-  - A file path to the certificate.
-  - Raw certificate content.
-  - A base64-encoded certificate.
+  * A file path,
+  * Raw PEM-encoded content,
+  * A base64-encoded string.
 
-- **`key`** (`string`):  
-  Specifies the private key corresponding to the TLS certificate. 
-   
-  This can be provided as:
-  - A file path to the private key.
-  - Raw private key content.
-  - A base64-encoded private key.
+* **`key`** (`string`):
+  The private key associated with the certificate, also accepted in:
 
----
-### CORS Configuration
-
-Customize Cross-Origin Resource Sharing (CORS) settings for the proxy:
-
-- **`origins`** (`array of strings`): List of allowed origins.
-- **`headers`** (`map[string]string`): Custom headers to include in responses.
-
-### Error Interceptor
-- **`enabled`** (`boolean`): Determines whether the backend error interceptor is active.  
-  *Default: `false`*
-- **`contentType`** (`string`): Specifies the `Content-Type` header of the response, such as `application/json` or `text/plain`.
-- **`errors`** (`array`): A collection of error configurations defining which HTTP status codes to intercept and their corresponding custom responses.
-
-### EntryPoints Configuration
-
-The `entryPoints` section in Goma Gateway's configuration allows you to define the network addresses where your web servers will listen for incoming HTTP and HTTPS requests. This section is crucial for setting up custom ports or IP addresses for your web services.
-
-#### Default Behavior
-By default, Goma Gateway listens on:
-- **Web (HTTP)**: Port `8080`
-- **WebSecure (HTTPS)**: Port `8443`
-
-However, you can customize these settings to use different ports or bind to specific IP addresses as needed.
-
-#### Configuration Structure
-
-##### `web` Entry Point
-- **Purpose**: Configures the address for the HTTP server.
-- **Key**: `address` (`string`)
-  - **Description**: Specifies the network address and port where the HTTP server will listen. The format is typically `:port` (e.g., `":80"`) or `ip:port` (e.g., `"192.168.1.1:80"`).
-
-##### `webSecure` Entry Point
-- **Purpose**: Configures the address for the HTTPS server.
-- **Key**: `address` (`string`)
-  - **Description**: Specifies the network address and port where the HTTPS server will listen. Similar to the `web` entry point, the format is `:port` or `ip:port`.
-
-  
-### Extra Config
-
-Define custom routes and middlewares for greater flexibility:
-
-- **`directory`** (`string`): The directory path where additional route and middleware configuration files are stored.
-- **`watch`** (`boolean`): Watch the directory for changes and update routes dynamically.
-
-### Routes
-
-Define the main routes for the Gateway, enabling routing logic for incoming requests.
+  * File path,
+  * Raw PEM format,
+  * Base64-encoded string.
 
 ---
 
-### Minimal Configuration
+## Timeouts
+
+Configure timeouts (in seconds) for request handling:
+
+* **`write`**: Timeout for writing responses.
+* **`read`**: Timeout for reading requests.
+* **`idle`**: Timeout for idle connections.
+
+---
+
+## CORS Configuration
+
+Control Cross-Origin Resource Sharing behavior:
+
+* **`origins`** (`[]string`): Allowed origins.
+* **`headers`** (`map[string]string`): Custom response headers.
+* **`allowedHeaders`** (`[]string`): Headers allowed in requests.
+* **`exposeHeaders`** (`[]string`): Headers exposed to clients.
+* **`maxAge`** (`int`): How long (in seconds) the preflight response is cached.
+* **`allowMethods`** (`[]string`): Allowed HTTP methods.
+* **`allowCredentials`** (`bool`): Whether credentials are allowed.
+
+---
+
+## Error Interceptor
+
+Configure centralized error handling:
+
+* **`enabled`** (`boolean`): Enable or disable the interceptor. *Default: `false`*
+* **`contentType`** (`string`): Response content type (e.g., `application/json`).
+* **`errors`** (`[]object`): Custom responses for specific HTTP status codes.
+
+---
+
+## EntryPoints Configuration
+
+Define how the gateway listens for traffic.
+
+### Defaults
+
+By default, the gateway listens on:
+
+* `web`: Port `8080` (HTTP)
+* `webSecure`: Port `8443` (HTTPS)
+
+### HTTP/HTTPS Entry Points
+
+* **`web.address`** (`string`): Network address/port for HTTP, e.g., `":80"` or `"0.0.0.0:8080"`.
+* **`webSecure.address`** (`string`): Network address/port for HTTPS.
+
+### PassThrough (TCP/UDP/gRPC Forwarding)
+
+Configure TCP/UDP forwarding:
 
 ```yaml
-version: 2  # Configuration version
+passThrough:
+  forwards:
+    - protocol: tcp
+      port: 2222
+      target: srv1.example.com:62557
+```
+
+* **`protocol`**: One of `tcp`, `udp`, or `tcp/udp`.
+* **`port`** (`int`): Listening port.
+* **`target`** (`string`): Target address, e.g., `host:port`.
+
+---
+
+## Monitoring
+
+Enable metrics and health checks:
+
+* **`enableMetrics`** (`boolean`): Enable Prometheus metrics.
+* **`path`** (`string`): Path for metrics (default: `/metrics`).
+* **`healthCheck`**:
+
+  * **`enableHealthCheckStatus`**: Enable `/healthz/routes` endpoint.
+  * **`enableRouteHealthCheckError`**: Show route-level health check errors.
+
+---
+
+## Extra Config
+
+Load additional route and middleware configurations:
+
+* **`directory`** (`string`): Directory containing config files.
+* **`watch`** (`boolean`): Watch for changes and reload dynamically.
+
+---
+
+## Routes
+
+Define HTTP routing logic using the `routes` section. Each route specifies match criteria (e.g., path, host), backends, CORS, middlewares, and health checks.
+
+---
+
+## Minimal Configuration
+
+```yaml
+version: 2
 gateway:
   routes: []
 ```
-### Example: Customizing EntryPoints
 
-To override the default ports and bind the web servers to standard HTTP (`:80`) and HTTPS (`:443`) ports, you can modify the configuration as shown below:
+---
+
+## Example: Custom EntryPoints
 
 ```yaml
-version: 2  # Configuration version
+version: 2
 gateway:
   entryPoints:
     web:
-      address: ":80"  # Bind HTTP server to port 80
+      address: ":80"
     webSecure:
-      address: ":443" # Bind HTTPS server to port 443
+      address: ":443"
 ```
 
-## Example Configuration
+---
+
+## Full Example Configuration
 
 ```yaml
-version: 2  # Configuration version
+version: 2
 gateway:
-  # Timeout settings for the gateway
-  writeTimeout: 15  # Maximum time (in seconds) to wait for a write operation to complete
-  readTimeout: 15   # Maximum time (in seconds) to wait for a read operation to complete
-  idleTimeout: 30   # Maximum idle time (in seconds) before closing an inactive connection
+  timeouts:
+    write: 30
+    read: 30
+    idle: 30
 
-  # TLS configuration for securing the gateway
   tls:
-    keys:  # List of TLS certificates and private keys
-      - cert: /etc/goma/cert.pem  # File path to the TLS certificate
-        key: /etc/goma/key.pem    # File path to the private key
-      - cert: |  # Raw certificate content (PEM format)
+    keys:
+      - cert: /etc/goma/cert.pem
+        key: /etc/goma/key.pem
+      - cert: |
           -----BEGIN CERTIFICATE-----
-        key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64-encoded private key
+          ...
+        key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64
 
-  # Logging Configuration
+  entryPoints:
+    web:
+      address: ":80"
+    webSecure:
+      address: ":443"
+    passThrough:
+      forwards:
+        - protocol: tcp
+          port: 2222
+          target: srv1.example.com:62557
+        - protocol: tcp/udp
+          port: 53
+          target: 10.25.10.15:53
+        - protocol: tcp
+          port: 5050
+          target: 10.25.10.181:4040
+        - protocol: udp
+          port: 55
+          target: 10.25.10.20:53
+
   log:
-    level: info # Logging level (options: debug, trace, off). default: error
-    filePath: '' # Path for log files (eg. /etc/goma/goma.log).
-    format: json # log output format (options: text, json). default: text
+    level: info
+    filePath: ''
+    format: json
 
+  monitoring:
+    enableMetrics: true
+    path: /metrics
+    healthCheck:
+      enableHealthCheckStatus: true
+      enableRouteHealthCheckError: true
 
-  # Gateway behavior settings
-  disableRouteHealthCheckError: false  # Enable/disable health check error logging
-  disableDisplayRouteOnStart: false    # Enable/disable displaying routes on startup
-  disableKeepAlive: false              # Enable/disable keep-alive connections
-  disableHealthCheckStatus: false      # Enable/disable health check status updates
-  blockCommonExploits: false           # Enable/disable blocking common web exploits
+  networking:
+    proxy:
+      disableCompression: false
+      maxIdleConns: 100
+      maxIdleConnsPerHost: 150
+      idleConnTimeout: 90
+      forceAttemptHTTP2: true
 
-  # Error interceptor configuration
   errorInterceptor:
-    enabled: true  # Enable/disable error interception
-    contentType: "application/json"  # Content type for error responses
-    errors:  # Custom error responses for specific HTTP status codes
-      - status: 401  # Unauthorized
-        body: ""     # Empty response body
-      - status: 500  # Internal Server Error
-        body: "Internal server error"  # Custom error message
+    enabled: true
+    contentType: "application/json"
+    errors:
+      - status: 401
+        body: ""
+      - status: 500
+        body: "Internal server error"
 
-  # CORS (Cross-Origin Resource Sharing) configuration
   cors:
-    origins:  # Allowed origins for CORS
-      - http://localhost:8080
-      - https://example.com
-    headers:  # Custom headers for CORS
-      X-Custom-Header: "Value"  # Example custom header
-      Access-Control-Allow-Credentials: "true"  # Allow credentials (e.g., cookies)
-      Access-Control-Allow-Headers: Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id  # Allowed headers
-      Access-Control-Max-Age: "1728000"  # Max age for preflight requests (in seconds)
+    origins:
+      - http://localhost:3000
+      - https://dev.example.com
+    allowedHeaders:
+      - Origin
+      - Authorization
+      - X-Client-Id
+      - Content-Type
+      - Accept
+    headers:
+      X-Session-Id: xxx-xxx-xx
+      Access-Control-Max-Age: 1728000
+    exposeHeaders: []
+    maxAge: 1728000
+    allowMethods: ["GET", "POST"]
+    allowCredentials: true
 
-  # Extra configuration for additional files (e.g., routes and middleware)
   extraConfig:
-    directory: /etc/goma/extra  # Directory path for additional configuration files
-    watch: true  # Enable/disable watching the directory for changes
+    directory: /etc/goma/extra
+    watch: true
 
-  # Routes configuration (empty in this example)
-  routes: []  # Define routes for the gateway (e.g., path, backends, health checks)
+  routes: []
+  middlewares: []
+  certManager:
+    acme:
+      ## Uncomment email to enable Let's Encrypt
+      #email: admin@example.com # Email for ACME registration
+      storageFile: /etc/letsencrypt/acme.json
 ```

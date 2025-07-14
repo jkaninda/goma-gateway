@@ -46,25 +46,39 @@ Architecture:
 ---
 ## Features
 
-Goma Gateway is designed for simplicity, flexibility, and robust performance. It supports a wide range of modern features, empowering you to manage and secure traffic efficiently across services.
-
+Goma Gateway is built for simplicity, flexibility, and high performance. It offers a comprehensive set of modern features to help you efficiently manage, route, and secure traffic across your services.
 
 ### Core Features
 
 * **RESTful API Gateway Management**
-  Intuitively manage APIs with a clean, declarative configuration system.
+  Manage your APIs easily with a clean, declarative configuration system designed for clarity and control.
 
 * **Domain & Host-Based Routing**
-  Route requests by domain or host to different services or environments.
+  Route incoming requests based on domain or host to direct traffic to the appropriate services or environments.
 
 * **Multi-Domain Support**
-  Handle traffic across multiple domains with unified configuration.
+  Handle traffic across multiple domains with a unified, streamlined configuration approach.
 
-* **Reverse Proxy Support**
-  Forward incoming client requests to backend services seamlessly.
+* **Reverse Proxy**
+  Seamlessly forward client requests to backend services, abstracting service details from clients.
 
-* **WebSocket Proxying**
-  Enable real-time applications with full WebSocket support.
+* **Traffic Control & Rate Limiting**
+  Protect your services from overload by controlling request rates and traffic flow.
+
+* **WebSocket & gRPC Routing**
+  Fully support real-time applications with native WebSocket and gRPC routing capabilities.
+
+* **TCP/UDP Routing**
+  Forward TCP, UDP, and gRPC traffic efficiently through the PassThrough entry point.
+
+* **TLS & Certificate Management (Automatic & Custom)**
+  Secure your communications with flexible TLS support, including automatic certificate provisioning and custom certificates.
+
+* **Backend Error Interception**
+  Intercept and handle backend errors gracefully to improve reliability and user experience.
+
+* **Monitoring & Logging**
+  Gain deep visibility into gateway operations with comprehensive monitoring and logging features.
 
 ---
 
@@ -232,44 +246,58 @@ Create a file named `config.yaml`:
 version: 2
 gateway:
   # Timeout settings (in seconds)
-  writeTimeout: 15 
-  readTimeout: 15 
-  idleTimeout: 30
+  timeouts:
+    write: 30
+    read: 30
+    idle: 30
   # Optional, default port 8080
   entryPoints:
     web:
       address: ":80"
     webSecure:
       address: ":443"
+  extraConfig:
+    directory: /etc/goma/extra
+    watch: true
   # Route definitions
   routes:
-    # First route definition - simple proxy to example.com
+    #  Route definition 1
+    - path: /                # Base path to match
+      enabled: false         # Whether the route is enabled
+      name: minimal           # Descriptive name for the route
+      hosts:                  # Host-based routing (virtual hosting)
+        - minimal.example.com    # Only match requests for this host
+      target: https://example.com  # Target URL for this route
+    #  Route definition 2
     - path: /                # Base path to match
       name: example           # Descriptive name for the route
-      disabled: false         # Whether the route is disabled
       rewrite: ''             # Path rewrite rule (empty means no rewrite)
-      destination: https://example.com  # Target URL for this route
-      disableHostForwarding: true  # Don't forward the original host header
+      target: https://jkantech.com  # Target URL for this route
       cors: {}                # CORS settings
+      security:
+        forwardHostHeaders: false
+        enableExploitProtection: true
+        tls:
+          skipVerification: true
+          rootCAs: ""
       middlewares:
-        - basic-auth          # Apply basic authentication middleware
-    # Second route definition
-    - name: api             
-      path: /                 
-      disabled: false       
+      #- basic-auth          # Apply basic authentication middleware
+    #  Route definition 3
+    - name: api
+      path: /
       hosts:                  # Host-based routing (virtual hosting)
         - app.example.com    # Only match requests for this host
-      rewrite: /              
+      rewrite: /
       backends:               # Load balancing backends
-        - endpoint: https://api-1.example.com  
-          weight: 1           
-        - endpoint: https://api-2.example.com  
-          weight: 3           
+        - endpoint: https://api-1.example.com
+          weight: 1
+        - endpoint: https://api-2.example.com
+          weight: 3
       healthCheck:
         path: /
         interval: 30s
-        timeout: 10s 
-        healthyStatuses:       
+        timeout: 10s
+        healthyStatuses:
           - 200
           - 404
       middlewares: []         # No middlewares for this route
@@ -288,7 +316,7 @@ middlewares:
 certManager:
   acme:
     ## Uncomment email to enable Let's Encrypt
-   # email: admin@example.com # Email for ACME registration
+    # email: admin@example.com # Email for ACME registration
     storageFile: /etc/letsencrypt/acme.json
 ```
 

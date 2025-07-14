@@ -6,32 +6,50 @@ nav_order: 1
 
 # Goma Gateway
 {:.no_toc}
-Goma Gateway is a lightweight High-Performance Declarative API Gateway Management.
+**Goma Gateway** is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly.
+
+
+The project is named after Goma, a vibrant city located in the eastern region of the Democratic Republic of the Congo — known for its resilience, beauty, and energy.
+
 
 <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/logo.png" width="150" alt="Goma logo">
 
 
 ## Features
 
-**Goma Gateway** is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly.
-
+Goma Gateway is built for simplicity, flexibility, and high performance. It offers a comprehensive set of modern features to help you efficiently manage, route, and secure traffic across your services.
 
 ### Core Features
 
 * **RESTful API Gateway Management**
-  Intuitively manage APIs with a clean, declarative configuration system.
+  Manage your APIs easily with a clean, declarative configuration system designed for clarity and control.
 
 * **Domain & Host-Based Routing**
-  Route requests by domain or host to different services or environments.
+  Route incoming requests based on domain or host to direct traffic to the appropriate services or environments.
 
 * **Multi-Domain Support**
-  Handle traffic across multiple domains with unified configuration.
+  Handle traffic across multiple domains with a unified, streamlined configuration approach.
 
-* **Reverse Proxy Support**
-  Forward incoming client requests to backend services seamlessly.
+* **Reverse Proxy**
+  Seamlessly forward client requests to backend services, abstracting service details from clients.
 
-* **WebSocket Proxying**
-  Enable real-time applications with full WebSocket support.
+* **Traffic Control & Rate Limiting**
+  Protect your services from overload by controlling request rates and traffic flow.
+
+* **WebSocket & gRPC Routing**
+  Fully support real-time applications with native WebSocket and gRPC routing capabilities.
+
+* **TCP/UDP Routing**
+  Forward TCP, UDP, and gRPC traffic efficiently through the PassThrough entry point.
+
+* **TLS & Certificate Management (Automatic & Custom)**
+  Secure your communications with flexible TLS support, including automatic certificate provisioning and custom certificates.
+
+* **Backend Error Interception**
+  Intercept and handle backend errors gracefully to improve reliability and user experience.
+
+* **Monitoring & Logging**
+  Gain deep visibility into gateway operations with comprehensive monitoring and logging features.
 
 ---
 

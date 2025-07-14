@@ -1,70 +1,56 @@
 routes:
-  # Example route configuration for an extra path
-  - path: /extra  # The path to match for this route
-    name: extra  # A descriptive name for the route
-    hosts: []  # Optional: List of hostnames for host-based routing (empty means all hosts)
-    cors:  # Route-specific CORS settings (overrides global CORS)
-      origins:  # Allowed origins for CORS
-        - https://dev.example.com
-        - http://localhost:3000
-        - https://example.com
-      headers:  # Custom CORS headers for this route
-        Access-Control-Allow-Methods: 'GET'  # Allowed HTTP methods
-        Access-Control-Allow-Headers: 'Origin, Authorization, Accept, Content-Type, Access-Control-Allow-Headers, X-Client-Id, X-Session-Id'  # Allowed headers
-        Access-Control-Allow-Credentials: 'true'  # Allow credentials (e.g., cookies)
-        Access-Control-Max-Age: 1728000  # Max age for preflight requests (in seconds)
-    rewrite: /  # Rewrite the request path to a new destination path
+  - path: /order
+    name: order-service
+    rewrite: /
+    methods: [GET, PUT]
     backends:
-      - endpoint:  https://example.com
-    methods: [POST, PUT, GET]  # Allowed HTTP methods for this route
-    disableHostForwarding: false  # If false, the Host header is forwarded to the backend
+      - endpoint: https://api.example.com
+      - endpoint: https://api2.example.com
+      - endpoint: https://api3.example.com
+    healthCheck:
+      path: /
+      interval: 30s
+      timeout: 10s
+      healthyStatuses: [200, 404]
+    cors:
+      origins: []
+      headers: {}
+    middlewares:
+      - auth-middleware
 
-  # Example route configuration for a secure path
-  - path: /  # The path to match for this route
-    name: secure route  # A descriptive name for the route
-    hosts:  # List of hostnames this route will handle
-      - api.example.com
-      - api2.example.com
-      - api3.example.com
-    rewrite: /  # Rewrite the incoming request path (if needed)
-    methods: []  # HTTP methods to allow (empty means all methods are allowed)
-    backends:  # List of backend servers to route traffic to
-      - endPoint: https://backend1.example.com
-      - endPoint: https://backend2.example.com
-      - endPoint: https://backend3.example.com
-    tls:  # TLS configuration for this route
-      keys:  # List of TLS certificates and private keys
-        - cert: /path/to/certificate.crt  # File path to the TLS certificate
-          key: /path/to/private.key  # File path to the private key
-        - cert: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64-encoded certificate
-          key:  LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64-encoded private key
-        - cert: |  # Raw certificate content (PEM format)
-            -----BEGIN CERTIFICATE-----
-              <certificate content>
-            -----END CERTIFICATE-----
-          key: |  # Raw private key content (PEM format)
-            -----BEGIN PRIVATE KEY-----
-               <private-key content>
-            -----END PRIVATE KEY-----
+  - path: /cart
+    name: cart-service
+    methods: [GET, PUT, POST]
+    target: http://cart-service:8080
+    healthCheck:
+      path: /
+      interval: 30s
+      timeout: 10s
+      healthyStatuses: [200, 404]
+    cors:
+      origins: []
+      headers: {}
+    middlewares:
+      - auth-middleware
 middlewares:
-  # Basic Authentication Middleware
-  - name: extra-basic-auth  # Name of the middleware
-    type: basic  # Authentication type (supported types: jwt, basic, OAuth)
-    paths:  # Define paths that require authentication
+  # Basic Authentication middleware
+  - name: extra-basic-auth
+    type: basicAuth
+    paths:
       - /user
-      - /admin
+      - /admin/*
       - /account
-    rule:  # Authentication credentials for basic authentication
-      realm: Restricted  # Realm for authentication
-      users:  # List of users and their credentials
-        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc=  # SHA-1 hashed password
-        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali  # bcrypt hashed password
-        - admin:admin  # Plaintext password (not recommended for production)
+    rule:
+      realm: your-realm
+      users:
+        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc=
+        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali
+        - admin:admin
 
-  # Access Control Middleware
-  - name: extra-api-forbidden-paths  # Name of the middleware
-    type: access  # Middleware type for access control
-    paths:  # Define paths to restrict access
+  # Access control middleware to block sensitive paths
+  - name: extra-api-forbidden-paths
+    type: access
+    paths:
       - /swagger-ui/*
       - /v2/swagger-ui/*
       - /api-docs/*
