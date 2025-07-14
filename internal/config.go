@@ -265,12 +265,10 @@ func initConfig(configFile string) error {
 				Format:   "json",
 			},
 			Monitoring: Monitoring{
-				EnableMetrics: true,
-				Path:          "/metrics",
-				HealthCheck: HealthCheck{
-					EnableHealthCheckStatus:     true,
-					EnableRouteHealthCheckError: true,
-				},
+				EnableMetrics:   true,
+				MetricsPath:     "/metrics",
+				EnableReadiness: true,
+				EnableLiveness:  true,
 			},
 			ExtraConfig: ExtraRouteConfig{
 				Directory: ExtraDir,

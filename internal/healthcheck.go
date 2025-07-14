@@ -173,7 +173,7 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 func healthCheckRoutes(routes []Route) []Health {
 	var healthRoutes []Health
 	for _, route := range routes {
-		if len(route.HealthCheck.Path) != 0 && !route.Disabled {
+		if len(route.HealthCheck.Path) != 0 && route.Enabled {
 			timeout, _ := util.ParseDuration("")
 			if len(route.HealthCheck.Timeout) > 0 {
 				d1, err1 := util.ParseDuration(route.HealthCheck.Timeout)
@@ -190,7 +190,7 @@ func healthCheckRoutes(routes []Route) []Health {
 						TimeOut:            timeout,
 						Interval:           route.HealthCheck.Interval,
 						HealthyStatuses:    route.HealthCheck.HealthyStatuses,
-						InsecureSkipVerify: route.InsecureSkipVerify,
+						InsecureSkipVerify: route.Security.TLS.SkipVerification,
 					}
 					healthRoutes = append(healthRoutes, health)
 				}
@@ -198,11 +198,11 @@ func healthCheckRoutes(routes []Route) []Health {
 			} else {
 				health := Health{
 					Name:               route.Name,
-					URL:                route.Destination + route.HealthCheck.Path,
+					URL:                route.Target + route.HealthCheck.Path,
 					TimeOut:            timeout,
 					Interval:           route.HealthCheck.Interval,
 					HealthyStatuses:    route.HealthCheck.HealthyStatuses,
-					InsecureSkipVerify: route.InsecureSkipVerify,
+					InsecureSkipVerify: route.Security.TLS.SkipVerification,
 				}
 				healthRoutes = append(healthRoutes, health)
 			}

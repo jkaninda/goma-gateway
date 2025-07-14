@@ -18,12 +18,6 @@
 package metrics
 
 import (
-	"github.com/jkaninda/logger"
-	"net/http"
-	"strconv"
-	"time"
-
-	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -60,75 +54,5 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			},
 			[]string{"name", "path", "method"},
 		),
-	}
-}
-
-// PrometheusRoute represents a route configuration for metrics
-type PrometheusRoute struct {
-	Name string
-	Path string
-}
-
-// responseWriter wraps http.ResponseWriter to capture status code
-type responseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
-}
-
-func (rw *responseWriter) Write(b []byte) (int, error) {
-	if rw.statusCode == 0 {
-		rw.statusCode = http.StatusOK
-	}
-	return rw.ResponseWriter.Write(b)
-}
-
-// PrometheusMiddleware creates a middleware that records Prometheus metrics
-func (pr PrometheusRoute) PrometheusMiddleware(metrics *PrometheusMetrics) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-			logger.Debug(">>> Calling PrometheusMiddleware", "path", r.URL.Path, "method", r.Method)
-			// Determine the path for metrics
-			path := pr.Path
-			if path == "" {
-				if route := mux.CurrentRoute(r); route != nil {
-					if template, err := route.GetPathTemplate(); err == nil {
-						path = template
-					}
-				}
-				// Fallback to request URL path if no route template
-				if path == "" {
-					path = r.URL.Path
-				}
-			}
-
-			// Wrap the response writer to capture status code
-			wrapped := &responseWriter{
-				ResponseWriter: w,
-				statusCode:     0,
-			}
-
-			// Record request
-			method := r.Method
-			metrics.TotalRequests.WithLabelValues(pr.Name, path, method).Inc()
-
-			next.ServeHTTP(wrapped, r)
-
-			// Record response metrics
-			statusCode := wrapped.statusCode
-			if statusCode == 0 {
-				statusCode = http.StatusOK
-			}
-			duration := time.Since(start).Seconds()
-			statusStr := strconv.Itoa(statusCode)
-
-			metrics.ResponseStatus.WithLabelValues(statusStr, pr.Name, path, method).Inc()
-			metrics.HttpDuration.WithLabelValues(pr.Name, path, method).Observe(duration)
-		})
 	}
 }
