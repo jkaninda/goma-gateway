@@ -272,15 +272,6 @@ func initConfig(configFile string) error {
 					EnableRouteHealthCheckError: true,
 				},
 			},
-			Networking: Networking{
-				ProxySettings: ProxyConfig{
-					DisableCompression:  false,
-					MaxIdleConns:        250,
-					MaxIdleConnsPerHost: 150,
-					IdleConnTimeout:     90,
-					ForceAttemptHTTP2:   true,
-				},
-			},
 			ExtraConfig: ExtraRouteConfig{
 				Directory: ExtraDir,
 				Watch:     false,
@@ -396,7 +387,7 @@ func initConfig(configFile string) error {
 				},
 			},
 		},
-		CertManager: &certmanager.Config{Provider: certmanager.CertAcmeProvider, Acme: certmanager.Acme{Email: "you-at-example.com"}},
+		CertManager: &certmanager.Config{Provider: certmanager.CertAcmeProvider, Acme: certmanager.Acme{Email: ""}},
 	}
 	yamlData, err := yaml.Marshal(&conf)
 	if err != nil {
