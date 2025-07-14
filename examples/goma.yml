@@ -41,10 +41,16 @@ gateway:
 
   monitoring:
     enableMetrics: true
-    path: /metrics
-    healthCheck:
-      enableHealthCheckStatus: true
-      enableRouteHealthCheckError: true
+    metricsPath: /metrics
+    enableReadiness: true
+    enableLiveness: true
+    enableRouteHealthCheck: true
+    includeRouteHealthErrors: true
+    middleware:
+      metrics:
+        - ldap
+      routeHealthCheck:
+        - ldap
 
   networking:
     proxy:

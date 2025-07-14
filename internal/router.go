@@ -22,7 +22,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"sync"
@@ -222,11 +221,12 @@ func (r *router) loadCertPool(rootCAs string) (*x509.CertPool, error) {
 func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 	// Proxy middleware
 	proxyMiddleware := &ProxyMiddleware{
-		Name:        route.Name,
-		Enabled:     route.ErrorInterceptor.Enabled,
-		ContentType: route.ErrorInterceptor.ContentType,
-		Errors:      route.ErrorInterceptor.Errors,
-		Origins:     route.Cors.Origins,
+		Name:          route.Name,
+		enableMetrics: r.enableMetrics,
+		Enabled:       route.ErrorInterceptor.Enabled,
+		ContentType:   route.ErrorInterceptor.ContentType,
+		Errors:        route.ErrorInterceptor.Errors,
+		Origins:       route.Cors.Origins,
 	}
 	rRouter.Use(proxyMiddleware.Wrap)
 	// CORS middleware
@@ -234,14 +234,6 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 
 	// Custom middlewares
 	attachMiddlewares(route, rRouter)
-
-	// Metrics middleware
-	if r.enableMetrics {
-		logger.Debug("Attaching metrics", "route", route.Name, "path", route.Path)
-		rPrometheus := metrics.PrometheusRoute{Name: route.Name, Path: route.Path}
-		rRouter.Use(rPrometheus.PrometheusMiddleware(prometheusMetrics))
-	}
-
 }
 
 // configureHandlers sets up route handlers
@@ -270,31 +262,72 @@ func (r *router) Mux() http.Handler {
 func (g *Gateway) addGlobalHandler(mux *mux.Router) {
 	logger.Debug("Adding global handler")
 
-	heath := HealthCheckRoute{
-		DisableRouteHealthCheckError: g.Monitoring.HealthCheck.EnableRouteHealthCheckError,
+	health := HealthCheckRoute{
+		DisableRouteHealthCheckError: g.Monitoring.IncludeRouteHealthErrors,
 		Routes:                       dynamicRoutes,
 	}
 
-	// Metrics endpoint
-	if g.Monitoring.EnableMetrics {
-		logger.Debug("Metrics enabled")
-		if g.Monitoring.Path != "" {
-			mux.Path(g.Monitoring.Path).Handler(promhttp.Handler())
-		} else {
-			mux.Path("/metrics").Handler(promhttp.Handler())
-		}
+	// Register global observability endpoints
+	g.registerMetricsHandler(mux)
+	g.registerRouteHealthHandler(mux, health)
+
+	// Gateway health endpoints
+	if g.Monitoring.EnableReadiness {
+		mux.HandleFunc("/readyz", health.HealthReadyHandler).Methods(http.MethodGet)
+	}
+	if g.Monitoring.EnableLiveness {
+		mux.HandleFunc("/healthz", health.HealthReadyHandler).Methods(http.MethodGet)
 	}
 
-	// Health check endpoints
-	if g.Monitoring.HealthCheck.EnableHealthCheckStatus {
-		mux.HandleFunc("/healthz/routes", heath.HealthCheckHandler).Methods("GET")
-	}
-
-	mux.HandleFunc("/readyz", heath.HealthReadyHandler).Methods("GET")
-	mux.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
-
-	// Global CORS
-	mux.Use(CORSHandler(g.Cors))
+	// Global middleware
+	//	mux.Use(CORSHandler(g.Cors))
 
 	logger.Debug("Added global handler")
+}
+
+// registerMetricsHandler configures the /metrics endpoint
+func (g *Gateway) registerMetricsHandler(mux *mux.Router) {
+	if !g.Monitoring.EnableMetrics {
+		return
+	}
+
+	logger.Debug("Metrics enabled")
+
+	path := "/metrics"
+	if g.Monitoring.MetricsPath != "" {
+		path = g.Monitoring.MetricsPath
+	}
+
+	sub := mux.PathPrefix(path).Subrouter()
+	sub.PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
+
+	if middlewares := g.Monitoring.Middleware.Metrics; len(middlewares) > 0 {
+		route := Route{
+			Path:        path,
+			Name:        "metrics",
+			Middlewares: middlewares,
+		}
+		attachMiddlewares(route, sub)
+	}
+}
+
+// registerRouteHealthHandler configures the /healthz/routes endpoint
+func (g *Gateway) registerRouteHealthHandler(mux *mux.Router, health HealthCheckRoute) {
+	if !g.Monitoring.EnableRouteHealthCheck {
+		return
+	}
+
+	logger.Debug("Route health check enabled")
+	path := "/healthz/routes"
+	sub := mux.PathPrefix(path).Subrouter()
+	sub.PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
+
+	if middlewares := g.Monitoring.Middleware.RouteHealthCheck; len(middlewares) > 0 {
+		route := Route{
+			Path:        path,
+			Name:        "routeHealth",
+			Middlewares: middlewares,
+		}
+		attachMiddlewares(route, sub)
+	}
 }

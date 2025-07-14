@@ -121,65 +121,85 @@ passThrough:
 
 ## Monitoring
 
-Enable metrics and health checks:
+The `monitoring` section allows you to configure observability endpoints for your gateway, including **Prometheus metrics**, **readiness/liveness probes**, and **route-level health checks**.
 
-* **`enableMetrics`** (`boolean`): Enable Prometheus metrics.
-* **`path`** (`string`): Path for metrics (default: `/metrics`).
-* **`healthCheck`**:
+### Available Options
 
-  * **`enableHealthCheckStatus`**: Enable `/healthz/routes` endpoint.
-  * **`enableRouteHealthCheckError`**: Show route-level health check errors.
+| Key                           | Type       | Default    | Description                                                             |
+|-------------------------------|------------|------------|-------------------------------------------------------------------------|
+| `enableMetrics`               | `bool`     | `false`    | Enables the Prometheus metrics endpoint.                                |
+| `metricsPath`                 | `string`   | `/metrics` | Sets a custom path for metrics exposure.                                |
+| `enableReadiness`             | `bool`     | `true`     | Enables the `/readyz` readiness probe.                                  |
+| `enableLiveness`              | `bool`     | `true`     | Enables the `/healthz` liveness probe.                                  |
+| `enableRouteHealthCheck`      | `bool`     | `false`    | Enables the `/healthz/routes` endpoint for detailed route-level checks. |
+| `includeRouteHealthErrors`    | `bool`     | `false`    | If `true`, includes route errors in the `/healthz/routes` response.     |
+| `middleware.metrics`          | `[]string` | `[]`       | Middleware list applied to the `/metrics` endpoint.                     |
+| `middleware.routeHealthCheck` | `[]string` | `[]`       | Middleware list applied to the `/healthz/routes` endpoint.              |
+
+---
+
+### Example Configuration
+
+```yaml
+gateway:
+  monitoring:
+    enableMetrics: true                  # Enable Prometheus metrics
+    metricsPath: /metrics                # Custom path for metrics (optional)
+    enableReadiness: true               # Enable /readyz readiness endpoint
+    enableLiveness: true                # Enable /healthz liveness endpoint
+    enableRouteHealthCheck: true        # Enable /healthz/routes for route-level checks
+    includeRouteHealthErrors: true      # Include route errors in /healthz/routes
+    middleware:
+      metrics:
+        - ldap                          # Middleware for /metrics
+      routeHealthCheck:
+        - ldap                          # Middleware for /healthz/routes
+```
 
 ---
 
 ## Networking
 
-Configure low-level HTTP transport and connection pooling behavior for optimal performance and resource efficiency.
+The `networking` section configures low-level HTTP transport and connection pooling behavior for the internal proxy. These settings help optimize performance, connection reuse, and resource efficiency when forwarding traffic to backend services.
 
 ### Proxy Networking Settings
 
-These options apply to the internal proxy client used to forward HTTP(S) requests to backend services.
+These options apply to the internal HTTP client used by the gateway to forward HTTP(S) requests.
+
+---
+
+### Available Options
+
+| Key                     | Type   | Default | Description                                                                             |
+|-------------------------|--------|---------|-----------------------------------------------------------------------------------------|
+| `forceAttemptHTTP2`     | `bool` | `true`  | Forces the proxy client to attempt using HTTP/2 where supported by the upstream server. |
+| `disableCompression`    | `bool` | `false` | Disables gzip compression for proxied requests, even if the server supports it.         |
+| `maxIdleConns`          | `int`  | `1024`  | Maximum number of idle (keep-alive) connections maintained across all hosts.            |
+| `maxIdleConnsPerHost`   | `int`  | `256`   | Maximum number of idle connections kept per backend host.                               |
+| `maxConnsPerHost`       | `int`  | `512`   | Maximum number of concurrent connections per host.                                      |
+| `idleConnTimeout`       | `int`  | `90`    | Time in seconds before an idle connection is closed.                                    |
+| `tlsHandshakeTimeout`   | `int`  | `0`     | Timeout in seconds for completing the TLS handshake with backend servers.               |
+| `responseHeaderTimeout` | `int`  | `0`     | Timeout in seconds to wait for a response header from the backend.                      |
+
+---
+
+### Example Configuration
 
 ```yaml
-networking:
-  proxy:
-    forceAttemptHTTP2: true
-    disableCompression: false
-    maxIdleConns: 512
-    maxIdleConnsPerHost: 256
-    maxConnsPerHost: 256
-    idleConnTimeout: 90
-    tlsHandshakeTimeout: 10
-    responseHeaderTimeout: 10
+gateway:
+  networking:
+    proxy:
+      forceAttemptHTTP2: true
+      disableCompression: false
+      maxIdleConns: 512
+      maxIdleConnsPerHost: 256
+      maxConnsPerHost: 256
+      idleConnTimeout: 90
+      tlsHandshakeTimeout: 10
+      responseHeaderTimeout: 10
 ```
 
-#### Available Options
-
-* **`forceAttemptHTTP2`** (`boolean`, *default: `true`*):
-  Force HTTP/2 where supported by upstream servers.
-
-* **`disableCompression`** (`boolean`, *default: `false`*):
-  Disable automatic gzip compression for proxied requests.
-
-* **`maxIdleConns`** (`int`, *default: `1024`*):
-  Maximum total idle (keep-alive) connections across all hosts.
-
-* **`maxIdleConnsPerHost`** (`int`, *default: `256`*):
-  Maximum idle connections to keep per-host.
-
-* **`maxConnsPerHost`** (`int`, *default: `512`*):
-  Maximum concurrent connections per host.
-
-* **`idleConnTimeout`** (`int`, *default: `90`*):
-  Time (in seconds) to keep idle connections alive.
-
-* **`tlsHandshakeTimeout`** (`int`, *default: `0`*):
-  Timeout (in seconds) for TLS handshake completion.
-
-* **`responseHeaderTimeout`** (`int`, *default: `0`*):
-  Timeout (in seconds) to wait for response headers from backend services.
-
-
+---
 
 ## Extra Config
 
@@ -265,11 +285,17 @@ gateway:
     format: json
 
   monitoring:
-    enableMetrics: true
-    path: /metrics
-    healthCheck:
-      enableHealthCheckStatus: true
-      enableRouteHealthCheckError: true
+    enableMetrics: true             
+    metricsPath: /metrics           
+    enableReadiness: true           
+    enableLiveness: true            
+    enableRouteHealthCheck: true    
+    includeRouteHealthErrors: true  
+    middleware:
+      metrics:
+        - ldap                      
+      routeHealthCheck:
+        - ldap                      
 
   networking:
     proxy:

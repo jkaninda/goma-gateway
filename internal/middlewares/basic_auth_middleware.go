@@ -63,6 +63,11 @@ func (basicAuth *AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 			unauthorizedResponse(w, r, basicAuth.Realm, contentType)
 			return
 		}
+		if len(parts[0]) == 0 || len(parts[1]) == 0 {
+			logger.Debug("Malformed Basic auth credentials")
+			unauthorizedResponse(w, r, basicAuth.Realm, contentType)
+			return
+		}
 
 		// Rate limiting for LDAP authentication
 		if basicAuth.Ldap != nil {

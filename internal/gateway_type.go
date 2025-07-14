@@ -118,18 +118,33 @@ type Log struct {
 
 // Monitoring defines the observability and health-related configuration.
 type Monitoring struct {
-	// EnableMetrics enables or disables server metrics collection.
+	// EnableMetrics enables or disables Prometheus metrics collection (default: false).
 	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
-	// Paths sets metrics custom path (default /metrics)
-	Path string `yaml:"path,omitempty"`
-	// Middleware name to apply to this Route
-	Middleware  string      `yaml:"middleware,omitempty"`
-	HealthCheck HealthCheck `yaml:"healthCheck,omitempty"`
+
+	// MetricsPath sets a custom path for metrics (default: /metrics).
+	MetricsPath string `yaml:"metricsPath,omitempty"`
+
+	// EnableReadiness controls exposure of the /readyz endpoint (default: true).
+	EnableReadiness bool `yaml:"enableReadiness,omitempty"`
+
+	// EnableLiveness controls exposure of the /healthz endpoint (default: true).
+	EnableLiveness bool `yaml:"enableLiveness,omitempty"`
+
+	// EnableRouteHealthCheck controls the /healthz/routes endpoint (default: false).
+	EnableRouteHealthCheck bool `yaml:"enableRouteHealthCheck,omitempty"`
+
+	// IncludeRouteHealthErrors determines whether route health errors are reported in /healthz/routes (default: false).
+	IncludeRouteHealthErrors bool `yaml:"includeRouteHealthErrors,omitempty"`
+
+	// Middleware assigns middleware to monitoring-related endpoints.
+	Middleware MonitoringMiddleware `yaml:"middleware,omitempty"`
 }
-type HealthCheck struct {
-	EnableHealthCheckStatus     bool `yaml:"enableHealthCheckStatus,omitempty"`
-	EnableRouteHealthCheckError bool `yaml:"enableRouteHealthCheckError,omitempty"`
+
+type MonitoringMiddleware struct {
+	Metrics          []string `yaml:"metrics,omitempty"`          // specifically for /metrics
+	RouteHealthCheck []string `yaml:"routeHealthCheck,omitempty"` // optional, for /healthz/routes`
 }
+
 type Protocol string
 type ForwardRule struct {
 	Protocol Protocol `yaml:"protocol,omitempty"`
@@ -170,6 +185,10 @@ func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	g.Networking.ProxySettings.MaxIdleConnsPerHost = 256
 	g.Networking.ProxySettings.MaxConnsPerHost = 256
 	g.Networking.ProxySettings.IdleConnTimeout = 90
+
+	// Monitoring
+	g.Monitoring.EnableLiveness = true
+	g.Monitoring.EnableReadiness = true
 
 	type tmp Gateway
 	return unmarshal((*tmp)(g))
