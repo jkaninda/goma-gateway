@@ -153,20 +153,24 @@ type DNSCacheConfig struct {
 	Resolver      []string `yaml:"resolver,omitempty"` // e.g., ["8.8.8.8:53"]
 }
 type ProxyConfig struct {
-	DisableCompression  bool `yaml:"disableCompression"`
-	MaxIdleConns        int  `yaml:"maxIdleConns"`
-	MaxIdleConnsPerHost int  `yaml:"maxIdleConnsPerHost"`
-	// IdleConnTimeout in seconds
-	IdleConnTimeout   int  `yaml:"idleConnTimeout"`
-	ForceAttemptHTTP2 bool `yaml:"forceAttemptHTTP2"`
+	DisableCompression    bool `yaml:"disableCompression"`
+	MaxIdleConns          int  `yaml:"maxIdleConns"`
+	MaxIdleConnsPerHost   int  `yaml:"maxIdleConnsPerHost"`
+	MaxConnsPerHost       int  `yaml:"maxConnsPerHost"`
+	TLSHandshakeTimeout   int  `yaml:"tlsHandshakeTimeout"`
+	ResponseHeaderTimeout int  `yaml:"responseHeaderTimeout"`
+	IdleConnTimeout       int  `yaml:"idleConnTimeout"`
+	ForceAttemptHTTP2     bool `yaml:"forceAttemptHTTP2"`
 }
 
 func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Proxy
 	g.Networking.ProxySettings.ForceAttemptHTTP2 = true
-	g.Networking.ProxySettings.MaxIdleConns = 250
-	g.Networking.ProxySettings.MaxIdleConnsPerHost = 150
+	g.Networking.ProxySettings.MaxIdleConns = 512
+	g.Networking.ProxySettings.MaxIdleConnsPerHost = 256
+	g.Networking.ProxySettings.MaxConnsPerHost = 256
 	g.Networking.ProxySettings.IdleConnTimeout = 90
+
 	type tmp Gateway
 	return unmarshal((*tmp)(g))
 }

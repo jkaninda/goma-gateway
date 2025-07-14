@@ -237,11 +237,9 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 
 	// Metrics middleware
 	if r.enableMetrics {
-		pr := metrics.PrometheusRoute{
-			Name: route.Name,
-			Path: route.Path,
-		}
-		rRouter.Use(pr.PrometheusMiddleware)
+		logger.Debug("Attaching metrics", "route", route.Name, "path", route.Path)
+		rPrometheus := metrics.PrometheusRoute{Name: route.Name, Path: route.Path}
+		rRouter.Use(rPrometheus.PrometheusMiddleware(prometheusMetrics))
 	}
 
 }
@@ -278,9 +276,13 @@ func (g *Gateway) addGlobalHandler(mux *mux.Router) {
 	}
 
 	// Metrics endpoint
-	if g.EnableMetrics {
+	if g.Monitoring.EnableMetrics {
 		logger.Debug("Metrics enabled")
-		mux.Path("/metrics").Handler(promhttp.Handler())
+		if g.Monitoring.Path != "" {
+			mux.Path(g.Monitoring.Path).Handler(promhttp.Handler())
+		} else {
+			mux.Path("/metrics").Handler(promhttp.Handler())
+		}
 	}
 
 	// Health check endpoints

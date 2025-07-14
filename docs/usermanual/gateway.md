@@ -132,6 +132,55 @@ Enable metrics and health checks:
 
 ---
 
+## Networking
+
+Configure low-level HTTP transport and connection pooling behavior for optimal performance and resource efficiency.
+
+### Proxy Networking Settings
+
+These options apply to the internal proxy client used to forward HTTP(S) requests to backend services.
+
+```yaml
+networking:
+  proxy:
+    forceAttemptHTTP2: true
+    disableCompression: false
+    maxIdleConns: 512
+    maxIdleConnsPerHost: 256
+    maxConnsPerHost: 256
+    idleConnTimeout: 90
+    tlsHandshakeTimeout: 10
+    responseHeaderTimeout: 10
+```
+
+#### Available Options
+
+* **`forceAttemptHTTP2`** (`boolean`, *default: `true`*):
+  Force HTTP/2 where supported by upstream servers.
+
+* **`disableCompression`** (`boolean`, *default: `false`*):
+  Disable automatic gzip compression for proxied requests.
+
+* **`maxIdleConns`** (`int`, *default: `1024`*):
+  Maximum total idle (keep-alive) connections across all hosts.
+
+* **`maxIdleConnsPerHost`** (`int`, *default: `256`*):
+  Maximum idle connections to keep per-host.
+
+* **`maxConnsPerHost`** (`int`, *default: `512`*):
+  Maximum concurrent connections per host.
+
+* **`idleConnTimeout`** (`int`, *default: `90`*):
+  Time (in seconds) to keep idle connections alive.
+
+* **`tlsHandshakeTimeout`** (`int`, *default: `0`*):
+  Timeout (in seconds) for TLS handshake completion.
+
+* **`responseHeaderTimeout`** (`int`, *default: `0`*):
+  Timeout (in seconds) to wait for response headers from backend services.
+
+
+
 ## Extra Config
 
 Load additional route and middleware configurations:
@@ -224,11 +273,14 @@ gateway:
 
   networking:
     proxy:
-      disableCompression: false
-      maxIdleConns: 100
-      maxIdleConnsPerHost: 150
-      idleConnTimeout: 90
       forceAttemptHTTP2: true
+      disableCompression: false
+      maxIdleConns: 1024
+      maxIdleConnsPerHost: 256
+      maxConnsPerHost: 512
+      idleConnTimeout: 90
+      tlsHandshakeTimeout: 10
+      responseHeaderTimeout: 10
 
   errorInterceptor:
     enabled: true

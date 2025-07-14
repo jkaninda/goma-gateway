@@ -185,14 +185,16 @@ func (pr *ProxyRoute) createProxyTransport() *http.Transport {
 		"MaxIdleConnsPerHost", pr.networking.ProxySettings.MaxIdleConnsPerHost,
 		"IdleConnTimeout", pr.networking.ProxySettings.IdleConnTimeout,
 		"ForceAttemptHTTP2", pr.networking.ProxySettings.ForceAttemptHTTP2)
-
 	return &http.Transport{
-		DisableCompression:  pr.networking.ProxySettings.DisableCompression,
-		MaxIdleConns:        pr.networking.ProxySettings.MaxIdleConns,
-		MaxIdleConnsPerHost: pr.networking.ProxySettings.MaxIdleConnsPerHost,
-		IdleConnTimeout:     time.Duration(pr.networking.ProxySettings.IdleConnTimeout) * time.Second,
-		DialContext:         cachedDialer.DialContext,
-		ForceAttemptHTTP2:   pr.networking.ProxySettings.ForceAttemptHTTP2,
+		DisableCompression:    pr.networking.ProxySettings.DisableCompression,
+		MaxIdleConns:          pr.networking.ProxySettings.MaxIdleConns,
+		MaxIdleConnsPerHost:   pr.networking.ProxySettings.MaxIdleConnsPerHost,
+		MaxConnsPerHost:       pr.networking.ProxySettings.MaxConnsPerHost,
+		TLSHandshakeTimeout:   time.Duration(pr.networking.ProxySettings.TLSHandshakeTimeout) * time.Second,
+		ResponseHeaderTimeout: time.Duration(pr.networking.ProxySettings.ResponseHeaderTimeout) * time.Second,
+		IdleConnTimeout:       time.Duration(pr.networking.ProxySettings.IdleConnTimeout) * time.Second,
+		DialContext:           cachedDialer.DialContext,
+		ForceAttemptHTTP2:     pr.networking.ProxySettings.ForceAttemptHTTP2,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: pr.security.TLS.SkipVerification,
 			RootCAs:            pr.certPool,

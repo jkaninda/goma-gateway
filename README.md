@@ -103,7 +103,7 @@ Goma Gateway is built for simplicity, flexibility, and high performance. It offe
 * **Authentication Middleware**
 
   * **ForwardAuth** support for external authorization services.
-  * Built-in support for **Basic Auth**, **JWT**, and **OAuth**.
+  * Built-in support for **Basic Auth**, **JWT**,**LDAP**, and **OAuth**.
 
 * **Access Policy Enforcement**
   Allow or deny traffic based on route-specific rules (IP, headers, methods, etc.).
@@ -194,41 +194,149 @@ Goma Gateway is built for simplicity, flexibility, and high performance. It offe
   - Integrate GitOps workflows to version control your gateway configurations, ensuring traceable and automated deployments.
 
 ----
+## 💡 Why Use Goma Gateway?
 
-## Usage
+**Goma Gateway** is more than just a reverse proxy — it's a modern, developer-friendly API Gateway designed to simplify, secure, and scale your service infrastructure. Here's why it stands out:
 
-### 1. Initialize Configuration
 
-Generate a configuration file using the following command:
+### ✅ **Simple, Declarative Configuration**
 
-```shell
+Configure routes, middleware, policies, and TLS in a clear and concise YAML format. Whether you prefer single-file or multi-file setups, Goma makes configuration intuitive and maintainable.
+
+### 🔐 **First-Class Security Built-In**
+
+Security isn't an afterthought. Goma ships with robust middleware for:
+
+* Automatic HTTPS with **Let's Encrypt** or your own custom TLS certs.
+* Built-in **Auth** support: Basic, JWT, OAuth, and ForwardAuth.
+* Protection against **common exploits** like SQLi and XSS.
+* Fine-grained **access control**, method restrictions, and bot detection.
+
+
+### 🌐 **Multi-Domain & Dynamic Routing**
+
+Host and route traffic across multiple domains effortlessly. Whether you're proxying REST APIs, WebSocket services, or static assets — Goma routes requests intelligently based on host and path.
+
+
+### ⚙️ **Live Reload & GitOps-Ready**
+
+No restarts needed. Goma supports **live configuration reloads**, making it ideal for CI/CD pipelines and GitOps workflows. Manage your gateway infrastructure declaratively and version everything.
+
+### 📊 **Observability from Day One**
+
+Goma offers full visibility into your traffic:
+
+* **Structured Logging** with log level support.
+* **Metrics & Dashboards** via Prometheus/Grafana integrations.
+* **Built-in Rate Limiting** to throttle abusive traffic with optional Redis support.
+
+
+### 🚀 **Performance Optimization**
+
+Speed matters. Goma provides:
+
+* **HTTP Caching** (in-memory or Redis) with intelligent invalidation.
+* **Advanced Load Balancing** (round-robin, weighted) and health checks to keep your infrastructure resilient.
+
+### ☸️ **Cloud-Native & Kubernetes-Friendly**
+
+Integrate seamlessly with Kubernetes using **Custom Resource Definitions (CRDs)**. Manage routes, middleware, and gateways as native Kubernetes objects.
+
+
+
+Whether you're building a secure public API, managing internal microservices, or modernizing legacy systems — **Goma Gateway** gives you the power and flexibility you need, without the complexity you don’t.
+
+---
+## Quickstart Guide
+
+### Prerequisites
+
+Before you begin, ensure the following utilities are installed on your system:
+
+* **Docker** — to run the Goma Gateway container
+* **Kubernetes** (optional) — if you plan to deploy on Kubernetes
+
+### Installation Steps
+
+### Step 1: Generate the Default Configuration File
+
+Use the following command to generate a default configuration file (`config.yml`):
+
+```bash
 docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- jkaninda/goma-gateway config init --output /etc/goma/config.yml
+  -v "${PWD}/config:/etc/goma/" \
+  jkaninda/goma-gateway config init --output /etc/goma/config.yml
 ```
-If no file is provided, a default configuration is created at /etc/goma/goma.yml.
 
-### 2. Validate Configuration
+This creates the configuration file under your local `./config` directory.
 
-Check your configuration file for errors:
+### Step 2: Customize the Configuration
 
-```shell
+Open and edit `./config/config.yml` to define your routes, middlewares, backends, and other settings as needed.
+
+### Step 3: Validate Your Configuration
+
+Before running the server, validate your configuration file for any errors:
+
+```bash
 docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- -p 8080:8080 \
- jkaninda/goma-gateway config check --config /etc/goma/config.yml
-
+  -v "${PWD}/config:/etc/goma/" \
+  jkaninda/goma-gateway config check --config /etc/goma/config.yml
 ```
 
-### 3. Start the Server with Custom Config
+Fix any reported issues before proceeding.
 
-```shell
+### Step 4: Start the Goma Gateway Server
+
+Run the server container, mounting your configuration and Let's Encrypt directories, and exposing the default ports:
+
+```bash
 docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- -p 8080:8080 \
- jkaninda/goma-gateway server --config /etc/goma/config.yml
+  -v "${PWD}/config:/etc/goma/" \
+  -v "${PWD}/letsencrypt:/etc/letsencrypt" \
+  -p 8080:8080 \
+  -p 8443:8443 \
+  jkaninda/goma-gateway server --config /etc/goma/config.yml
 ```
-### 4. Health Checks
+
+By default, the gateway listens on:
+
+* `8080` for HTTP traffic (`web` entry point)
+* `8443` for HTTPS traffic (`webSecure` entry point)
+
+---
+
+### Optional: Use Standard Ports (`80` & `443`)
+
+To run the gateway on standard HTTP/HTTPS ports (80 and 443), update your configuration as follows:
+
+```yaml
+version: 2
+gateway:
+  timeouts:
+    write: 30
+    read: 30
+    idle: 30
+  entryPoints:
+    web:
+      address: ":80"
+    webSecure:
+      address: ":443"
+  extraConfig:
+    # Additional gateway-specific configs here
+```
+
+Then start the container with the appropriate port bindings:
+
+```bash
+docker run --rm --name goma-gateway \
+  -v "${PWD}/config:/etc/goma/" \
+  -v "${PWD}/letsencrypt:/etc/letsencrypt" \
+  -p 80:80 \
+  -p 443:443 \
+  jkaninda/goma-gateway server --config /etc/goma/config.yml
+```
+### 5. Health Checks
 
 Goma Gateway provides the following health check endpoints:
 - Gateway Health:
@@ -236,7 +344,7 @@ Goma Gateway provides the following health check endpoints:
   - `/healthz`
 - Routes Health: `/healthz/routes`
 
-### 5. Simple Deployment with Docker Compose
+### 6. Simple Deployment with Docker Compose
 
 Here’s a simple example of deploying Goma Gateway using Docker Compose:
 
@@ -335,7 +443,7 @@ services:
 ```
 
 
-### 6. Kubernetes deployment
+### 7. Kubernetes deployment
 
 -  [Kubernetes installation](https://jkaninda.github.io/goma-gateway/install/kubernetes.html)
 
@@ -359,61 +467,6 @@ To run
 ```shell
 ./goma server --config config.yml
 ```
-
----
-
-## 💡 Why Use Goma Gateway?
-
-**Goma Gateway** is more than just a reverse proxy — it's a modern, developer-friendly API Gateway designed to simplify, secure, and scale your service infrastructure. Here's why it stands out:
-
-
-### ✅ **Simple, Declarative Configuration**
-
-Configure routes, middleware, policies, and TLS in a clear and concise YAML format. Whether you prefer single-file or multi-file setups, Goma makes configuration intuitive and maintainable.
-
-### 🔐 **First-Class Security Built-In**
-
-Security isn't an afterthought. Goma ships with robust middleware for:
-
-* Automatic HTTPS with **Let's Encrypt** or your own custom TLS certs.
-* Built-in **Auth** support: Basic, JWT, OAuth, and ForwardAuth.
-* Protection against **common exploits** like SQLi and XSS.
-* Fine-grained **access control**, method restrictions, and bot detection.
-
-
-### 🌐 **Multi-Domain & Dynamic Routing**
-
-Host and route traffic across multiple domains effortlessly. Whether you're proxying REST APIs, WebSocket services, or static assets — Goma routes requests intelligently based on host and path.
-
-
-### ⚙️ **Live Reload & GitOps-Ready**
-
-No restarts needed. Goma supports **live configuration reloads**, making it ideal for CI/CD pipelines and GitOps workflows. Manage your gateway infrastructure declaratively and version everything.
-
-### 📊 **Observability from Day One**
-
-Goma offers full visibility into your traffic:
-
-* **Structured Logging** with log level support.
-* **Metrics & Dashboards** via Prometheus/Grafana integrations.
-* **Built-in Rate Limiting** to throttle abusive traffic with optional Redis support.
-
-
-### 🚀 **Performance Optimization**
-
-Speed matters. Goma provides:
-
-* **HTTP Caching** (in-memory or Redis) with intelligent invalidation.
-* **Advanced Load Balancing** (round-robin, weighted) and health checks to keep your infrastructure resilient.
-
-### ☸️ **Cloud-Native & Kubernetes-Friendly**
-
-Integrate seamlessly with Kubernetes using **Custom Resource Definitions (CRDs)**. Manage routes, middleware, and gateways as native Kubernetes objects.
-
----
-
-Whether you're building a secure public API, managing internal microservices, or modernizing legacy systems — **Goma Gateway** gives you the power and flexibility you need, without the complexity you don’t.
-
 ---
 ## Deployment
 
