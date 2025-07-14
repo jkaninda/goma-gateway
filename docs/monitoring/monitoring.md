@@ -24,11 +24,17 @@ To activate metrics collection, set the `enableMetrics` flag to `true` in the `m
 version: 2
 gateway:
   monitoring:
-    enableMetrics: true           # Enable Prometheus-style metrics
-    path: /metrics                # Optional: Custom metrics endpoint (default: /metrics)
-    healthCheck:
-      enableHealthCheckStatus: true       # Enable gateway-level route health status
-      enableRouteHealthCheckError: true   # Include route health check errors in responses
+    enableMetrics: true                  # Enable Prometheus metrics
+    metricsPath: /metrics                # Custom path for metrics (optional)
+    enableReadiness: true               # Enable /readyz readiness endpoint
+    enableLiveness: true                # Enable /healthz liveness endpoint
+    enableRouteHealthCheck: true        # Enable /healthz/routes for route-level checks
+    includeRouteHealthErrors: true      # Include route errors in /healthz/routes
+    middleware:
+      metrics:
+        - ldap                          # Middleware for /metrics
+      routeHealthCheck:
+        - ldap                          # Middleware for /healthz/routes
 ```
 
 ---
