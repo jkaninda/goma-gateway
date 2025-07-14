@@ -18,7 +18,6 @@
 package internal
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -174,9 +173,6 @@ func (pr *ProxyRoute) createWeightedProxy(r *http.Request, contentType string, w
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}
-
-	// Save backend in context
-	r = r.WithContext(context.WithValue(r.Context(), CtxSelectedBackend, backendURL))
 	return proxy, err
 }
 
@@ -195,7 +191,7 @@ func (pr *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string,
 		r.Host = backendURL.Host
 	}
 	// Save backend in context
-	r.WithContext(context.WithValue(r.Context(), CtxSelectedBackend, backendURL))
+	// r.WithContext(context.WithValue(r.Context(), CtxSelectedBackend, backendURL.Hostname()))
 	return proxy, err
 }
 

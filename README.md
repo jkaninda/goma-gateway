@@ -380,7 +380,7 @@ gateway:
     - path: /                # Base path to match
       name: example           # Descriptive name for the route
       rewrite: ''             # Path rewrite rule (empty means no rewrite)
-      target: https://jkantech.com  # Target URL for this route
+      target: https://example.com  # Target URL for this route
       cors: {}                # CORS settings
       security:
         forwardHostHeaders: false

@@ -164,8 +164,8 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 
 		duration := time.Since(startTime).Seconds()
 		if h.enableMetrics {
-			logger.Debug(">>> Metrics enabled:: Collecting ResponseStatus and HttpDuration  metrics")
 			statusStr := strconv.Itoa(rec.statusCode)
+			logger.Debug(">>> Metrics enabled:: Collecting metrics", "ResponseStatus", statusStr, "HttpDuration", duration)
 			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, h.Name, path, method).Inc()
 			prometheusMetrics.HttpDuration.WithLabelValues(h.Name, path, method).Observe(duration)
 		}
