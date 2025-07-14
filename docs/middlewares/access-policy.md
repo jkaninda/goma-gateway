@@ -1,7 +1,7 @@
 ---
 title: Access Policy
 layout: default
-parent: Middleware
+parent: Middlewares
 nav_order: 3
 ---
 
