@@ -54,9 +54,6 @@ func newResponseRecorder(w http.ResponseWriter, intercept bool) *responseRecorde
 }
 
 func (rec *responseRecorder) Header() http.Header {
-	if !rec.intercept {
-		return rec.ResponseWriter.Header()
-	}
 	return rec.header
 }
 
