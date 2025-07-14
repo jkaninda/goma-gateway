@@ -29,13 +29,13 @@ type Gateway struct {
 	Redis Redis `yaml:"redis,omitempty"`
 	// WriteTimeout defines the timeout (in seconds) for writing responses to clients.
 	// Deprecated
-	WriteTimeout int `yaml:"writeTimeout" env:"GOMA_WRITE_TIMEOUT, overwrite"`
+	WriteTimeout int `yaml:"writeTimeout,omitempty" env:"GOMA_WRITE_TIMEOUT, overwrite"`
 	// ReadTimeout defines the timeout (in seconds) for reading requests from clients.
 	// Deprecated
-	ReadTimeout int `yaml:"readTimeout" env:"GOMA_READ_TIMEOUT, overwrite"`
+	ReadTimeout int `yaml:"readTimeout,omitempty" env:"GOMA_READ_TIMEOUT, overwrite"`
 	// IdleTimeout defines the timeout (in seconds) for idle connections.
 	// Deprecated
-	IdleTimeout int `yaml:"idleTimeout" env:"GOMA_IDLE_TIMEOUT, overwrite"`
+	IdleTimeout int `yaml:"idleTimeout,omitempty" env:"GOMA_IDLE_TIMEOUT, overwrite"`
 	// Timeouts defines server timeout in second
 	Timeouts Timeouts `yaml:"timeouts,omitempty"`
 	// EntryPoints of the server
@@ -99,6 +99,8 @@ func (p EntryPoint) Validate() {
 			logger.Debug("Protocol: TCP", "port", forward.Port, "target", forward.Target)
 		case ProtocolUDP:
 			logger.Debug("Protocol: UDP", "port", forward.Port, "target", forward.Target)
+		case ProtocolTCPUDP:
+			logger.Debug("Protocol: TCP/UDP", "port", forward.Port, "target", forward.Target)
 		default:
 			logger.Fatal("Unknown protocol", "protocol", forward.Protocol, "port", forward.Port)
 		}
@@ -135,9 +137,9 @@ type ForwardRule struct {
 	Target   string   `yaml:"target,omitempty"`
 }
 type Timeouts struct {
-	Write int `yaml:"write,omitempty" env:"GOMA_WRITE_TIMEOUT,overwrite"`
-	Read  int `yaml:"read,omitempty" env:"GOMA_READ_TIMEOUT,overwrite"`
-	Idle  int `yaml:"idle,omitempty" env:"GOMA_IDLE_TIMEOUT,overwrite"`
+	Write int `yaml:"write" env:"GOMA_WRITE_TIMEOUT,overwrite"`
+	Read  int `yaml:"read" env:"GOMA_READ_TIMEOUT,overwrite"`
+	Idle  int `yaml:"idle" env:"GOMA_IDLE_TIMEOUT,overwrite"`
 }
 
 type Networking struct {
@@ -151,20 +153,24 @@ type DNSCacheConfig struct {
 	Resolver      []string `yaml:"resolver,omitempty"` // e.g., ["8.8.8.8:53"]
 }
 type ProxyConfig struct {
-	DisableCompression  bool `yaml:"disableCompression,omitempty"`
-	MaxIdleConns        int  `yaml:"maxIdleConns,omitempty"`
-	MaxIdleConnsPerHost int  `yaml:"maxIdleConnsPerHost,omitempty"`
-	// IdleConnTimeout in seconds
-	IdleConnTimeout   int  `yaml:"idleConnTimeout,omitempty"`
-	ForceAttemptHTTP2 bool `yaml:"forceAttemptHTTP2,omitempty"`
+	DisableCompression    bool `yaml:"disableCompression"`
+	MaxIdleConns          int  `yaml:"maxIdleConns"`
+	MaxIdleConnsPerHost   int  `yaml:"maxIdleConnsPerHost"`
+	MaxConnsPerHost       int  `yaml:"maxConnsPerHost"`
+	TLSHandshakeTimeout   int  `yaml:"tlsHandshakeTimeout"`
+	ResponseHeaderTimeout int  `yaml:"responseHeaderTimeout"`
+	IdleConnTimeout       int  `yaml:"idleConnTimeout"`
+	ForceAttemptHTTP2     bool `yaml:"forceAttemptHTTP2"`
 }
 
 func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Proxy
 	g.Networking.ProxySettings.ForceAttemptHTTP2 = true
-	g.Networking.ProxySettings.MaxIdleConns = 250
-	g.Networking.ProxySettings.MaxIdleConnsPerHost = 150
+	g.Networking.ProxySettings.MaxIdleConns = 512
+	g.Networking.ProxySettings.MaxIdleConnsPerHost = 256
+	g.Networking.ProxySettings.MaxConnsPerHost = 256
 	g.Networking.ProxySettings.IdleConnTimeout = 90
+
 	type tmp Gateway
 	return unmarshal((*tmp)(g))
 }

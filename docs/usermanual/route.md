@@ -8,91 +8,183 @@ nav_order: 2
 
 # Route
 
-The Route allows you to match on HTTP traffic and direct it to the backend.
+A **Route** defines how incoming HTTP traffic is matched and forwarded to backend services. It supports path and host matching, request rewriting, CORS, method filtering, health checks, load balancing, middleware, and more.
 
+---
 
 ## Configuration Options
 
-This section outlines the available configuration options for defining routes in the Gateway.
+Below are the configuration options for defining routes in Goma Gateway:
 
-### Route Configuration
+### Basic Route Options
 
-- **`path`** (`string`): The route path (e.g., `/api/v1/resource`).
-- **`name`** (`string`): A unique name for the route.
-- **`disabled`** (`boolean`): Disabled specifies whether the route is disabled, the route will not be proxied.
-- **`hosts`** (`list of strings`): A list of allowed hostnames for the route.
-- **`rewrite`** (`string`): Updates the incoming route path to a specified new path.
-   - For more advanced use cases involving pattern matching or regular expressions, consider using the `rewriteRegex` middleware instead.
-- **`methods`** (`array of strings`): A list of allowed HTTP methods (e.g., `GET`, `POST`).
-- **`destination`** (`string`): The backend endpoint for the route.
-- **`backends`** (`list of strings`): A list of backend services for load balancing.
-- **`insecureSkipVerify`** (`boolean`): Disables backend TLS certificate verification.
-- **`tls`**: Route TLS configuration .
-- **`priority`**  (`integer`): Determines route matching order
+* **`path`** (`string`): Path to match (e.g., `/api/v1/resource`).
+* **`name`** (`string`): Unique name for the route.
+* **`enabled`** (`boolean`): Enables or disables the route. If set to `false`, the route will not be proxied.
+* **`hosts`** (`[]string`): Optional list of allowed hostnames.
+* **`rewrite`** (`string`): Rewrites the request path before forwarding.
 
+  > For advanced rewriting (regex-based), consider using the `rewriteRegex` middleware.
+* **`methods`** (`[]string`): Allowed HTTP methods (e.g., `GET`, `POST`). Defaults to all if omitted.
+* **`target`** (`string`): Single backend target (overridden if `backends` is set).
+* **`backends`** (`[]Backend`): List of backend endpoints for load balancing.
+* **`security`**: Per-route security configuration.
+* **`tls`**: Per-route TLS settings.
+* **`priority`** (`int`): Optional priority for route matching. Lower values take precedence.
+
+---
 
 ## Health Check Configuration
 
-- **`healthCheck`**:
-    - **`path`** (`string`): The health check path (e.g., `/health`).
-    - **`interval`** (`string`, default: `30s`): The interval between health checks.
-    - **`timeout`** (`string`, default: `10s`): The maximum time to wait for a health check response.
-    - **`healthyStatuses`** (`array of integers`): A list of HTTP status codes considered healthy.
+Configure periodic health checks for route backends:
+
+```yaml
+healthCheck:
+  path: "/health"
+  interval: 30s      # Default: 30s
+  timeout: 10s       # Default: 10s
+  healthyStatuses: [200, 404]
+```
+
+* **`path`** (`string`): URL path used for health checks.
+* **`interval`** (`duration`): How frequently to check.
+* **`timeout`** (`duration`): Timeout for the health check request.
+* **`healthyStatuses`** (`[]int`): List of HTTP status codes considered healthy.
+
+---
+
+## Security Configuration
+
+Control forwarding behavior and backend TLS validation:
+
+```yaml
+security:
+  forwardHostHeaders: true
+  enableExploitProtection: false
+  tls:
+    skipVerification: false
+    rootCAs: /etc/goma/certs/root.ca.pem
+```
+
+* **`forwardHostHeaders`** (`bool`, default: `true`): Whether to forward the original `Host` header.
+* **`enableExploitProtection`** (`bool`, default: `false`): Enable built-in protections against known exploits.
+* **`tls.skipVerification`** (`bool`, default: `false`): Disable TLS certificate verification for backend.
+* **`tls.rootCAs`**: Custom root CA (file path, raw PEM, or base64-encoded string).
+
+---
 
 ## CORS Configuration
 
-- **`cors`**:
-    - **`origins`** (`array of strings`): A list of allowed origins for Cross-Origin Resource Sharing (CORS).
-    - **`headers`** (`array of strings`): A list of custom headers to include in responses.
+The `cors` section allows you to control Cross-Origin Resource Sharing behavior for each route. This is essential for enabling secure cross-origin requests from web applications.
+
+Configure per-route CORS settings:
+
+### Configuration Fields
+
+```yaml
+cors:
+  origins:
+    - http://localhost:3000
+    - https://dev.example.com
+  allowedHeaders:
+    - Origin
+    - Authorization
+  headers: {}              # Custom response headers (as key-value pairs)
+  exposeHeaders: []        # Headers exposed to the browser
+  maxAge: 1728000          # Preflight cache duration in seconds
+  allowMethods: []         # Allowed HTTP methods (empty means all methods allowed)
+  allowCredentials: true   # Whether to allow cookies or credentials
+```
+
+* **`origins`** (`[]string`): List of allowed origins. Requests from these domains are permitted.
+* **`allowedHeaders`** (`[]string`): Headers allowed in CORS preflight requests.
+* **`headers`** (`map[string]string`): Custom headers to be added to the response.
+* **`exposeHeaders`** (`[]string`): Headers that are safe to expose to the browser.
+* **`maxAge`** (`int`): Duration (in seconds) to cache the results of a preflight request.
+* **`allowMethods`** (`[]string`): Allowed HTTP methods (e.g., `GET`, `POST`). If empty, all methods are allowed.
+* **`allowCredentials`** (`boolean`): Allows browsers to send cookies and credentials along with requests.
+---
 
 ## Error Interceptor
-- **`enabled`** (`boolean`): Determines whether the backend error interceptor is active.  
-  *Default: `false`*
-- **`contentType`** (`string`): Specifies the `Content-Type` header of the response, such as `application/json` or `text/plain`.
-- **`errors`** (`array`): A collection of error configurations defining which HTTP status codes to intercept and their corresponding custom responses.
 
+Handle specific backend response codes gracefully:
+
+```yaml
+errorInterceptor:
+  enabled: true
+  contentType: "application/json"
+  errors:
+    - code: 401
+      body: ""
+    - code: 500
+      body: "Internal server error"
+```
+
+* **`enabled`** (`boolean`): Enable error interception.
+* **`contentType`** (`string`): Content-Type header for the response (e.g., `application/json`).
+* **`errors`** (`[]ErrorResponse`): List of error overrides with status codes and custom response bodies.
 
 ---
+
 ## Additional Options
 
-- **`disableHostForwarding`** (`boolean`): Disables proxy host forwarding for improved security.
-- **`blockCommonExploits`** (`boolean`): Enables or disables blocking of common exploits.
-- **`enableBotDetection`** (`boolean`): Enables or disables bot detection, protect route from bots by blocking requests from known bots.
-- **`middlewares`** (`array of strings`): A list of middleware names applied to the route.
-
-
-## Route priority
-
-- If no route has a positive priority, routes are matched in descending order based on their path.
-- If at least one route has a positive priority, routes are matched in ascending order based on priority values (lower numbers take precedence).
+* **`disableHostForwarding`** (`boolean`): Disables proxy `Host` header forwarding.
+* **`blockCommonExploits`** (`boolean`): Block known malicious patterns.
+* **`enableBotDetection`** (`boolean`): Block known bot user agents.
+* **`middlewares`** (`[]string`): List of middleware names to apply to the route.
 
 ---
-### ### Minimal Configuration
+
+## Route Priority
+
+* If no route has a `priority` defined, routes are matched by longest path.
+* If `priority` is set, lower numbers take precedence during matching.
+
+---
+
+## Minimal Route Configuration
 
 ```yaml
 version: 2
 gateway:
   routes:
     - name: Example
-      path: /store/cart
-      rewrite: /cart # You can use RewriteRegex middleware for more complex rewrites
-      destination: http://cart-service:8080
+      path: /cart
+      target: http://cart-service:8080
 ```
 
-###  Route with limited HTTP methods
-The proxy will allow all HTTP methods if there's no defined method.
+---
 
-Example of route with limited HTTP methods allowed for a particular route.
+## Example: Route with Security
 
 ```yaml
 version: 2
 gateway:
-  ...
+  routes:
+    - name: cart
+      path: /cart
+      rewrite: /
+      target: http://cart-service:8080
+      security:
+        forwardHostHeaders: true
+        enableExploitProtection: true
+        tls:
+          skipVerification: true
+          rootCAs: /etc/goma/certs/root.ca.pem
+```
+
+---
+
+## Example: Limited HTTP Methods
+
+```yaml
+version: 2
+gateway:
   routes:
     - name: Example
-      disabled: false # Disabled specifies whether the route is disabled, the route will not be proxied.
+      enabled: false
       path: /store/cart
-      destination: http://cart-service:8080
+      target: http://cart-service:8080
       methods: [PATCH, GET]
       cors: {}
       middlewares:
@@ -100,73 +192,68 @@ gateway:
         - jwt-auth
 ```
 
-### Route with healthcheck
+---
 
-Example of route with backend health check.
+## Example: Route with Health Check
 
 ```yaml
 version: 2
 gateway:
-  ...
   routes:
     - name: Example
       path: /store/cart
       backends:
-        - endpoint:  http://cart-service:8080
+        - endpoint: http://cart-service:8080
       methods: [PATCH, GET]
       healthCheck:
         path: "/health/live"
         interval: 30s
         timeout: 5s
-        healthyStatuses: [200,404]
+        healthyStatuses: [200, 404]
       cors: {}
 ```
-### Route with middleware
 
-Example of route with backend health check.
+---
+
+## Example: Route with Middleware
 
 ```yaml
 version: 2
 gateway:
-  ...
   routes:
     - name: Example
       path: /store/cart
       rewrite: /cart
       backends:
-        - endpoint:  http://cart-service:8080
-      methods: []
+        - endpoint: http://cart-service:8080
       healthCheck:
         path: "/health/live"
         interval: 30s
         timeout: 5s
-        healthyStatuses: [200,404]
-      cors: {}
-      ## Middleware
+        healthyStatuses: [200, 404]
       middlewares:
         - api-forbidden-paths
         - jwt-auth
 ```
-### Route with backend errors interceptor
 
-Example of route with backend errors interceptor.
+---
+
+## Example: Route with Error Interceptor
 
 ```yaml
 version: 2
 gateway:
-  ...
   routes:
     - name: Example
       path: /store/cart
       rewrite: /cart
       backends:
-        - endpoint:  http://cart-service:8080
-      methods: []
+        - endpoint: http://cart-service:8080
       healthCheck:
         path: "/health/live"
         interval: 30s
         timeout: 5s
-        healthyStatuses: [200,404]
+        healthyStatuses: [200, 404]
       errorInterceptor:
         enabled: true
         contentType: "application/json"
@@ -176,43 +263,36 @@ gateway:
           - code: 500
             body: "Internal server error"
       blockCommonExploits: false
-      cors: {}
-      ## Middleware
       middlewares:
         - api-forbidden-paths
         - jwt-auth
 ```
-### Route with enabled load balancing
 
-Example of route with load balancing enabled.
+---
 
-Below is an example configuration for weighted load balancing:
-
+## Example: Route with Load Balancing
 
 ```yaml
-version: 2  # Configuration version
+version: 2
 gateway:
   routes:
-    - path: /  # The path to match for this route
-      name: example route  # A descriptive name for the route
-      hosts:  # List of hostnames this route will handle
+    - path: /
+      name: example route
+      hosts:
         - example.com
         - example.localhost
-      rewrite: /  # Rewrite the incoming request path (if needed)
-      methods: []  # HTTP methods to allow (empty means all methods are allowed)
-      healthCheck:  # Health check configuration for backend servers
-        path: "/"  # Endpoint to check for health
-        interval: 30s  # Time interval between health checks
-        timeout: 10s  # Timeout for health check requests
-        healthyStatuses: [200, 404]  # HTTP status codes considered healthy
-      ## destination: will be overridden by backends
-      destination: ""  # Placeholder for backend destination (overridden by `backends`)
-      backends:  # List of backend servers for load balancing
-        - endpoint: https://example.com  # Backend server URL
+      rewrite: /
+      healthCheck:
+        path: /
+        interval: 30s
+        timeout: 10s
+        healthyStatuses: [200, 404]
+      backends:
+        - endpoint: https://example.com
           weight: 1
-        - endpoint: https://example1.com  # Backend server URL
+        - endpoint: https://example1.com
           weight: 3
-        - endpoint: https://example2.com  # Backend server URL
+        - endpoint: https://example2.com
           weight: 2
       cors: {}
 ```

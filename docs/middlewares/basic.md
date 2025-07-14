@@ -1,7 +1,7 @@
 ---
 title: Basic auth
 layout: default
-parent: Middleware
+parent: Middlewares
 nav_order: 4
 ---
 

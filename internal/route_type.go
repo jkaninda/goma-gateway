@@ -53,7 +53,7 @@ type Route struct {
 	Backends Backends `yaml:"backends,omitempty"`
 	// InsecureSkipVerify disables SSL/TLS verification for the backend.
 	// Deprecated, use security
-	InsecureSkipVerify bool `yaml:"insecureSkipVerify"`
+	InsecureSkipVerify bool `yaml:"insecureSkipVerify,omitempty"`
 	// HealthCheck contains configuration for monitoring the health of backends.
 	HealthCheck RouteHealthCheck `yaml:"healthCheck,omitempty"`
 	// DisableHostForwarding disables the forwarding of host-related headers.
@@ -66,7 +66,7 @@ type Route struct {
 	//
 	// If disabled, the backend may not match routes correctly.
 	// Deprecated, use security.forwardHostHeaders
-	DisableHostForwarding bool `yaml:"disableHostForwarding"`
+	DisableHostForwarding bool `yaml:"disableHostForwarding,omitempty"`
 	// ErrorInterceptor provides configuration for handling backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// BlockCommonExploits
@@ -107,9 +107,9 @@ type Backend struct {
 }
 
 type Security struct {
-	ForwardHostHeaders      bool        `yaml:"forwardHostHeaders,omitempty" default:"true"`
-	EnableExploitProtection bool        `yaml:"enableExploitProtection,omitempty"`
-	TLS                     SecurityTLS `yaml:"tls,omitempty"`
+	ForwardHostHeaders      bool        `yaml:"forwardHostHeaders" default:"true"`
+	EnableExploitProtection bool        `yaml:"enableExploitProtection"`
+	TLS                     SecurityTLS `yaml:"tls"`
 }
 type SecurityTLS struct {
 	SkipVerification bool   `yaml:"skipVerification,omitempty"`

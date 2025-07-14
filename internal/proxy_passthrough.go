@@ -42,22 +42,28 @@ func (ps *ProxyServer) Start() error {
 	if ps == nil || len(ps.rules) == 0 {
 		return nil
 	}
+	logger.Debug("Starting TCP/UDP Server", "rules", len(ps.rules))
 	for _, rule := range ps.rules {
 		if err := ps.validateRule(rule); err != nil {
 			return fmt.Errorf("invalid rule for port %d: %w", rule.Port, err)
 		}
 
-		ps.wg.Add(1)
 		switch rule.Protocol {
 		case ProtocolTCP:
+			ps.wg.Add(1)
 			go ps.startTCPListener(rule)
 		case ProtocolUDP:
+			ps.wg.Add(1)
 			go ps.startUDPListener(rule)
+		case ProtocolTCPUDP:
+			ps.wg.Add(2)
+			go ps.startTCPListener(rule)
+			go ps.startUDPListener(rule)
+		default:
+			logger.Warn("Unknown protocol", "protocol", rule.Protocol, "port", rule.Port)
 		}
-
 	}
-
-	logger.Info("Proxy server started", "rules", len(ps.rules))
+	logger.Info("TCP/UDP Server Started", "rules", len(ps.rules))
 	return nil
 }
 
@@ -65,11 +71,11 @@ func (ps *ProxyServer) Stop() {
 	if ps == nil || len(ps.rules) == 0 {
 		return
 	}
-	logger.Info("Shutting down proxy server")
+	logger.Info("Shutting Down TCP/UDP Server")
 	ps.cancel()
 	ps.wg.Wait()
 	close(ps.shutdown)
-	logger.Info("Proxy server stopped")
+	logger.Info("TCP/UDP Server Stopped")
 }
 
 func (ps *ProxyServer) validateRule(rule ForwardRule) error {
@@ -78,6 +84,9 @@ func (ps *ProxyServer) validateRule(rule ForwardRule) error {
 	}
 	if rule.Target == "" {
 		return fmt.Errorf("target cannot be empty")
+	}
+	if rule.Protocol == ProtocolTCPUDP {
+		return nil
 	}
 	if rule.Protocol != ProtocolTCP && rule.Protocol != ProtocolUDP {
 		return fmt.Errorf("unsupported protocol: %s", rule.Protocol)

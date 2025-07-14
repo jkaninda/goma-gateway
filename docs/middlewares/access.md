@@ -1,7 +1,7 @@
 ---
 title: Access
 layout: default
-parent: Middleware
+parent: Middlewares
 nav_order: 2
 ---
 

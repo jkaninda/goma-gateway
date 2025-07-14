@@ -154,7 +154,7 @@ func (gatewayServer *GatewayServer) shutdown(httpServer, httpsServer *http.Serve
 	if err := httpsServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Error shutting down HTTPS server", "error", err)
 	}
-	// stop proxy server
+	// stop TCP/UDP server
 	gatewayServer.proxyServer.Stop()
 	logger.Info("Goma Gateway stopped")
 	return nil

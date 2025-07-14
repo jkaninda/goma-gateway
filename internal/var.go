@@ -19,6 +19,7 @@ package internal
 
 import (
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
+	"github.com/jkaninda/goma-gateway/internal/metrics"
 	logger2 "github.com/jkaninda/logger"
 	"time"
 )
@@ -35,4 +36,5 @@ var (
 	logger             = logger2.Default()
 	certManager        *certmanager.CertManager
 	cachedDialer       = NewCachedDialer(5 * time.Minute)
+	prometheusMetrics  = metrics.NewPrometheusMetrics()
 )

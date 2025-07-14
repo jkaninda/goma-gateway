@@ -18,55 +18,117 @@
 package metrics
 
 import (
+	"github.com/jkaninda/logger"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+// PrometheusMetrics holds all Prometheus metrics
+type PrometheusMetrics struct {
+	TotalRequests  *prometheus.CounterVec
+	ResponseStatus *prometheus.CounterVec
+	HttpDuration   *prometheus.HistogramVec
+}
+
+// NewPrometheusMetrics creates a new set of Prometheus metrics
+func NewPrometheusMetrics() *PrometheusMetrics {
+	return &PrometheusMetrics{
+		TotalRequests: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "http_requests_total",
+				Help: "Total number of HTTP requests",
+			},
+			[]string{"name", "path", "method"},
+		),
+		ResponseStatus: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "http_response_status_total",
+				Help: "Total number of HTTP responses by status code",
+			},
+			[]string{"status", "name", "path", "method"},
+		),
+		HttpDuration: promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "http_request_duration_seconds",
+				Help:    "Duration of HTTP requests in seconds",
+				Buckets: prometheus.DefBuckets,
+			},
+			[]string{"name", "path", "method"},
+		),
+	}
+}
+
+// PrometheusRoute represents a route configuration for metrics
 type PrometheusRoute struct {
 	Name string
 	Path string
 }
 
-var TotalRequests = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "http_requests_total",
-		Help: "Number of get requests.",
-	},
-	[]string{"name", "path"},
-)
+// responseWriter wraps http.ResponseWriter to capture status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
 
-var ResponseStatus = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "response_status",
-		Help: "Status of HTTP response",
-	},
-	[]string{"status"},
-)
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
 
-var HttpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-	Name: "http_response_time_seconds",
-	Help: "Duration of HTTP requests.",
-}, []string{"name", "path"})
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	if rw.statusCode == 0 {
+		rw.statusCode = http.StatusOK
+	}
+	return rw.ResponseWriter.Write(b)
+}
 
-// PrometheusMiddleware Prometheus http handler middleware, returns http.Handler
-func (pr PrometheusRoute) PrometheusMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := pr.Path
-		if len(path) == 0 {
-			route := mux.CurrentRoute(r)
-			path, _ = route.GetPathTemplate()
-		}
-		timer := prometheus.NewTimer(HttpDuration.WithLabelValues(pr.Name, path))
+// PrometheusMiddleware creates a middleware that records Prometheus metrics
+func (pr PrometheusRoute) PrometheusMiddleware(metrics *PrometheusMetrics) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			logger.Debug(">>> Calling PrometheusMiddleware", "path", r.URL.Path, "method", r.Method)
+			// Determine the path for metrics
+			path := pr.Path
+			if path == "" {
+				if route := mux.CurrentRoute(r); route != nil {
+					if template, err := route.GetPathTemplate(); err == nil {
+						path = template
+					}
+				}
+				// Fallback to request URL path if no route template
+				if path == "" {
+					path = r.URL.Path
+				}
+			}
 
-		ResponseStatus.WithLabelValues(strconv.Itoa(http.StatusOK)).Inc()
-		TotalRequests.WithLabelValues(pr.Name, path).Inc()
+			// Wrap the response writer to capture status code
+			wrapped := &responseWriter{
+				ResponseWriter: w,
+				statusCode:     0,
+			}
 
-		timer.ObserveDuration()
-		next.ServeHTTP(w, r)
-	})
+			// Record request
+			method := r.Method
+			metrics.TotalRequests.WithLabelValues(pr.Name, path, method).Inc()
 
+			next.ServeHTTP(wrapped, r)
+
+			// Record response metrics
+			statusCode := wrapped.statusCode
+			if statusCode == 0 {
+				statusCode = http.StatusOK
+			}
+			duration := time.Since(start).Seconds()
+			statusStr := strconv.Itoa(statusCode)
+
+			metrics.ResponseStatus.WithLabelValues(statusStr, pr.Name, path, method).Inc()
+			metrics.HttpDuration.WithLabelValues(pr.Name, path, method).Observe(duration)
+		})
+	}
 }

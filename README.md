@@ -46,25 +46,39 @@ Architecture:
 ---
 ## Features
 
-Goma Gateway is designed for simplicity, flexibility, and robust performance. It supports a wide range of modern features, empowering you to manage and secure traffic efficiently across services.
-
+Goma Gateway is built for simplicity, flexibility, and high performance. It offers a comprehensive set of modern features to help you efficiently manage, route, and secure traffic across your services.
 
 ### Core Features
 
 * **RESTful API Gateway Management**
-  Intuitively manage APIs with a clean, declarative configuration system.
+  Manage your APIs easily with a clean, declarative configuration system designed for clarity and control.
 
 * **Domain & Host-Based Routing**
-  Route requests by domain or host to different services or environments.
+  Route incoming requests based on domain or host to direct traffic to the appropriate services or environments.
 
 * **Multi-Domain Support**
-  Handle traffic across multiple domains with unified configuration.
+  Handle traffic across multiple domains with a unified, streamlined configuration approach.
 
-* **Reverse Proxy Support**
-  Forward incoming client requests to backend services seamlessly.
+* **Reverse Proxy**
+  Seamlessly forward client requests to backend services, abstracting service details from clients.
 
-* **WebSocket Proxying**
-  Enable real-time applications with full WebSocket support.
+* **Traffic Control & Rate Limiting**
+  Protect your services from overload by controlling request rates and traffic flow.
+
+* **WebSocket & gRPC Routing**
+  Fully support real-time applications with native WebSocket and gRPC routing capabilities.
+
+* **TCP/UDP Routing**
+  Forward TCP, UDP, and gRPC traffic efficiently through the PassThrough entry point.
+
+* **TLS & Certificate Management (Automatic & Custom)**
+  Secure your communications with flexible TLS support, including automatic certificate provisioning and custom certificates.
+
+* **Backend Error Interception**
+  Intercept and handle backend errors gracefully to improve reliability and user experience.
+
+* **Monitoring & Logging**
+  Gain deep visibility into gateway operations with comprehensive monitoring and logging features.
 
 ---
 
@@ -89,7 +103,7 @@ Goma Gateway is designed for simplicity, flexibility, and robust performance. It
 * **Authentication Middleware**
 
   * **ForwardAuth** support for external authorization services.
-  * Built-in support for **Basic Auth**, **JWT**, and **OAuth**.
+  * Built-in support for **Basic Auth**, **JWT**,**LDAP**, and **OAuth**.
 
 * **Access Policy Enforcement**
   Allow or deny traffic based on route-specific rules (IP, headers, methods, etc.).
@@ -180,160 +194,6 @@ Goma Gateway is designed for simplicity, flexibility, and robust performance. It
   - Integrate GitOps workflows to version control your gateway configurations, ensuring traceable and automated deployments.
 
 ----
-
-## Usage
-
-### 1. Initialize Configuration
-
-Generate a configuration file using the following command:
-
-```shell
-docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- jkaninda/goma-gateway config init --output /etc/goma/config.yml
-```
-If no file is provided, a default configuration is created at /etc/goma/goma.yml.
-
-### 2. Validate Configuration
-
-Check your configuration file for errors:
-
-```shell
-docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- -p 8080:8080 \
- jkaninda/goma-gateway config check --config /etc/goma/config.yml
-
-```
-
-### 3. Start the Server with Custom Config
-
-```shell
-docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- -p 8080:8080 \
- jkaninda/goma-gateway server --config /etc/goma/config.yml
-```
-### 4. Health Checks
-
-Goma Gateway provides the following health check endpoints:
-- Gateway Health:
-  - `/readyz`
-  - `/healthz`
-- Routes Health: `/healthz/routes`
-
-### 5. Simple Deployment with Docker Compose
-
-Here’s a simple example of deploying Goma Gateway using Docker Compose:
-
-Create a file named `config.yaml`:
-
-```yaml
-version: 2
-gateway:
-  # Timeout settings (in seconds)
-  writeTimeout: 15 
-  readTimeout: 15 
-  idleTimeout: 30
-  # Optional, default port 8080
-  entryPoints:
-    web:
-      address: ":80"
-    webSecure:
-      address: ":443"
-  # Route definitions
-  routes:
-    # First route definition - simple proxy to example.com
-    - path: /                # Base path to match
-      name: example           # Descriptive name for the route
-      disabled: false         # Whether the route is disabled
-      rewrite: ''             # Path rewrite rule (empty means no rewrite)
-      destination: https://example.com  # Target URL for this route
-      disableHostForwarding: true  # Don't forward the original host header
-      cors: {}                # CORS settings
-      middlewares:
-        - basic-auth          # Apply basic authentication middleware
-    # Second route definition
-    - name: api             
-      path: /                 
-      disabled: false       
-      hosts:                  # Host-based routing (virtual hosting)
-        - app.example.com    # Only match requests for this host
-      rewrite: /              
-      backends:               # Load balancing backends
-        - endpoint: https://api-1.example.com  
-          weight: 1           
-        - endpoint: https://api-2.example.com  
-          weight: 3           
-      healthCheck:
-        path: /
-        interval: 30s
-        timeout: 10s 
-        healthyStatuses:       
-          - 200
-          - 404
-      middlewares: []         # No middlewares for this route
-
-# Middleware definitions
-middlewares:
-  - name: basic-auth          # Middleware identifier
-    type: basicAuth               # Middleware type (basic auth)
-    paths:
-      - /*                    # Apply to all paths
-    rule:
-      users:                  # Authorized users
-        - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia #password
-        - user:password
-# Certificate management configuration
-certManager:
-  acme:
-    ## Uncomment email to enable Let's Encrypt
-   # email: admin@example.com # Email for ACME registration
-    storageFile: /etc/letsencrypt/acme.json
-```
-
-```shell
-# compose.yaml
-services:
-  goma-gateway:
-    image: jkaninda/goma-gateway
-    command: server -c config.yaml
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./:/etc/goma/
-      - ./letsencrypt:/etc/letsencrypt
-```
-
-
-### 6. Kubernetes deployment
-
--  [Kubernetes installation](https://jkaninda.github.io/goma-gateway/install/kubernetes.html)
-
-- [Kubernetes advanced deployment using CRDs and Operator](https://jkaninda.github.io/goma-gateway/install/kuberntes-advanced.html) 
-
-## Supported Systems
-
-- [x] Linux
-- [x] MacOS
-- [x] Windows 
-
-Please download the binary from the [release page](https://github.com/jkaninda/goma-gateway/releases).
-
-Init configs:
-
-```shell
-./goma config init --output config.yml
-```
-
-To run 
-```shell
-./goma server --config config.yml
-```
-
----
-
 ## 💡 Why Use Goma Gateway?
 
 **Goma Gateway** is more than just a reverse proxy — it's a modern, developer-friendly API Gateway designed to simplify, secure, and scale your service infrastructure. Here's why it stands out:
@@ -382,10 +242,231 @@ Speed matters. Goma provides:
 
 Integrate seamlessly with Kubernetes using **Custom Resource Definitions (CRDs)**. Manage routes, middleware, and gateways as native Kubernetes objects.
 
----
+
 
 Whether you're building a secure public API, managing internal microservices, or modernizing legacy systems — **Goma Gateway** gives you the power and flexibility you need, without the complexity you don’t.
 
+---
+## Quickstart Guide
+
+### Prerequisites
+
+Before you begin, ensure the following utilities are installed on your system:
+
+* **Docker** — to run the Goma Gateway container
+* **Kubernetes** (optional) — if you plan to deploy on Kubernetes
+
+### Installation Steps
+
+### Step 1: Generate the Default Configuration File
+
+Use the following command to generate a default configuration file (`config.yml`):
+
+```bash
+docker run --rm --name goma-gateway \
+  -v "${PWD}/config:/etc/goma/" \
+  jkaninda/goma-gateway config init --output /etc/goma/config.yml
+```
+
+This creates the configuration file under your local `./config` directory.
+
+### Step 2: Customize the Configuration
+
+Open and edit `./config/config.yml` to define your routes, middlewares, backends, and other settings as needed.
+
+### Step 3: Validate Your Configuration
+
+Before running the server, validate your configuration file for any errors:
+
+```bash
+docker run --rm --name goma-gateway \
+  -v "${PWD}/config:/etc/goma/" \
+  jkaninda/goma-gateway config check --config /etc/goma/config.yml
+```
+
+Fix any reported issues before proceeding.
+
+### Step 4: Start the Goma Gateway Server
+
+Run the server container, mounting your configuration and Let's Encrypt directories, and exposing the default ports:
+
+```bash
+docker run --rm --name goma-gateway \
+  -v "${PWD}/config:/etc/goma/" \
+  -v "${PWD}/letsencrypt:/etc/letsencrypt" \
+  -p 8080:8080 \
+  -p 8443:8443 \
+  jkaninda/goma-gateway server --config /etc/goma/config.yml
+```
+
+By default, the gateway listens on:
+
+* `8080` for HTTP traffic (`web` entry point)
+* `8443` for HTTPS traffic (`webSecure` entry point)
+
+---
+
+### Optional: Use Standard Ports (`80` & `443`)
+
+To run the gateway on standard HTTP/HTTPS ports (80 and 443), update your configuration as follows:
+
+```yaml
+version: 2
+gateway:
+  timeouts:
+    write: 30
+    read: 30
+    idle: 30
+  entryPoints:
+    web:
+      address: ":80"
+    webSecure:
+      address: ":443"
+  extraConfig:
+    # Additional gateway-specific configs here
+```
+
+Then start the container with the appropriate port bindings:
+
+```bash
+docker run --rm --name goma-gateway \
+  -v "${PWD}/config:/etc/goma/" \
+  -v "${PWD}/letsencrypt:/etc/letsencrypt" \
+  -p 80:80 \
+  -p 443:443 \
+  jkaninda/goma-gateway server --config /etc/goma/config.yml
+```
+### 5. Health Checks
+
+Goma Gateway provides the following health check endpoints:
+- Gateway Health:
+  - `/readyz`
+  - `/healthz`
+- Routes Health: `/healthz/routes`
+
+### 6. Simple Deployment with Docker Compose
+
+Here’s a simple example of deploying Goma Gateway using Docker Compose:
+
+Create a file named `config.yaml`:
+
+```yaml
+version: 2
+gateway:
+  # Timeout settings (in seconds)
+  timeouts:
+    write: 30
+    read: 30
+    idle: 30
+  # Optional, default port 8080
+  entryPoints:
+    web:
+      address: ":80"
+    webSecure:
+      address: ":443"
+  extraConfig:
+    directory: /etc/goma/extra
+    watch: true
+  # Route definitions
+  routes:
+    #  Route definition 1
+    - path: /                # Base path to match
+      enabled: false         # Whether the route is enabled
+      name: minimal           # Descriptive name for the route
+      hosts:                  # Host-based routing (virtual hosting)
+        - minimal.example.com    # Only match requests for this host
+      target: https://example.com  # Target URL for this route
+    #  Route definition 2
+    - path: /                # Base path to match
+      name: example           # Descriptive name for the route
+      rewrite: ''             # Path rewrite rule (empty means no rewrite)
+      target: https://jkantech.com  # Target URL for this route
+      cors: {}                # CORS settings
+      security:
+        forwardHostHeaders: false
+        enableExploitProtection: true
+        tls:
+          skipVerification: true
+          rootCAs: ""
+      middlewares:
+      #- basic-auth          # Apply basic authentication middleware
+    #  Route definition 3
+    - name: api
+      path: /
+      hosts:                  # Host-based routing (virtual hosting)
+        - app.example.com    # Only match requests for this host
+      rewrite: /
+      backends:               # Load balancing backends
+        - endpoint: https://api-1.example.com
+          weight: 1
+        - endpoint: https://api-2.example.com
+          weight: 3
+      healthCheck:
+        path: /
+        interval: 30s
+        timeout: 10s
+        healthyStatuses:
+          - 200
+          - 404
+      middlewares: []         # No middlewares for this route
+
+# Middleware definitions
+middlewares:
+  - name: basic-auth          # Middleware identifier
+    type: basicAuth               # Middleware type (basic auth)
+    paths:
+      - /*                    # Apply to all paths
+    rule:
+      users:                  # Authorized users
+        - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia #password
+        - user:password
+# Certificate management configuration
+certManager:
+  acme:
+    ## Uncomment email to enable Let's Encrypt
+    # email: admin@example.com # Email for ACME registration
+    storageFile: /etc/letsencrypt/acme.json
+```
+
+```shell
+# compose.yaml
+services:
+  goma-gateway:
+    image: jkaninda/goma-gateway
+    command: server -c config.yaml
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/etc/goma/
+      - ./letsencrypt:/etc/letsencrypt
+```
+
+
+### 7. Kubernetes deployment
+
+-  [Kubernetes installation](https://jkaninda.github.io/goma-gateway/install/kubernetes.html)
+
+- [Kubernetes advanced deployment using CRDs and Operator](https://jkaninda.github.io/goma-gateway/install/kuberntes-advanced.html) 
+
+## Supported Systems
+
+- [x] Linux
+- [x] MacOS
+- [x] Windows 
+
+Please download the binary from the [release page](https://github.com/jkaninda/goma-gateway/releases).
+
+Init configs:
+
+```shell
+./goma config init --output config.yml
+```
+
+To run 
+```shell
+./goma server --config config.yml
+```
 ---
 ## Deployment
 

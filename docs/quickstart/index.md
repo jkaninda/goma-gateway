@@ -4,52 +4,104 @@ layout: home
 nav_order: 3
 ---
 
-# Quickstart
+# Quickstart Guide
 
 ## Prerequisites
 
-Ensure the following utilities are installed:
-- **Docker**
-- **Kubernetes** (for Kubernetes installation)
+Before you begin, ensure the following utilities are installed on your system:
 
-## Installation
+* **Docker** — to run the Goma Gateway container
+* **Kubernetes** (optional) — if you plan to deploy on Kubernetes
 
-### Step 1: Generate the Configuration File
+## Installation Steps
 
-Run the following command to generate a default configuration file:
+### Step 1: Generate the Default Configuration File
 
-```shell
+Use the following command to generate a default configuration file (`config.yml`):
+
+```bash
 docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- jkaninda/goma-gateway config init --output /etc/goma/config.yml
+  -v "${PWD}/config:/etc/goma/" \
+  jkaninda/goma-gateway config init --output /etc/goma/config.yml
 ```
 
-### Step 2: Update the Configuration File
+This creates the configuration file under your local `./config` directory.
 
-Edit the generated `config.yml` file to define your routes and customize settings as needed.
+### Step 2: Customize the Configuration
 
-### Step 3: Validate the Configuration File
+Open and edit `./config/config.yml` to define your routes, middlewares, backends, and other settings as needed.
 
-Check your configuration for errors with:
+### Step 3: Validate Your Configuration
 
-```shell
+Before running the server, validate your configuration file for any errors:
+
+```bash
 docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- jkaninda/goma-gateway config check --config /etc/goma/config.yml
+  -v "${PWD}/config:/etc/goma/" \
+  jkaninda/goma-gateway config check --config /etc/goma/config.yml
 ```
-### Step 4: Start the Server
-Launch the Goma Gateway server with the validated configuration:
 
-```shell
+Fix any reported issues before proceeding.
+
+### Step 4: Start the Goma Gateway Server
+
+Run the server container, mounting your configuration and Let's Encrypt directories, and exposing the default ports:
+
+```bash
 docker run --rm --name goma-gateway \
- -v "${PWD}/config:/etc/goma/" \
- -v "${PWD}/letsencrypt:/etc/letsencrypt" \
- -p 8080:8080 \
- -p 8443:8443 \
- jkaninda/goma-gateway server --config /etc/goma/config.yml
+  -v "${PWD}/config:/etc/goma/" \
+  -v "${PWD}/letsencrypt:/etc/letsencrypt" \
+  -p 8080:8080 \
+  -p 8443:8443 \
+  jkaninda/goma-gateway server --config /etc/goma/config.yml
 ```
-### Next Steps
 
-Congratulations! Your Goma Gateway is now up and running, ready to route traffic to your backend services.
+By default, the gateway listens on:
 
-Explore the [documentation](https://jkaninda.github.io/goma-gateway/) for advanced features, including Kubernetes integration and custom resource definitions.
+* `8080` for HTTP traffic (`web` entry point)
+* `8443` for HTTPS traffic (`webSecure` entry point)
+
+---
+
+## Optional: Configure EntryPoints to Use Ports 80 and 443
+
+To run the gateway on standard HTTP/HTTPS ports (80 and 443), update your configuration as follows:
+
+```yaml
+version: 2
+gateway:
+  timeouts:
+    write: 30
+    read: 30
+    idle: 30
+  entryPoints:
+    web:
+      address: ":80"
+    webSecure:
+      address: ":443"
+  extraConfig:
+    # Additional gateway-specific configs here
+```
+
+Then start the container with the appropriate port bindings:
+
+```bash
+docker run --rm --name goma-gateway \
+  -v "${PWD}/config:/etc/goma/" \
+  -v "${PWD}/letsencrypt:/etc/letsencrypt" \
+  -p 80:80 \
+  -p 443:443 \
+  jkaninda/goma-gateway server --config /etc/goma/config.yml
+```
+
+---
+
+## Next Steps
+
+Your Goma Gateway is now running and ready to route requests to your backend services.
+
+* Customize your routes and middlewares further.
+* Configure TLS certificates and security settings.
+* Monitor traffic and logs to optimize performance.
+
+Explore the full documentation for advanced features and configuration options.

@@ -57,8 +57,9 @@ const (
 	bodyLimit           MiddlewareType = "bodyLimit"
 )
 const (
-	ProtocolTCP Protocol = "tcp"
-	ProtocolUDP Protocol = "udp"
+	ProtocolTCP    Protocol = "tcp"
+	ProtocolUDP    Protocol = "udp"
+	ProtocolTCPUDP Protocol = "tcp/udp"
 )
 
 // ************** CORS ***************

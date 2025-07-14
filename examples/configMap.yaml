@@ -8,6 +8,7 @@ data:
     version: 2
     gateway:
       # Timeouts in seconds
-      writeTimeout: 15          # Maximum duration for writing to a client.
-      readTimeout: 15           # Maximum duration for reading from a client.
-      idleTimeout: 30           # Maximum duration to keep idle connections open.
+      timeouts:
+        write: 30
+        read: 30
+        idle: 30

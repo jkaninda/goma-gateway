@@ -20,18 +20,9 @@ package internal
 import (
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
-	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/prometheus/client_golang/prometheus"
 	"sort"
 )
-
-// init initializes prometheus metrics
-func init() {
-	_ = prometheus.Register(metrics.TotalRequests)
-	_ = prometheus.Register(metrics.ResponseStatus)
-	_ = prometheus.Register(metrics.HttpDuration)
-}
 
 // Initialize initializes the routes
 func (gatewayServer *GatewayServer) Initialize() error {

@@ -259,14 +259,31 @@ func initConfig(configFile string) error {
 				Write: 30,
 				Idle:  30,
 			},
-			ExtraConfig: ExtraRouteConfig{
-				Directory: ExtraDir,
-				Watch:     false,
-			},
 			Log: Log{
 				Level:    "info",
 				FilePath: "",
 				Format:   "json",
+			},
+			Monitoring: Monitoring{
+				EnableMetrics: true,
+				Path:          "/metrics",
+				HealthCheck: HealthCheck{
+					EnableHealthCheckStatus:     true,
+					EnableRouteHealthCheckError: true,
+				},
+			},
+			Networking: Networking{
+				ProxySettings: ProxyConfig{
+					DisableCompression:  false,
+					MaxIdleConns:        250,
+					MaxIdleConnsPerHost: 150,
+					IdleConnTimeout:     90,
+					ForceAttemptHTTP2:   true,
+				},
+			},
+			ExtraConfig: ExtraRouteConfig{
+				Directory: ExtraDir,
+				Watch:     false,
 			},
 			Routes: []Route{
 				{
@@ -283,6 +300,7 @@ func initConfig(configFile string) error {
 					Security: Security{
 						TLS: SecurityTLS{
 							SkipVerification: true,
+							RootCAs:          "/etc/goma/certs/root.ca.pem",
 						},
 						ForwardHostHeaders: false,
 					},
@@ -378,7 +396,7 @@ func initConfig(configFile string) error {
 				},
 			},
 		},
-		CertManager: &certmanager.Config{Provider: certmanager.CertAcmeProvider, Acme: certmanager.Acme{Email: ""}},
+		CertManager: &certmanager.Config{Provider: certmanager.CertAcmeProvider, Acme: certmanager.Acme{Email: "you-at-example.com"}},
 	}
 	yamlData, err := yaml.Marshal(&conf)
 	if err != nil {
