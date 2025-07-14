@@ -43,6 +43,7 @@ type router struct {
 	sync.RWMutex
 	gateway    *Gateway
 	networking Networking
+	metrics    *metrics.PrometheusMetrics
 }
 
 // NewRouter creates a new router instance.
@@ -222,11 +223,12 @@ func (r *router) loadCertPool(rootCAs string) (*x509.CertPool, error) {
 func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 	// Proxy middleware
 	proxyMiddleware := &ProxyMiddleware{
-		Name:        route.Name,
-		Enabled:     route.ErrorInterceptor.Enabled,
-		ContentType: route.ErrorInterceptor.ContentType,
-		Errors:      route.ErrorInterceptor.Errors,
-		Origins:     route.Cors.Origins,
+		Name:          route.Name,
+		enableMetrics: r.enableMetrics,
+		Enabled:       route.ErrorInterceptor.Enabled,
+		ContentType:   route.ErrorInterceptor.ContentType,
+		Errors:        route.ErrorInterceptor.Errors,
+		Origins:       route.Cors.Origins,
 	}
 	rRouter.Use(proxyMiddleware.Wrap)
 	// CORS middleware
@@ -234,14 +236,6 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 
 	// Custom middlewares
 	attachMiddlewares(route, rRouter)
-
-	// Metrics middleware
-	if r.enableMetrics {
-		logger.Debug("Attaching metrics", "route", route.Name, "path", route.Path)
-		rPrometheus := metrics.PrometheusRoute{Name: route.Name, Path: route.Path}
-		rRouter.Use(rPrometheus.PrometheusMiddleware(prometheusMetrics))
-	}
-
 }
 
 // configureHandlers sets up route handlers
@@ -294,7 +288,7 @@ func (g *Gateway) addGlobalHandler(mux *mux.Router) {
 	mux.HandleFunc("/healthz", heath.HealthReadyHandler).Methods("GET")
 
 	// Global CORS
-	mux.Use(CORSHandler(g.Cors))
+	// mux.Use(CORSHandler(g.Cors))
 
 	logger.Debug("Added global handler")
 }

@@ -54,6 +54,9 @@ func newResponseRecorder(w http.ResponseWriter, intercept bool) *responseRecorde
 }
 
 func (rec *responseRecorder) Header() http.Header {
+	if !rec.intercept {
+		return rec.ResponseWriter.Header()
+	}
 	return rec.header
 }
 
@@ -128,7 +131,7 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-
+		path := r.URL.Path
 		contentType := h.ContentType
 		if contentType == "" {
 			contentType = r.Header.Get("Content-Type")
@@ -149,24 +152,40 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			requestID = val.(string)
 		}
 		rec.Header().Set(RequestIDHeader, requestID)
+		method := r.Method
+
+		// Record request
+		if h.enableMetrics {
+			logger.Debug(">>> Metrics enabled:: Collecting TotalRequests metrics")
+			prometheusMetrics.TotalRequests.WithLabelValues(h.Name, path, method).Inc()
+		}
 
 		next.ServeHTTP(rec, r)
 
-		duration := goutils.FormatDuration(time.Since(startTime), 2)
+		duration := time.Since(startTime).Seconds()
+		if h.enableMetrics {
+			logger.Debug(">>> Metrics enabled:: Collecting ResponseStatus and HttpDuration  metrics")
+			statusStr := strconv.Itoa(rec.statusCode)
+			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, h.Name, path, method).Inc()
+			prometheusMetrics.HttpDuration.WithLabelValues(h.Name, path, method).Observe(duration)
+		}
 
 		logFields := []any{
 			"request_id", requestID,
-			"method", r.Method,
+			"method", method,
 			"url", r.URL.RequestURI(),
 			"http_version", r.Proto,
 			"host", r.Host,
 			"client_ip", getRealIP(r),
 			"referer", r.Referer(),
 			"status", rec.statusCode,
-			"duration", duration,
+			"duration", goutils.FormatDuration(time.Since(startTime), 2),
 			"request_content_length", contentLength,
 			"route", h.Name,
 			"user_agent", r.UserAgent(),
+		}
+		if val := r.Context().Value(CtxSelectedBackend); val != nil {
+			logFields = append(logFields, "backend", val)
 		}
 
 		if intercept && !rec.skipBuffer {

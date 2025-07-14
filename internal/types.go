@@ -217,11 +217,12 @@ type AccessPolicyRuleMiddleware struct {
 	SourceRanges []string `yaml:"sourceRanges"`     //  list of Ips
 }
 type ProxyMiddleware struct {
-	Name        string
-	Enabled     bool
-	ContentType string
-	Errors      []middlewares.RouteError
-	Origins     []string
+	Name          string
+	Enabled       bool
+	enableMetrics bool
+	ContentType   string
+	Errors        []middlewares.RouteError
+	Origins       []string
 }
 type httpCacheRule struct {
 	MaxTtl                   int64    `yaml:"maxTtl"`
