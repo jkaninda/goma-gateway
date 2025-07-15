@@ -95,7 +95,7 @@ func loadExtraMiddlewares(routePath string) ([]Middleware, error) {
 
 	}
 	if len(extraMiddlewares) == 0 {
-		return nil, fmt.Errorf("no extra middleware found")
+		logger.Debug(">>> No extra middleware found")
 	}
 	return extraMiddlewares, nil
 }
