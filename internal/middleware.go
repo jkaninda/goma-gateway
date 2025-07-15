@@ -89,7 +89,7 @@ func loadExtraMiddlewares(routePath string) ([]Middleware, error) {
 		ex := &ExtraMiddleware{}
 		err = yaml.Unmarshal(buf, ex)
 		if err != nil {
-			return nil, fmt.Errorf("in file %q: %w", ConfigFile, err)
+			return nil, fmt.Errorf("in file %q: %w", yamlFile, err)
 		}
 		extraMiddlewares = append(extraMiddlewares, ex.Middlewares...)
 

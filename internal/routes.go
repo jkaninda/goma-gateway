@@ -27,74 +27,101 @@ import (
 // Initialize initializes the routes
 func (g *GatewayServer) Initialize() error {
 	gateway := g.gateway
+	// Handle deprecations
 	gateway.handleDeprecations()
+
+	// Load core configuration
 	dynamicRoutes = gateway.Routes
 	dynamicMiddlewares = g.middlewares
+
 	// Load Extra Middlewares
+	logger.Info("Loading extra middlewares", "directory", gateway.ExtraConfig.Directory)
 	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
-	if err == nil {
-		dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
-		logger.Debug("Loaded additional middlewares", "count", len(extraMiddlewares))
-
-	}
-	// Load Extra Routes
-	extraRoutes, err := loadExtraRoutes(gateway.ExtraConfig.Directory)
-	if err == nil {
-		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
-		logger.Debug("Loaded additional routes", "count", len(extraRoutes))
-
-	}
-	// Check configs
-	err = validateConfig(dynamicRoutes, dynamicMiddlewares)
 	if err != nil {
+		logger.Error("Failed to load extra middlewares", "error", err)
 		return err
 	}
+	if len(extraMiddlewares) > 0 {
+		dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
+		logger.Info("Extra middlewares loaded", "count", len(extraMiddlewares))
+	}
+
+	// Load Extra Routes
+	logger.Info("Loading extra routes", "directory", gateway.ExtraConfig.Directory)
+	extraRoutes, err := loadExtraRoutes(gateway.ExtraConfig.Directory)
+	if err != nil {
+		logger.Error("Failed to load extra routes", "error", err)
+		return err
+	}
+	if len(extraRoutes) > 0 {
+		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
+		logger.Info("Extra routes loaded", "count", len(extraRoutes))
+	}
+
+	// Validate configuration
+	logger.Info("Validating configuration", "routes", len(dynamicRoutes), "middlewares", len(dynamicMiddlewares))
+	err = validateConfig(dynamicRoutes, dynamicMiddlewares)
+	if err != nil {
+		logger.Error("Configuration validation failed", "error", err)
+		return err
+	}
+
+	// Redis check
 	if len(gateway.Redis.Addr) > 0 {
 		redisBased = true
+		logger.Debug("Redis enabled", "address", gateway.Redis.Addr)
 	}
+
+	// Route sorting
 	if hasPositivePriority(dynamicRoutes) {
-		// Sort routes by Priority in ascending order
 		sort.Slice(dynamicRoutes, func(i, j int) bool {
 			return dynamicRoutes[i].Priority < dynamicRoutes[j].Priority
 		})
+		logger.Debug("Routes sorted by priority")
 	} else {
-		// Sort routes by path in descending order
 		sort.Slice(dynamicRoutes, func(i, j int) bool {
 			return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
 		})
+		logger.Debug("Routes sorted by path length")
 	}
-	logger.Debug("Validating routes", "count", len(dynamicRoutes))
 
-	// Update Routes
+	logger.Info("Validating routes", "count", len(dynamicRoutes))
 	dynamicRoutes = validateRoutes(*gateway, dynamicRoutes)
 
+	// Health check
 	if !reloaded {
-		logger.Debug("Starting routes healthcheck...")
-		// Routes background healthcheck
+		logger.Debug("Starting background routes healthcheck")
 		routesHealthCheck(dynamicRoutes, stopChan)
-		logger.Debug("Routes healthcheck started")
+		logger.Debug("Routes healthcheck running")
 	}
+
+	// Certificate Manager
 	if certManager == nil {
 		logger.Debug("Creating certificate manager...")
 		certManager, err = certmanager.NewCertManager(g.certManager)
 		if err != nil {
-			logger.Error("Error creating certificate manager", "error", err)
+			logger.Error("Failed to create certificate manager", "error", err)
+		} else {
+			logger.Debug("Certificate manager created successfully")
 		}
 	}
-	logger.Debug("Loading tls certificates...")
-	// Load gateway routes certificates
+
+	// TLS certificates
+	logger.Debug("Loading TLS certificates...")
 	certs, _, err := g.initTLS()
-	if err == nil && len(certs) > 0 {
+	if err != nil {
+		logger.Error("Failed to load TLS certificates", "error", err)
+	} else if len(certs) > 0 {
 		certManager.AddCertificates(certs)
-		logger.Debug("Loaded tls certificates", "count", len(certs))
-
+		logger.Debug("TLS certificates loaded", "count", len(certs))
 	}
 
-	// update domains in certManager
+	// Domain update for certManager
 	if certManager != nil && certManager.AcmeInitialized() {
-		certManager.UpdateDomains(hostNames(dynamicRoutes))
+		domains := hostNames(dynamicRoutes)
+		certManager.UpdateDomains(domains)
+		logger.Debug("Updated ACME domains", "count", len(domains))
 	}
-	// cachedDialer.ClearCache()
 	return nil
 }
 

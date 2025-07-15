@@ -27,6 +27,7 @@ middlewares:
       - /admin  # Explicitly blocks /admin and all subpaths
     rule:
       realm: your-realm # Optional
+      forwardUsername: true          # Forward authenticated username to backend
       users:
         - user1:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
         - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
@@ -75,6 +76,7 @@ spec:
       - /admin  # Explicitly blocks /admin and all subpaths
     rule:
       realm: your-realm # Optional
+      forwardUsername: true          # Forward authenticated username to backend
       users:
         - user:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
         - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash

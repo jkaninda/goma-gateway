@@ -47,7 +47,7 @@ func (g *GatewayServer) Start() error {
 		return err
 	}
 
-	logger.Debug("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
+	logger.Info("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
 	g.initRedis()
 	defer g.closeRedis()
 	// Configure TLS
