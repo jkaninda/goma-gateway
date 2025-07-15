@@ -121,7 +121,3 @@ middlewares:
 ## Best Practices
 
 * Use descriptive filenames (e.g. `routes-cart.yaml`, `middlewares-auth.yaml`) to organize large sets of configuration files.
-* Combine `watch: true` with file change monitoring tools (like inotify) for seamless updates.
-* Validate all extra configuration files before deployment to ensure consistency and avoid runtime errors.
-
-

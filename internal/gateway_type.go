@@ -113,14 +113,18 @@ type Log struct {
 	// FilePath specifies the file path for logs, default Stdout.
 	FilePath string `yaml:"filePath,omitempty" env:"GOMA_LOG_FILE, overwrite"`
 	// Format defines the logging format (eg. text, json)
-	Format string `yaml:"format,omitempty" env:"GOMA_LOG_FORMAT, overwrite"`
+	Format     string `yaml:"format,omitempty" env:"GOMA_LOG_FORMAT, overwrite"`
+	MaxAgeDays int    `yaml:"maxAgeDays,omitempty"`
+	MaxBackups int    `yaml:"maxBackups,omitempty"`
+	MaxSizeMB  int    `yaml:"maxSizeMB,omitempty"`
 }
 
 // Monitoring defines the observability and health-related configuration.
 type Monitoring struct {
 	// EnableMetrics enables or disables Prometheus metrics collection (default: false).
 	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
-
+	// Host Restrict observability access to this hostname
+	Host string `yaml:"host,omitempty"`
 	// MetricsPath sets a custom path for metrics (default: /metrics).
 	MetricsPath string `yaml:"metricsPath,omitempty"`
 

@@ -22,7 +22,7 @@ import (
 )
 
 // watchExtraConfig watches the extra configuration directory for changes
-func (gatewayServer *GatewayServer) watchExtraConfig(r Router) {
+func (g *GatewayServer) watchExtraConfig(r Router) {
 	// Create a new watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -36,7 +36,7 @@ func (gatewayServer *GatewayServer) watchExtraConfig(r Router) {
 		}
 	}(watcher)
 	// Specify the directory to watch
-	directory := gatewayServer.gateway.ExtraConfig.Directory
+	directory := g.gateway.ExtraConfig.Directory
 	// Add the directory to the watcher
 	err = watcher.Add(directory)
 	if err != nil {
@@ -60,13 +60,13 @@ func (gatewayServer *GatewayServer) watchExtraConfig(r Router) {
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					// Update configuration
 					logger.Info("Configuration changes detected, backend reload required")
-					err = gatewayServer.Initialize()
+					err = g.Initialize()
 					if err != nil {
 						logger.Error("Failed to reload configuration", "error", err)
 					} else {
 						// Update the routes
 						logger.Debug("Updating routes")
-						r.UpdateHandler(gatewayServer.gateway)
+						r.UpdateHandler(g.gateway)
 					}
 
 				}

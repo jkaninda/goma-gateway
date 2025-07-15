@@ -59,7 +59,6 @@ func (g *Gateway) NewRouter() Router {
 }
 
 // AddRoutes adds multiple routes from another router.
-// AddRoutes adds multiple routes with better error handling and validation
 func (r *router) AddRoutes() error {
 	logger.Debug("Adding routes to router", "count", len(dynamicRoutes))
 
@@ -300,8 +299,11 @@ func (g *Gateway) registerMetricsHandler(mux *mux.Router) {
 	}
 
 	sub := mux.PathPrefix(path).Subrouter()
-	sub.PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
-
+	if g.Monitoring.Host != "" {
+		sub.Host(g.Monitoring.Host).PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
+	} else {
+		sub.PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
+	}
 	if middlewares := g.Monitoring.Middleware.Metrics; len(middlewares) > 0 {
 		route := Route{
 			Path:        path,
@@ -321,7 +323,11 @@ func (g *Gateway) registerRouteHealthHandler(mux *mux.Router, health HealthCheck
 	logger.Debug("Route health check enabled")
 	path := "/healthz/routes"
 	sub := mux.PathPrefix(path).Subrouter()
-	sub.PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
+	if g.Monitoring.Host != "" {
+		sub.Host(g.Monitoring.Host).PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
+	} else {
+		sub.PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
+	}
 
 	if middlewares := g.Monitoring.Middleware.RouteHealthCheck; len(middlewares) > 0 {
 		route := Route{

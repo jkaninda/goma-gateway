@@ -25,11 +25,11 @@ import (
 )
 
 // Initialize initializes the routes
-func (gatewayServer *GatewayServer) Initialize() error {
-	gateway := gatewayServer.gateway
+func (g *GatewayServer) Initialize() error {
+	gateway := g.gateway
 	gateway.handleDeprecations()
 	dynamicRoutes = gateway.Routes
-	dynamicMiddlewares = gatewayServer.middlewares
+	dynamicMiddlewares = g.middlewares
 	// Load Extra Middlewares
 	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
 	if err == nil {
@@ -76,14 +76,14 @@ func (gatewayServer *GatewayServer) Initialize() error {
 	}
 	if certManager == nil {
 		logger.Debug("Creating certificate manager...")
-		certManager, err = certmanager.NewCertManager(gatewayServer.certManager)
+		certManager, err = certmanager.NewCertManager(g.certManager)
 		if err != nil {
 			logger.Error("Error creating certificate manager", "error", err)
 		}
 	}
 	logger.Debug("Loading tls certificates...")
 	// Load gateway routes certificates
-	certs, _, err := gatewayServer.initTLS()
+	certs, _, err := g.initTLS()
 	if err == nil && len(certs) > 0 {
 		certManager.AddCertificates(certs)
 		logger.Debug("Loaded tls certificates", "count", len(certs))
