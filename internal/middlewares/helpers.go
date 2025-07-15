@@ -63,52 +63,57 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 	if len(logMessage) > 0 {
 		message = logMessage
 	}
+
 	// Set Access-Control-Allow-Origin header if the origin is allowed
 	if allowedOrigin(origins, r.Header.Get("Origin")) {
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	}
-	// Handle JSON content type
-	if contentType == "application/json" {
-		w.Header().Set("Content-Type", "application/json")
 
-		// If the message is valid JSON, directly write the error response
+	switch contentType {
+	case "application/json":
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+
 		if isJson(message) {
-			http.Error(w, message, statusCode)
+			_, err := w.Write([]byte(message))
+			if err != nil {
+				logger.Error("Error writing JSON error message", "error", err)
+			}
 			return
 		}
 
-		w.WriteHeader(statusCode)
-		// Otherwise, write a structured JSON response
+		// Otherwise encode structured JSON error response
 		err := json.NewEncoder(w).Encode(ProxyResponseError{
 			Success: false,
 			Status:  statusCode,
 			Error:   message,
 		})
-		// Log the error if encoding the JSON fails
 		if err != nil {
 			logger.Error("Error encoding JSON response", "error", err)
 		}
 		return
-	}
-	// Handle XML content type
-	if contentType == "application/xhtml+xml" {
-		w.WriteHeader(statusCode)
+
+	case "application/xhtml+xml":
 		w.Header().Set("Content-Type", "application/xhtml+xml")
+		w.WriteHeader(statusCode)
+
 		xmlResponse := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 			<error>
 				<success>false</success>
 				<status>%d</status>
 				<error>%s</error>
 			</error>`, statusCode, html.EscapeString(message))
+
 		_, err := w.Write([]byte(xmlResponse))
 		if err != nil {
 			logger.Error("Error writing XML response", "error", err)
 		}
 		return
-	}
 
-	// For non-JSON responses, use http.Error for a basic text error response
-	http.Error(w, message, statusCode)
+	default:
+		http.Error(w, message, statusCode)
+		return
+	}
 }
 
 // isJson checks if the given string is valid JSON

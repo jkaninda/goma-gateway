@@ -103,6 +103,8 @@ cors:
 * **`maxAge`** (`int`): Duration (in seconds) to cache the results of a preflight request.
 * **`allowMethods`** (`[]string`): Allowed HTTP methods (e.g., `GET`, `POST`). If empty, all methods are allowed.
 * **`allowCredentials`** (`boolean`): Allows browsers to send cookies and credentials along with requests.
+* **`middlewares`** (`[]string`): List of middleware names to apply to the route.
+
 ---
 
 ## Error Interceptor
@@ -124,14 +126,6 @@ errorInterceptor:
 * **`contentType`** (`string`): Content-Type header for the response (e.g., `application/json`).
 * **`errors`** (`[]ErrorResponse`): List of error overrides with status codes and custom response bodies.
 
----
-
-## Additional Options
-
-* **`disableHostForwarding`** (`boolean`): Disables proxy `Host` header forwarding.
-* **`blockCommonExploits`** (`boolean`): Block known malicious patterns.
-* **`enableBotDetection`** (`boolean`): Block known bot user agents.
-* **`middlewares`** (`[]string`): List of middleware names to apply to the route.
 
 ---
 
@@ -262,7 +256,6 @@ gateway:
             body: ""
           - code: 500
             body: "Internal server error"
-      blockCommonExploits: false
       middlewares:
         - api-forbidden-paths
         - jwt-auth

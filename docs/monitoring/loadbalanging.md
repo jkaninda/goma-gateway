@@ -47,9 +47,9 @@ gateway:
         timeout: 10s
         healthyStatuses: [200, 404]
       backends:
-        - endpoint: https://example.com
-        - endpoint: https://example1.com
-        - endpoint: https://example2.com
+        - endpoint: https://api.example.com
+        - endpoint: https://api-2.example.com
+        - endpoint: https://api-3.example.com
 ```
 
 ---
@@ -74,11 +74,11 @@ gateway:
         timeout: 10s
         healthyStatuses: [200, 404]
       backends:
-        - endpoint: https://example.com
+        - endpoint: https://api.example.com
           weight: 5
-        - endpoint: https://example1.com
+        - endpoint: https://api-2.example.com
           weight: 2
-        - endpoint: https://example2.com
+        - endpoint: https://api-3.example.com
           weight: 1
 ```
 

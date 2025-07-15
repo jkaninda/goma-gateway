@@ -18,6 +18,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -44,6 +45,10 @@ func loadExtraFiles(routePath string) ([]string, error) {
 	})
 
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			logger.Error("Error,", "error", err)
+			return yamlFiles, nil
+		}
 		return nil, fmt.Errorf("error loading extra config files: %v", err)
 	}
 	return yamlFiles, nil

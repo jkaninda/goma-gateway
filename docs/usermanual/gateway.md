@@ -123,18 +123,24 @@ passThrough:
 
 The `monitoring` section allows you to configure observability endpoints for your gateway, including **Prometheus metrics**, **readiness/liveness probes**, and **route-level health checks**.
 
+These features help you monitor system performance, readiness, and route-level health in production environments.
+
 ### Available Options
 
-| Key                           | Type       | Default    | Description                                                             |
-|-------------------------------|------------|------------|-------------------------------------------------------------------------|
-| `enableMetrics`               | `bool`     | `false`    | Enables the Prometheus metrics endpoint.                                |
-| `metricsPath`                 | `string`   | `/metrics` | Sets a custom path for metrics exposure.                                |
-| `enableReadiness`             | `bool`     | `true`     | Enables the `/readyz` readiness probe.                                  |
-| `enableLiveness`              | `bool`     | `true`     | Enables the `/healthz` liveness probe.                                  |
-| `enableRouteHealthCheck`      | `bool`     | `false`    | Enables the `/healthz/routes` endpoint for detailed route-level checks. |
-| `includeRouteHealthErrors`    | `bool`     | `false`    | If `true`, includes route errors in the `/healthz/routes` response.     |
-| `middleware.metrics`          | `[]string` | `[]`       | Middleware list applied to the `/metrics` endpoint.                     |
-| `middleware.routeHealthCheck` | `[]string` | `[]`       | Middleware list applied to the `/healthz/routes` endpoint.              |
+| Key                           | Type       | Default    | Description                                                           |
+|-------------------------------|------------|------------|-----------------------------------------------------------------------|
+| `host`                        | `string`   | `""`       | Restricts access to observability endpoints to a specific hostname.   |
+| `enableMetrics`               | `bool`     | `false`    | Enables the Prometheus-compatible `/metrics` endpoint.                |
+| `metricsPath`                 | `string`   | `/metrics` | Sets a custom path for metrics exposure.                              |
+| `enableReadiness`             | `bool`     | `true`     | Enables the `/readyz` readiness probe endpoint.                       |
+| `enableLiveness`              | `bool`     | `true`     | Enables the `/healthz` liveness probe endpoint.                       |
+| `enableRouteHealthCheck`      | `bool`     | `false`    | Enables the `/healthz/routes` endpoint for route-level health checks. |
+| `includeRouteHealthErrors`    | `bool`     | `false`    | Includes route errors in the `/healthz/routes` response if `true`.    |
+| `middleware.metrics`          | `[]string` | `[]`       | Middleware chain applied to the metrics endpoint.                     |
+| `middleware.routeHealthCheck` | `[]string` | `[]`       | Middleware chain applied to the route health check endpoint.          |
+
+
+> 💡 **Note**: If `host` is not set, observability endpoints are accessible from any route host. To restrict access, set a specific `host` value.
 
 ---
 
@@ -143,12 +149,13 @@ The `monitoring` section allows you to configure observability endpoints for you
 ```yaml
 gateway:
   monitoring:
+    host: ""            # Restrict observability access to this hostname
     enableMetrics: true                  # Enable Prometheus metrics
-    metricsPath: /metrics                # Custom path for metrics (optional)
-    enableReadiness: true               # Enable /readyz readiness endpoint
-    enableLiveness: true                # Enable /healthz liveness endpoint
-    enableRouteHealthCheck: true        # Enable /healthz/routes for route-level checks
-    includeRouteHealthErrors: true      # Include route errors in /healthz/routes
+    metricsPath: /metrics                # Optional: customize metrics path
+    enableReadiness: true               # Enable /readyz endpoint
+    enableLiveness: true                # Enable /healthz endpoint
+    enableRouteHealthCheck: true        # Enable /healthz/routes for route checks
+    includeRouteHealthErrors: true      # Show failed routes in health response
     middleware:
       metrics:
         - ldap                          # Middleware for /metrics

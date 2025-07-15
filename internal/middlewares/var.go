@@ -41,22 +41,3 @@ var (
 	logger      = logger2.Default()
 	jwtAlgo     = []string{"RS256", "HS256", "ES256"}
 )
-
-// Paths of known bot user agents
-var botUserAgents = []string{
-	"Googlebot",
-	"Bingbot",
-	"Slurp",
-	"Yahoo",
-	"YandexBot",
-	"Yeti",
-	"AhrefsBot",
-	"SemrushBot",
-	"DotBot",
-	"Exabot",
-	"facebot",
-	"ia_archiver",
-	"MJ12bot",
-	"Bytespider",
-	"archive.org_bot",
-}

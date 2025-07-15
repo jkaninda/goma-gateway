@@ -22,23 +22,38 @@ import (
 	"strings"
 )
 
-type BotDetection struct {
-	UserAgents []string `yaml:"userAgents"`
+type UserAgentBlock struct {
+	UserAgents []string
 }
 
-// BotDetectionMiddleware checks if the request is from a bot
-func (botDetection BotDetection) BotDetectionMiddleware(next http.Handler) http.Handler {
+// Middleware blocks requests from disallowed user agents (bots).
+func (b UserAgentBlock) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		botDetection.UserAgents = append(botDetection.UserAgents, botUserAgents...)
-		contentType := r.Header.Get("Content-Type")
+		if len(b.UserAgents) == 0 {
+			logger.Warn(">> UserAgentBlock: no user agents configured to block")
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		userAgent := r.Header.Get("User-Agent")
-		for _, bot := range botDetection.UserAgents {
-			if strings.Contains(userAgent, bot) {
-				logger.Warn("%s: %s Forbidden - Bots are not allowed", getRealIP(r), r.URL.Path)
-				RespondWithError(w, r, http.StatusForbidden, "Bots are not allowed", nil, contentType)
+		contentType := r.Header.Get("Content-Type")
+		clientIP := getRealIP(r)
+		requestPath := r.URL.Path
+
+		for _, blockedAgent := range b.UserAgents {
+			if strings.Contains(userAgent, blockedAgent) {
+				logger.Warn(
+					"Blocked request",
+					"ip", clientIP,
+					"path", requestPath,
+					"userAgent", userAgent,
+					"reason", "user agent not allowed",
+				)
+				RespondWithError(w, r, http.StatusForbidden, "User agent not allowed", nil, contentType)
 				return
 			}
 		}
+
 		next.ServeHTTP(w, r)
 	})
 }

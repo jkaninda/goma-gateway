@@ -32,24 +32,24 @@ import (
 )
 
 // Start / Start starts the server
-func (gatewayServer *GatewayServer) Start() error {
+func (g *GatewayServer) Start() error {
 	logger.Info("Initializing routes...")
-	err := gatewayServer.Initialize()
+	err := g.Initialize()
 	if err != nil {
 		logger.Fatal("Failed to initialize routes", "error", err)
 	}
 
 	// Create router
-	newRouter := gatewayServer.gateway.NewRouter()
+	newRouter := g.gateway.NewRouter()
 	err = newRouter.AddRoutes()
 	if err != nil {
 		logger.Error("Failed to add routes", "error", err)
 		return err
 	}
 
-	logger.Debug("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
-	gatewayServer.initRedis()
-	defer gatewayServer.closeRedis()
+	logger.Info("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
+	g.initRedis()
+	defer g.closeRedis()
 	// Configure TLS
 	tlsConfig := &tls.Config{
 		GetCertificate: certManager.GetCertificate,
@@ -63,41 +63,41 @@ func (gatewayServer *GatewayServer) Start() error {
 	certManager.AddCertificate("default", *certificate)
 	printRoute(dynamicRoutes)
 	// Watch for changes
-	if gatewayServer.gateway.ExtraConfig.Watch {
+	if g.gateway.ExtraConfig.Watch {
 		logger.Debug("Dynamic configuration watch enabled")
-		go gatewayServer.watchExtraConfig(newRouter)
+		go g.watchExtraConfig(newRouter)
 
 	}
 	// Start acme service
 	go startAutoCert()
 	// Validate entrypoint
-	gatewayServer.gateway.EntryPoints.Validate()
-	httpServer := gatewayServer.createServer(webAddress, gatewayServer.createHTTPHandler(newRouter), nil)
-	httpsServer := gatewayServer.createServer(webSecureAddress, newRouter, tlsConfig)
+	g.gateway.EntryPoints.Validate()
+	httpServer := g.createServer(webAddress, g.createHTTPHandler(newRouter), nil)
+	httpsServer := g.createServer(webSecureAddress, newRouter, tlsConfig)
 
 	// Create proxy instance
-	gatewayServer.proxyServer = NewProxyServer(gatewayServer.gateway.EntryPoints.PassThrough.Forwards, gatewayServer.ctx)
+	g.proxyServer = NewProxyServer(g.gateway.EntryPoints.PassThrough.Forwards, g.ctx)
 
 	// Start HTTP/HTTPS and proxy servers
-	gatewayServer.startServers(httpServer, httpsServer)
+	g.startServers(httpServer, httpsServer)
 
 	// Handle graceful shutdown
-	return gatewayServer.shutdown(httpServer, httpsServer)
+	return g.shutdown(httpServer, httpsServer)
 }
 
-func (gatewayServer *GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
+func (g *GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
 	return &http.Server{
 		Addr:         addr,
-		WriteTimeout: time.Second * time.Duration(gatewayServer.gateway.Timeouts.Write),
-		ReadTimeout:  time.Second * time.Duration(gatewayServer.gateway.Timeouts.Read),
-		IdleTimeout:  time.Second * time.Duration(gatewayServer.gateway.Timeouts.Idle),
+		WriteTimeout: time.Second * time.Duration(g.gateway.Timeouts.Write),
+		ReadTimeout:  time.Second * time.Duration(g.gateway.Timeouts.Read),
+		IdleTimeout:  time.Second * time.Duration(g.gateway.Timeouts.Idle),
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
 	}
 }
 
 // Create HTTP handler
-func (gatewayServer *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
+func (g *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
 	// Create the ACME reverse proxy once
 	acmeProxy := httputil.NewSingleHostReverseProxy(&url.URL{
 		Scheme: "http",
@@ -117,9 +117,9 @@ func (gatewayServer *GatewayServer) createHTTPHandler(handler http.Handler) http
 	})
 }
 
-func (gatewayServer *GatewayServer) startServers(httpServer, httpsServer *http.Server) {
+func (g *GatewayServer) startServers(httpServer, httpsServer *http.Server) {
 	// Start proxy server
-	if err := gatewayServer.proxyServer.Start(); err != nil {
+	if err := g.proxyServer.Start(); err != nil {
 		logger.Fatal("Failed to start proxy server", "error", err)
 	}
 	go func() {
@@ -138,13 +138,13 @@ func (gatewayServer *GatewayServer) startServers(httpServer, httpsServer *http.S
 
 }
 
-func (gatewayServer *GatewayServer) shutdown(httpServer, httpsServer *http.Server) error {
+func (g *GatewayServer) shutdown(httpServer, httpsServer *http.Server) error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	logger.Info("Shutting down Goma Gateway...")
 
-	shutdownCtx, cancel := context.WithTimeout(gatewayServer.ctx, 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(g.ctx, 10*time.Second)
 	defer cancel()
 	logger.Info("Shutting down HTTP/HTTPS servers")
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
@@ -155,7 +155,7 @@ func (gatewayServer *GatewayServer) shutdown(httpServer, httpsServer *http.Serve
 		logger.Error("Error shutting down HTTPS server", "error", err)
 	}
 	// stop TCP/UDP server
-	gatewayServer.proxyServer.Stop()
+	g.proxyServer.Stop()
 	logger.Info("Goma Gateway stopped")
 	return nil
 }

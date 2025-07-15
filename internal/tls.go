@@ -28,8 +28,8 @@ import (
 	"sync"
 )
 
-func (gatewayServer *GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
-	certs := loadTLS(gatewayServer.gateway.TLS)
+func (g *GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
+	certs := loadTLS(g.gateway.TLS)
 	if len(certs) > 0 {
 		return certs, true, nil
 	}

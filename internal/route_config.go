@@ -38,13 +38,13 @@ func loadExtraRoutes(routePath string) ([]Route, error) {
 		ex := &ExtraRoute{}
 		err = yaml.Unmarshal(buf, ex)
 		if err != nil {
-			return nil, fmt.Errorf("in file %q: %w", ConfigFile, err)
+			return nil, fmt.Errorf("in file %q: %w", yamlFile, err)
 		}
 		extraRoutes = append(extraRoutes, ex.Routes...)
 
 	}
 	if len(extraRoutes) == 0 {
-		return nil, fmt.Errorf("no extra routes found")
+		logger.Debug(">>> No extra route found")
 	}
 	return extraRoutes, nil
 }

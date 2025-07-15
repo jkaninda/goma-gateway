@@ -25,6 +25,7 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/jkaninda/goma-gateway/util"
+	logger2 "github.com/jkaninda/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/amazon"
 	"golang.org/x/oauth2/facebook"
@@ -33,6 +34,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"gopkg.in/yaml.v3"
 	"os"
+	"strconv"
 )
 
 // Config reads config file and returns Gateway
@@ -125,14 +127,27 @@ func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
 }
 
 // InitLogger sets environment variables and initialize the logger
-func (gatewayServer *GatewayServer) InitLogger() {
-	util.SetEnv("GOMA_LOG_LEVEL", gatewayServer.gateway.Log.Level)
-	util.SetEnv("GOMA_LOG_FILE", gatewayServer.gateway.Log.FilePath)
-	util.SetEnv("GOMA_LOG_FORMAT", gatewayServer.gateway.Log.Format)
+func (g *GatewayServer) InitLogger() {
+	util.SetEnv("GOMA_LOG_LEVEL", g.gateway.Log.Level)
+	util.SetEnv("GOMA_LOG_FILE", g.gateway.Log.FilePath)
+	util.SetEnv("GOMA_LOG_FORMAT", g.gateway.Log.Format)
+	util.SetEnv("GOMA_LOG_MAX_AGE_DAYS", strconv.Itoa(g.gateway.Log.MaxAgeDays))
+	util.SetEnv("GOMA_LOG_MAX_SIZE_MB", strconv.Itoa(g.gateway.Log.MaxSizeMB))
+	util.SetEnv("GOMA_LOG_MAX_BACKUPS", strconv.Itoa(g.gateway.Log.MaxBackups))
 
 	// Update logger with config
 	logger = log.InitLogger()
 	middlewares.InitLogger(logger)
+	// Logging
+	if g.gateway.Log.MaxAgeDays > 0 {
+		logger = logger.WithOptions(logger2.WithMaxAge(g.gateway.Log.MaxAgeDays))
+	}
+	if g.gateway.Log.MaxSizeMB > 0 {
+		logger = logger.WithOptions(logger2.WithMaxSize(g.gateway.Log.MaxSizeMB))
+	}
+	if g.gateway.Log.MaxBackups > 0 {
+		logger = logger.WithOptions(logger2.WithMaxAge(g.gateway.Log.MaxBackups))
+	}
 
 }
 
@@ -447,6 +462,14 @@ func (r RedirectSchemeRuleMiddleware) validate() error {
 	if r.Scheme == "" {
 		return fmt.Errorf("error parsing yaml: empty Scheme in redirectScheme middlewares")
 
+	}
+	return nil
+}
+
+// validate validates BasicRuleMiddleware
+func (u UserAgentBlockRuleMiddleware) validate() error {
+	if len(u.UserAgents) == 0 {
+		return fmt.Errorf("empty userAgents in userAgentBlock  middlewares")
 	}
 	return nil
 }
