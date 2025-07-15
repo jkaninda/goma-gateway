@@ -222,6 +222,7 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 	// Proxy middleware
 	proxyMiddleware := &ProxyMiddleware{
 		Name:          route.Name,
+		Path:          route.Path,
 		enableMetrics: r.enableMetrics,
 		Enabled:       route.ErrorInterceptor.Enabled,
 		ContentType:   route.ErrorInterceptor.ContentType,

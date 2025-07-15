@@ -218,6 +218,7 @@ type AccessPolicyRuleMiddleware struct {
 }
 type ProxyMiddleware struct {
 	Name          string
+	Path          string
 	Enabled       bool
 	enableMetrics bool
 	ContentType   string

@@ -128,7 +128,7 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		path := r.URL.Path
+		path := h.Path
 		contentType := h.ContentType
 		if contentType == "" {
 			contentType = r.Header.Get("Content-Type")
