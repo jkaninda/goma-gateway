@@ -55,6 +55,7 @@ const (
 	httpCache           MiddlewareType = "httpCache"
 	redirectScheme      MiddlewareType = "redirectScheme"
 	bodyLimit           MiddlewareType = "bodyLimit"
+	userAgentBlock      MiddlewareType = "userAgentBlock"
 )
 const (
 	ProtocolTCP    Protocol = "tcp"

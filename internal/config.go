@@ -467,6 +467,14 @@ func (r RedirectSchemeRuleMiddleware) validate() error {
 }
 
 // validate validates BasicRuleMiddleware
+func (u UserAgentBlockRuleMiddleware) validate() error {
+	if len(u.UserAgents) == 0 {
+		return fmt.Errorf("empty userAgents in userAgentBlock  middlewares")
+	}
+	return nil
+}
+
+// validate validates BasicRuleMiddleware
 func (basicAuth BasicRuleMiddleware) validate() error {
 	if len(basicAuth.Users) == 0 {
 		return fmt.Errorf("empty users in basic auth middlewares")

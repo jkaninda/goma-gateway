@@ -136,7 +136,8 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 		applyRedirectSchemeMiddleware(mid, router)
 	case bodyLimit:
 		applyBodyLimitMiddleware(mid, router)
-
+	case userAgentBlock:
+		applyUserAgentBlockMiddleware(mid, router)
 	}
 	// Attach Auth middlewares
 	attachAuthMiddlewares(route, mid, router)
@@ -258,6 +259,21 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 		limiter := rt.NewRateLimiterWindow()
 		router.Use(limiter.RateLimitMiddleware())
 	}
+}
+func applyUserAgentBlockMiddleware(mid Middleware, router *mux.Router) {
+	rule := &UserAgentBlockRuleMiddleware{}
+	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
+		logger.Error("Error applying middleware, middleware not applied", "error", err)
+		return
+	}
+	if err := rule.validate(); err != nil {
+		logger.Error("Error applying middleware, middleware not applied", "error", err)
+		return
+	}
+	userAgents := middlewares.UserAgentBlock{
+		UserAgents: rule.UserAgents,
+	}
+	router.Use(userAgents.Middleware)
 }
 
 func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router) {

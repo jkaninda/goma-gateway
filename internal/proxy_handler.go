@@ -128,6 +128,7 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		ip := getRealIP(r)
 		path := h.Path
 		contentType := h.ContentType
 		if contentType == "" {
@@ -173,7 +174,7 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			"url", r.URL.RequestURI(),
 			"http_version", r.Proto,
 			"host", r.Host,
-			"client_ip", getRealIP(r),
+			"client_ip", ip,
 			"referer", r.Referer(),
 			"status", rec.statusCode,
 			"duration", goutils.FormatDuration(time.Since(startTime), 2),
