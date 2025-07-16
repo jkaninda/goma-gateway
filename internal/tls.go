@@ -28,12 +28,12 @@ import (
 	"sync"
 )
 
-func (g *GatewayServer) initTLS() ([]tls.Certificate, bool, error) {
+func (g *GatewayServer) initTLS() (bool, []tls.Certificate) {
 	certs := loadTLS(g.gateway.TLS)
 	if len(certs) > 0 {
-		return certs, true, nil
+		return true, certs
 	}
-	return nil, false, fmt.Errorf("failed to load TLS config")
+	return false, certs
 }
 
 // loadTLS initializes a TLS configuration by loading certificates from dynamic routes.

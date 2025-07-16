@@ -105,13 +105,9 @@ func (g *GatewayServer) Initialize() error {
 			logger.Debug("Certificate manager created successfully")
 		}
 	}
-
 	// TLS certificates
 	logger.Debug("Loading TLS certificates...")
-	certs, _, err := g.initTLS()
-	if err != nil {
-		logger.Error("Failed to load TLS certificates", "error", err)
-	} else if len(certs) > 0 {
+	if ok, certs := g.initTLS(); ok {
 		certManager.AddCertificates(certs)
 		logger.Debug("TLS certificates loaded", "count", len(certs))
 	}

@@ -477,12 +477,17 @@ To run
 
 The Goma Gateway project welcomes all contributors. We appreciate your help!
 
+## 🌟 Star History
+
+⭐ If you find Goma Gateway useful, please consider giving it a star on [GitHub](https://github.com/jkaninda/goma-gateway)!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=jkaninda/goma-gateway&type=Date)](https://star-history.com/#jkaninda/goma-gateway&Date)
+
 
 ## Give a Star! ⭐
 
-If you like or are using Goma Gateway, please give it a star. Thanks!
+If this project helped you, do not skip on giving it a star. Thanks!
 
-Please share.
 
 
 ## License
