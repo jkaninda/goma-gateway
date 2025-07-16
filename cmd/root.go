@@ -30,9 +30,12 @@ import (
 var rootCmd = &cobra.Command{
 	Use:     "goma",
 	Short:   "Goma Gateway is a lightweight API Gateway Management",
-	Long:    `.`,
+	Long:    `Goma Gateway is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly.`,
 	Example: util.MainExample,
 	Version: version.Version,
+	Run: func(cmd *cobra.Command, args []string) {
+		ServerCmd.Run(cmd, args)
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -48,5 +51,6 @@ func init() {
 	rootCmd.AddCommand(ServerCmd)
 	rootCmd.AddCommand(config.Cmd)
 	rootCmd.AddCommand(VersionCmd)
+	rootCmd.Flags().StringP("config", "c", "", "Path to the configuration filename")
 
 }
