@@ -62,13 +62,13 @@ security:
   forwardHostHeaders: true
   enableExploitProtection: false
   tls:
-    skipVerification: false
+    insecureSkipVerify: false
     rootCAs: /etc/goma/certs/root.ca.pem
 ```
 
 * **`forwardHostHeaders`** (`bool`, default: `true`): Whether to forward the original `Host` header.
 * **`enableExploitProtection`** (`bool`, default: `false`): Enable built-in protections against known exploits.
-* **`tls.skipVerification`** (`bool`, default: `false`): Disable TLS certificate verification for backend.
+* **`tls.insecureSkipVerify`** (`bool`, default: `false`): Disable TLS certificate verification for backend.
 * **`tls.rootCAs`**: Custom root CA (file path, raw PEM, or base64-encoded string).
 
 ---
@@ -163,7 +163,7 @@ gateway:
         forwardHostHeaders: true
         enableExploitProtection: true
         tls:
-          skipVerification: true
+          insecureSkipVerify: true
           rootCAs: /etc/goma/certs/root.ca.pem
 ```
 

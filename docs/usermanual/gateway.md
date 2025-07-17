@@ -167,26 +167,27 @@ gateway:
 
 ## Networking
 
-The `networking` section configures low-level HTTP transport and connection pooling behavior for the internal proxy. These settings help optimize performance, connection reuse, and resource efficiency when forwarding traffic to backend services.
+The `networking` section defines low-level HTTP transport and connection pooling settings used by the internal proxy to forward traffic to backend services. These configurations help optimize performance, connection reuse, and resource usage across all routes.
 
-### Proxy Networking Settings
+### Transport Settings
 
-These options apply to the internal HTTP client used by the gateway to forward HTTP(S) requests.
+These options apply to the internal HTTP client used by the gateway for outbound requests (HTTP or HTTPS). They are **global settings** and affect all routes.
 
 ---
 
-### Available Options
+### 📘 Available Options
 
-| Key                     | Type   | Default | Description                                                                             |
-|-------------------------|--------|---------|-----------------------------------------------------------------------------------------|
-| `forceAttemptHTTP2`     | `bool` | `true`  | Forces the proxy client to attempt using HTTP/2 where supported by the upstream server. |
-| `disableCompression`    | `bool` | `false` | Disables gzip compression for proxied requests, even if the server supports it.         |
-| `maxIdleConns`          | `int`  | `1024`  | Maximum number of idle (keep-alive) connections maintained across all hosts.            |
-| `maxIdleConnsPerHost`   | `int`  | `256`   | Maximum number of idle connections kept per backend host.                               |
-| `maxConnsPerHost`       | `int`  | `512`   | Maximum number of concurrent connections per host.                                      |
-| `idleConnTimeout`       | `int`  | `90`    | Time in seconds before an idle connection is closed.                                    |
-| `tlsHandshakeTimeout`   | `int`  | `0`     | Timeout in seconds for completing the TLS handshake with backend servers.               |
-| `responseHeaderTimeout` | `int`  | `0`     | Timeout in seconds to wait for a response header from the backend.                      |
+| Key                     | Type   | Default | Description                                                                              |
+|-------------------------|--------|---------|------------------------------------------------------------------------------------------|
+| `insecureSkipVerify`    | `bool` | `false` | Disables TLS certificate verification. Can be overridden per-route under `security.tls`. |
+| `forceAttemptHTTP2`     | `bool` | `true`  | Enables HTTP/2 support when available from the upstream server.                          |
+| `disableCompression`    | `bool` | `false` | Disables automatic gzip compression for proxied requests.                                |
+| `maxIdleConns`          | `int`  | `1024`  | Maximum number of idle (keep-alive) connections allowed across all hosts.                |
+| `maxIdleConnsPerHost`   | `int`  | `256`   | Maximum number of idle connections maintained per backend host.                          |
+| `maxConnsPerHost`       | `int`  | `512`   | Maximum number of concurrent connections per host.                                       |
+| `idleConnTimeout`       | `int`  | `90`    | Idle timeout (in seconds) before closing unused connections.                             |
+| `tlsHandshakeTimeout`   | `int`  | `0`     | Timeout (in seconds) for completing the TLS handshake with a backend.                    |
+| `responseHeaderTimeout` | `int`  | `0`     | Timeout (in seconds) to wait for the backend’s response headers.                         |
 
 ---
 
@@ -195,7 +196,9 @@ These options apply to the internal HTTP client used by the gateway to forward H
 ```yaml
 gateway:
   networking:
-    proxy:
+    transport:
+      insecureSkipVerify: false       # Can be overridden per-route
+      ## Optional, advanced configuration
       forceAttemptHTTP2: true
       disableCompression: false
       maxIdleConns: 512

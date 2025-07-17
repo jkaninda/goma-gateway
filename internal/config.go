@@ -160,7 +160,7 @@ func validateRoutes(gateway Gateway, routes []Route) []Route {
 	for i := range routes {
 		routes[i].handleDeprecations()
 		mergeGatewayErrorInterceptor(&routes[i], gateway.ErrorInterceptor)
-		mergeGatewayCors(&routes[i], &gateway.Cors)
+		mergeGatewayConfig(&routes[i], gateway)
 	}
 
 	return routes
@@ -184,7 +184,13 @@ func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.R
 		}
 	}
 }
-func mergeGatewayCors(route *Route, cors *Cors) {
+func mergeGatewayConfig(route *Route, gateway Gateway) {
+
+	if gateway.Networking.Transport.InsecureSkipVerify {
+		logger.Debug(">>> Gateway:: Insecure Skip Verify is enabled")
+		route.Security.TLS.InsecureSkipVerify = true
+	}
+	cors := &gateway.Cors
 	if cors == nil {
 		return
 	}
@@ -222,8 +228,12 @@ func (r *Route) handleDeprecations() {
 		logger.Warn("Deprecation: blockCommonExploits is deprecated, please use `security.enableExploitProtection`")
 	}
 	if r.InsecureSkipVerify {
-		logger.Warn("Deprecation:insecureSkipVerify is deprecated, please use `security.tls.skipVerification`")
-		r.Security.TLS.SkipVerification = true
+		logger.Warn("Deprecation:insecureSkipVerify is deprecated, please use `security.tls.insecureSkipVerify`")
+		r.Security.TLS.InsecureSkipVerify = true
+	}
+	if r.Security.TLS.SkipVerification {
+		logger.Warn("Deprecation:skipVerification is deprecated, please use `security.tls.insecureSkipVerify`")
+		r.Security.TLS.InsecureSkipVerify = true
 	}
 	if r.DisableHostForwarding {
 		logger.Warn("Deprecation: disableHostForwarding is deprecated, please use `security.forwardHostHeaders`")
@@ -303,8 +313,8 @@ func initConfig(configFile string) error {
 					},
 					Security: Security{
 						TLS: SecurityTLS{
-							SkipVerification: true,
-							RootCAs:          "/etc/goma/certs/root.ca.pem",
+							InsecureSkipVerify: true,
+							RootCAs:            "/etc/goma/certs/root.ca.pem",
 						},
 						ForwardHostHeaders: false,
 					},
