@@ -160,7 +160,7 @@ func validateRoutes(gateway Gateway, routes []Route) []Route {
 	for i := range routes {
 		routes[i].handleDeprecations()
 		mergeGatewayErrorInterceptor(&routes[i], gateway.ErrorInterceptor)
-		mergeGatewayConfig(&routes[i], gateway)
+		mergeGatewayConfig(&routes[i], gateway, &gateway.Cors)
 	}
 
 	return routes
@@ -184,13 +184,11 @@ func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.R
 		}
 	}
 }
-func mergeGatewayConfig(route *Route, gateway Gateway) {
-
+func mergeGatewayConfig(route *Route, gateway Gateway, cors *Cors) {
 	if gateway.Networking.Transport.InsecureSkipVerify {
 		logger.Debug(">>> Gateway:: Insecure Skip Verify is enabled")
 		route.Security.TLS.InsecureSkipVerify = true
 	}
-	cors := &gateway.Cors
 	if cors == nil {
 		return
 	}
