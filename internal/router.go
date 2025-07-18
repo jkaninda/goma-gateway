@@ -155,9 +155,8 @@ func (r *router) AddRoute(route Route) error {
 	// Load certificates
 	certPool, err := r.loadCertPool(route.Security.TLS.RootCAs)
 	if err != nil {
-		return fmt.Errorf("failed to load certificate pool: %w", err)
+		logger.Error("Failed to load certificate pool", "error", err)
 	}
-
 	// Create proxy route
 	proxyRoute := &ProxyRoute{
 		name:          route.Name,
