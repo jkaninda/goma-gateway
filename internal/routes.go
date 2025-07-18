@@ -118,6 +118,7 @@ func (g *GatewayServer) Initialize() error {
 		certManager.UpdateDomains(domains)
 		logger.Debug("Updated ACME domains", "count", len(domains))
 	}
+	debugMode = gateway.Debug
 	return nil
 }
 

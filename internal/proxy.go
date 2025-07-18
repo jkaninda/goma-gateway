@@ -225,9 +225,9 @@ func (pr *ProxyRoute) createProxyTransport() *http.Transport {
 // rewritePath rewrites the request path if it matches the configured prefix.
 func (pr *ProxyRoute) rewritePath(r *http.Request) {
 	if pr.path != "" && pr.rewrite != "" {
-		logger.Debug(">>> Rewriting path", "route", pr.name, "current_path", r.URL.Path, "path", pr.path, "rewrite", pr.rewrite)
 		pathPrefix := pr.path + "/"
 		if strings.HasPrefix(r.URL.Path, pathPrefix) {
+			logger.Debug(">>> Rewriting path", "route", pr.name, "current_path", r.URL.Path, "path", pr.path, "rewrite", pr.rewrite)
 			newPath := pr.rewrite + "/" + r.URL.Path[len(pathPrefix):]
 			r.URL.Path = util.ParseURLPath(newPath)
 			logger.Debug(">>> Rewrote path", "route", pr.name, "path", pr.path, "rewrite", pr.rewrite, "new_path", r.URL.Path)

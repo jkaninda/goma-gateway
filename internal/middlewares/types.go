@@ -78,9 +78,9 @@ type TokenRateLimiter struct {
 
 // ProxyResponseError represents the structure of the JSON error response
 type ProxyResponseError struct {
-	Success bool   `json:"success"`
-	Status  int    `json:"status"`
-	Error   string `json:"error"`
+	Success    bool   `json:"success"`
+	StatusCode int    `json:"statusCode"`
+	Error      string `json:"error"`
 }
 
 // JwtAuth  stores JWT configuration
@@ -174,9 +174,10 @@ type RouteErrorInterceptor struct {
 	Errors      []RouteError `yaml:"errors"`
 }
 type RouteError struct {
-	Code   int    `yaml:"code,omitempty"` // Deprecated
-	Status int    `yaml:"status"`
-	Body   string `yaml:"body,omitempty"`
+	Code       int    `yaml:"code,omitempty"`   // Deprecated
+	Status     int    `yaml:"status,omitempty"` // Deprecated
+	StatusCode int    `yaml:"statusCode,omitempty"`
+	Body       string `yaml:"body,omitempty"`
 }
 
 type ForwardAuth struct {

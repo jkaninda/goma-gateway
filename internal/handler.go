@@ -187,7 +187,7 @@ func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *
 	logger.Debug("Route is healthy", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", http.StatusOK, "user_agent", r.UserAgent())
 	response := HealthCheckRouteResponse{
 		Name:   "Service Gateway",
-		Status: "healthy",
+		Status: "running",
 		Error:  "",
 	}
 	w.Header().Set("Content-Type", "application/json")

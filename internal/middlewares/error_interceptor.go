@@ -24,7 +24,7 @@ import (
 
 func ShouldIntercept(status int, routeErrors []RouteError) (bool, string) {
 	for _, routeError := range routeErrors {
-		if status == routeError.Status || status == routeError.Code {
+		if status == routeError.StatusCode || status == routeError.Status || status == routeError.Code {
 			if routeError.Body != "" {
 				return true, routeError.Body
 			}

@@ -35,6 +35,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config reads config file and returns Gateway
@@ -128,7 +129,8 @@ func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
 
 // InitLogger sets environment variables and initialize the logger
 func (g *GatewayServer) InitLogger() {
-	util.SetEnv("GOMA_LOG_LEVEL", g.gateway.Log.Level)
+	level := strings.ToLower(g.gateway.Log.Level)
+	util.SetEnv("GOMA_LOG_LEVEL", level)
 	util.SetEnv("GOMA_LOG_FILE", g.gateway.Log.FilePath)
 	util.SetEnv("GOMA_LOG_FORMAT", g.gateway.Log.Format)
 	util.SetEnv("GOMA_LOG_MAX_AGE_DAYS", strconv.Itoa(g.gateway.Log.MaxAgeDays))
@@ -147,6 +149,9 @@ func (g *GatewayServer) InitLogger() {
 	}
 	if g.gateway.Log.MaxBackups > 0 {
 		logger = logger.WithOptions(logger2.WithMaxAge(g.gateway.Log.MaxBackups))
+	}
+	if level == "debug" || level == "trace" {
+		g.gateway.Debug = true
 	}
 
 }
@@ -339,15 +344,15 @@ func initConfig(configFile string) error {
 						ContentType: applicationJson,
 						Errors: []middlewares.RouteError{
 							{
-								Status: 403,
-								Body:   "403 Forbidden",
+								StatusCode: 403,
+								Body:       "403 Forbidden",
 							},
 							{
-								Status: 404,
-								Body:   "{\"error\": \"404 Not Found\"}",
+								StatusCode: 404,
+								Body:       "{\"error\": \"404 Not Found\"}",
 							},
 							{
-								Status: 500,
+								StatusCode: 500,
 							},
 						},
 					},

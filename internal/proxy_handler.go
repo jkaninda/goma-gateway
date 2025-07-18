@@ -130,76 +130,143 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		}
 		ip := getRealIP(r)
 		path := h.Path
-		contentType := h.ContentType
-		if contentType == "" {
-			contentType = r.Header.Get("Content-Type")
-		}
-		contentLength := r.Header.Get("Content-Length")
-		if contentLength == "" {
-			contentLength = "0"
-		}
-
-		intercept := h.Enabled && len(h.Errors) > 0
-		rec := newResponseRecorder(w, intercept)
-
-		// Restore context metadata
 		if val := r.Context().Value(CtxRequestStartTime); val != nil {
 			startTime = val.(time.Time)
 		}
 		if val := r.Context().Value(CtxRequestIDHeader); val != nil {
 			requestID = val.(string)
 		}
+
+		intercept := h.Enabled && len(h.Errors) > 0
+		rec := newResponseRecorder(w, intercept)
 		rec.Header().Set(RequestIDHeader, requestID)
 		method := r.Method
 
-		// Record request
+		// Metrics
 		if h.enableMetrics {
-			logger.Debug(">>> Metrics enabled:: Collecting TotalRequests metrics")
+			logger.Debug("Metrics collection started")
 			prometheusMetrics.TotalRequests.WithLabelValues(h.Name, path, method).Inc()
 		}
 
 		next.ServeHTTP(rec, r)
 
-		duration := time.Since(startTime).Seconds()
 		if h.enableMetrics {
+			duration := time.Since(startTime).Seconds()
 			statusStr := strconv.Itoa(rec.statusCode)
-			logger.Debug(">>> Metrics enabled:: Collecting metrics", "ResponseStatus", statusStr, "HttpDuration", duration)
 			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, h.Name, path, method).Inc()
 			prometheusMetrics.HttpDuration.WithLabelValues(h.Name, path, method).Observe(duration)
+
+			logger.Debug("Metrics recorded",
+				"status", statusStr,
+				"duration", duration,
+			)
+
 		}
 
+		// Log core request info
 		logFields := []any{
 			"request_id", requestID,
 			"method", method,
-			"url", r.URL.RequestURI(),
+			"url", r.URL.Path,
 			"http_version", r.Proto,
 			"host", r.Host,
 			"client_ip", ip,
 			"referer", r.Referer(),
 			"status", rec.statusCode,
 			"duration", goutils.FormatDuration(time.Since(startTime), 2),
-			"request_content_length", contentLength,
 			"route", h.Name,
 			"user_agent", r.UserAgent(),
 		}
+
 		if val := r.Context().Value(CtxSelectedBackend); val != nil {
 			logFields = append(logFields, "backend", val)
 		}
 
+		if debugMode {
+			debugFields := h.buildDebugFields(r, rec)
+			logFields = append(logFields, debugFields...)
+
+		}
+		// Handle response interception
 		if intercept && !rec.skipBuffer {
-			if ok, message := middlewares.ShouldIntercept(rec.statusCode, h.Errors); ok {
-				logger.Debug(">>> Intercepting response")
-				rec.flushHeaders()
-				logProxyResponse(rec.statusCode, "Proxied request resulted in error", logFields...)
-				middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
+			if h.handleResponseInterception(rec, w, r) {
 				return
 			}
-			logger.Debug(">>> Response not intercepted; writing buffered response")
-			rec.flushBufferedResponse()
 		}
-
 		logProxyResponse(rec.statusCode, "Proxied request", logFields...)
 	})
+}
+func (h *ProxyMiddleware) handleResponseInterception(rec *responseRecorder, w http.ResponseWriter, r *http.Request) bool {
+	if ok, message := middlewares.ShouldIntercept(rec.statusCode, h.Errors); ok {
+		logger.Debug("Response intercepted",
+			"status", rec.statusCode,
+			"route", h.Name,
+			"reason", "matched_error_condition",
+		)
+		contentType := h.ContentType
+		if contentType == "" {
+			contentType = r.Header.Get("Content-Type")
+		}
+		rec.flushHeaders()
+		middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
+		return true
+	}
+
+	logger.Debug("Response not intercepted; sending buffered response",
+		"status", rec.statusCode,
+		"route", h.Name,
+		"reason", "no_matching_error_condition",
+	)
+	// Flush the buffered response
+	rec.flushBufferedResponse()
+	return false
+}
+
+// buildDebugFields creates debug log fields
+func (h *ProxyMiddleware) buildDebugFields(r *http.Request, rec *responseRecorder) []any {
+	contentLength := r.Header.Get("Content-Length")
+	if contentLength == "" {
+		contentLength = "0"
+	}
+
+	fields := []any{
+		"request_content_length", contentLength,
+		"response_body_size", rec.bodySize,
+	}
+
+	if len(r.Header) > 0 {
+		fields = append(fields, "request_headers", sanitizeHeaders(r.Header))
+	}
+	if len(r.URL.Query()) > 0 {
+		fields = append(fields, "query_params", r.URL.Query())
+	}
+	if len(rec.Header()) > 0 {
+		fields = append(fields, "response_headers", sanitizeHeaders(rec.Header()))
+	}
+
+	return fields
+}
+
+// sanitizeHeaders removes sensitive headers from logging
+func sanitizeHeaders(headers http.Header) map[string][]string {
+	sanitized := make(map[string][]string)
+	sensitiveHeaders := map[string]bool{
+		"authorization": true,
+		"cookie":        true,
+		"set-cookie":    true,
+		"x-api-key":     true,
+		"x-auth-token":  true,
+	}
+
+	for key, values := range headers {
+		lowerKey := strings.ToLower(key)
+		if sensitiveHeaders[lowerKey] {
+			sanitized[key] = []string{"[REDACTED]"}
+		} else {
+			sanitized[key] = values
+		}
+	}
+	return sanitized
 }
 
 // shouldBypassBodyIntercept checks if we should bypass body interception based on content type and headers

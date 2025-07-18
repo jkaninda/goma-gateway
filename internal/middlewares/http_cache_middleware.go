@@ -305,7 +305,7 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 
 		// Check if the response code is excluded from caching
 		if isExcludedResponseCode(rec.statusCode, h.ExcludedResponseCodes) {
-			logger.Debug("Status code excluded from caching", "status", rec.statusCode)
+			logger.Debug("StatusCode code excluded from caching", "status", rec.statusCode)
 			return
 		}
 		// Handle cache invalidation and caching based on the request method and response status

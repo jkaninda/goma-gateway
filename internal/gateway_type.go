@@ -50,6 +50,8 @@ type Gateway struct {
 	// EnableMetrics enables or disables server metrics collection.
 	// Deprecated
 	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
+	// Debug enables or disables debug mode for the gateway.
+	Debug bool `yaml:"debug,omitempty"`
 	// ErrorInterceptor provides advanced error-handling configuration for intercepted backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// Cors defines the global Cross-Origin Resource Sharing (CORS) configuration for the gateway.
