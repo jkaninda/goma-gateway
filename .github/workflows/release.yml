@@ -5,6 +5,7 @@ on:
       - v0.**
 jobs:
   docker:
+    if: "!contains(github.ref, '-rc')"
     runs-on: ubuntu-latest
     permissions:
       packages: write
