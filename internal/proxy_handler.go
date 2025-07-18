@@ -190,6 +190,7 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		// Handle response interception
 		if intercept && !rec.skipBuffer {
 			if h.handleResponseInterception(rec, w, r) {
+				logProxyResponse(rec.statusCode, "Proxied request", logFields...)
 				return
 			}
 		}
