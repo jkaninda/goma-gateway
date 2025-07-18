@@ -40,6 +40,7 @@ gateway:
     format: json
 
   monitoring:
+    host: ''
     enableMetrics: true
     metricsPath: /metrics
     enableReadiness: true
@@ -52,8 +53,11 @@ gateway:
       routeHealthCheck:
         - ldap
 
+## Optional
   networking:
-    proxy:
+    transport:
+      ## Apply Globally
+      insecureSkipVerify: false
       disableCompression: false
       maxIdleConns: 100
       maxIdleConnsPerHost: 150
@@ -90,12 +94,17 @@ gateway:
   extraConfig:
     directory: /etc/goma/extra
     watch: true
-
   routes:
     - path: /api/v1
       name: api-v1
       methods: [ GET, PUT, POST ]
       target: http://v1-backend:8080
+      security:
+        forwardHostHeaders: true
+        enableExploitProtection: false
+        tls:
+          insecureSkipVerify: false
+          rootCAs: ''
     - path: /api/v2
       name: api-v2
       methods: [ GET, PUT, POST ]

@@ -34,33 +34,36 @@ func (g *GatewayServer) Initialize() error {
 	dynamicRoutes = gateway.Routes
 	dynamicMiddlewares = g.middlewares
 
-	// Load Extra Middlewares
-	logger.Info("Loading extra middlewares", "directory", gateway.ExtraConfig.Directory)
-	extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
-	if err != nil {
-		logger.Error("Failed to load extra middlewares", "error", err)
-		return err
-	}
-	if len(extraMiddlewares) > 0 {
-		dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
-		logger.Info("Extra middlewares loaded", "count", len(extraMiddlewares))
-	}
+	// Load Extra Configurations
+	if len(gateway.ExtraConfig.Directory) > 0 {
+		// Load Extra Middlewares
+		logger.Info("Loading extra middlewares", "directory", gateway.ExtraConfig.Directory)
+		extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
+		if err != nil {
+			logger.Error("Failed to load extra middlewares", "error", err)
+			return err
+		}
+		if len(extraMiddlewares) > 0 {
+			dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
+			logger.Info("Extra middlewares loaded", "count", len(extraMiddlewares))
+		}
 
-	// Load Extra Routes
-	logger.Info("Loading extra routes", "directory", gateway.ExtraConfig.Directory)
-	extraRoutes, err := loadExtraRoutes(gateway.ExtraConfig.Directory)
-	if err != nil {
-		logger.Error("Failed to load extra routes", "error", err)
-		return err
-	}
-	if len(extraRoutes) > 0 {
-		dynamicRoutes = append(dynamicRoutes, extraRoutes...)
-		logger.Info("Extra routes loaded", "count", len(extraRoutes))
+		// Load Extra Routes
+		logger.Info("Loading extra routes", "directory", gateway.ExtraConfig.Directory)
+		extraRoutes, err := loadExtraRoutes(gateway.ExtraConfig.Directory)
+		if err != nil {
+			logger.Error("Failed to load extra routes", "error", err)
+			return err
+		}
+		if len(extraRoutes) > 0 {
+			dynamicRoutes = append(dynamicRoutes, extraRoutes...)
+			logger.Info("Extra routes loaded", "count", len(extraRoutes))
+		}
 	}
 
 	// Validate configuration
 	logger.Info("Validating configuration", "routes", len(dynamicRoutes), "middlewares", len(dynamicMiddlewares))
-	err = validateConfig(dynamicRoutes, dynamicMiddlewares)
+	err := validateConfig(dynamicRoutes, dynamicMiddlewares)
 	if err != nil {
 		logger.Error("Configuration validation failed", "error", err)
 		return err
@@ -117,6 +120,10 @@ func (g *GatewayServer) Initialize() error {
 		domains := hostNames(dynamicRoutes)
 		certManager.UpdateDomains(domains)
 		logger.Debug("Updated ACME domains", "count", len(domains))
+	}
+	debugMode = gateway.Debug
+	if len(dynamicRoutes) == 0 {
+		logger.Warn("No routes found, add routes to the configuration file")
 	}
 	return nil
 }

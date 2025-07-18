@@ -22,34 +22,37 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// loadExtraFiles loads routes files in .yml and .yaml based on defined directory
-func loadExtraFiles(routePath string) ([]string, error) {
-	// Slice to store YAML/YML files
+// loadExtraFiles loads route files in .yml and .yaml format from the specified directory
+func loadExtraFiles(path string) ([]string, error) {
 	var yamlFiles []string
-	// Walk through the Directory
-	err := filepath.Walk(routePath, func(path string, info os.FileInfo, err error) error {
+
+	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		// Skip hidden folders
-		if info.IsDir() && info.Name()[0] == '.' {
+
+		// Skip hidden directories
+		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
 			return filepath.SkipDir
 		}
-		// Check for .yaml or .yml file extension
+
+		// Include .yaml or .yml files
 		if !info.IsDir() && (filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml") {
 			yamlFiles = append(yamlFiles, path)
 		}
+
 		return nil
 	})
 
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			logger.Error("Error,", "error", err)
-			return yamlFiles, nil
+		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
+			logger.Error("Error accessing directory", "path", path, "error", err)
+			return nil, nil
 		}
-		return nil, fmt.Errorf("error loading extra config files: %v", err)
+		return nil, fmt.Errorf("error walking through directory %s: %w", path, err)
 	}
 	return yamlFiles, nil
 }

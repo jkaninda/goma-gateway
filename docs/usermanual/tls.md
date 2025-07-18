@@ -50,7 +50,17 @@ gateway:
       name: secure-route
       hosts: ["example.com"]
       backends:
+        - endpoint: https://backend.example.com   
+    - path: /
+      name: secure-route2
+      hosts: ["api.example.com"]
+      backends:
         - endpoint: https://backend.example.com
+      # Apply on route level
+      tls:
+        keys:
+          - cert: /path/to/certificate.crt
+            key: /path/to/private.key
 ```
 
 ---

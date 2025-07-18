@@ -6,19 +6,27 @@ nav_order: 3
 ---
 
 
-## Extra Config
+##  Extra Config
 
-The **Extra Config** feature allows you to modularize your configuration by placing additional route and middleware definitions in separate `.yaml` or `.yml` files. These files are stored in a specified directory and can be loaded dynamically at runtime.
+The **Extra Config** feature enables you to modularize your API Gateway configuration by placing additional route and middleware definitions in separate `.yaml` or `.yml` files. This approach improves maintainability, especially in large deployments where managing everything in a single file can become unwieldy.
 
-This is especially useful for large deployments where maintaining all routes and middlewares in a single configuration file becomes cumbersome.
-
----
 
 ### How It Works
 
-* You define the `extraConfig` block in the main `gateway` configuration.
-* The `directory` field specifies the location where extra config files are stored.
-* If `watch` is enabled, the Gateway monitors the directory for changes and reloads updated configs automatically.
+* Define the `extraConfig` block in your main `gateway` configuration.
+* Use the `directory` field to specify the location where your additional configuration files are stored.
+* Files with `.yaml` or `.yml` extensions within that directory will be automatically loaded at startup.
+* Goma supports recursive loading of configuration files from subdirectories, allowing for better organization of complex configurations.
+* If the `watch` option is enabled:
+    * The Gateway will monitor the top level `extraConfig.directory` for file changes and automatically reload modified configurations.
+    * **Note:** Recursive live watching is **not** supported, only files directly within the specified directory are monitored for changes.
+
+
+### Benefits
+
+* **Separation of Concerns:** Keep related routes and middlewares grouped in isolated files.
+* **Scalability:** Easily scale configurations for large applications or teams.
+* **Hot Reloading:** Update configurations on the fly without restarting the Gateway (when `watch` is enabled).
 
 ---
 

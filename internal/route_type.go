@@ -112,8 +112,10 @@ type Security struct {
 	TLS                     SecurityTLS `yaml:"tls"`
 }
 type SecurityTLS struct {
-	SkipVerification bool   `yaml:"skipVerification,omitempty"`
-	RootCAs          string `yaml:"rootCAs,omitempty"`
+	// Deprecated
+	SkipVerification   bool   `yaml:"SkipVerification,omitempty"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
+	RootCAs            string `yaml:"rootCAs,omitempty"`
 }
 
 // Backends defines List of backend servers to route traffic to

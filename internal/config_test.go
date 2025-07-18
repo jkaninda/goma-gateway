@@ -89,15 +89,15 @@ func initTestConfig(configFile string) error {
 						ContentType: applicationJson,
 						Errors: []middlewares.RouteError{
 							{
-								Status: 403,
-								Body:   "403 Forbidden",
+								StatusCode: 403,
+								Body:       "403 Forbidden",
 							},
 							{
-								Status: 404,
-								Body:   "{\"error\": \"404 Not Found\"}",
+								StatusCode: 404,
+								Body:       "{\"error\": \"404 Not Found\"}",
 							},
 							{
-								Status: 500,
+								StatusCode: 500,
 							},
 						},
 					},

@@ -35,6 +35,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config reads config file and returns Gateway
@@ -128,7 +129,8 @@ func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
 
 // InitLogger sets environment variables and initialize the logger
 func (g *GatewayServer) InitLogger() {
-	util.SetEnv("GOMA_LOG_LEVEL", g.gateway.Log.Level)
+	level := strings.ToLower(g.gateway.Log.Level)
+	util.SetEnv("GOMA_LOG_LEVEL", level)
 	util.SetEnv("GOMA_LOG_FILE", g.gateway.Log.FilePath)
 	util.SetEnv("GOMA_LOG_FORMAT", g.gateway.Log.Format)
 	util.SetEnv("GOMA_LOG_MAX_AGE_DAYS", strconv.Itoa(g.gateway.Log.MaxAgeDays))
@@ -148,6 +150,9 @@ func (g *GatewayServer) InitLogger() {
 	if g.gateway.Log.MaxBackups > 0 {
 		logger = logger.WithOptions(logger2.WithMaxAge(g.gateway.Log.MaxBackups))
 	}
+	if level == "debug" || level == "trace" {
+		g.gateway.Debug = true
+	}
 
 }
 
@@ -160,7 +165,7 @@ func validateRoutes(gateway Gateway, routes []Route) []Route {
 	for i := range routes {
 		routes[i].handleDeprecations()
 		mergeGatewayErrorInterceptor(&routes[i], gateway.ErrorInterceptor)
-		mergeGatewayCors(&routes[i], &gateway.Cors)
+		mergeGatewayConfig(&routes[i], gateway, &gateway.Cors)
 	}
 
 	return routes
@@ -184,7 +189,11 @@ func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.R
 		}
 	}
 }
-func mergeGatewayCors(route *Route, cors *Cors) {
+func mergeGatewayConfig(route *Route, gateway Gateway, cors *Cors) {
+	if gateway.Networking.Transport.InsecureSkipVerify {
+		logger.Debug(">>> Gateway:: Insecure Skip Verify is enabled")
+		route.Security.TLS.InsecureSkipVerify = true
+	}
 	if cors == nil {
 		return
 	}
@@ -222,8 +231,12 @@ func (r *Route) handleDeprecations() {
 		logger.Warn("Deprecation: blockCommonExploits is deprecated, please use `security.enableExploitProtection`")
 	}
 	if r.InsecureSkipVerify {
-		logger.Warn("Deprecation:insecureSkipVerify is deprecated, please use `security.tls.skipVerification`")
-		r.Security.TLS.SkipVerification = true
+		logger.Warn("Deprecation:insecureSkipVerify is deprecated, please use `security.tls.insecureSkipVerify`")
+		r.Security.TLS.InsecureSkipVerify = true
+	}
+	if r.Security.TLS.SkipVerification {
+		logger.Warn("Deprecation:skipVerification is deprecated, please use `security.tls.insecureSkipVerify`")
+		r.Security.TLS.InsecureSkipVerify = true
 	}
 	if r.DisableHostForwarding {
 		logger.Warn("Deprecation: disableHostForwarding is deprecated, please use `security.forwardHostHeaders`")
@@ -239,9 +252,6 @@ func (r *Route) handleDeprecations() {
 }
 
 func (g *Gateway) handleDeprecations() {
-	if len(g.ExtraConfig.Directory) == 0 {
-		g.ExtraConfig.Directory = ExtraDir
-	}
 	if g.ReadTimeout > 0 {
 		logger.Warn("Deprecation: readTimeout is deprecated, please use `timeouts.read`")
 		g.Timeouts.Read = g.ReadTimeout
@@ -303,8 +313,8 @@ func initConfig(configFile string) error {
 					},
 					Security: Security{
 						TLS: SecurityTLS{
-							SkipVerification: true,
-							RootCAs:          "/etc/goma/certs/root.ca.pem",
+							InsecureSkipVerify: true,
+							RootCAs:            "/etc/goma/certs/root.ca.pem",
 						},
 						ForwardHostHeaders: false,
 					},
@@ -331,15 +341,15 @@ func initConfig(configFile string) error {
 						ContentType: applicationJson,
 						Errors: []middlewares.RouteError{
 							{
-								Status: 403,
-								Body:   "403 Forbidden",
+								StatusCode: 403,
+								Body:       "403 Forbidden",
 							},
 							{
-								Status: 404,
-								Body:   "{\"error\": \"404 Not Found\"}",
+								StatusCode: 404,
+								Body:       "{\"error\": \"404 Not Found\"}",
 							},
 							{
-								Status: 500,
+								StatusCode: 500,
 							},
 						},
 					},

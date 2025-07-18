@@ -50,6 +50,8 @@ type Gateway struct {
 	// EnableMetrics enables or disables server metrics collection.
 	// Deprecated
 	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
+	// Debug enables or disables debug mode for the gateway.
+	Debug bool `yaml:"debug,omitempty"`
 	// ErrorInterceptor provides advanced error-handling configuration for intercepted backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// Cors defines the global Cross-Origin Resource Sharing (CORS) configuration for the gateway.
@@ -162,33 +164,35 @@ type Timeouts struct {
 }
 
 type Networking struct {
-	DNSCache      DNSCacheConfig `yaml:"dnsCache,omitempty"`
-	ProxySettings ProxyConfig    `yaml:"proxy,omitempty"`
+	DNSCache  DNSCacheConfig  `yaml:"dnsCache,omitempty"`
+	Transport TransportConfig `yaml:"transport,omitempty"`
 }
 type DNSCacheConfig struct {
-	Enable        bool     `yaml:"enable,omitempty"`
-	TTL           int      `yaml:"ttl,omitempty"` // in seconds
-	ClearOnReload bool     `yaml:"clearOnReload,omitempty"`
-	Resolver      []string `yaml:"resolver,omitempty"` // e.g., ["8.8.8.8:53"]
+	// TTL in seconds
+	TTL           int  `yaml:"ttl,omitempty"`
+	ClearOnReload bool `yaml:"clearOnReload,omitempty"`
+	// Resolver
+	Resolver []string `yaml:"resolver,omitempty"`
 }
-type ProxyConfig struct {
-	DisableCompression    bool `yaml:"disableCompression"`
-	MaxIdleConns          int  `yaml:"maxIdleConns"`
-	MaxIdleConnsPerHost   int  `yaml:"maxIdleConnsPerHost"`
-	MaxConnsPerHost       int  `yaml:"maxConnsPerHost"`
-	TLSHandshakeTimeout   int  `yaml:"tlsHandshakeTimeout"`
-	ResponseHeaderTimeout int  `yaml:"responseHeaderTimeout"`
-	IdleConnTimeout       int  `yaml:"idleConnTimeout"`
-	ForceAttemptHTTP2     bool `yaml:"forceAttemptHTTP2"`
+type TransportConfig struct {
+	InsecureSkipVerify    bool `yaml:"insecureSkipVerify,omitempty"`
+	DisableCompression    bool `yaml:"disableCompression,omitempty"`
+	MaxIdleConns          int  `yaml:"maxIdleConns,omitempty"`
+	MaxIdleConnsPerHost   int  `yaml:"maxIdleConnsPerHost,omitempty"`
+	MaxConnsPerHost       int  `yaml:"maxConnsPerHost,omitempty"`
+	TLSHandshakeTimeout   int  `yaml:"tlsHandshakeTimeout,omitempty"`
+	ResponseHeaderTimeout int  `yaml:"responseHeaderTimeout,omitempty"`
+	IdleConnTimeout       int  `yaml:"idleConnTimeout,omitempty"`
+	ForceAttemptHTTP2     bool `yaml:"forceAttemptHTTP2,omitempty"`
 }
 
 func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Proxy
-	g.Networking.ProxySettings.ForceAttemptHTTP2 = true
-	g.Networking.ProxySettings.MaxIdleConns = 512
-	g.Networking.ProxySettings.MaxIdleConnsPerHost = 256
-	g.Networking.ProxySettings.MaxConnsPerHost = 256
-	g.Networking.ProxySettings.IdleConnTimeout = 90
+	g.Networking.Transport.ForceAttemptHTTP2 = true
+	g.Networking.Transport.MaxIdleConns = 512
+	g.Networking.Transport.MaxIdleConnsPerHost = 256
+	g.Networking.Transport.MaxConnsPerHost = 256
+	g.Networking.Transport.IdleConnTimeout = 90
 
 	// Monitoring
 	g.Monitoring.EnableLiveness = true

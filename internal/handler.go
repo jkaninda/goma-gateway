@@ -42,9 +42,16 @@ import (
 //
 // Returns:
 //   - mux.MiddlewareFunc: A middleware function that can be used with gorilla/mux router
-func CORSHandler(cors Cors) mux.MiddlewareFunc {
+func (cors *Cors) CORSHandler() mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+			// If CORS is not configured, just pass the request to the next handler
+			if cors == nil {
+				logger.Debug("Cors is not configured, passing request to next handler")
+				next.ServeHTTP(w, r)
+				return
+			}
 			// Get the origin from the request headers
 			origin := r.Header.Get("Origin")
 
@@ -187,7 +194,7 @@ func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *
 	logger.Debug("Route is healthy", "method", r.Method, "url", r.URL.Path, "client_ip", getRealIP(r), "status", http.StatusOK, "user_agent", r.UserAgent())
 	response := HealthCheckRouteResponse{
 		Name:   "Service Gateway",
-		Status: "healthy",
+		Status: "running",
 		Error:  "",
 	}
 	w.Header().Set("Content-Type", "application/json")

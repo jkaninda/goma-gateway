@@ -29,7 +29,7 @@ func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.H
 		contentType := r.Header.Get("Content-Type")
 		if isPathMatching(r.URL.Path, blockList.Path, blockList.Paths) {
 			logger.Warn("%s: %s access forbidden", getRealIP(r), r.URL.Path)
-			// Using custom Status Code
+			// Using custom StatusCode Code
 			if blockList.StatusCode > 0 {
 				RespondWithError(w, r, blockList.StatusCode, "", blockList.Origins, contentType)
 				return

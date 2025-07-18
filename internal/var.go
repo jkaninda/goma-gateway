@@ -37,4 +37,5 @@ var (
 	certManager        *certmanager.CertManager
 	cachedDialer       = NewCachedDialer(5 * time.Minute)
 	prometheusMetrics  = metrics.NewPrometheusMetrics()
+	debugMode          = false
 )

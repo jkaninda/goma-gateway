@@ -190,7 +190,7 @@ func healthCheckRoutes(routes []Route) []Health {
 						TimeOut:            timeout,
 						Interval:           route.HealthCheck.Interval,
 						HealthyStatuses:    route.HealthCheck.HealthyStatuses,
-						InsecureSkipVerify: route.Security.TLS.SkipVerification,
+						InsecureSkipVerify: route.Security.TLS.InsecureSkipVerify,
 					}
 					healthRoutes = append(healthRoutes, health)
 				}
@@ -202,7 +202,7 @@ func healthCheckRoutes(routes []Route) []Health {
 					TimeOut:            timeout,
 					Interval:           route.HealthCheck.Interval,
 					HealthyStatuses:    route.HealthCheck.HealthyStatuses,
-					InsecureSkipVerify: route.Security.TLS.SkipVerification,
+					InsecureSkipVerify: route.Security.TLS.InsecureSkipVerify,
 				}
 				healthRoutes = append(healthRoutes, health)
 			}

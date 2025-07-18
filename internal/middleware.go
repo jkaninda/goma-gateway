@@ -26,6 +26,7 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
+	"net/http"
 	"os"
 	"slices"
 	"strings"
@@ -75,8 +76,8 @@ func GetMiddleware(rule string, middlewares []Middleware) (Middleware, error) {
 }
 
 // loadExtraMiddlewares loads additional middlewares
-func loadExtraMiddlewares(routePath string) ([]Middleware, error) {
-	yamlFiles, err := loadExtraFiles(routePath)
+func loadExtraMiddlewares(path string) ([]Middleware, error) {
+	yamlFiles, err := loadExtraFiles(path)
 	if err != nil {
 		return nil, fmt.Errorf("error loading extra files: %v", err)
 	}
@@ -362,7 +363,6 @@ func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Ro
 	}
 
 	r.Use(authBasic.AuthMiddleware)
-	r.Use(CORSHandler(route.Cors))
 }
 
 // applyLdapAuthMiddleware applies LDAP Authentication middleware
@@ -396,7 +396,6 @@ func applyLdapAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rou
 		ConnPoolTTL:   rule.ConnPool.TTL,
 	}
 	r.Use(basicAuth.AuthMiddleware)
-	r.Use(CORSHandler(route.Cors))
 }
 
 // applyJWTAuthMiddleware applies JWT Authentication middleware
@@ -449,7 +448,6 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 	}
 
 	r.Use(jwtAuth.AuthMiddleware)
-	r.Use(CORSHandler(route.Cors))
 }
 
 // applyForwardAuthMiddleware applies Forward Authentication middleware
@@ -479,7 +477,6 @@ func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.
 	}
 
 	r.Use(auth.AuthMiddleware)
-	r.Use(CORSHandler(route.Cors))
 }
 
 // applyOAuthMiddleware applies OAuth Authentication middleware
@@ -533,6 +530,5 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router
 	}
 
 	r.Use(amw.AuthMiddleware)
-	r.Use(CORSHandler(route.Cors))
-	r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods("GET")
+	r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods(http.MethodGet)
 }

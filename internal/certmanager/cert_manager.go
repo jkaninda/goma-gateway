@@ -490,7 +490,7 @@ func (cm *CertManager) performCertificateRequest(domain Domain) (*tls.Certificat
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	serverName := hello.ServerName
 
-	if len(cm.certs) == 0 && cm.customCerts == nil {
+	if len(cm.certs) == 0 && cm.customCerts == nil || len(serverName) == 0 {
 		logger.Debug("No certificates available, returning default certificate")
 		return cm.getDefaultCertificate()
 	}

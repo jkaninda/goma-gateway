@@ -42,7 +42,7 @@ func (ps *ProxyServer) Start() error {
 	if ps == nil || len(ps.rules) == 0 {
 		return nil
 	}
-	logger.Debug("Starting TCP/UDP Server", "rules", len(ps.rules))
+	logger.Info("Starting TCP/UDP Server", "rules", len(ps.rules))
 	for _, rule := range ps.rules {
 		if err := ps.validateRule(rule); err != nil {
 			return fmt.Errorf("invalid rule for port %d: %w", rule.Port, err)
@@ -138,7 +138,7 @@ func (ps *ProxyServer) startUDPListener(rule ForwardRule) {
 	// Wait for shutdown signal
 	<-ps.ctx.Done()
 
-	if err := conn.Close(); err != nil {
+	if err = conn.Close(); err != nil {
 		logger.Error("Failed to close UDP listener",
 			"port", rule.Port, "error", err)
 	}

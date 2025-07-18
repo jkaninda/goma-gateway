@@ -63,7 +63,7 @@ func (g *GatewayServer) Start() error {
 	certManager.AddCertificate("default", *certificate)
 	printRoute(dynamicRoutes)
 	// Watch for changes
-	if g.gateway.ExtraConfig.Watch {
+	if g.gateway.ExtraConfig.Watch && len(g.gateway.ExtraConfig.Directory) > 0 {
 		logger.Debug("Dynamic configuration watch enabled")
 		go g.watchExtraConfig(newRouter)
 

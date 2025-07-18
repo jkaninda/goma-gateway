@@ -386,7 +386,7 @@ gateway:
         forwardHostHeaders: false
         enableExploitProtection: true
         tls:
-          skipVerification: true
+          insecureSkipVerify: true
           rootCAs: ""
       middlewares:
       #- basic-auth          # Apply basic authentication middleware

@@ -84,9 +84,9 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 
 		// Otherwise encode structured JSON error response
 		err := json.NewEncoder(w).Encode(ProxyResponseError{
-			Success: false,
-			Status:  statusCode,
-			Error:   message,
+			Success:    false,
+			StatusCode: statusCode,
+			Error:      message,
 		})
 		if err != nil {
 			logger.Error("Error encoding JSON response", "error", err)
