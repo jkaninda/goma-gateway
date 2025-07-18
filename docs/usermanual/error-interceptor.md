@@ -30,7 +30,7 @@ The **Error Interceptor** feature allows you to customize backend error response
 
 Each entry in the `errors` array defines how to handle a specific HTTP status code:
 
-* **`status`** (`integer`): The HTTP status code to intercept (e.g., `401`, `404`, `500`).
+* **`statusCode`** (`integer`): The HTTP status code to intercept (e.g., `401`, `404`, `500`).
 * **`body`** (`string`): The custom response body. Can be a simple string or a raw JSON string.
 
 ---
@@ -55,12 +55,12 @@ gateway:
         enabled: true
         contentType: "application/json"
         errors:
-          - status: 401
+          - statusCode: 401
             body: ""  # Empty response body for 401 Unauthorized
-          - status: 404
+          - statusCode: 404
             body: >
               {"success": false, "status": 404, "message": "Page not found", "data": []}
-          - status: 500
+          - statusCode: 500
             body: "Internal server error"
       blockCommonExploits: false
       cors: {}

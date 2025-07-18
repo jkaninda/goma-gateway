@@ -488,7 +488,38 @@ The Goma Gateway project welcomes all contributors. We appreciate your help!
 
 If this project helped you, do not skip on giving it a star. Thanks!
 
+## Performance Benchmark: Traefik vs Goma Gateway
 
+This benchmark compares **Traefik** and **Goma Gateway** under identical load conditions using [`wrk`](https://github.com/wg/wrk), a modern HTTP benchmarking tool.
+
+
+> **Test environment:** 8 threads, 500 concurrent connections, 60 seconds duration
+
+---
+
+## Summary
+
+| **Metric**              | **Traefik**  | **Goma Gateway** |
+|-------------------------|--------------|------------------|
+| **Requests/sec**        | 🟢 29,278.35 | 23,108.16        |
+| **Avg Latency**         | 81.58 ms     | 🟢 **71.92 ms**  |
+| **Latency StdDev**      | 143.85 ms    | 🟢 **120.47 ms** |
+| **Max Latency**         | 🟢 1.54 s    | 1.82 s           |
+| **Total Requests**      | 🟢 1,757,995 | 1,388,634        |
+| **Timeouts**            | 74           | 🟢 **18**        |
+| **Transfer/sec**        | 6.42 MB      | 🟢 **6.81 MB**   |
+| **Memory (Idle)**       | \~76 MB      | 🟢 **\~5 MB**    |
+| **Memory (Under Load)** | \~250 MB     | 🟢 **\~50 MB**   |
+
+## Reproducing the Test
+
+If you want to reproduce this benchmark, you can use the repository below:
+
+Repository: [jkaninda/goma-gateway-vs-traefik](https://github.com/jkaninda/goma-gateway-vs-traefik)
+
+
+
+---
 
 ## License
 
