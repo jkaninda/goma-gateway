@@ -24,8 +24,8 @@ import (
 )
 
 // loadExtraRoutes loads additional routes
-func loadExtraRoutes(routePath string) ([]Route, error) {
-	yamlFiles, err := loadExtraFiles(routePath)
+func loadExtraRoutes(path string) ([]Route, error) {
+	yamlFiles, err := loadExtraFiles(path)
 	if err != nil {
 		return nil, fmt.Errorf("error loading extra files: %v", err)
 	}

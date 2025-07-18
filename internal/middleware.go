@@ -75,8 +75,8 @@ func GetMiddleware(rule string, middlewares []Middleware) (Middleware, error) {
 }
 
 // loadExtraMiddlewares loads additional middlewares
-func loadExtraMiddlewares(routePath string) ([]Middleware, error) {
-	yamlFiles, err := loadExtraFiles(routePath)
+func loadExtraMiddlewares(path string) ([]Middleware, error) {
+	yamlFiles, err := loadExtraFiles(path)
 	if err != nil {
 		return nil, fmt.Errorf("error loading extra files: %v", err)
 	}

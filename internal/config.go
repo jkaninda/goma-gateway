@@ -252,9 +252,6 @@ func (r *Route) handleDeprecations() {
 }
 
 func (g *Gateway) handleDeprecations() {
-	if len(g.ExtraConfig.Directory) == 0 {
-		g.ExtraConfig.Directory = ExtraDir
-	}
 	if g.ReadTimeout > 0 {
 		logger.Warn("Deprecation: readTimeout is deprecated, please use `timeouts.read`")
 		g.Timeouts.Read = g.ReadTimeout
