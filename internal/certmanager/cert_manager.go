@@ -86,6 +86,7 @@ type CertificateInfo struct {
 	Certificate *tls.Certificate
 	Domains     []string
 	Expires     time.Time
+	IssuedAt    time.Time
 	Resource    *certificate.Resource
 }
 
@@ -649,6 +650,7 @@ func (cm *CertManager) createCertificateInfoFromACME(cert *tls.Certificate, doma
 		Domains:     domains,
 		Expires:     parsedCert.NotAfter,
 		Resource:    resource,
+		IssuedAt:    time.Now(),
 	}
 }
 
@@ -1019,7 +1021,7 @@ func (cm *CertManager) saveCertificateToStorage(domain string, certInfo *Certifi
 		PrivateKey:  base64.StdEncoding.EncodeToString(keyPEM),
 		Domains:     certInfo.Domains,
 		Expires:     certInfo.Expires,
-		IssuedAt:    time.Now(),
+		IssuedAt:    certInfo.IssuedAt,
 	}, nil
 }
 
@@ -1127,6 +1129,7 @@ func (cm *CertManager) loadCertificateFromStorage(stored *StoredCertificate) (*C
 		Certificate: &cert,
 		Domains:     stored.Domains,
 		Expires:     stored.Expires,
+		IssuedAt:    stored.IssuedAt,
 	}, nil
 }
 
