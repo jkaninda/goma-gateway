@@ -31,8 +31,8 @@ var (
 	redisBased         = false
 	stopChan           = make(chan struct{})
 	reloaded           = false
-	webAddress         = ":8080"
-	webSecureAddress   = ":8443"
+	webAddress         = "[::]:8080"
+	webSecureAddress   = "[::]:8443"
 	logger             = logger2.Default()
 	certManager        *certmanager.CertManager
 	cachedDialer       = NewCachedDialer(5 * time.Minute)
