@@ -183,14 +183,14 @@ type RouteError struct {
 type ForwardAuth struct {
 	Path                        string
 	Paths                       []string
-	SkipInsecureVerify          bool
+	InsecureSkipVerify          bool
 	AuthRequestHeaders          []string
 	AddAuthCookiesToResponse    []string
 	AuthResponseHeaders         []string
 	AuthResponseHeadersAsParams []string
 	AuthURL                     string
 	AuthSignIn                  string
-	EnableHostForwarding        bool
+	ForwardHostHeaders          bool
 	Origins                     []string
 }
 type ClaimExpression interface {

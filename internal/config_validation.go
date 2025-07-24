@@ -45,7 +45,6 @@ func CheckConfig(fileName string) error {
 		gateway:     &c.GatewayConfig,
 		middlewares: c.Middlewares,
 	}
-	dynamicRoutes = gateway.gateway.Routes
 	// Check middlewares
 	fmt.Println("Checking middlewares...")
 	for index, mid := range c.Middlewares {
@@ -60,10 +59,10 @@ func CheckConfig(fileName string) error {
 	// Check additional routes
 	fmt.Println("Checking routes...")
 	// Check routes
-	checkRoutes(dynamicRoutes, gateway.middlewares)
+	checkRoutes(gateway.gateway.Routes, gateway.middlewares)
 	fmt.Println("Checking routes...done")
 
-	fmt.Printf("Routes count=%d Middlewares count=%d\n", len(dynamicRoutes), len(gateway.middlewares))
+	fmt.Printf("Routes count=%d Middlewares count=%d\n", len(gateway.gateway.Routes), len(gateway.middlewares))
 
 	return nil
 
@@ -124,7 +123,7 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 	}
 
 	// find duplicated middleware name
-	duplicates, err := findDuplicateMiddlewareNames(dynamicMiddlewares)
+	duplicates, err := findDuplicateMiddlewareNames(middlewares)
 	if err != nil {
 		return fmt.Errorf("middlewre %v", err)
 	}
@@ -134,7 +133,7 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 		}
 	}
 	// find duplicated route name
-	duplicates = findDuplicateRouteNames(dynamicRoutes)
+	duplicates = findDuplicateRouteNames(routes)
 	if len(duplicates) != 0 {
 		for _, duplicate := range duplicates {
 			return fmt.Errorf("duplicated route name: %s, the name of the route should be unique", duplicate)

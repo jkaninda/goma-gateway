@@ -48,10 +48,14 @@ type LdapRuleMiddleware struct {
 	InsecureSkipVerify bool   `yaml:"insecureSkipVerify"`
 }
 type ForwardAuthRuleMiddleware struct {
-	AuthURL                     string   `yaml:"authUrl"`
-	AuthSignIn                  string   `yaml:"authSignIn,omitempty"`
-	EnableHostForwarding        bool     `yaml:"enableHostForwarding,omitempty"`
+	AuthURL    string `yaml:"authUrl"`
+	AuthSignIn string `yaml:"authSignIn,omitempty"`
+	// Deprecated: Use ForwardHostHeaders instead
+	EnableHostForwarding bool `yaml:"enableHostForwarding,omitempty"`
+	ForwardHostHeaders   bool `yaml:"forwardHostHeaders,omitempty"`
+	// Deprecated: Use SkipInsecureVerify instead
 	SkipInsecureVerify          bool     `yaml:"skipInsecureVerify,omitempty"`
+	InsecureSkipVerify          bool     `yaml:"insecureSkipVerify,omitempty"`
 	AuthRequestHeaders          []string `yaml:"authRequestHeaders,omitempty"`
 	AddAuthCookiesToResponse    []string `yaml:"addAuthCookiesToResponse,omitempty"`
 	AuthResponseHeaders         []string `yaml:"authResponseHeaders,omitempty"`
