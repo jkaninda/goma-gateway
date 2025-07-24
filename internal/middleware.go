@@ -465,8 +465,8 @@ func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.
 	auth := &middlewares.ForwardAuth{
 		AuthURL:                     rule.AuthURL,
 		AuthSignIn:                  rule.AuthSignIn,
-		EnableHostForwarding:        rule.EnableHostForwarding,
-		SkipInsecureVerify:          rule.SkipInsecureVerify,
+		ForwardHostHeaders:          rule.ForwardHostHeaders,
+		InsecureSkipVerify:          rule.InsecureSkipVerify,
 		AuthRequestHeaders:          rule.AuthRequestHeaders,
 		AuthResponseHeaders:         rule.AuthResponseHeaders,
 		AuthResponseHeadersAsParams: rule.AuthResponseHeadersAsParams,

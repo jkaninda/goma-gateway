@@ -285,13 +285,12 @@ func initConfig(configFile string) error {
 				Idle:  30,
 			},
 			Log: Log{
-				Level:    "info",
+				Level:    "error",
 				FilePath: "",
-				Format:   "json",
+				Format:   "text",
 			},
 			Monitoring: Monitoring{
 				EnableMetrics:   true,
-				MetricsPath:     "/metrics",
 				EnableReadiness: true,
 				EnableLiveness:  true,
 			},
@@ -314,7 +313,7 @@ func initConfig(configFile string) error {
 					Security: Security{
 						TLS: SecurityTLS{
 							InsecureSkipVerify: true,
-							RootCAs:            "/etc/goma/certs/root.ca.pem",
+							RootCAs:            "",
 						},
 						ForwardHostHeaders: false,
 					},
@@ -459,7 +458,15 @@ func (jwt JWTRuleMiddleware) validate() error {
 }
 
 // validate validates JWTRuleMiddleware
-func (f ForwardAuthRuleMiddleware) validate() error {
+func (f *ForwardAuthRuleMiddleware) validate() error {
+	if f.SkipInsecureVerify {
+		logger.Warn("Deprecation: skipInsecureVerify is deprecated, please use `insecureSkipVerify`")
+		f.InsecureSkipVerify = true
+	}
+	if f.EnableHostForwarding {
+		logger.Warn("Deprecation: enableHostForwarding is deprecated, please use `forwardHostHeaders`")
+		f.ForwardHostHeaders = true
+	}
 	if f.AuthURL == "" {
 		return fmt.Errorf("error parsing yaml: empty url in forwardAuth middlewares")
 
