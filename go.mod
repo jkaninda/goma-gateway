@@ -1,10 +1,10 @@
 module github.com/jkaninda/goma-gateway
 
-go 1.24.4
+go 1.24.5
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-acme/lego/v4 v4.25.0
+	github.com/go-acme/lego/v4 v4.25.1
 	github.com/go-ldap/ldap/v3 v3.4.11
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/golang-jwt/jwt/v5 v5.2.3
