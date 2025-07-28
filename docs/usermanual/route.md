@@ -31,6 +31,7 @@ Below are the configuration options for defining routes in Goma Gateway:
 * **`security`**: Per-route security configuration.
 * **`tls`**: Per-route TLS settings.
 * **`priority`** (`int`): Optional priority for route matching. Lower values take precedence.
+* **`disableMetrics`** (`boolean`): If `true`, disables metrics collection for this route.
 
 ---
 

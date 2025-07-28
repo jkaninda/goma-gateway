@@ -8,36 +8,47 @@ nav_order: 1
 
 ## Monitoring
 
-Goma Gateway provides built-in monitoring capabilities to help you track system health, performance, and route behavior. Metrics can be exported in a Prometheus-compatible format and easily visualized using tools like **Prometheus** and **Grafana**.
+Goma Gateway offers built-in monitoring capabilities to help you track the **health**, **performance**, and **behavior** of your gateway and its routes. Metrics are exposed in a **Prometheus-compatible** format and can be visualized using tools like **Prometheus** and **Grafana**.
 
-The `monitoring` section allows you to configure observability endpoints for your gateway, including **Prometheus metrics**, **readiness/liveness probes**, and **route-level health checks**.
+The `monitoring` section in the configuration enables you to control observability features such as Prometheus metrics, readiness/liveness probes, and detailed route health checks.
 
-### Available Options
 
-| Key                           | Type       | Default    | Description                                                             |
-|-------------------------------|------------|------------|-------------------------------------------------------------------------|
-| `enableMetrics`               | `bool`     | `false`    | Enables the Prometheus metrics endpoint.                                |
-| `metricsPath`                 | `string`   | `/metrics` | Sets a custom path for metrics exposure.                                |
-| `enableReadiness`             | `bool`     | `true`     | Enables the `/readyz` readiness probe.                                  |
-| `enableLiveness`              | `bool`     | `true`     | Enables the `/healthz` liveness probe.                                  |
-| `enableRouteHealthCheck`      | `bool`     | `false`    | Enables the `/healthz/routes` endpoint for detailed route-level checks. |
-| `includeRouteHealthErrors`    | `bool`     | `false`    | If `true`, includes route errors in the `/healthz/routes` response.     |
-| `middleware.metrics`          | `[]string` | `[]`       | Middleware list applied to the `/metrics` endpoint.                     |
-| `middleware.routeHealthCheck` | `[]string` | `[]`       | Middleware list applied to the `/healthz/routes` endpoint.              |
+### Configuration Options
+
+| Key                           | Type       | Default    | Description                                                     |
+|-------------------------------|------------|------------|-----------------------------------------------------------------|
+| `enableMetrics`               | `bool`     | `false`    | Enables the Prometheus metrics endpoint.                        |
+| `metricsPath`                 | `string`   | `/metrics` | Custom path for exposing metrics.                               |
+| `enableReadiness`             | `bool`     | `true`     | Enables the `/readyz` readiness probe.                          |
+| `enableLiveness`              | `bool`     | `true`     | Enables the `/healthz` liveness probe.                          |
+| `enableRouteHealthCheck`      | `bool`     | `false`    | Enables `/healthz/routes` for per-route health checks.          |
+| `includeRouteHealthErrors`    | `bool`     | `false`    | If `true`, includes route errors in `/healthz/routes` response. |
+| `middleware.metrics`          | `[]string` | `[]`       | Middleware stack applied to the `/metrics` endpoint.            |
+| `middleware.routeHealthCheck` | `[]string` | `[]`       | Middleware stack applied to the `/healthz/routes` endpoint.     |
 
 ---
 
-### Example Configuration
+### Route-Level Metrics
+
+By default, each route collects metrics. You can opt out of metrics for a specific route by setting:
+
+```yaml
+disableMetrics: true
+```
+
+---
+
+### Example Monitoring Configuration
 
 ```yaml
 gateway:
   monitoring:
     enableMetrics: true                  # Enable Prometheus metrics
-    metricsPath: /metrics                # Custom path for metrics (optional)
-    enableReadiness: true               # Enable /readyz readiness endpoint
-    enableLiveness: true                # Enable /healthz liveness endpoint
-    enableRouteHealthCheck: true        # Enable /healthz/routes for route-level checks
-    includeRouteHealthErrors: true      # Include route errors in /healthz/routes
+    metricsPath: /metrics                # Custom metrics path (optional)
+    enableReadiness: true               # Enable /readyz endpoint
+    enableLiveness: true                # Enable /healthz endpoint
+    enableRouteHealthCheck: true        # Enable /healthz/routes
+    includeRouteHealthErrors: true      # Include route errors in health checks
     middleware:
       metrics:
         - ldap                          # Middleware for /metrics
@@ -49,33 +60,72 @@ gateway:
 
 ### Accessing Metrics
 
-Once configured, metrics will be available at:
+Once configured, metrics are available at:
 
 ```
 http://<gateway-host>:<port>/metrics
 ```
 
-You can configure Prometheus to scrape this endpoint and visualize it via Grafana dashboards.
+You can configure **Prometheus** to scrape this endpoint and use **Grafana** for visualization.
 
 ---
 
-### Health Check Metrics
+### Health Endpoints
 
-In addition to core performance metrics (requests, latency, response status codes), Goma Gateway also provides optional health-related data:
+In addition to performance metrics, Goma Gateway provides dedicated endpoints to monitor health:
 
-* **Route Health Endpoint**: `/healthz/routes`
-* **Gateway Health Endpoints**: `/healthz`, `/readyz`
+* **Liveness Probe**: `/healthz`
+* **Readiness Probe**: `/readyz`
+* **Route Health Check**: `/healthz/routes` (if enabled)
 
-These endpoints return structured JSON data indicating the health status of the gateway and its configured routes.
+All endpoints return structured JSON indicating the current status.
 
 ---
 
-### Example Use Case: Prometheus Scrape Configuration
+### Prometheus Scrape Configuration Example
 
 ```yaml
 scrape_configs:
-  - job_name: 'goma-gateway'
+  - job_name: "gateway"
+    metrics_path: "/metrics"  # Optional, defaults to /metrics
+    scheme: http              # Use https if TLS is enabled
+    scrape_interval: 15s
     static_configs:
-      - targets: ['gateway-host:port']
+      - targets: ["gateway-host:port"]
+        labels:
+          application: "goma_gateway"
+    basic_auth:               # Optional: enable if your gateway requires authentication
+      username: username
+      password: password
+    tls_config:
+      insecure_skip_verify: false
 ```
 
+---
+
+### Available Metrics
+
+Goma Gateway exposes several Prometheus metrics to monitor the gateway at various levels:
+
+* `gateway_middlewares_count` — Number of registered middlewares.
+* `gateway_routes_count` — Number of active routes.
+* `gateway_uptime_seconds` — Gateway uptime in seconds.
+* `gateway_requests_total` — Total processed requests (method, path, route).
+* `http_response_status_total` — HTTP responses by status, method, path, route.
+* `http_request_duration_seconds` — Histogram of request latencies.
+* `http_request_size_bytes` — Histogram of request sizes.
+* And many more...
+
+---
+
+### Grafana Dashboard
+
+A prebuilt **Grafana dashboard** is available to visualize metrics from Goma Gateway.
+
+You can import it using dashboard ID: **`23799`**
+
+#### Dashboard Preview
+
+![Goma Gateway Grafana Dashboard](https://raw.githubusercontent.com/jkaninda/goma-gateway/main/docs/images/goma_gateway_observability_dashboard-23799.png)
+
+---

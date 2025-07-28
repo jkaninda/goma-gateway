@@ -21,6 +21,8 @@ The **Error Interceptor** feature allows you to customize backend error response
 
   * `application/json`
   * `text/plain`
+  * `text/html`
+  * `application/xml`
 
 * **`errors`** (`[]ErrorMapping`): A list of error rules defining how specific HTTP status codes should be handled.
 
@@ -62,11 +64,8 @@ gateway:
               {"success": false, "status": 404, "message": "Page not found", "data": []}
           - statusCode: 500
             body: "Internal server error"
-      blockCommonExploits: false
       cors: {}
-      middlewares:
-        - api-forbidden-paths
-        - jwt-auth
+      middlewares: []
 ```
 
 > ✅ Tip: Use `>` or `|` in YAML to handle multi-line or JSON strings cleanly.

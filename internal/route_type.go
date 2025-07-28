@@ -75,6 +75,8 @@ type Route struct {
 	// TLS contains the TLS configuration for the route.
 	TLS      TLS      `yaml:"tls,omitempty"`
 	Security Security `yaml:"security,omitempty"`
+	// DisableMetrics disables metrics collection for this route.
+	DisableMetrics bool `yaml:"disableMetrics,omitempty"`
 	// Middlewares lists middleware names to apply to this route.
 	Middlewares []string `yaml:"middlewares"`
 }

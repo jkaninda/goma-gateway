@@ -197,7 +197,7 @@ These options apply to the internal HTTP client used by the gateway for outbound
 gateway:
   networking:
     transport:
-      insecureSkipVerify: false       # Can be overridden per-route
+      insecureSkipVerify: true       # Optional, disables TLS verification, applies to all routes
       ## Optional, advanced configuration
       forceAttemptHTTP2: true
       disableCompression: false

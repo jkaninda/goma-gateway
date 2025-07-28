@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -139,9 +138,8 @@ func (g *GatewayServer) startServers(httpServer, httpsServer *http.Server) {
 }
 
 func (g *GatewayServer) shutdown(httpServer, httpsServer *http.Server) error {
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	signal.Notify(shutdownChan, syscall.SIGINT, syscall.SIGTERM)
+	<-shutdownChan
 	logger.Info("Shutting down Goma Gateway...")
 
 	shutdownCtx, cancel := context.WithTimeout(g.ctx, 10*time.Second)

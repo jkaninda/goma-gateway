@@ -217,11 +217,16 @@ func (r *router) loadCertPool(rootCAs string) (*x509.CertPool, error) {
 
 // attachMiddlewares configures all middlewares for a route
 func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
+	enableMetrics := r.enableMetrics && !route.DisableMetrics
+
+	if r.enableMetrics && route.DisableMetrics {
+		logger.Debug("Metrics collection disabled for route", "route", route.Name)
+	}
 	// Proxy middleware
 	proxyMiddleware := &ProxyMiddleware{
 		Name:          route.Name,
 		Path:          route.Path,
-		enableMetrics: r.enableMetrics,
+		enableMetrics: enableMetrics,
 		Enabled:       route.ErrorInterceptor.Enabled,
 		ContentType:   route.ErrorInterceptor.ContentType,
 		Errors:        route.ErrorInterceptor.Errors,
@@ -306,9 +311,10 @@ func (g *Gateway) registerMetricsHandler(mux *mux.Router) {
 	}
 	if middlewares := g.Monitoring.Middleware.Metrics; len(middlewares) > 0 {
 		route := Route{
-			Path:        path,
-			Name:        "metrics",
-			Middlewares: middlewares,
+			Path:           path,
+			Name:           "metrics",
+			Middlewares:    middlewares,
+			DisableMetrics: true,
 		}
 		attachMiddlewares(route, sub)
 	}
@@ -331,9 +337,10 @@ func (g *Gateway) registerRouteHealthHandler(mux *mux.Router, health HealthCheck
 
 	if middlewares := g.Monitoring.Middleware.RouteHealthCheck; len(middlewares) > 0 {
 		route := Route{
-			Path:        path,
-			Name:        "routeHealth",
-			Middlewares: middlewares,
+			Path:           path,
+			Name:           "routeHealth",
+			Middlewares:    middlewares,
+			DisableMetrics: true,
 		}
 		attachMiddlewares(route, sub)
 	}
