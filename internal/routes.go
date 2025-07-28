@@ -97,7 +97,10 @@ func (g *GatewayServer) Initialize() error {
 		routesHealthCheck(dynamicRoutes, stopChan)
 		logger.Debug("Routes healthcheck running")
 	}
-
+	if gateway.Monitoring.EnableMetrics {
+		prometheusMetrics.GatewayRoutesCount.Set(float64(len(dynamicRoutes)))
+		prometheusMetrics.GatewayMiddlewaresCount.Set(float64(len(dynamicMiddlewares)))
+	}
 	// Certificate Manager
 	if certManager == nil {
 		logger.Debug("Creating certificate manager...")
