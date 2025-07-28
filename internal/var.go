@@ -36,6 +36,7 @@ var (
 	logger             = logger2.Default()
 	certManager        *certmanager.CertManager
 	cachedDialer       = NewCachedDialer(5 * time.Minute)
-	prometheusMetrics  = metrics.NewPrometheusMetrics()
+	processStartTime   = time.Now()
+	prometheusMetrics  = metrics.NewPrometheusMetrics(processStartTime)
 	debugMode          = false
 )

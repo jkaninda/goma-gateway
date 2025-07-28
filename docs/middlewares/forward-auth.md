@@ -34,8 +34,8 @@ The **ForwardAuth middleware** delegates authorization to a backend service, det
 - **`AuthSignIn`**: The redirect URL used when the authentication service returns a `401` status.
   - This is optional and can be omitted if no sign-in URL is required. 
   - To redirect to the current URL after successful authentication, pass it as a query parameter (e.g., http://authentik.company:9000/outpost.goauthentik.io/start?rd=). Goma Gateway will automatically append the current URL to the `rd` query parameter.
-- **`SkipInsecureVerify`**: Disables SSL certificate verification for the backend service.
-- **`EnableHostForwarding`**: Forwards the `Host` header from the original request.
+- **`insecureSkipVerify`**: If set to `true`, skips SSL certificate verification for the authentication service. This is useful for development or self-signed certificates but should be avoided in production environments.
+- **`forwardHostHeaders`**: Forwards the `Host` header from the original request.
 - **`AuthRequestHeaders`**: Specifies request headers to copy into the authentication request.
 - **`AddAuthCookiesToResponse`**: Adds selected authentication cookies to the response headers. If not specified, all authentication cookies are copied by default.
 - **`AuthResponseHeaders`**: Maps headers from the authentication service response to request headers. Custom mappings can be defined using the format `"auth_header: request_header"`.
@@ -53,7 +53,6 @@ The following headers are automatically forwarded:
 - `User-Agent`
 - `X-Original-URL`
 - `X-Forwarded-URI`
-- `Host`
 
 ---
 
@@ -75,10 +74,10 @@ middlewares:
       authSignIn: http://authentication-service:8080/auth/signin?rd=
       
       # Skip SSL certificate verification
-      skipInsecureVerify: true
+      insecureSkipVerify: true
       
       # Forward the original Host header
-      enableHostForwarding: true
+      forwardHostHeaders: true
       
       # Headers to include in the authentication request
       authRequestHeaders:
@@ -115,7 +114,6 @@ gateway:
     routes:
         - path: /
           name: my-app
-          disabled: false
           backends:
            - endpoint: https://example.com
           # Protect the route with forwardAuth
@@ -123,7 +121,6 @@ gateway:
             - example-forward-auth
         - path: /outpost.goauthentik.io
           name: authentik-outpost
-          disabled: false
           backends:
            - endpoint: http://authentik-outpost:9000
           cors: {}
@@ -133,9 +130,7 @@ gateway:
         - name: example-forward-auth
           type: forwardAuth
           paths:
-            - /* # Explicitly blocks / and all subpaths
-            - /admin # Blocks only /admin
-            - /admin/*  # Explicitly blocks /admin and all subpaths
+            - /admin
           rule:
             authUrl: http://authentik.company:9000:9000/outpost.goauthentik.io/auth/nginx
             # forward 
@@ -147,8 +142,8 @@ gateway:
                 - X-authentik-email
                 - X-authentik-name
                 - X-authentik-jwt
-            enableHostForwarding: true
-            skipInsecureVerify: false
+            forwardHostHeaders: true
+            insecureSkipVerify: false
 ```
 
 ### Notes

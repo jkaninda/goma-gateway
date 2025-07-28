@@ -20,18 +20,26 @@ package metrics
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"time"
 )
 
 // PrometheusMetrics holds all Prometheus metrics
 type PrometheusMetrics struct {
-	TotalRequests  *prometheus.CounterVec
-	ResponseStatus *prometheus.CounterVec
-	HttpDuration   *prometheus.HistogramVec
+	TotalRequests           *prometheus.CounterVec
+	ResponseStatus          *prometheus.CounterVec
+	HttpDuration            *prometheus.HistogramVec
+	GatewayUptime           prometheus.Gauge
+	GatewayRoutesCount      prometheus.Gauge
+	GatewayMiddlewaresCount prometheus.Gauge
 }
 
 // NewPrometheusMetrics creates a new set of Prometheus metrics
-func NewPrometheusMetrics() *PrometheusMetrics {
-	return &PrometheusMetrics{
+func NewPrometheusMetrics(startTime time.Time) *PrometheusMetrics {
+	gatewayUptime := promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "gateway_uptime_seconds",
+		Help: "Uptime of the gateway application in seconds",
+	})
+	pm := &PrometheusMetrics{
 		TotalRequests: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "http_requests_total",
@@ -54,5 +62,29 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			},
 			[]string{"name", "path", "method"},
 		),
+		GatewayRoutesCount: promauto.NewGauge(prometheus.GaugeOpts{
+			Name: "gateway_routes_count",
+			Help: "Current number of routes registered in the gateway",
+		}),
+		GatewayMiddlewaresCount: promauto.NewGauge(prometheus.GaugeOpts{
+			Name: "gateway_middlewares_count",
+			Help: "Current number of middlewares registered in the gateway",
+		}),
+		GatewayUptime: gatewayUptime,
+	}
+
+	// Start a goroutine to continuously update the gateway uptime
+	go pm.trackUptime(startTime)
+
+	return pm
+}
+
+// Continuously updates the uptime gauge
+func (pm *PrometheusMetrics) trackUptime(startTime time.Time) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		pm.GatewayUptime.Set(time.Since(startTime).Seconds())
 	}
 }
