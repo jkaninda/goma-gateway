@@ -417,9 +417,11 @@ middlewares:
     paths:
       - /*                    # Apply to all paths
     rule:
-      users:                  # Authorized users
-        - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia #password
-        - user:password
+      users:
+        - username: admin
+          password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin', password: admin
+        - username: user
+          password: password # Plaintext password for 'user'
 # Certificate management configuration
 certManager:
   acme:
