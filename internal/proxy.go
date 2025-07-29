@@ -39,18 +39,23 @@ func (pr *ProxyRoute) ProxyHandler() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
+		origin := r.Header.Get("Origin")
 
 		// Validate if the HTTP method is allowed
 		if !pr.validateMethod(r.Method, w, r, contentType) {
 			return
 		}
+		// Check if CORS is enabled for this route
+		if pr.cors.Enabled && pr.allowedOrigin(origin) {
+			// Set CORS headers from the CORS configuration
+			pr.applyCORSHeaders(w)
 
-		// Set CORS headers from the CORS configuration
-		pr.applyCORSHeaders(w)
-
-		// Handle preflight requests (OPTIONS) for CORS
-		if pr.handlePreflight(w, r) {
-			return
+			// Handle preflight requests (OPTIONS) for CORS only if the origins are defined
+			if len(pr.cors.Origins) > 0 && origin != "" {
+				if pr.handlePreflight(w, r, origin) {
+					return
+				}
+			}
 		}
 
 		// Set headers for forwarding client information
@@ -99,17 +104,26 @@ func (pr *ProxyRoute) applyCORSHeaders(w http.ResponseWriter) {
 
 // handlePreflight handles preflight requests (OPTIONS) for CORS.
 // Returns true if the request is a preflight request and has been handled.
-func (pr *ProxyRoute) handlePreflight(w http.ResponseWriter, r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	if allowedOrigin(pr.cors.Origins, origin) {
-		logger.Debug("Handling preflight request,", "origin", origin)
-		w.Header().Set(accessControlAllowOrigin, origin)
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return true
+func (pr *ProxyRoute) handlePreflight(w http.ResponseWriter, r *http.Request, origin string) bool {
+	logger.Debug("Handling preflight request,", "origin", origin)
+	w.Header().Set(accessControlAllowOrigin, origin)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	}
+
+	return false
+}
+func (pr *ProxyRoute) allowedOrigin(origin string) bool {
+	if len(pr.cors.Origins) == 0 || origin == "" {
+		return true // Allow all origins if none specified
+	}
+	for _, o := range pr.cors.Origins {
+		if o == "*" || o == origin {
+			return true // Match found
 		}
 	}
-	return false
+	return false // No match found
 }
 
 // forwardedHeaders sets headers for forwarding client information.

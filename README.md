@@ -288,7 +288,7 @@ Fix any reported issues before proceeding.
 
 ### Step 4: Start the Goma Gateway Server
 
-Run the server container, mounting your configuration and Let's Encrypt directories, and exposing the default ports:
+Run the server container, mounting your configuration, and Let's Encrypt directories, and exposing the default ports:
 
 ```bash
 docker run --rm --name goma-gateway \

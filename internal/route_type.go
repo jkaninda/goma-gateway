@@ -126,6 +126,7 @@ type Backends []Backend
 func (r *Route) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	r.Enabled = true
 	r.Security.ForwardHostHeaders = true
+	r.Cors.Enabled = true
 	type tmp Route
 	return unmarshal((*tmp)(r))
 }
