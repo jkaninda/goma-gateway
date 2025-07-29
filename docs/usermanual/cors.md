@@ -23,6 +23,7 @@ These settings help control which external domains can communicate with your bac
 
 Each CORS configuration supports the following fields:
 
+* **`enabled`** (`boolean`): Whether CORS is enabled for the route. Defaults to `true`.
 * **`origins`** (`[]string`): List of allowed origin URLs.
 * **`allowedHeaders`** (`[]string`): Headers allowed in requests.
 * **`headers`** (`map[string]string`): Additional headers to include in responses.

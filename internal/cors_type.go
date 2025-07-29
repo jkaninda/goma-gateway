@@ -19,6 +19,8 @@ package internal
 
 // Cors defines the configuration structure for Cross-Origin Resource Sharing (CORS) settings
 type Cors struct {
+	// Enabled indicates whether CORS is enabled for the resource
+	Enabled bool `yaml:"enabled"`
 	// Origins specify which origins are allowed to access the resource.
 	// Examples:
 	// - http://localhost:80
@@ -42,4 +44,14 @@ type Cors struct {
 
 	// AllowCredentials indicates whether the response can include credentials (cookies, HTTP auth)
 	AllowCredentials bool `yaml:"allowCredentials"`
+}
+
+func (cors *Cors) isZero() bool {
+	return len(cors.Origins) == 0 &&
+		len(cors.AllowedHeaders) == 0 &&
+		len(cors.Headers) == 0 &&
+		len(cors.ExposeHeaders) == 0 &&
+		len(cors.AllowMethods) == 0 &&
+		!cors.AllowCredentials &&
+		cors.MaxAge == 0
 }

@@ -198,6 +198,9 @@ func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	g.Monitoring.EnableLiveness = true
 	g.Monitoring.EnableReadiness = true
 
+	// Cors
+	g.Cors.Enabled = true
+
 	type tmp Gateway
 	return unmarshal((*tmp)(g))
 }
