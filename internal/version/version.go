@@ -43,6 +43,6 @@ var Banner = `
 
 func PrintBanner() {
 	fmt.Print(Banner)
-	fmt.Println("Copyright (c) 2024 Jonas Kaninda")
+	fmt.Println("Copyright (c) 2024-2025 Jonas Kaninda")
 	fmt.Println("Starting Goma Gateway...")
 }
