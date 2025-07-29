@@ -389,7 +389,7 @@ gateway:
           insecureSkipVerify: true
           rootCAs: ""
       middlewares:
-      #- basic-auth          # Apply basic authentication middleware
+      - basic-auth          # Apply basic authentication middleware
     #  Route definition 3
     - name: api
       path: /
@@ -415,8 +415,10 @@ middlewares:
   - name: basic-auth          # Middleware identifier
     type: basicAuth               # Middleware type (basic auth)
     paths:
-      - /*                    # Apply to all paths
+      - /admin                   # Apply to /admin and all subpaths
     rule:
+      realm: Restricted
+      forwardUsername: true  # Forward authenticated username to backend
       users:
         - username: admin
           password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin', password: admin
