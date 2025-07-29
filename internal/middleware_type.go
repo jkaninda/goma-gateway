@@ -17,6 +17,11 @@
 
 package internal
 
+import (
+	"fmt"
+	"gopkg.in/yaml.v3"
+)
+
 // Middleware defines the route middlewares configuration.
 type Middleware struct {
 	// Name specifies the unique name of the middleware.
@@ -37,3 +42,37 @@ type Middleware struct {
 }
 
 type MiddlewareType string
+
+func (m *Middleware) UnmarshalYAML(value *yaml.Node) error {
+	type TempMiddleware struct {
+		Name  string         `yaml:"name"`
+		Type  MiddlewareType `yaml:"type"`
+		Paths []string       `yaml:"paths,omitempty"`
+		Rule  yaml.Node      `yaml:"rule,omitempty"`
+	}
+
+	var temp TempMiddleware
+	if err := value.Decode(&temp); err != nil {
+		return err
+	}
+
+	m.Name = temp.Name
+	m.Type = temp.Type
+	m.Paths = temp.Paths
+
+	switch m.Type {
+	case BasicAuth, BasicAuthMiddleware:
+		var rule BasicRuleMiddleware
+		if err := temp.Rule.Decode(&rule); err != nil {
+			return fmt.Errorf("failed to decode basic auth rule: %w", err)
+		}
+		m.Rule = rule
+	default:
+		var rule interface{}
+		if err := temp.Rule.Decode(&rule); err != nil {
+			return fmt.Errorf("failed to decode rule for type %s: %w", m.Type, err)
+		}
+		m.Rule = rule
+	}
+	return nil
+}

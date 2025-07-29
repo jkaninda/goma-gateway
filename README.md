@@ -1,4 +1,4 @@
-# Goma Gateway - simple Lightweight High-Performance Declarative API Gateway Management.
+# Goma Gateway — Lightweight API Gateway and Reverse Proxy with declarative config, robust middleware.
 
 ```
    ____                       
@@ -32,7 +32,7 @@ The project is named after Goma, a vibrant city located in the eastern region of
 
 Architecture:
 
-<img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/goma-gateway.png" width="912" alt="Goma archi">
+<img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/goma-gateway.png" width="912" alt="Goma architecture">
 
 
 ## Links:
@@ -90,7 +90,7 @@ Goma Gateway is built for simplicity, flexibility, and high performance. It offe
   * **Free, Auto-Generated Certificates** via Let's Encrypt.
   * **Automatic Renewal & Storage** to ensure uninterrupted HTTPS.
   * **Custom TLS Certificates Support**
-  
+
   Bring your own TLS certificates when needed:
   * Fallback to auto-generation when no custom cert is provided.
 
@@ -194,16 +194,16 @@ Goma Gateway is built for simplicity, flexibility, and high performance. It offe
   - Integrate GitOps workflows to version control your gateway configurations, ensuring traceable and automated deployments.
 
 ----
-## 💡 Why Use Goma Gateway?
+##  Why Use Goma Gateway?
 
 **Goma Gateway** is more than just a reverse proxy — it's a modern, developer-friendly API Gateway designed to simplify, secure, and scale your service infrastructure. Here's why it stands out:
 
 
-### ✅ **Simple, Declarative Configuration**
+### **Simple, Declarative Configuration**
 
 Configure routes, middleware, policies, and TLS in a clear and concise YAML format. Whether you prefer single-file or multi-file setups, Goma makes configuration intuitive and maintainable.
 
-### 🔐 **First-Class Security Built-In**
+### **First-Class Security Built-In**
 
 Security isn't an afterthought. Goma ships with robust middleware for:
 
@@ -213,16 +213,16 @@ Security isn't an afterthought. Goma ships with robust middleware for:
 * Fine-grained **access control**, method restrictions, and bot detection.
 
 
-### 🌐 **Multi-Domain & Dynamic Routing**
+### **Multi-Domain & Dynamic Routing**
 
 Host and route traffic across multiple domains effortlessly. Whether you're proxying REST APIs, WebSocket services, or static assets — Goma routes requests intelligently based on host and path.
 
 
-### ⚙️ **Live Reload & GitOps-Ready**
+###  **Live Reload & GitOps-Ready**
 
 No restarts needed. Goma supports **live configuration reloads**, making it ideal for CI/CD pipelines and GitOps workflows. Manage your gateway infrastructure declaratively and version everything.
 
-### 📊 **Observability from Day One**
+### **Observability from Day One**
 
 Goma offers full visibility into your traffic:
 
@@ -231,14 +231,14 @@ Goma offers full visibility into your traffic:
 * **Built-in Rate Limiting** to throttle abusive traffic with optional Redis support.
 
 
-### 🚀 **Performance Optimization**
+### **Performance Optimization**
 
 Speed matters. Goma provides:
 
 * **HTTP Caching** (in-memory or Redis) with intelligent invalidation.
 * **Advanced Load Balancing** (round-robin, weighted) and health checks to keep your infrastructure resilient.
 
-### ☸️ **Cloud-Native & Kubernetes-Friendly**
+### **Cloud-Native & Kubernetes-Friendly**
 
 Integrate seamlessly with Kubernetes using **Custom Resource Definitions (CRDs)**. Manage routes, middleware, and gateways as native Kubernetes objects.
 
@@ -296,7 +296,7 @@ docker run --rm --name goma-gateway \
   -v "${PWD}/letsencrypt:/etc/letsencrypt" \
   -p 8080:8080 \
   -p 8443:8443 \
-  jkaninda/goma-gateway server --config /etc/goma/config.yml
+  jkaninda/goma-gateway --config /etc/goma/config.yml
 ```
 
 By default, the gateway listens on:
@@ -334,7 +334,7 @@ docker run --rm --name goma-gateway \
   -v "${PWD}/letsencrypt:/etc/letsencrypt" \
   -p 80:80 \
   -p 443:443 \
-  jkaninda/goma-gateway server --config /etc/goma/config.yml
+  jkaninda/goma-gateway --config /etc/goma/config.yml
 ```
 ### 5. Health Checks
 
@@ -389,7 +389,7 @@ gateway:
           insecureSkipVerify: true
           rootCAs: ""
       middlewares:
-      #- basic-auth          # Apply basic authentication middleware
+      - basic-auth          # Apply basic authentication middleware
     #  Route definition 3
     - name: api
       path: /
@@ -415,11 +415,15 @@ middlewares:
   - name: basic-auth          # Middleware identifier
     type: basicAuth               # Middleware type (basic auth)
     paths:
-      - /*                    # Apply to all paths
+      - /admin                   # Apply to /admin and all subpaths
     rule:
-      users:                  # Authorized users
-        - admin:$2y$05$OyK52woO0JiM2GQOuUNw2e3xT30lBGXFTb5tn1xWeg3x/XexJNbia #password
-        - user:password
+      realm: Restricted
+      forwardUsername: true  # Forward authenticated username to backend
+      users:
+        - username: admin
+          password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin', password: admin
+        - username: user
+          password: password # Plaintext password for 'user'
 # Certificate management configuration
 certManager:
   acme:
@@ -460,13 +464,13 @@ You can import it using dashboard ID: [23799](https://grafana.com/grafana/dashbo
 
 -  [Kubernetes installation](https://jkaninda.github.io/goma-gateway/install/kubernetes.html)
 
-- [Kubernetes advanced deployment using CRDs and Operator](https://jkaninda.github.io/goma-gateway/install/kuberntes-advanced.html) 
+- [Kubernetes advanced deployment using CRDs and Operator](https://jkaninda.github.io/goma-gateway/install/kuberntes-advanced.html)
 
 ## Supported Systems
 
 - [x] Linux
 - [x] MacOS
-- [x] Windows 
+- [x] Windows
 
 Please download the binary from the [release page](https://github.com/jkaninda/goma-gateway/releases).
 
@@ -476,7 +480,7 @@ Init configs:
 ./goma config init --output config.yml
 ```
 
-To run 
+To run
 ```shell
 ./goma server --config config.yml
 ```
@@ -541,4 +545,4 @@ This project is licensed under the Apache 2.0 License. See the LICENSE file for 
 
 ## Copyright
 
-Copyright (c) 2024 Jonas Kaninda and contributors
+Copyright (c) 2024–2025 Jonas Kaninda and contributors

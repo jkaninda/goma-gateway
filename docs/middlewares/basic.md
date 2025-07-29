@@ -9,12 +9,7 @@ nav_order: 4
 # Basic Auth Middleware
 
 Basic-auth middleware secures route paths by requiring a username and password for access.
-
-## Key Features
-- Rule: To block all subpaths of a route, append /* to the path explicitly.
-
-- Tip: Always test configurations thoroughly in a staging environment before applying them to production.
-
+It supports multiple authentication methods, including bcrypt, SHA-1, and plaintext passwords.
 
 ### Example: Basic-Auth Middleware Configuration
 The following example demonstrates how to configure basic-auth middleware:
@@ -29,9 +24,12 @@ middlewares:
       realm: your-realm # Optional
       forwardUsername: true          # Forward authenticated username to backend
       users:
-        - user1:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
-        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
-        - user2:admin # Plaintext password
+        - username: admin
+          password: "$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO" # bcrypt hash
+        - username: user1
+          password: "{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc=" # SHA-1 hash       
+        - username: user2
+          password: password # Plaintext password
 ```
 
 
@@ -77,6 +75,7 @@ spec:
     rule:
       realm: your-realm # Optional
       forwardUsername: true          # Forward authenticated username to backend
+      # Old style users
       users:
         - user:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
         - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
