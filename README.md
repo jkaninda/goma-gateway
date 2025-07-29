@@ -442,8 +442,21 @@ services:
       - ./letsencrypt:/etc/letsencrypt
 ```
 
+### 7. Grafana Dashboard
 
-### 7. Kubernetes deployment
+Goma Gateway offers built-in monitoring capabilities to help you track the **health**, **performance**, and **behavior** of your gateway and its routes. Metrics are exposed in a **Prometheus-compatible** format and can be visualized using tools like **Prometheus** and **Grafana**.
+
+A prebuilt **Grafana dashboard** is available to visualize metrics from Goma Gateway.
+
+You can import it using dashboard ID: [23799](https://grafana.com/grafana/dashboards/23799)
+
+
+#### Dashboard Preview
+
+![Goma Gateway Grafana Dashboard](https://raw.githubusercontent.com/jkaninda/goma-gateway/main/docs/images/goma_gateway_observability_dashboard-23799.png)
+
+
+### 8. Kubernetes deployment
 
 -  [Kubernetes installation](https://jkaninda.github.io/goma-gateway/install/kubernetes.html)
 
