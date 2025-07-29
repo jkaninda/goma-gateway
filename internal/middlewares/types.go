@@ -121,7 +121,7 @@ type AuthBasic struct {
 	Path            string
 	Paths           []string
 	Realm           string
-	Users           []string
+	Users           []User
 	ForwardUsername bool
 	Ldap            *LDAP
 	ConnPoolSize    int
@@ -131,6 +131,10 @@ type AuthBasic struct {
 	rateLimitMu     sync.RWMutex
 	rateLimitTTL    time.Duration
 	rateLimitInit   sync.Once
+}
+type User struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // InterceptErrors contains backend status code errors to intercept

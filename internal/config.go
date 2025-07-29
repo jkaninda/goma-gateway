@@ -366,9 +366,9 @@ func initConfig(configFile string) error {
 				},
 				Rule: BasicRuleMiddleware{
 					Realm: "Restricted",
-					Users: []string{
-						"admin:$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO",
-						"admin:admin",
+					Users: []middlewares.User{
+						{Username: "admin", Password: "$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO"},
+						{Username: "admin", Password: "admin"},
 					},
 				},
 			},
@@ -489,6 +489,11 @@ func (u UserAgentBlockRuleMiddleware) validate() error {
 func (basicAuth BasicRuleMiddleware) validate() error {
 	if len(basicAuth.Users) == 0 {
 		return fmt.Errorf("empty users in basic auth middlewares")
+	}
+	for _, user := range basicAuth.Users {
+		if user.Username == "" || user.Password == "" {
+			return fmt.Errorf("empty username or password in basic auth middlewares")
+		}
 	}
 	return nil
 }

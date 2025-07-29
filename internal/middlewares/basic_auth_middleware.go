@@ -142,15 +142,9 @@ func (basicAuth *AuthBasic) validateCredentials(username, password string) bool 
 	if basicAuth.Ldap != nil {
 		return basicAuth.Ldap.authenticateLDAP(username, password)
 	} else {
-		for _, entry := range basicAuth.Users {
-			u := strings.SplitN(entry, ":", 2)
-			if len(u) != 2 {
-				logger.Debug("Skipping invalid user entry", "entry", entry)
-				continue
-			}
-			storedUser, storedHash := u[0], u[1]
-			if username == storedUser {
-				ok, err := ValidatePassword(password, storedHash)
+		for _, user := range basicAuth.Users {
+			if username == user.Username {
+				ok, err := ValidatePassword(password, user.Password)
 				if err != nil {
 					logger.Error("Password validation error", "err", err)
 					return false

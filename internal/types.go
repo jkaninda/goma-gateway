@@ -19,18 +19,51 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
 
 type BasicRuleMiddleware struct {
-	Realm           string   `yaml:"realm,omitempty"`
-	Users           []string `yaml:"users"`
-	ForwardUsername bool     `yaml:"forwardUsername"`
+	Realm           string `yaml:"realm,omitempty"`
+	ForwardUsername bool   `yaml:"forwardUsername"`
+	Users           Users  `yaml:"users"`
 }
+type Users []middlewares.User
+
+func (u *Users) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Try to unmarshal as []User first (new format)
+	var userList []middlewares.User
+	if err := unmarshal(&userList); err == nil {
+		*u = userList
+		return nil
+	}
+
+	// Fallback: try to unmarshal as []string (old format)
+	var strList []string
+	if err := unmarshal(&strList); err != nil {
+		return err
+	}
+
+	// Convert []string to []User
+	*u = make(Users, 0, len(strList))
+	for _, entry := range strList {
+		parts := strings.SplitN(entry, ":", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid user format: %q, expected username:password", entry)
+		}
+		*u = append(*u, middlewares.User{
+			Username: parts[0],
+			Password: parts[1],
+		})
+	}
+	return nil
+}
+
 type LdapRuleMiddleware struct {
 	Realm           string `yaml:"realm,omitempty"`
 	ForwardUsername bool   `yaml:"forwardUsername"`
