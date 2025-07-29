@@ -233,10 +233,11 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 		Origins:       route.Cors.Origins,
 	}
 	rRouter.Use(proxyMiddleware.Wrap)
-	cors := &route.Cors
-	// CORS middleware
-	rRouter.Use(cors.CORSHandler())
-
+	if route.Cors.Enabled {
+		cors := &route.Cors
+		// CORS middleware
+		rRouter.Use(cors.CORSHandler())
+	}
 	// Custom middlewares
 	attachMiddlewares(route, rRouter)
 }

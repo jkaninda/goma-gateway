@@ -190,25 +190,19 @@ func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.R
 	}
 }
 func mergeGatewayConfig(route *Route, gateway Gateway, cors *Cors) {
+	if route == nil {
+		return
+	}
 	if gateway.Networking.Transport.InsecureSkipVerify {
 		logger.Debug(">>> Gateway:: Insecure Skip Verify is enabled")
 		route.Security.TLS.InsecureSkipVerify = true
 	}
-	if cors == nil {
+	if !route.Cors.Enabled || cors == nil {
 		return
 	}
-	if isZeroCors(route.Cors) {
+	if route.Cors.isZero() {
 		route.Cors = *cors
 	}
-}
-func isZeroCors(c Cors) bool {
-	return len(c.Origins) == 0 &&
-		len(c.AllowedHeaders) == 0 &&
-		len(c.Headers) == 0 &&
-		len(c.ExposeHeaders) == 0 &&
-		c.MaxAge == 0 &&
-		len(c.AllowMethods) == 0 &&
-		!c.AllowCredentials
 }
 func GetConfigPaths() string {
 	return util.GetStringEnv("GOMA_CONFIG_FILE", ConfigFile)
