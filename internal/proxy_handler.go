@@ -129,7 +129,6 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			return
 		}
 		ip := getRealIP(r)
-		path := h.Path
 		if val := r.Context().Value(CtxRequestStartTime); val != nil {
 			startTime = val.(time.Time)
 		}
@@ -145,8 +144,8 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		// Metrics
 		if h.enableMetrics {
 			logger.Debug("Metrics collection started")
-			prometheusMetrics.TotalRequests.WithLabelValues(h.Name, path, method).Inc()
-			prometheusMetrics.GatewayTotalRequests.WithLabelValues(h.Name, path, method).Inc()
+			prometheusMetrics.TotalRequests.WithLabelValues(h.Name, method).Inc()
+			prometheusMetrics.GatewayTotalRequests.WithLabelValues(h.Name, method).Inc()
 		}
 
 		next.ServeHTTP(rec, r)
@@ -155,9 +154,9 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			duration := time.Since(startTime).Seconds()
 			statusStr := strconv.Itoa(rec.statusCode)
 			requestBytes := r.ContentLength
-			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, h.Name, path, method).Inc()
-			prometheusMetrics.HttpDuration.WithLabelValues(h.Name, path, method).Observe(duration)
-			prometheusMetrics.HTTPRequestSize.WithLabelValues(h.Name, path, method).Observe(float64(requestBytes))
+			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, h.Name, method).Inc()
+			prometheusMetrics.HttpDuration.WithLabelValues(h.Name, method).Observe(duration)
+			prometheusMetrics.HTTPRequestSize.WithLabelValues(h.Name, method).Observe(float64(requestBytes))
 
 			logger.Debug("Metrics recorded",
 				"status", statusStr,
@@ -193,6 +192,7 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		// Handle response interception
 		if intercept && !rec.skipBuffer {
 			if h.handleResponseInterception(rec, w, r) {
+				prometheusMetrics.GatewayTotalErrorsIntercepted.WithLabelValues(h.Name, strconv.Itoa(rec.statusCode)).Inc()
 				logProxyResponse(rec.statusCode, "Proxied request", logFields...)
 				return
 			}

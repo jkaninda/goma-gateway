@@ -26,14 +26,15 @@ import (
 
 // PrometheusMetrics holds all Prometheus metrics
 type PrometheusMetrics struct {
-	TotalRequests           *prometheus.CounterVec
-	ResponseStatus          *prometheus.CounterVec
-	HttpDuration            *prometheus.HistogramVec
-	HTTPRequestSize         *prometheus.HistogramVec
-	GatewayTotalRequests    *prometheus.CounterVec
-	GatewayUptime           prometheus.Gauge
-	GatewayRoutesCount      prometheus.Gauge
-	GatewayMiddlewaresCount prometheus.Gauge
+	TotalRequests                 *prometheus.CounterVec
+	ResponseStatus                *prometheus.CounterVec
+	HttpDuration                  *prometheus.HistogramVec
+	HTTPRequestSize               *prometheus.HistogramVec
+	GatewayTotalRequests          *prometheus.CounterVec
+	GatewayUptime                 prometheus.Gauge
+	GatewayRoutesCount            prometheus.Gauge
+	GatewayMiddlewaresCount       prometheus.Gauge
+	GatewayTotalErrorsIntercepted *prometheus.CounterVec
 }
 
 // NewPrometheusMetrics creates a new set of Prometheus metrics
@@ -57,21 +58,21 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Name: "gateway_requests_total",
 				Help: "Total number of requests handled by the gateway since startup",
 			},
-			[]string{"name", "path", "method"},
+			[]string{"name", "method"},
 		),
 		TotalRequests: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "http_requests_total",
 				Help: "Total number of HTTP requests, similar to gateway_requests_total",
 			},
-			[]string{"name", "path", "method"},
+			[]string{"name", "method"},
 		),
 		ResponseStatus: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "http_response_status_total",
 				Help: "Total number of HTTP responses by status code",
 			},
-			[]string{"status", "name", "path", "method"},
+			[]string{"status", "name", "method"},
 		),
 		HttpDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -79,7 +80,7 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Help:    "Duration of HTTP requests in seconds",
 				Buckets: prometheus.DefBuckets,
 			},
-			[]string{"name", "path", "method"},
+			[]string{"name", "method"},
 		),
 		HTTPRequestSize: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -87,7 +88,13 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Help:    "Size of HTTP requests in bytes",
 				Buckets: []float64{100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000},
 			},
-			[]string{"name", "path", "method"},
+			[]string{"name", "method"},
+		),
+		GatewayTotalErrorsIntercepted: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "gateway_total_errors_intercepted",
+			Help: "Total number of errors intercepted by the gateway, grouped by name and status_code",
+		},
+			[]string{"name", "status_code"},
 		),
 	}
 

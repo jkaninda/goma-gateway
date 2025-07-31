@@ -122,7 +122,7 @@ Goma Gateway exposes several Prometheus metrics to monitor the gateway at variou
 
 A prebuilt **Grafana dashboard** is available to visualize metrics from Goma Gateway.
 
-You can import it using dashboard ID: **`23799`**
+You can import it using dashboard ID: [23799](https://grafana.com/grafana/dashboards/23799)
 
 #### Dashboard Preview
 
