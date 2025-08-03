@@ -15,16 +15,21 @@ The `monitoring` section in the configuration enables you to control observabili
 
 ### Configuration Options
 
-| Key                           | Type       | Default    | Description                                                     |
-|-------------------------------|------------|------------|-----------------------------------------------------------------|
-| `enableMetrics`               | `bool`     | `false`    | Enables the Prometheus metrics endpoint.                        |
-| `metricsPath`                 | `string`   | `/metrics` | Custom path for exposing metrics.                               |
-| `enableReadiness`             | `bool`     | `true`     | Enables the `/readyz` readiness probe.                          |
-| `enableLiveness`              | `bool`     | `true`     | Enables the `/healthz` liveness probe.                          |
-| `enableRouteHealthCheck`      | `bool`     | `false`    | Enables `/healthz/routes` for per-route health checks.          |
-| `includeRouteHealthErrors`    | `bool`     | `false`    | If `true`, includes route errors in `/healthz/routes` response. |
-| `middleware.metrics`          | `[]string` | `[]`       | Middleware stack applied to the `/metrics` endpoint.            |
-| `middleware.routeHealthCheck` | `[]string` | `[]`       | Middleware stack applied to the `/healthz/routes` endpoint.     |
+| Key                           | Type       | Default    | Description                                                           |
+|-------------------------------|------------|------------|-----------------------------------------------------------------------|
+| `host`                        | `string`   | `""`       | Restricts access to observability endpoints to a specific hostname.   |
+| `enableMetrics`               | `bool`     | `false`    | Enables the Prometheus-compatible `/metrics` endpoint.                |
+| `metricsPath`                 | `string`   | `/metrics` | Sets a custom path for metrics exposure.                              |
+| `enableReadiness`             | `bool`     | `true`     | Enables the `/readyz` readiness probe endpoint.                       |
+| `enableLiveness`              | `bool`     | `true`     | Enables the `/healthz` liveness probe endpoint.                       |
+| `enableRouteHealthCheck`      | `bool`     | `false`    | Enables the `/healthz/routes` endpoint for route-level health checks. |
+| `includeRouteHealthErrors`    | `bool`     | `false`    | Includes route errors in the `/healthz/routes` response if `true`.    |
+| `middleware.metrics`          | `[]string` | `[]`       | Middleware chain applied to the metrics endpoint.                     |
+| `middleware.routeHealthCheck` | `[]string` | `[]`       | Middleware chain applied to the route health check endpoint.          |
+
+
+> 💡 **Note**: If `host` is not set, observability endpoints are accessible from any route host. To restrict access, set a specific `host` value.
+
 
 ---
 

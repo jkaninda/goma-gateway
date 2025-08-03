@@ -29,12 +29,12 @@ const (
 	GomaRefreshToken = "goma_refresh_token"
 )
 
-// SQL injection, path traversal, and XSS patterns
 var (
-	sqlPatterns       = regexp.MustCompile(`(?i)(union|select|drop|insert|delete|update|create|alter|exec|;|--)`)
+	sqlPatterns       = regexp.MustCompile(`(?i)\b(union|select|drop|insert|delete|update|create|alter|exec)\b|;|--`)
 	traversalPatterns = regexp.MustCompile(`(?i)(\.\./|\\.\\|%2e%2e%2f|%2e%2e%5c|%252e%252e%252f|%252e%252e%255c)`)
-	xssPatterns       = regexp.MustCompile(`(?i)<script|onerror|onload`)
+	xssPatterns       = regexp.MustCompile(`(?i)(<script.*?>|<\/script>|on\w+\s*=|javascript:)`)
 )
+
 var (
 	RedisClient *redis.Client
 	limiter     *redis_rate.Limiter
