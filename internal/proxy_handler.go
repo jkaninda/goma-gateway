@@ -111,6 +111,7 @@ func (rec *responseRecorder) flushHeaders() {
 
 func (rec *responseRecorder) flushBufferedResponse() {
 	rec.flushHeaders()
+	rec.ResponseWriter.Header().Del("Content-Length")
 	rec.ResponseWriter.WriteHeader(rec.statusCode)
 	if rec.body.Len() > 0 {
 		_, _ = rec.ResponseWriter.Write(rec.body.Bytes())
