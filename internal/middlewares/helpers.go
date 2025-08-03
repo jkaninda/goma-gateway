@@ -68,7 +68,7 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 	if allowedOrigin(origins, r.Header.Get("Origin")) {
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	}
-
+	w.Header().Del("Content-Length")
 	switch contentType {
 	case "application/json":
 		w.Header().Set("Content-Type", "application/json")
