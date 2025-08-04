@@ -19,6 +19,7 @@ package middlewares
 
 import (
 	"crypto/rsa"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
 	"sync"
 	"time"
@@ -26,15 +27,20 @@ import (
 
 // RateLimiter defines requests limit properties.
 type RateLimiter struct {
-	requests   int
-	unit       string
-	id         string
-	clientMap  map[string]*Client
-	mu         sync.Mutex
-	origins    []string
-	redisBased bool
-	pathBased  bool
-	paths      []string
+	requests    int
+	unit        string
+	id          string
+	clientMap   map[string]*Client
+	mu          sync.Mutex
+	origins     []string
+	redisBased  bool
+	redis       *redis.Client
+	pathBased   bool
+	paths       []string
+	banList     map[string]time.Time
+	banAfter    int
+	banDuration time.Duration
+	strikeMap   map[string]int
 }
 
 // Client stores request count and window expiration for each client.
@@ -43,37 +49,35 @@ type Client struct {
 	ExpiresAt    time.Time
 }
 type RateLimit struct {
-	Id         string
-	Unit       string
-	Requests   int
-	Origins    []string
-	Hosts      []string
-	RedisBased bool
-	PathBased  bool
-	Paths      []string
+	Id          string
+	Unit        string
+	Requests    int
+	Origins     []string
+	Hosts       []string
+	RedisBased  bool
+	PathBased   bool
+	Paths       []string
+	BanAfter    int
+	BanDuration time.Duration
 }
 
 // NewRateLimiterWindow creates a new RateLimiter.
 func (rateLimit RateLimit) NewRateLimiterWindow() *RateLimiter {
 	return &RateLimiter{
-		id:         rateLimit.Id,
-		unit:       rateLimit.Unit,
-		requests:   rateLimit.Requests,
-		clientMap:  make(map[string]*Client),
-		origins:    rateLimit.Origins,
-		redisBased: rateLimit.RedisBased,
-		pathBased:  rateLimit.PathBased,
-		paths:      rateLimit.Paths,
+		id:          rateLimit.Id,
+		unit:        rateLimit.Unit,
+		requests:    rateLimit.Requests,
+		clientMap:   make(map[string]*Client),
+		origins:     rateLimit.Origins,
+		redisBased:  rateLimit.RedisBased,
+		pathBased:   rateLimit.PathBased,
+		paths:       rateLimit.Paths,
+		banList:     make(map[string]time.Time),
+		banAfter:    rateLimit.BanAfter,
+		banDuration: rateLimit.BanDuration,
+		strikeMap:   make(map[string]int),
+		redis:       RedisClient,
 	}
-}
-
-// TokenRateLimiter stores tokenRate limit
-type TokenRateLimiter struct {
-	tokens     int
-	maxTokens  int
-	refillRate time.Duration
-	lastRefill time.Time
-	mu         sync.Mutex
 }
 
 // ProxyResponseError represents the structure of the JSON error response
@@ -200,5 +204,3 @@ type ForwardAuth struct {
 type ClaimExpression interface {
 	Evaluate(claims map[string]interface{}) (bool, error)
 }
-
-// Ldap

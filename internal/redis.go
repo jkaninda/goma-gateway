@@ -24,7 +24,7 @@ import (
 func (g *GatewayServer) initRedis() {
 	if len(g.gateway.Redis.Addr) != 0 {
 		logger.Info("Initializing Redis...")
-		middlewares.InitRedis(g.gateway.Redis.Addr, g.gateway.Redis.Password)
+		g.gateway.Redis.InitRedis()
 	}
 
 }

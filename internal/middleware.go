@@ -246,16 +246,23 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 		logger.Error(fmt.Sprintf("Error: %v", err.Error()))
 		return
 	}
+	duration, err := time.ParseDuration(rule.BanDuration)
+	if err != nil {
+		logger.Error("Error parsing duration, using default value", "error", err)
+		duration = 10 * time.Minute
+	}
 	if rule.RequestsPerUnit != 0 {
 		rt := middlewares.RateLimit{
-			Unit:       rule.Unit,
-			Id:         util.Slug(route.Name),
-			Requests:   rule.RequestsPerUnit,
-			Origins:    route.Cors.Origins,
-			Hosts:      route.Hosts,
-			RedisBased: redisBased,
-			PathBased:  true,
-			Paths:      util.AddPrefixPath(route.Path, mid.Paths),
+			Unit:        rule.Unit,
+			Id:          util.Slug(route.Name),
+			Requests:    rule.RequestsPerUnit,
+			Origins:     route.Cors.Origins,
+			Hosts:       route.Hosts,
+			RedisBased:  redisBased,
+			PathBased:   true,
+			Paths:       util.AddPrefixPath(route.Path, mid.Paths),
+			BanAfter:    rule.BanAfter,
+			BanDuration: duration,
 		}
 		limiter := rt.NewRateLimiterWindow()
 		router.Use(limiter.RateLimitMiddleware())

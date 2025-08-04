@@ -102,7 +102,7 @@ type CacheItem struct {
 func (c *Cache) GetTTL(ctx context.Context, key string) time.Duration {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.redisBased {
+	if c.redisBased && RedisClient != nil {
 		ttl, err := RedisClient.TTL(ctx, key).Result()
 		if err != nil {
 			logger.Error("Failed to get TTL", "error", err)
@@ -123,7 +123,7 @@ func (c *Cache) GetTTL(ctx context.Context, key string) time.Duration {
 func (c *Cache) evictOldest() {
 	var oldestKey string
 	var oldestTime time.Time
-	if c.redisBased {
+	if c.redisBased && RedisClient != nil {
 		// Remove from Redis.
 		RedisClient.Del(context.Background(), oldestKey)
 		logger.Debug("Evicted item", "key", oldestKey)
@@ -154,7 +154,7 @@ func (c *Cache) evictOldest() {
 // Get retrieves an item from Redis or the in-memory cache with max-stale support.
 func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, time.Duration, bool) {
 	ttl := c.GetTTL(ctx, key)
-	if c.redisBased {
+	if c.redisBased && RedisClient != nil {
 		//  check Redis.
 		val, err := RedisClient.HGetAll(ctx, key).Result()
 		if errors.Is(err, redis.Nil) {
@@ -259,7 +259,7 @@ func (c *Cache) Set(ctx context.Context, key string, response []byte, contentTyp
 func (c *Cache) Delete(ctx context.Context, key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.redisBased {
+	if c.redisBased && RedisClient != nil {
 		if err := RedisClient.Del(ctx, key).Err(); err != nil {
 			return err
 		}
@@ -352,7 +352,6 @@ func isExcludedResponseCode(statusCode int, excludedCodes []int) bool {
 
 // parseMaxStale extracts the max-stale value from the Cache-Control header
 func parseMaxStale(cacheControl string) time.Duration {
-	// Example Cache-Control header: "max-stale=60"
 	if cacheControl == "" {
 		return 0
 	}

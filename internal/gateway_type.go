@@ -26,7 +26,7 @@ type Gateway struct {
 	// TLS specifies a list of tls certificate, cert and key
 	TLS TLS `yaml:"tls,omitempty"`
 	// Redis contains the configuration details for the Redis database.
-	Redis Redis `yaml:"redis,omitempty"`
+	Redis middlewares.Redis `yaml:"redis,omitempty"`
 	// WriteTimeout defines the timeout (in seconds) for writing responses to clients.
 	// Deprecated
 	WriteTimeout int `yaml:"writeTimeout,omitempty" env:"GOMA_WRITE_TIMEOUT, overwrite"`
