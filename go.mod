@@ -7,7 +7,7 @@ require (
 	github.com/go-acme/lego/v4 v4.25.1
 	github.com/go-ldap/ldap/v3 v3.4.11
 	github.com/go-redis/redis_rate/v10 v10.0.1
-	github.com/golang-jwt/jwt/v5 v5.2.3
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jkaninda/go-utils v0.1.1
