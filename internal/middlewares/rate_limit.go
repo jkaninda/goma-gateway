@@ -18,7 +18,6 @@
 package middlewares
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
@@ -59,7 +58,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 
 			// Redis-based rate limiting
 			if rl.redisBased && rl.redis != nil {
-				if err = redisRateLimiter(clientID, rl.unit, rl.requests); err != nil {
+				if err = rl.redisRateLimiter(clientID); err != nil {
 					rl.registerStrike(clientIP)
 					logger.Warn("RateLimit:: Too many requests", "ip", clientIP, "url", r.URL, "user_agent", r.UserAgent())
 					RespondWithError(w, r, http.StatusTooManyRequests, "429 Too many requests. Try again later.", nil, contentType)
@@ -102,7 +101,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 func (rl *RateLimiter) isBanned(ip string) (bool, time.Time) {
 	if rl.redisBased && rl.redis != nil {
 		key := fmt.Sprintf("rate:ban:%s", ip)
-		ttl, err := rl.redis.TTL(context.Background(), key).Result()
+		ttl, err := rl.redis.TTL(rl.ctx, key).Result()
 		if err != nil || ttl <= 0 {
 			return false, time.Time{}
 		}
@@ -123,24 +122,23 @@ func (rl *RateLimiter) registerStrike(ip string) {
 		return
 	}
 	if rl.redisBased && rl.redis != nil {
-		ctx := context.Background()
 		strikeKey := fmt.Sprintf("rate:strikes:%s", ip)
 		banKey := fmt.Sprintf("rate:ban:%s", ip)
 
 		// Increment strike count
-		count, err := rl.redis.Incr(ctx, strikeKey).Result()
+		count, err := rl.redis.Incr(rl.ctx, strikeKey).Result()
 		if err != nil {
 			logger.Error("RateLimit:: Failed to increment strike", "ip", ip, "error", err)
 			return
 		}
 
 		// Set TTL for strike
-		_ = rl.redis.Expire(ctx, strikeKey, rl.banDuration).Err()
+		_ = rl.redis.Expire(rl.ctx, strikeKey, rl.banDuration).Err()
 
 		// Ban if threshold reached
 		if int(count) >= rl.banAfter {
-			_ = rl.redis.Set(ctx, banKey, "banned", rl.banDuration).Err()
-			_ = rl.redis.Del(ctx, strikeKey).Err() // reset strikes
+			_ = rl.redis.Set(rl.ctx, banKey, "banned", rl.banDuration).Err()
+			_ = rl.redis.Del(rl.ctx, strikeKey).Err()
 			logger.Debug("RateLimit:: IP banned (redis)", "ip", ip, "duration", rl.banDuration)
 		}
 	} else {
@@ -156,19 +154,18 @@ func (rl *RateLimiter) registerStrike(ip string) {
 }
 
 // redisRateLimiter, handle rateLimit
-func redisRateLimiter(key, unit string, rate int) error {
+func (rl *RateLimiter) redisRateLimiter(key string) error {
 	var limit redis_rate.Limit
-	switch unit {
+	switch rl.unit {
 	case "hour":
-		limit = redis_rate.PerHour(rate)
+		limit = redis_rate.PerHour(rl.requests)
 	case "minute":
-		limit = redis_rate.PerMinute(rate)
+		limit = redis_rate.PerMinute(rl.requests)
 	default:
-		limit = redis_rate.PerSecond(rate)
+		limit = redis_rate.PerSecond(rl.requests)
 	}
 
-	ctx := context.Background()
-	res, err := limiter.Allow(ctx, key, limit)
+	res, err := limiter.Allow(rl.ctx, key, limit)
 	if err != nil {
 		return err
 	}
