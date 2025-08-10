@@ -19,36 +19,31 @@ package middlewares
 
 import (
 	"context"
-	"errors"
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/redis/go-redis/v9"
 )
 
-// redisRateLimiter, handle rateLimit
-func redisRateLimiter(clientIP, unit string, rate int) error {
-	limit := redis_rate.PerSecond(rate)
-	if len(unit) != 0 && unit == "hour" {
-		limit = redis_rate.PerHour(rate)
-	}
-	if len(unit) != 0 && unit == "minute" {
-		limit = redis_rate.PerMinute(rate)
-	}
-	ctx := context.Background()
-	res, err := limiter.Allow(ctx, clientIP, limit)
-	if err != nil {
-		return err
-	}
-	if res.Remaining == 0 {
-		return errors.New("requests limit exceeded")
-	}
+type Redis struct {
+	// Addr redis hostname and port number :
+	Addr           string `yaml:"addr"`
+	Password       string `yaml:"password"`
+	DB             int    `yaml:"db"`             // Redis database number (0–15)
+	FlushOnStartup bool   `yaml:"flushOnStartup"` // FlushOnStartup indicates whether to flush the Redis database on startup
 
-	return nil
 }
-func InitRedis(addr, password string) {
+
+func (r *Redis) InitRedis() {
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       0,
+		Addr:     r.Addr,
+		Password: r.Password,
+		DB:       r.DB,
 	})
 	limiter = redis_rate.NewLimiter(RedisClient)
+	if r.FlushOnStartup {
+		if err := RedisClient.FlushDBAsync(context.Background()).Err(); err != nil {
+			logger.Error("Error flushing Redis database", "error", err)
+		} else {
+			logger.Info("Redis database flushed successfully")
+		}
+	}
 }

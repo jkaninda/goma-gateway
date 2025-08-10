@@ -434,8 +434,8 @@ func (g *Gateway) Setup(conf string) *Gateway {
 }
 
 // rateLimitMiddleware returns RateLimitRuleMiddleware, error
-func (rateLimit RateLimitRuleMiddleware) validate() error {
-	if rateLimit.RequestsPerUnit == 0 {
+func (r *RateLimitRuleMiddleware) validate() error {
+	if r.RequestsPerUnit == 0 {
 		return fmt.Errorf("requests per unit not defined")
 
 	}

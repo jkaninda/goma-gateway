@@ -20,7 +20,6 @@ package middlewares
 import (
 	"fmt"
 	"net/http"
-	"time"
 )
 
 // AccessMiddleware checks if the request path is forbidden and returns 403 Forbidden
@@ -41,28 +40,4 @@ func (blockList AccessListMiddleware) AccessMiddleware(next http.Handler) http.H
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-// Allow checks if a request is allowed based on the current token bucket
-func (rl *TokenRateLimiter) Allow() bool {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-
-	// Refill tokens based on the time elapsed
-	now := time.Now()
-	elapsed := now.Sub(rl.lastRefill)
-	tokensToAdd := int(elapsed / rl.refillRate)
-	if tokensToAdd > 0 {
-		rl.tokens = min(rl.maxTokens, rl.tokens+tokensToAdd)
-		rl.lastRefill = now
-	}
-
-	// Check if there are enough tokens to allow the request
-	if rl.tokens > 0 {
-		rl.tokens--
-		return true
-	}
-
-	// Reject request if no tokens are available
-	return false
 }

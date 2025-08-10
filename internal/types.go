@@ -151,7 +151,16 @@ type OauthEndpoint struct {
 type RateLimitRuleMiddleware struct {
 	Unit            string `yaml:"unit"`
 	RequestsPerUnit int    `yaml:"requestsPerUnit"`
+	BanAfter        int    `yaml:"banAfter,omitempty"`    // Ban IP after this many failed requests
+	BanDuration     string `yaml:"banDuration,omitempty"` // Duration to ban IP
 }
+
+func (r *RateLimitRuleMiddleware) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	r.BanDuration = "10m" // Default ban duration to 10 minutes
+	type tmp RateLimitRuleMiddleware
+	return unmarshal((*tmp)(r))
+}
+
 type AccessRuleMiddleware struct {
 	StatusCode int `yaml:"statusCode,omitempty"` // HTTP Response code
 }
@@ -235,11 +244,6 @@ type Health struct {
 	Interval           string
 	HealthyStatuses    []int
 	InsecureSkipVerify bool
-}
-type Redis struct {
-	// Addr redis hostname and port number :
-	Addr     string `yaml:"addr"`
-	Password string `yaml:"password"`
 }
 
 // ExtraRouteConfig contains additional routes and middlewares directory

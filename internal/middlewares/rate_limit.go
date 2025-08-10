@@ -18,82 +18,159 @@
 package middlewares
 
 import (
+	"errors"
 	"fmt"
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/gorilla/mux"
 	"net"
 	"net/http"
 	"time"
 )
 
-// RateLimitMiddleware limits request based on the number of tokens peer minutes.
-func (rl *TokenRateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
+// RateLimitMiddleware limits request based on the number of requests peer minutes.
+func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
+	var window time.Duration
+	switch rl.unit {
+	case "hour":
+		window = time.Hour
+	case "minute":
+		window = time.Minute
+	case "second":
+		fallthrough
+	default:
+		window = time.Second
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			contentType := r.Header.Get("Content-Type")
-
-			if !rl.Allow() {
-				logger.Warn("Too many requests from this address", "ip", getRealIP(r), "url", r.URL, "user_agent", r.UserAgent())
-				// Rate limit exceeded, return a 429 Too Many Requests response
-				RespondWithError(w, r, http.StatusForbidden, fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusForbidden), nil, contentType)
-				return
-			}
-			// Proceed to the next handler if requests limit is not exceeded
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// RateLimitMiddleware limits request based on the number of requests peer minutes.
-func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
-	window := time.Second //  requests per minute
-	if len(rl.unit) != 0 && rl.unit == "hour" {
-		window = time.Hour
-	}
-	if len(rl.unit) != 0 && rl.unit == "minute" {
-		window = time.Minute
-	}
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get the client's IP address
 			clientIP, _, err := net.SplitHostPort(getRealIP(r))
 			if err != nil {
 				clientIP = getRealIP(r)
 			}
-			contentType := r.Header.Get("Content-Type")
-			clientID := fmt.Sprintf("%s-%s", rl.id, clientIP) // Generate client Id, ID+ route ID
-			if rl.redisBased {
-				err = redisRateLimiter(clientID, rl.unit, rl.requests)
-				if err != nil {
-					logger.Debug("Redis Rate limiter error", "error", err)
-					logger.Warn("Too many requests", "ip", clientIP, "url", r.URL, "user_agent", r.UserAgent())
+
+			if ok, banUntil := rl.isBanned(clientIP); ok {
+				logger.Warn("IP is banned", "ip", clientIP, "until", banUntil)
+				RespondWithError(w, r, http.StatusForbidden, "403 Forbidden: IP temporarily banned due to repeated abuse", nil, contentType)
+				return
+			}
+
+			clientID := fmt.Sprintf("%s-%s", rl.id, clientIP)
+
+			// Redis-based rate limiting
+			if rl.redisBased && rl.redis != nil {
+				if err = rl.redisRateLimiter(clientID); err != nil {
+					rl.registerStrike(clientIP)
+					logger.Warn("RateLimit:: Too many requests", "ip", clientIP, "url", r.URL, "user_agent", r.UserAgent())
+					RespondWithError(w, r, http.StatusTooManyRequests, "429 Too many requests. Try again later.", nil, contentType)
 					return
 				}
 			} else {
 				rl.mu.Lock()
 				client, exists := rl.clientMap[clientID]
-				if !exists || time.Now().After(client.ExpiresAt) {
+				now := time.Now()
+
+				if !exists || now.After(client.ExpiresAt) {
 					client = &Client{
-						RequestCount: 0,
-						ExpiresAt:    time.Now().Add(window),
+						RequestCount: 1,
+						ExpiresAt:    now.Add(window),
 					}
 					rl.clientMap[clientID] = client
+				} else {
+					client.RequestCount++
 				}
-				client.RequestCount++
+				count := client.RequestCount
 				rl.mu.Unlock()
 
-				if client.RequestCount > rl.requests {
-					logger.Warn("Too many requests from this address", "ip", clientIP, "url", r.URL, "user_agent", r.UserAgent())
-					// Update Origin Cors Headers
+				if count > rl.requests {
+					rl.registerStrike(clientIP)
+					logger.Warn("RateLimit:: Too many requests", "ip", clientIP, "url", r.URL, "user_agent", r.UserAgent())
+
 					if allowedOrigin(rl.origins, r.Header.Get("Origin")) {
 						w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 					}
-					RespondWithError(w, r, http.StatusTooManyRequests, fmt.Sprintf("%d Too many requests, API requests limit exceeded. Please try again later", http.StatusTooManyRequests), nil, contentType)
+					RespondWithError(w, r, http.StatusTooManyRequests, "429 Too many requests. Try again later.", nil, contentType)
 					return
 				}
 			}
 
-			// Proceed to the next handler if the request limit is not exceeded
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func (rl *RateLimiter) isBanned(ip string) (bool, time.Time) {
+	if rl.redisBased && rl.redis != nil {
+		key := fmt.Sprintf("rate:ban:%s", ip)
+		ttl, err := rl.redis.TTL(rl.ctx, key).Result()
+		if err != nil || ttl <= 0 {
+			return false, time.Time{}
+		}
+		return true, time.Now().Add(ttl)
+	}
+
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	banUntil, banned := rl.banList[ip]
+	if banned && time.Now().Before(banUntil) {
+		return true, banUntil
+	}
+	return false, time.Time{}
+}
+
+func (rl *RateLimiter) registerStrike(ip string) {
+	if rl.banAfter == 0 {
+		return
+	}
+	if rl.redisBased && rl.redis != nil {
+		strikeKey := fmt.Sprintf("rate:strikes:%s", ip)
+		banKey := fmt.Sprintf("rate:ban:%s", ip)
+
+		// Increment strike count
+		count, err := rl.redis.Incr(rl.ctx, strikeKey).Result()
+		if err != nil {
+			logger.Error("RateLimit:: Failed to increment strike", "ip", ip, "error", err)
+			return
+		}
+
+		// Set TTL for strike
+		_ = rl.redis.Expire(rl.ctx, strikeKey, rl.banDuration).Err()
+
+		// Ban if threshold reached
+		if int(count) >= rl.banAfter {
+			_ = rl.redis.Set(rl.ctx, banKey, "banned", rl.banDuration).Err()
+			_ = rl.redis.Del(rl.ctx, strikeKey).Err()
+			logger.Debug("RateLimit:: IP banned (redis)", "ip", ip, "duration", rl.banDuration)
+		}
+	} else {
+		rl.mu.Lock()
+		defer rl.mu.Unlock()
+		rl.strikeMap[ip]++
+		if rl.strikeMap[ip] >= rl.banAfter {
+			rl.banList[ip] = time.Now().Add(rl.banDuration)
+			delete(rl.strikeMap, ip)
+			logger.Debug("RateLimit:: IP banned (memory)", "ip", ip, "duration", rl.banDuration)
+		}
+	}
+}
+
+// redisRateLimiter, handle rateLimit
+func (rl *RateLimiter) redisRateLimiter(key string) error {
+	var limit redis_rate.Limit
+	switch rl.unit {
+	case "hour":
+		limit = redis_rate.PerHour(rl.requests)
+	case "minute":
+		limit = redis_rate.PerMinute(rl.requests)
+	default:
+		limit = redis_rate.PerSecond(rl.requests)
+	}
+
+	res, err := limiter.Allow(rl.ctx, key, limit)
+	if err != nil {
+		return err
+	}
+	if res.Remaining == 0 {
+		return errors.New("requests limit exceeded")
+	}
+	return nil
 }
