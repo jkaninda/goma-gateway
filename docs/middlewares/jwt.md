@@ -14,7 +14,7 @@ The **JWT Middleware** validates JSON Web Tokens (JWT) in incoming requests to e
 ```yaml
 middlewares:
   - name: jwt-auth
-    type: jwt
+    type: jwtAuth
     paths: ["/*"]
     rule:
       secret: "your-secret-key-here"
@@ -155,7 +155,7 @@ forwardHeaders:
 ```yaml
 middlewares:
   - name: simple-jwt
-    type: jwt
+    type: jwtAuth
     paths: ["/api/*"]
     rule:
       secret: "your-256-bit-secret"
@@ -168,7 +168,7 @@ middlewares:
 ```yaml
 middlewares:
   - name: enterprise-jwt
-    type: jwt
+    type: jwtAuth
     paths: ["/*"]
     rule:
       jwksUrl: "https://auth.company.com/.well-known/jwks.json"
@@ -193,7 +193,7 @@ middlewares:
 ```yaml
 middlewares:
   - name: tenant-jwt
-    type: jwt
+    type: jwtAuth
     paths: ["/tenant/*/api/*"]
     rule:
       publicKey: "/etc/ssl/jwt-public.pem"

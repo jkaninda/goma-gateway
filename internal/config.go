@@ -486,7 +486,7 @@ func (u UserAgentBlockRuleMiddleware) validate() error {
 }
 
 // validate validates BasicRuleMiddleware
-func (basicAuth BasicRuleMiddleware) validate() error {
+func (basicAuth *BasicRuleMiddleware) validate() error {
 	if len(basicAuth.Users) == 0 {
 		return fmt.Errorf("empty users in basic auth middlewares")
 	}
@@ -495,15 +495,25 @@ func (basicAuth BasicRuleMiddleware) validate() error {
 			return fmt.Errorf("empty username or password in basic auth middlewares")
 		}
 	}
+	for index, user := range basicAuth.Users {
+		basicAuth.Users[index].Username = util.ReplaceEnvVars(user.Username)
+		basicAuth.Users[index].Password = util.ReplaceEnvVars(user.Password)
+	}
 	return nil
 }
-func (l LdapRuleMiddleware) validate() error {
+func (l *LdapRuleMiddleware) validate() error {
 	if l.URL == "" {
 		return fmt.Errorf("LDAP URL is required")
 	}
 	if l.BaseDN == "" {
 		return fmt.Errorf("LDAP BaseDN is required")
 	}
+	// ReplaceEnvVars
+	l.URL = util.ReplaceEnvVars(l.URL)
+	l.BaseDN = util.ReplaceEnvVars(l.BaseDN)
+	l.BindDN = util.ReplaceEnvVars(l.BindDN)
+	l.BindPass = util.ReplaceEnvVars(l.BindPass)
+	l.UserFilter = util.ReplaceEnvVars(l.UserFilter)
 	return nil
 }
 func (a AccessPolicyRuleMiddleware) validate() error {

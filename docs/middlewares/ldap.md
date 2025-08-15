@@ -39,7 +39,7 @@ middlewares:
     paths:
       - /*
     rule:
-      url: ldap://ldap.example.com:389
+      url: ldap://ldap.example.com:389 # or use env ${ENV_NAME}
       baseDN: dc=example,dc=com
       bindDN: uid=service-account,ou=people,dc=example,dc=com
       bindPass: service_account_password
@@ -166,3 +166,19 @@ routes:
       - ldap-auth         # Then authenticate
       - audit-log         # Finally log access
 ```
+
+### Environment Variables
+
+Use environment variables for sensitive configuration:
+
+```yaml
+middlewares:
+  - name: ldap-auth
+    type: ldap
+    rule:
+      url: ${LDAP_URL}
+      bindDN: ${LDAP_BIND_DN}
+      bindPass: ${LDAP_BIND_PASSWORD}
+      # ... other configuration
+```
+
