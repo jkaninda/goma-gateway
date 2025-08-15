@@ -46,64 +46,90 @@ Architecture:
 ---
 ## Features
 
-A modern, developer-friendly API Gateway built for simplicity, security, and scale. More than just a reverse proxy — Goma streamlines service infrastructure management with declarative configuration and enterprise-grade features.
-
-## Core Features
-
-**Routing & Traffic Management**
-- RESTful API gateway with declarative YAML configuration
-- Flexible Routing – Domain, host, path, WebSocket, gRPC, TCP/UDP.
-- Multi-Domain Support – Unified config for multiple domains.
-- Reverse proxy with seamless backend abstraction
-- Traffic Control – Rate limiting, load balancing, health checks.
-
-**Security & Access Control**
-- Automatic HTTPS with Let's Encrypt or custom TLS certificates
-- Mutual TLS (mTLS) for certificate-based client authentication
-- Authentication: Built-in Basic Auth, JWT, OAuth, LDAP, ForwardAuth
-- CORS policies, custom header injection, and access controls
-- Exploit protection (SQL injection, XSS), bot detection
-- HTTP method restrictions and regex URL rewriting
-
-**Performance & Reliability**
-- HTTP caching (in-memory or Redis) with smart invalidation
-- Load balancing: round-robin, weighted with health checks
-- Rate limiting: IP-based throttling with Redis clustering
-- Scalable Rate Limiting – Local or Redis-based, with automatic banning for repeated excessive requests
-
-**Operations & Monitoring**
-- Live configuration reload — zero downtime updates
-- Comprehensive logging with configurable levels
-- Prometheus/Grafana metrics integration
-- Backend error interception and graceful handling
-
-**Cloud-Native Integration**
-- Kubernetes CRD support for native resource management
-- GitOps Friendly – Version-controlled configs and automated deployments.
-- Modular config files for organized route management
-- Horizontal scalability with dynamic backend management
-- Zero-Downtime Updates – Modify routes or middleware on the fly.
-
-## Why Choose Goma Gateway?
-
-### **Developer Experience First**
-Clean YAML configuration that's intuitive and maintainable. Single-file or multi-file setups — your choice.
-
-### **Security by Design**
-Enterprise-grade security isn't optional — it's built-in. From automatic HTTPS to exploit protection, Goma secures your infrastructure out of the box.
-
-### **Zero-Downtime Operations**
-Live reload capabilities mean configuration changes deploy instantly. Perfect for CI/CD pipelines and production environments.
-
-### **Full Observability**
-Complete visibility with structured logging, metrics, and monitoring integration. Know what's happening across your gateway infrastructure.
-
-### **Cloud-Native Ready**
-Kubernetes CRDs make Goma a first-class citizen in your cloud infrastructure. GitOps workflows supported natively.
+**Goma Gateway** is a modern, developer-friendly API Gateway built for simplicity, security, and scale.
+More than just a reverse proxy, it streamlines service infrastructure management with **declarative configuration** and **enterprise-grade features**.
 
 
+## Core Capabilities
 
-**Perfect for:** Public APIs, internal microservices, legacy system modernization, and any infrastructure requiring secure, scalable traffic management.
+### **Routing & Traffic Management**
+
+* Declarative **YAML-based configuration**
+* Flexible routing for **domains, hosts, paths, WebSocket, gRPC, TCP/UDP**
+* Multi-domain & multi-service support in one config
+* Reverse proxy with backend abstraction
+* Traffic control: **rate limiting, load balancing, health checks**
+
+### **Security & Access Control**
+
+* Automatic HTTPS via **Let’s Encrypt** or custom TLS
+* **Mutual TLS (mTLS)** for client certificate authentication
+* Built-in authentication: **Basic Auth, JWT, OAuth, LDAP, ForwardAuth**
+* CORS policies, header injection, fine-grained access control
+* Exploit protection: **SQL injection, XSS**, and bot detection
+* Method restrictions and regex-based URL rewriting
+
+### **Performance & Reliability**
+
+* **HTTP caching** (in-memory or Redis) with smart invalidation
+* Load balancing: round-robin, weighted, with health checks
+* Scalable rate limiting: local or Redis-based
+  *(with automatic banning for repeated abuse)*
+
+### **Operations & Monitoring**
+
+* Zero-downtime config reloads
+* Structured logging with configurable levels
+* Prometheus/Grafana metrics
+* Graceful error handling and backend failure interception
+
+### **Cloud-Native Integration**
+
+* Kubernetes CRD support for native resource management
+* GitOps-friendly with version-controlled configs
+* Modular config files for organized route management
+* Horizontal scalability & dynamic backend updates
+
+---
+
+## Why Goma Gateway?
+
+### **1. Simple, Declarative Configuration**
+
+Write clear YAML for routes, middleware, policies, and TLS.
+Supports single-file or multi-file setups, intuitive and maintainable.
+
+### **2. Security First**
+
+* Auto HTTPS & mTLS
+* Multiple authentication methods
+* Built-in exploit prevention
+* Fine-grained access control
+* Scalable rate limiting with abuse detection
+
+### **3. Multi-Domain & Smart Routing**
+
+Handle REST APIs, WebSocket, gRPC, or static content with intelligent host & path routing.
+
+### **4. Live Reload & GitOps Ready**
+
+Apply changes instantly without restarts — perfect for CI/CD pipelines.
+
+### **5. Full Observability**
+
+* Structured logging
+* Prometheus metrics
+* Grafana dashboards
+
+### **6. Built for Speed**
+
+* Intelligent HTTP caching
+* Advanced load balancing
+* Health-aware backend routing
+
+
+**Perfect for:** Public APIs, internal microservices, legacy modernization, or any project requiring secure, scalable traffic management.
+
 
 ---
 ## Quickstart Guide
