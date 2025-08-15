@@ -21,6 +21,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/util"
 	"sort"
 )
 
@@ -72,7 +73,7 @@ func (g *GatewayServer) Initialize() error {
 	// Redis check
 	if len(gateway.Redis.Addr) > 0 {
 		redisBased = true
-		logger.Debug("Redis enabled", "address", gateway.Redis.Addr)
+		logger.Debug("Redis enabled", "address", util.ReplaceEnvVars(gateway.Redis.Addr))
 	}
 
 	// Route sorting

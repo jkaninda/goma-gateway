@@ -68,7 +68,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 			return nil, err
 
 		}
-		logger.Info("Using configuration", "file", ConfigFile)
+		logger.Info("Using default configuration", "file", ConfigFile)
 		util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
@@ -96,7 +96,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("Generating new configuration file...done", "file", configFile)
+	logger.Info("Generating new configuration file...done", "file", ConfigFile)
 	util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 	buf, err := os.ReadFile(ConfigFile)
 	if err != nil {
@@ -486,7 +486,7 @@ func (u UserAgentBlockRuleMiddleware) validate() error {
 }
 
 // validate validates BasicRuleMiddleware
-func (basicAuth BasicRuleMiddleware) validate() error {
+func (basicAuth *BasicRuleMiddleware) validate() error {
 	if len(basicAuth.Users) == 0 {
 		return fmt.Errorf("empty users in basic auth middlewares")
 	}
@@ -495,15 +495,25 @@ func (basicAuth BasicRuleMiddleware) validate() error {
 			return fmt.Errorf("empty username or password in basic auth middlewares")
 		}
 	}
+	for index, user := range basicAuth.Users {
+		basicAuth.Users[index].Username = util.ReplaceEnvVars(user.Username)
+		basicAuth.Users[index].Password = util.ReplaceEnvVars(user.Password)
+	}
 	return nil
 }
-func (l LdapRuleMiddleware) validate() error {
+func (l *LdapRuleMiddleware) validate() error {
 	if l.URL == "" {
 		return fmt.Errorf("LDAP URL is required")
 	}
 	if l.BaseDN == "" {
 		return fmt.Errorf("LDAP BaseDN is required")
 	}
+	// ReplaceEnvVars
+	l.URL = util.ReplaceEnvVars(l.URL)
+	l.BaseDN = util.ReplaceEnvVars(l.BaseDN)
+	l.BindDN = util.ReplaceEnvVars(l.BindDN)
+	l.BindPass = util.ReplaceEnvVars(l.BindPass)
+	l.UserFilter = util.ReplaceEnvVars(l.UserFilter)
 	return nil
 }
 func (a AccessPolicyRuleMiddleware) validate() error {

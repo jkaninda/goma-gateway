@@ -19,6 +19,7 @@ package util
 
 import (
 	"fmt"
+	"github.com/jkaninda/logger"
 	"net/url"
 	"os"
 	"regexp"
@@ -28,6 +29,8 @@ import (
 
 	"github.com/robfig/cron/v3"
 )
+
+var envPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
 
 // FileExists checks if the file does exist
 func FileExists(filename string) bool {
@@ -327,4 +330,20 @@ func RemoveDuplicates[T comparable](elements []T) []T {
 	}
 
 	return result
+}
+
+// ReplaceEnvVars replaces ${VAR} with the environment variable value if present
+func ReplaceEnvVars(s string) string {
+	if !envPattern.MatchString(s) {
+		logger.Debug("No env pattern found")
+		return s
+	}
+	return envPattern.ReplaceAllStringFunc(s, func(match string) string {
+		name := envPattern.FindStringSubmatch(match)[1]
+		if val, ok := os.LookupEnv(name); ok {
+			return val
+		}
+		logger.Error("No environment variable found", "env", name)
+		return match
+	})
 }

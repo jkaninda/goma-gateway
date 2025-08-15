@@ -18,6 +18,7 @@ With Goma, you can create custom middleware tailored to your needs and apply the
   - **ForwardAuth**: delegates authorization to a backend service, determining access based on the service's HTTP response.
   - **Basic-Auth**: Verifies credentials through Basic Authentication.
   - **OAuth**: Supports OAuth-based authentication flows.
+  - **LDAP**: servers with HTTP Basic Authentication
 
 - **Rate Limiting Middleware**
   - **In-Memory Client IP Based**: Throttles requests based on the client’s IP address using an in-memory store.

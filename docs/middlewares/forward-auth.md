@@ -5,150 +5,265 @@ parent: Middlewares
 nav_order: 5
 ---
 
-### ForwardAuth Middleware
+# ForwardAuth Middleware
 
-The **ForwardAuth middleware** delegates authorization to a backend service, determining access based on the service's HTTP response.
+The ForwardAuth middleware delegates authentication and authorization decisions to an external service, enabling centralized access control for your applications. This pattern is particularly useful for implementing Single Sign-On (SSO) and centralized authentication across multiple services.
 
----
+## Overview
 
-### How It Works
+The middleware intercepts incoming requests and forwards them to a designated authentication service. Based on the authentication service's response, it either allows the request to proceed or blocks it with an appropriate error or redirect response.
 
-1. **Authorization Process**
-   - The middleware sends incoming requests to the authentication service specified by `authUrl`.
-   - The decision to allow or deny access is based on the service's response:
-      - **200 (OK)**: Access is granted.
-      - **401 (Unauthorized)** or **403 (Forbidden)**:
-         - Access is denied, and the response status is returned.
-         - If `authSignIn` is configured, the client is redirected to this URL.
-      - **Other Response Codes**: Treated as errors, and access is denied.
+### Authentication Flow
 
-2. **Backend Dependency**
-   - The middleware requires a functioning backend authentication service to process requests and enforce authorization logic.
+1. **Request Interception**: The middleware captures incoming requests matching configured paths
+2. **Forward to Auth Service**: Sends the request details to the configured authentication service
+3. **Decision Based on Response**:
+    - **200 OK**: Request is authenticated and forwarded to the backend
+    - **401/403**: Access denied, optionally redirects to sign-in page
+    - **Other codes**: Treated as authentication errors, access denied
 
----
+## Configuration
 
-### Key Features
-
-- **`Rule`**: Defines path-matching logic for applying the middleware. To block all subpaths, use `/*` at the end of the path.
-- **`AuthUrl`**: The URL of the backend authentication service.
-- **`AuthSignIn`**: The redirect URL used when the authentication service returns a `401` status.
-  - This is optional and can be omitted if no sign-in URL is required. 
-  - To redirect to the current URL after successful authentication, pass it as a query parameter (e.g., http://authentik.company:9000/outpost.goauthentik.io/start?rd=). Goma Gateway will automatically append the current URL to the `rd` query parameter.
-- **`insecureSkipVerify`**: If set to `true`, skips SSL certificate verification for the authentication service. This is useful for development or self-signed certificates but should be avoided in production environments.
-- **`forwardHostHeaders`**: Forwards the `Host` header from the original request.
-- **`AuthRequestHeaders`**: Specifies request headers to copy into the authentication request.
-- **`AddAuthCookiesToResponse`**: Adds selected authentication cookies to the response headers. If not specified, all authentication cookies are copied by default.
-- **`AuthResponseHeaders`**: Maps headers from the authentication service response to request headers. Custom mappings can be defined using the format `"auth_header: request_header"`.
-- **`AuthResponseHeadersAsParams`**: Copies authentication service response headers into request parameters. Custom parameter names can be defined using the format `"header: parameter"`.
-
-### Forwarded headers
-
-The following headers are automatically forwarded:
-
-- `X-Forwarded-Host`
-- `X-Forwarded-Method`
-- `X-Forwarded-Proto`
-- `X-Forwarded-For`
-- `X-Real-IP`
-- `User-Agent`
-- `X-Original-URL`
-- `X-Forwarded-URI`
-
----
-
-### Example Configuration
-
-Below is an example of a complete configuration for the ForwardAuth middleware:
+### Basic Configuration
 
 ```yaml
 middlewares:
   - name: forward-auth
     type: forwardAuth
     paths:
-      - /*
+      - /admin
     rule:
-      # URL of the backend authentication service
-      authUrl: http://authentication-service:8080/auth/verify
-      
-      # Redirect URL when response status is 401
-      authSignIn: http://authentication-service:8080/auth/signin?rd=
-      
-      # Skip SSL certificate verification
-      insecureSkipVerify: true
-      
-      # Forward the original Host header
-      forwardHostHeaders: true
-      
-      # Headers to include in the authentication request
-      authRequestHeaders:
-        - Authorization
-        - X-Auth-UserId
-      
-      # Authentication cookies to include in the response
-      addAuthCookiesToResponse:
-        - X-Auth-UserId
-        - X-Token
-      # Map authentication response headers to request headers
-      authResponseHeaders:
-        - "auth_userId: X-Auth-UserId" # Custom mapping
-        - X-Auth-UserCountryId # Direct mapping
-        - X-Token # Direct mapping
-      
-      # Map authentication response headers to request parameters
-      authResponseHeadersAsParams:
-        - "X-Auth-UserId: userId" # Custom mapping
-        - X-Token:token # Custom mapping
-        - X-Auth-UserCountryId # Direct mapping
+      authUrl: http://auth-service:8080/verify
 ```
 
----
-### Example  forwardAuth with Authentik
+### Configuration Parameters
+
+| Parameter                     | Type    | Required | Default     | Description                                                                                                                                                     |
+|-------------------------------|---------|----------|-------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `authUrl`                     | string  | Yes      | -           | URL of the authentication service endpoint                                                                                                                      |
+| `authSignIn`                  | string  | No       | -           | Redirect URL for unauthenticated users (401 responses).<br/> If URL ends with a query parameter (e.g., ?rd=), the current request URL is automatically appended |
+| `insecureSkipVerify`          | boolean | No       | `false`     | Skip SSL certificate verification for auth service                                                                                                              |
+| `forwardHostHeaders`          | boolean | No       | `false`     | Forward the original `Host` header to auth service                                                                                                              |
+| `authRequestHeaders`          | array   | No       | `[]`        | Request headers to include in auth requests                                                                                                                     |
+| `addAuthCookiesToResponse`    | array   | No       | all cookies | Auth cookies to include in response headers                                                                                                                     |
+| `authResponseHeaders`         | array   | No       | `[]`        | Map auth response headers to request headers                                                                                                                    |
+| `authResponseHeadersAsParams` | array   | No       | `[]`        | Map auth response headers to request parameters                                                                                                                 |
+
+### Path Configuration
+
+The `paths` field supports flexible pattern matching:
+
+- **Exact paths**: `/admin`, `/api/users`
+- **Wildcard patterns**: `/admin/*`, `/api/*/users`
+- **Regex patterns**: `/api/v[0-9]+/.*`
+
+## Automatically Forwarded Headers
+
+The middleware automatically includes these headers in authentication requests:
+
+- `X-Forwarded-Host` - Original request host
+- `X-Forwarded-Method` - HTTP method of original request
+- `X-Forwarded-Proto` - Protocol (http/https) of original request
+- `X-Forwarded-For` - Client IP address chain
+- `X-Real-IP` - Real client IP address
+- `User-Agent` - Client user agent string
+- `X-Original-URL` - Complete original request URL
+- `X-Forwarded-URI` - Original request URI
+
+## Advanced Configuration Examples
+
+### Complete ForwardAuth Setup
 
 ```yaml
-
-version: "1.0"
-gateway:
-    writeTimeout: 10
-    readTimeout: 15
-    idleTimeout: 30
-    routes:
-        - path: /
-          name: my-app
-          backends:
-           - endpoint: https://example.com
-          # Protect the route with forwardAuth
-          middlewares:
-            - example-forward-auth
-        - path: /outpost.goauthentik.io
-          name: authentik-outpost
-          backends:
-           - endpoint: http://authentik-outpost:9000
-          cors: {}
-          # all requests to /outpost.goauthentik.io must be accessible without authentication
-          middlewares: []
-    middlewares:
-        - name: example-forward-auth
-          type: forwardAuth
-          paths:
-            - /admin
-          rule:
-            authUrl: http://authentik.company:9000:9000/outpost.goauthentik.io/auth/nginx
-            # forward 
-            authSignIn: http://authentik.company:9000/outpost.goauthentik.io/start?rd=
-            # Optional
-            authResponseHeaders:
-                - X-authentik-username
-                - X-authentik-groups
-                - X-authentik-email
-                - X-authentik-name
-                - X-authentik-jwt
-            forwardHostHeaders: true
-            insecureSkipVerify: false
+middlewares:
+  - name: comprehensive-auth
+    type: forwardAuth
+    paths:
+      - /admin/*
+      - /api/private/*
+    rule:
+      authUrl: http://auth-service:8080/auth/verify
+      # Redirect URL - current URL automatically appended to 'redirect=' parameter
+      authSignIn: http://auth-service:8080/login?redirect=
+      insecureSkipVerify: false
+      forwardHostHeaders: true
+      
+      # Include specific headers in auth requests
+      authRequestHeaders:
+        - Authorization
+        - X-API-Key
+        - X-Client-Version
+      
+      # Control which auth cookies are returned
+      addAuthCookiesToResponse:
+        - session_id
+        - auth_token
+      
+      # Map auth service headers to request headers
+      authResponseHeaders:
+        - "x-user-id: X-Auth-User-ID"        # Custom mapping
+        - "x-user-roles: X-Auth-Roles"       # Custom mapping  
+        - X-Auth-Email                       # Direct mapping
+      
+      # Add auth headers as request parameters
+      authResponseHeadersAsParams:
+        - "x-user-id: userId"                # Custom parameter name
+        - "x-user-roles: userRoles"          # Custom parameter name
+        - X-Auth-Email                       # Direct mapping
 ```
 
-### Notes
+### Authentik Integration Example
 
-- Use the ForwardAuth middleware to delegate access control and protect endpoints effectively.
-- Ensure `AuthUrl` and associated configurations align with your backend authentication service's API.
-- **Paths**: The `paths` field supports regex patterns for flexible route matching. 
-- Test configurations in a secure environment to validate proper integration before deploying to production.
+```yaml
+version: "1.0"
+gateway:
+  writeTimeout: 10
+  readTimeout: 15
+  idleTimeout: 30
+  
+  routes:
+    # Protected application route
+    - path: /
+      name: protected-app
+      backends:
+        - endpoint: https://internal-app.example.com
+      middlewares:
+        - authentik-forward-auth
+    
+    # Authentik outpost route (must be unprotected)
+    - path: /outpost.goauthentik.io
+      name: authentik-outpost
+      backends:
+        - endpoint: http://authentik-outpost:9000
+      middlewares: []  # No auth middleware for outpost endpoints
+  
+  middlewares:
+    - name: authentik-forward-auth
+      type: forwardAuth
+      paths:
+        - /admin
+      rule:
+        authUrl: http://authentik:9000/outpost.goauthentik.io/auth/nginx
+        # Redirect URL - current URI automatically appended to 'rd=' parameter
+        authSignIn: http://authentik:9000/outpost.goauthentik.io/start?rd=
+        forwardHostHeaders: true
+        insecureSkipVerify: false
+        
+        # Include Authentik user information in requests
+        authResponseHeaders:
+          - X-authentik-username
+          - X-authentik-groups  
+          - X-authentik-email
+          - X-authentik-name
+          - X-authentik-uid
+          - X-authentik-jwt
+```
+
+### Development Environment Setup
+
+```yaml
+middlewares:
+  - name: dev-auth
+    type: forwardAuth
+    paths:
+      - /admin/*
+    rule:
+      authUrl: https://dev-auth.local:8443/verify
+      authSignIn: https://dev-auth.local:8443/login?next=
+      insecureSkipVerify: true  # OK for development only
+      forwardHostHeaders: true
+      
+      authRequestHeaders:
+        - Authorization
+        - X-Debug-User
+      
+      authResponseHeaders:
+        - "x-dev-user: X-Auth-User"
+        - X-Auth-Roles
+```
+
+## Header Mapping Syntax
+
+### Direct Mapping
+When no custom mapping is specified, headers are passed through directly:
+```yaml
+authResponseHeaders:
+  - X-User-ID      # Auth service header X-User-ID → Request header X-User-ID
+  - X-User-Roles   # Auth service header X-User-Roles → Request header X-User-Roles
+```
+
+### Custom Mapping
+Use colon syntax to map auth service headers to different request header names:
+```yaml
+authResponseHeaders:
+  - "auth-user-id: X-Current-User"     # auth-user-id → X-Current-User
+  - "auth-permissions: X-User-Perms"   # auth-permissions → X-User-Perms
+```
+
+### Parameter Mapping
+Similar syntax applies to parameter mappings:
+```yaml
+authResponseHeadersAsParams:
+  - "X-User-ID: currentUserId"         # Header X-User-ID → Parameter currentUserId
+  - "X-User-Roles: roles"              # Header X-User-Roles → Parameter roles
+  - X-User-Email                       # Header X-User-Email → Parameter X-User-Email
+```
+
+## Authentication Service Requirements
+
+### Response Codes
+Your authentication service should return:
+- **200 OK**: User is authenticated and authorized
+- **401 Unauthorized**: User is not authenticated (triggers redirect if `authSignIn` configured)
+- **403 Forbidden**: User is authenticated but not authorized for this resource
+- **Other codes**: Treated as errors, access denied
+
+### Expected Headers
+The auth service receives forwarded headers and can use them for decision-making:
+- Use `X-Original-URL` for path-based authorization
+- Use `X-Forwarded-Method` for method-based rules
+- Use custom headers specified in `authRequestHeaders`
+
+### Response Headers
+The auth service can include headers in responses that will be:
+- Mapped to request headers via `authResponseHeaders`
+- Added as request parameters via `authResponseHeadersAsParams`
+- Set as cookies via `addAuthCookiesToResponse`
+
+
+## Security Considerations
+
+### SSL/TLS Configuration
+- Always use HTTPS for production authentication services
+- Set `insecureSkipVerify: false` in production environments
+- Use proper SSL certificates to prevent man-in-the-middle attacks
+
+### Header Security
+- Validate and sanitize headers in your authentication service
+- Be cautious about which headers you forward to backend services
+- Consider header injection risks when mapping auth response headers
+
+### Redirect Security
+- Validate redirect URLs to prevent open redirect vulnerabilities
+- Use allowlisted domains for `authSignIn` URLs
+- Consider implementing CSRF protection for authentication flows
+
+## Troubleshooting
+
+### Common Issues
+
+**Authentication loops or repeated redirects**
+- Check that auth service endpoints are excluded from protection
+- Verify `authSignIn` URL is accessible without authentication
+- Ensure auth service doesn't redirect authenticated requests
+
+**Headers not being forwarded**
+- Verify header names match exactly (case-sensitive)
+- Check that auth service is returning expected headers
+- Confirm header mapping syntax is correct
+
+**SSL/Certificate errors**
+- Verify SSL certificates are valid and trusted
+- Check if `insecureSkipVerify` should be enabled temporarily for debugging
+- Ensure auth service is accessible at the configured URL
+

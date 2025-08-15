@@ -20,6 +20,7 @@ package middlewares
 import (
 	"context"
 	"github.com/go-redis/redis_rate/v10"
+	"github.com/jkaninda/goma-gateway/util"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -34,8 +35,8 @@ type Redis struct {
 
 func (r *Redis) InitRedis() {
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr:     r.Addr,
-		Password: r.Password,
+		Addr:     util.ReplaceEnvVars(r.Addr),
+		Password: util.ReplaceEnvVars(r.Password),
 		DB:       r.DB,
 	})
 	limiter = redis_rate.NewLimiter(RedisClient)

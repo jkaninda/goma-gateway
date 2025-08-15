@@ -142,7 +142,7 @@ func (pr *ProxyRoute) createProxy(r *http.Request, contentType string, w http.Re
 	if len(pr.backends) == 0 || len(pr.backends) == 1 {
 		if len(pr.backends) == 1 {
 			pr.target = pr.backends[0].Endpoint
-			logger.Info("Using single backend proxy", "backends", len(pr.backends))
+			logger.Debug("Using single backend proxy", "backends", len(pr.backends))
 		}
 		logger.Debug("Using  single backend proxy ", "target", pr.target)
 		return pr.createSingleHostProxy(r, contentType, w)
