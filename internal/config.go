@@ -68,7 +68,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 			return nil, err
 
 		}
-		logger.Info("Using configuration", "file", ConfigFile)
+		logger.Info("Using default configuration", "file", ConfigFile)
 		util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
@@ -96,7 +96,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("Generating new configuration file...done", "file", configFile)
+	logger.Info("Generating new configuration file...done", "file", ConfigFile)
 	util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
 	buf, err := os.ReadFile(ConfigFile)
 	if err != nil {

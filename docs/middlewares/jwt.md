@@ -7,101 +7,203 @@ nav_order: 13
 
 # JWT Middleware
 
-The **JWT Middleware** validates JSON Web Tokens (JWT) in incoming requests based on your configuration. It ensures that only requests with a valid authorization token are forwarded to upstream services.
+The **JWT Middleware** validates JSON Web Tokens (JWT) in incoming requests to ensure only authenticated requests reach your upstream services. It provides flexible authentication methods and advanced claim validation capabilities.
 
-The middleware supports validation using one of the following:
-
-* **Shared Secret**
-* **Public Key**
-* **JWKS URL**
-* **JWKS File**
-
-> ⚠️ **Required**: You must specify **one** of: `secret`, `publicKey`, `jwksUrl`, or `jwksFile`.
-
----
-
-## Configuration Options
-
-| Option                              | Description                                                                         |
-|-------------------------------------|-------------------------------------------------------------------------------------|
-| `secret`                            | Shared secret key for HMAC algorithms (e.g., HS256).                                |
-| `publicKey`                         | PEM-formatted public key content, a path to a PEM file, or a base64-encoded key.    |
-| `jwksFile`                          | File path or content (raw or base64) of a JWKS (JSON Web Key Set).                  |
-| `jwksUrl`                           | URL of a JWKS endpoint to dynamically fetch public keys.                            |
-| `algo` *(optional)*                 | Expected JWT algorithm (e.g., `RS256`, `HS512`). Recommended for enhanced security. |
-| `issuer` *(optional)*               | Expected value of the `iss` claim.                                                  |
-| `audience` *(optional)*             | Expected value of the `aud` claim.                                                  |
-| `claimsExpression` *(optional)*     | Boolean expression for validating claims using logical operators and functions.     |
-| `forwardHeaders` *(optional)*       | Map of claim names to custom headers (supports dot notation for nested claims).     |
-| `forwardAuthorization` *(optional)* | Boolean indicating whether to forward the `Authorization` header upstream.          |
-
----
-
-## Example Configurations
-
-### Minimal Example (Using a Shared Secret)
+## Quick Start
 
 ```yaml
 middlewares:
-  - name: jwt
+  - name: jwt-auth
     type: jwt
     paths: ["/*"]
     rule:
-      secret: MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo...
-      algo: "HS256"  # Optional but recommended
+      secret: "your-secret-key-here"
+      algo: "HS256"
 ```
 
-### Advanced Example (Using Claims Expression, Public Key, JWKS, and Header Forwarding)
+## Authentication Methods
+
+The middleware supports four authentication methods. **You must configure exactly one**:
+
+###  Shared Secret (HMAC)
+Use a shared secret key for HMAC algorithms like HS256, HS384, or HS512.
 
 ```yaml
-middlewares:
-  - name: jwt
-    type: jwt
-    paths: ["/*"]
-    rule:
-      publicKey: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqh..."
-      jwksUrl: "https://example.com/.well-known/jwks.json"
-      issuer: "https://issuer.example.com"
-      algo: "RS256"
-      forwardAuthorization: false
-      claimsExpression: >
-        Equals(`email_verified`, `true`) &&
-        OneOf(`user.role`, `admin`, `owner`) &&
-        Contains(`tags`, `vip`, `premium`, `gold`)
-      forwardHeaders:
-        Role: role
-        Email: user.profile.email
+rule:
+  secret: "MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo..."
+  algo: "HS256"
 ```
 
----
+###  Public Key (RSA/ECDSA)
+Use a PEM-formatted public key for RSA or ECDSA algorithms.
 
-## Claims Expression Functions
+```yaml
+rule:
+  publicKey: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
+    -----END PUBLIC KEY-----
+  algo: "RS256"
+```
 
-These functions can be used in the `claimsExpression` field to implement complex claim validation logic.
+You can also provide:
+- **File path**: `/path/to/public-key.pem`
+- **Base64 encoded key**: `LS0tLS1CRUdJTi...`
 
-| Function   | Description                                          | Example                               |
-|------------|------------------------------------------------------|---------------------------------------|
-| `Equals`   | Checks for an exact match (supports bools/numbers)   | `Equals(`active`, true)`              |
-| `Prefix`   | Validates that a string starts with a value          | `Prefix(`email`, "admin@")`           |
-| `Contains` | Checks if a value exists in a string or array        | `Contains(`tags`, "vip")`             |
-| `OneOf`    | Matches if the claim equals one of the listed values | `OneOf(`role`, "admin", "moderator")` |
+### JWKS URL
+Dynamically fetch public keys from a JSON Web Key Set endpoint.
 
+```yaml
+rule:
+  jwksUrl: "https://your-auth-provider.com/.well-known/jwks.json"
+  algo: "RS256"
+```
+
+### JWKS File
+Use a local JWKS file for key validation.
+
+```yaml
+rule:
+  jwksFile: "/path/to/jwks.json"
+  # Or embed the content directly:
+  # jwksFile: '{"keys":[{"kty":"RSA",...}]}'
+```
+
+## Configuration Reference
+
+### Core Settings
+
+| Option      | Type   | Required | Description                                    |
+|-------------|--------|----------|------------------------------------------------|
+| `secret`    | string | *        | Shared secret for HMAC algorithms              |
+| `publicKey` | string | *        | PEM public key (content, file path, or base64) |
+| `jwksUrl`   | string | *        | URL to fetch JWKS dynamically                  |
+| `jwksFile`  | string | *        | JWKS file path or content                      |
+| `algo`      | string | No       | Expected JWT algorithm (highly recommended)    |
+
+**\* One of these four options is required**
+
+### Token Validation
+
+| Option             | Type   | Description                                    | Example                                     |
+|--------------------|--------|------------------------------------------------|---------------------------------------------|
+| `issuer`           | string | Expected `iss` claim value                     | `"https://auth.example.com"`                |
+| `audience`         | string | Expected `aud` claim value                     | `"api.example.com"`                         |
+| `claimsExpression` | string | Boolean expression for custom claim validation | See [Claims Validation](#claims-validation) |
+
+### Header Forwarding
+
+| Option                 | Type    | Description                                                              |
+|------------------------|---------|--------------------------------------------------------------------------|
+| `forwardHeaders`       | map     | Forward JWT claims as HTTP headers to upstream services                  |
+| `forwardAuthorization` | boolean | Whether to forward the original `Authorization` header (default: `true`) |
+
+## Claims Validation
+
+Use `claimsExpression` to implement complex validation logic with boolean expressions:
+
+### Available Functions
+
+| Function   | Purpose                      | Syntax                          | Example                              |
+|------------|------------------------------|---------------------------------|--------------------------------------|
+| `Equals`   | Exact match comparison       | `Equals(claim, value)`          | `Equals('email_verified', true)`     |
+| `Prefix`   | String starts with           | `Prefix(claim, prefix)`         | `Prefix('email', 'admin@')`          |
+| `Contains` | Value exists in string/array | `Contains(claim, value)`        | `Contains('roles', 'admin')`         |
+| `OneOf`    | Value matches any option     | `OneOf(claim, val1, val2, ...)` | `OneOf('plan', 'pro', 'enterprise')` |
 
 ### Logical Operators
 
-You can use the following logical operators to combine multiple expressions in `claimsExpression`:
+- `!` — NOT (highest precedence)
+- `&&` — AND (medium precedence)
+- `||` — OR (lowest precedence)
 
-* `!` — NOT
-* `&&` — AND (evaluated before OR)
-* `||` — OR (evaluated after AND)
+Use parentheses `()` to control evaluation order.
 
-**Use parentheses to group expressions and control precedence:**
+### Expression Examples
 
-```text
-(Contains(`org`, "acme") || Contains(`org`, "globex")) && Equals(`email_verified`, true)
+```yaml
+# Simple validation
+claimsExpression: "Equals('active', true)"
+
+# Multiple conditions
+claimsExpression: "Equals('email_verified', true) && OneOf('role', 'admin', 'moderator')"
+
+# Complex logic with grouping
+claimsExpression: >
+  (Contains('organizations', 'acme') || Contains('organizations', 'globex')) &&
+  Equals('email_verified', true) &&
+  !Equals('suspended', true)
 ```
 
+## Header Forwarding
 
+Forward JWT claims as HTTP headers to your upstream services:
 
+```yaml
+forwardHeaders:
+  X-User-ID: sub                    # Standard claim
+  X-User-Email: email               # Standard claim  
+  X-User-Role: user.role            # Nested claim (dot notation)
+  X-Department: profile.department  # Deeply nested claim
+  X-Is-Admin: permissions.admin     # Boolean claims become "true"/"false"
+```
 
+## Complete Examples
 
+### Basic Authentication
+
+```yaml
+middlewares:
+  - name: simple-jwt
+    type: jwt
+    paths: ["/api/*"]
+    rule:
+      secret: "your-256-bit-secret"
+      algo: "HS256"
+      issuer: "https://your-auth-service.com"
+```
+
+### Enterprise Setup with OIDC
+
+```yaml
+middlewares:
+  - name: enterprise-jwt
+    type: jwt
+    paths: ["/*"]
+    rule:
+      jwksUrl: "https://auth.company.com/.well-known/jwks.json"
+      issuer: "https://auth.company.com"
+      audience: "api.company.com"
+      algo: "RS256"
+      forwardAuthorization: false
+      claimsExpression: >
+        Equals('email_verified', true) &&
+        OneOf('department', 'engineering', 'product', 'security') &&
+        !Equals('account_disabled', true)
+      forwardHeaders:
+        X-User-ID: sub
+        X-User-Email: email
+        X-User-Name: name
+        X-User-Department: department
+        X-User-Roles: roles
+```
+
+### Multi-Tenant SaaS
+
+```yaml
+middlewares:
+  - name: tenant-jwt
+    type: jwt
+    paths: ["/tenant/*/api/*"]
+    rule:
+      publicKey: "/etc/ssl/jwt-public.pem"
+      algo: "RS256"
+      claimsExpression: >
+        Equals('email_verified', true) &&
+        Contains('scopes', 'api:read') &&
+        OneOf('tenant_role', 'admin', 'user', 'viewer')
+      forwardHeaders:
+        X-Tenant-ID: tenant_id
+        X-User-Role: tenant_role
+        X-Permissions: scopes
+```

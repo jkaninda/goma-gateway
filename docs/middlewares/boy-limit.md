@@ -7,39 +7,15 @@ nav_order: 12
 
 # Body Limit Middleware
 
-The **Body Limit Middleware** is designed to validate and restrict the size of incoming requests to ensure they do not exceed a specified limit. This helps protect backend services from being overwhelmed by excessively large payloads.
+The Body Limit Middleware validates and restricts the size of incoming HTTP request bodies to protect your services from oversized payloads that could cause performance issues or security vulnerabilities.
 
-## Supported Units
+## Overview
 
-The middleware supports the following units for specifying the request body size limit:
+When a request exceeds the configured size limit, the middleware will reject it before it reaches your backend services, returning an appropriate HTTP error response. This provides an essential layer of protection against resource exhaustion and potential denial-of-service attacks.
 
-- **Binary Units (IEC)**:
-    - `Ki`, `KiB` (Kibibytes)
-    - `Mi`, `MiB` (Mebibytes)
-    - `Gi`, `GiB` (Gibibytes)
-    - `Ti`, `TiB` (Tebibytes)
+## Configuration
 
-- **Decimal Units (SI)**:
-    - `K`, `KB` (Kilobytes)
-    - `M`, `MB` (Megabytes)
-    - `G`, `GB` (Gigabytes)
-    - `T`, `TB` (Terabytes)
-
----
-
-## Configuration Options
-
-The Body Limit Middleware can be configured with the following option:
-
-- **`limit` (string)**:
-    - Specifies the maximum allowed size of the request body.
-    - The value must include a unit suffix (e.g., `1K`, `1MiB`, `500MB`).
-
----
-
-## Example Configuration
-
-Below is an example of how to configure the Body Limit Middleware in a YAML configuration file:
+### Basic Configuration
 
 ```yaml
 middlewares:
@@ -49,17 +25,66 @@ middlewares:
       limit: 1MiB
 ```
 
-### Explanation:
-- **`name`**: The name of the middleware instance.
-- **`type`**: Specifies the middleware type (`bodyLimit` in this case).
-- **`rule`**:
-    - **`limit`**: Sets the maximum allowed request body size (e.g., `1MiB` for 1 Mebibyte).
+### Configuration Parameters
 
----
+| Parameter | Type   | Required | Description                                        |
+|-----------|--------|----------|----------------------------------------------------|
+| `limit`   | string | Yes      | Maximum allowed request body size with unit suffix |
 
-## Use Cases
+## Supported Size Units
 
-- **Protecting Backend Services**: Prevent large payloads from overwhelming your backend services.
-- **Resource Management**: Ensure efficient use of server resources by limiting request sizes.
-- **Security**: Mitigate risks associated with large payloads, such as denial-of-service (DoS) attacks.
+The middleware accepts both binary (IEC) and decimal (SI) unit formats:
+
+### Binary Units (IEC)
+- `Ki`, `KiB` - Kibibytes (1,024 bytes)
+- `Mi`, `MiB` - Mebibytes (1,024² bytes)
+- `Gi`, `GiB` - Gibibytes (1,024³ bytes)
+- `Ti`, `TiB` - Tebibytes (1,024⁴ bytes)
+
+### Decimal Units (SI)
+- `K`, `KB` - Kilobytes (1,000 bytes)
+- `M`, `MB` - Megabytes (1,000² bytes)
+- `G`, `GB` - Gigabytes (1,000³ bytes)
+- `T`, `TB` - Terabytes (1,000⁴ bytes)
+
+## Configuration Examples
+
+### API with Small Payloads
+```yaml
+middlewares:
+  - name: api-body-limit
+    type: bodyLimit
+    rule:
+      limit: 512KB
+```
+
+### File Upload Service
+```yaml
+middlewares:
+  - name: upload-body-limit
+    type: bodyLimit
+    rule:
+      limit: 50MiB
+```
+
+### Large Data Processing
+```yaml
+middlewares:
+  - name: bulk-data-limit
+    type: bodyLimit
+    rule:
+      limit: 1GB
+```
+
+## Behavior
+
+### Request Processing
+1. **Under Limit**: Requests with body sizes within the limit are forwarded to the next middleware or backend service
+2. **Over Limit**: Requests exceeding the limit are immediately rejected with an HTTP 413 (Payload Too Large) status code
+3. **No Body**: Requests without a body (GET, HEAD, etc.) pass through without validation
+
+### Error Response
+When a request exceeds the configured limit, the middleware returns:
+- **Status Code**: `413 Payload Too Large`
+- **Response Body**: Error message indicating the size limit was exceeded
 
