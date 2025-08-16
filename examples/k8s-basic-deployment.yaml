@@ -15,8 +15,7 @@ data:
         level: info
       routes:
         - name: api-example
-          path: /api
-          rewrite: /
+          path: /
           target: http://api-example:8080
           middlewares: ["rate-limit","basic-auth"]
     middlewares:
@@ -30,7 +29,9 @@ data:
       - name: basic-auth
         type: basicAuth
         paths:
-          - /.*
+          - /admin
+          - /docs
+          - /openapi
         rule:
           realm: Restricted
           forwardUsername: true
