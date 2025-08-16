@@ -1,0 +1,141 @@
+## ************* Goma Gateway ConfigMap *********
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: goma-config
+data:
+  config.yaml: |
+    version: 2
+    gateway:
+      timeouts:
+        write: 30
+        read: 30
+        idle: 30
+      log:
+        level: info
+      routes:
+        - name: api-example
+          path: /api
+          rewrite: /
+          target: http://api-example:8080
+          middlewares: ["rate-limit","basic-auth"]
+    middlewares:
+      - name: rate-limit
+        type: rateLimit
+        rule:
+          unit: minute
+          requestsPerUnit: 20
+          banAfter: 5
+          banDuration: 5m
+      - name: basic-auth
+        type: basicAuth
+        paths:
+          - /.*
+        rule:
+          realm: Restricted
+          forwardUsername: true
+          users:
+            - username: admin
+              password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO
+            - username: user
+              password: password
+---
+## ************ Goma Gateway Deployment *********
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goma-gateway
+spec:
+  selector:
+    matchLabels:
+      app: goma-gateway
+  template:
+    metadata:
+      labels:
+        app: goma-gateway
+    spec:
+      containers:
+        - name: goma-gateway
+          image: jkaninda/goma-gateway
+          command: ["/usr/local/bin/goma","-c","/etc/goma/config.yaml"]
+          resources:
+            requests:
+              memory: "50Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          volumeMounts:
+            - name: config
+              mountPath: /etc/goma
+      volumes:
+        - name: config
+          configMap:
+            name: goma-config
+---
+## ************ API Example Deployment *********
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-example
+spec:
+  selector:
+    matchLabels:
+      app: api-example
+  template:
+    metadata:
+      labels:
+        app: api-example
+    spec:
+      containers:
+        - name: api-example
+          image: jkaninda/okapi-example:1.0.2
+          resources:
+            requests:
+              memory: "50Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8080
+---
+### ***** Services *******
+apiVersion: v1
+kind: Service
+metadata:
+  name: goma-gateway
+spec:
+  # type: LoadBalancer
+  selector:
+    app: goma-gateway
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-example
+spec:
+  selector:
+    app: api-example
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+
