@@ -44,7 +44,7 @@ Architecture:
 ### [Documentation](https://jkaninda.github.io/goma-gateway)
 
 ---
-## Features
+## Features Overview
 
 **Goma Gateway** is a modern, developer-friendly API Gateway built for simplicity, security, and scale.
 More than just a reverse proxy, it streamlines service infrastructure management with **declarative configuration** and **enterprise-grade features**.
@@ -94,6 +94,8 @@ More than just a reverse proxy, it streamlines service infrastructure management
 
 ## Why Goma Gateway?
 
+More than just a reverse proxy, Goma Gateway streamlines your services with declarative configuration and enterprise-grade features.
+
 ### **1. Simple, Declarative Configuration**
 
 Write clear YAML for routes, middleware, policies, and TLS.
@@ -109,7 +111,7 @@ Supports single-file or multi-file setups, intuitive and maintainable.
 
 ### **3. Multi-Domain & Smart Routing**
 
-Handle REST APIs, WebSocket, gRPC, or static content with intelligent host & path routing.
+Handle REST APIs, WebSocket, gRPC, intelligent host & path routing.
 
 ### **4. Live Reload & GitOps Ready**
 
@@ -249,38 +251,25 @@ gateway:
       address: ":80"
     webSecure:
       address: ":443"
+  log:
+    level: info
   extraConfig:
     directory: /etc/goma/extra
     watch: true
   # Route definitions
   routes:
     #  Route definition 1
-    - path: /                # Base path to match
-      enabled: false         # Whether the route is enabled
-      name: minimal           # Descriptive name for the route
-      hosts:                  # Host-based routing (virtual hosting)
-        - minimal.example.com    # Only match requests for this host
-      target: https://example.com  # Target URL for this route
+    - name: api-example           # Descriptive name for the route  
+      path: /api             # Base path to match
+      rewrite: / # Rewrite /api to /
+      target: http://api-example:8080  # Target URL for this route
+      middlewares: ["rate-limit","basic-auth"]
     #  Route definition 2
-    - path: /                # Base path to match
-      name: example           # Descriptive name for the route
-      rewrite: ''             # Path rewrite rule (empty means no rewrite)
-      target: https://example.com  # Target URL for this route
-      cors: {}                # CORS settings
-      security:
-        forwardHostHeaders: false
-        enableExploitProtection: true
-        tls:
-          insecureSkipVerify: true
-          rootCAs: ""
-      middlewares:
-      - basic-auth          # Apply basic authentication middleware
-    #  Route definition 3
-    - name: api
+    - name: host-example
       path: /
+      enabled: true         # Whether the route is enabled
       hosts:                  # Host-based routing (virtual hosting)
         - api.example.com    # Only match requests for this host
-      rewrite: /
       backends:               # Load balancing backends
         - endpoint: https://api-1.example.com
           weight: 1
@@ -297,10 +286,17 @@ gateway:
 
 # Middleware definitions
 middlewares:
+  - name: rate-limit
+    type: rateLimit
+    rule:
+      unit: minute
+      requestsPerUnit: 20 # 20 requests per minute for testing
+      banAfter: 5 # Optional, temporary ban after repeated abuse
+      banDuration: 5m # Optional, ban duration
   - name: basic-auth          # Middleware identifier
     type: basicAuth               # Middleware type (basic auth)
     paths:
-      - /admin                   # Apply to /admin and all subpaths
+      - /.*
     rule:
       realm: Restricted
       forwardUsername: true  # Forward authenticated username to backend
@@ -322,13 +318,16 @@ certManager:
 services:
   goma-gateway:
     image: jkaninda/goma-gateway
-    command: server -c config.yaml
+    command: -c /etc/goma/config.yaml
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./:/etc/goma/
       - ./letsencrypt:/etc/letsencrypt
+  # API Example Service
+  api-example:
+    image: jkaninda/okapi-example      
 ```
 
 ### 7. Grafana Dashboard
@@ -346,6 +345,14 @@ You can import it using dashboard ID: [23799](https://grafana.com/grafana/dashbo
 
 
 ### 8. Kubernetes deployment
+
+#### Basic Deployment
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-gateway/main/examples/k8s-basic-deployment.yaml
+```
+
+#### Advanced with CRDs
 
 -  [Kubernetes installation](https://jkaninda.github.io/goma-gateway/install/kubernetes.html)
 
@@ -431,3 +438,7 @@ This project is licensed under the Apache 2.0 License. See the LICENSE file for 
 ## Copyright
 
 Copyright (c) 2024–2025 Jonas Kaninda and contributors
+
+<p align="center">
+  <strong>Built with ❤️ for the developer community</strong>
+</p>
