@@ -260,13 +260,13 @@ gateway:
   routes:
     #  Route definition 1
     - name: api-example           # Descriptive name for the route  
-      path: /api             # Base path to match
-      rewrite: / # Rewrite /api to /
+      path: /             # Base path to match
       target: http://api-example:8080  # Target URL for this route
       middlewares: ["rate-limit","basic-auth"]
     #  Route definition 2
     - name: host-example
-      path: /
+      path: /api
+      rewrite: / # Rewrite /api to /
       enabled: true         # Whether the route is enabled
       hosts:                  # Host-based routing (virtual hosting)
         - api.example.com    # Only match requests for this host
@@ -295,8 +295,7 @@ middlewares:
       banDuration: 5m # Optional, ban duration
   - name: basic-auth          # Middleware identifier
     type: basicAuth               # Middleware type (basic auth)
-    paths:
-      - /.*
+    paths: ["/admin","/docs","/openapi"]
     rule:
       realm: Restricted
       forwardUsername: true  # Forward authenticated username to backend
@@ -329,6 +328,8 @@ services:
   api-example:
     image: jkaninda/okapi-example      
 ```
+
+Visit http://localhost/docs to see the documentation
 
 ### 7. Grafana Dashboard
 
