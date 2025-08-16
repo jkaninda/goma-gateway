@@ -287,7 +287,7 @@ gateway:
 # Middleware definitions
 middlewares:
   - name: rate-limit
-    type: rateLimit
+    type: rateLimit # Middleware type (rateLimit)
     rule:
       unit: minute
       requestsPerUnit: 20 # 20 requests per minute for testing
