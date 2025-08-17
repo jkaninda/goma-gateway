@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -146,6 +147,9 @@ func (pr *ProxyRoute) createProxy(r *http.Request, contentType string, w http.Re
 		}
 		logger.Debug("Using  single backend proxy ", "target", pr.target)
 		return pr.createSingleHostProxy(r, contentType, w)
+	}
+	if pr.canaryBased {
+		return pr.createCanaryProxy(r, contentType, w)
 	}
 	if pr.weightedBased {
 		logger.Debug("Using weighted load balancing strategy", "backends", len(pr.backends))
@@ -331,6 +335,14 @@ func (b Backends) HasPositiveWeight() bool {
 	}
 	return false
 }
+func (b Backends) IsCanaryBased() bool {
+	for _, backend := range b {
+		if len(backend.Match) > 0 {
+			return true
+		}
+	}
+	return false
+}
 
 // hasAvailableBackends checks if there are any available backends without creating a new slice.
 func (b Backends) hasAvailableBackends() bool {
@@ -372,4 +384,168 @@ func (b Backends) getNextAvailableBackend(availableCount int) *Backend {
 	}
 
 	return nil
+}
+
+// createCanaryProxy creates a reverse proxy using canary deployment logic.
+func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
+	if !pr.backends.hasAvailableBackends() {
+		logger.Error("No available backends", "route", pr.name)
+		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
+			"503 service unavailable", pr.cors.Origins, contentType)
+		return nil, fmt.Errorf("no available backends for route=%s", pr.name)
+	}
+
+	backend := pr.backends.SelectCanaryBackend(r)
+	if backend == nil {
+		backend = pr.backends.SelectStableBackend()
+		if backend == nil {
+			logger.Error("No available stable backends", "route", pr.name)
+			middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
+				"503 service unavailable", pr.cors.Origins, contentType)
+			return nil, fmt.Errorf("no available stable backends for route=%s", pr.name)
+		}
+	}
+	// Parse the backend URL and update the request
+	backendURL, err := url.Parse(backend.Endpoint)
+	if err != nil {
+		logger.Error("Error parsing backend URL", "route", pr.name, "error", err)
+		middlewares.RespondWithError(w, r, http.StatusInternalServerError,
+			http.StatusText(http.StatusInternalServerError), pr.cors.Origins, contentType)
+		return nil, err
+	}
+
+	// Update the headers to allow for SSL redirection if host forwarding is disabled
+	if !pr.security.ForwardHostHeaders {
+		logger.Debug(">>> Forwarding host headers disabled")
+		r.URL.Scheme = backendURL.Scheme
+		r.Host = backendURL.Host
+	}
+
+	logger.Debug("Selected backend for canary deployment",
+		"route", pr.name,
+		"backend", backend.Endpoint,
+		"isCanary", len(backend.Match) > 0)
+
+	return httputil.NewSingleHostReverseProxy(backendURL), nil
+}
+
+// SelectCanaryBackend selects a backend based on canary deployment rules.
+func (b Backends) SelectCanaryBackend(r *http.Request) *Backend {
+	// check for exclusive canary backends that match the request
+	for i := range b {
+		if b[i].unavailable {
+			continue
+		}
+
+		// Check if this is a canary backend with matching rules
+		if len(b[i].Match) > 0 {
+			if b.matchesRequest(&b[i], r) {
+				logger.Debug("Canary backend matched",
+					"endpoint", b[i].Endpoint,
+					"exclusive", b[i].Exclusive)
+
+				// If it's an exclusive canary and matches, use it
+				if b[i].Exclusive {
+					return &b[i]
+				}
+
+				// TODO: Improve logic for non-exclusive canary
+				return &b[i]
+			}
+		}
+	}
+
+	return nil
+}
+
+// SelectStableBackend selects a stable (non-canary) backend using weighted selection.
+func (b Backends) SelectStableBackend() *Backend {
+	var stableBackends []Backend
+
+	// Collect all stable (non-canary) backends
+	for i := range b {
+		if b[i].unavailable {
+			continue
+		}
+
+		if len(b[i].Match) == 0 {
+			stableBackends = append(stableBackends, b[i])
+		}
+	}
+
+	if len(stableBackends) == 0 {
+		return nil
+	}
+
+	// Use weighted selection for stable backends
+	return Backends(stableBackends).SelectBackend()
+}
+
+// matchesRequest checks if a backend's match rules are satisfied by the request.
+func (b Backends) matchesRequest(backend *Backend, r *http.Request) bool {
+	for _, match := range backend.Match {
+		if !b.evaluateMatch(match, r) {
+			return false
+		}
+	}
+	return true
+}
+
+// evaluateMatch evaluates a single match rule against the request.
+func (b Backends) evaluateMatch(match BackendMatch, r *http.Request) bool {
+	var value string
+
+	switch match.Source {
+	case SourceTypeHeader:
+		value = r.Header.Get(match.Name)
+	case SourceTypeCookie:
+		if cookie, err := r.Cookie(match.Name); err == nil {
+			value = cookie.Value
+		}
+	case SourceTypeQuery:
+		value = r.URL.Query().Get(match.Name)
+	case SourceTypeIp:
+		value = getRealIP(r)
+	default:
+		logger.Warn("Unknown source type for canary matching", "source", match.Source)
+		return false
+	}
+
+	// Evaluate based on operator
+	return b.evaluateOperator(match.Operator, value, match.Value)
+}
+
+func (b Backends) evaluateOperator(op OperatorType, actualValue, expectedValue string) bool {
+	switch op {
+	case OperatorEquals:
+		return actualValue == expectedValue
+	case OperatorNotEquals:
+		return actualValue != expectedValue
+	case OperatorContains:
+		return strings.Contains(actualValue, expectedValue)
+	case OperatorNotContains:
+		return !strings.Contains(actualValue, expectedValue)
+	case OperatorStartsWith:
+		return strings.HasPrefix(actualValue, expectedValue)
+	case OperatorEndsWith:
+		return strings.HasSuffix(actualValue, expectedValue)
+	case OperatorRegex:
+		matched, err := regexp.MatchString(expectedValue, actualValue)
+		if err != nil {
+			logger.Error("Invalid regex pattern", "pattern", expectedValue, "error", err)
+			return false
+		}
+		return matched
+	case OperatorIn:
+		values := strings.Split(expectedValue, ",")
+		for _, v := range values {
+			if strings.TrimSpace(v) == actualValue {
+				return true
+			}
+		}
+		return false
+	default:
+		logger.Warn("Unknown operator for canary matching", "operator", op)
+		return false
+	}
 }

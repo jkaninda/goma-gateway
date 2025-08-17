@@ -165,6 +165,7 @@ func (r *router) AddRoute(route Route) error {
 		target:        route.Target,
 		backends:      route.Backends,
 		weightedBased: route.Backends.HasPositiveWeight(),
+		canaryBased:   route.Backends.IsCanaryBased(),
 		methods:       route.Methods,
 		cors:          route.Cors,
 		security:      route.Security,

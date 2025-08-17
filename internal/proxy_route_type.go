@@ -17,7 +17,9 @@
 
 package internal
 
-import "crypto/x509"
+import (
+	"crypto/x509"
+)
 
 type ProxyRoute struct {
 	name          string
@@ -25,6 +27,7 @@ type ProxyRoute struct {
 	rewrite       string
 	target        string
 	weightedBased bool
+	canaryBased   bool
 	backends      Backends
 	methods       []string
 	cors          Cors
