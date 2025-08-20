@@ -38,14 +38,15 @@ middlewares:
     type: basicAuth
     paths:
       - /user
-      - /admin/*
+      - /admin/
       - /account
     rule:
       realm: your-realm
       users:
-        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc=
-        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali
-        - admin:admin
+        - username: admin
+          password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin', password: admin
+        - username: user
+          password: password # Plaintext password for 'user'
 
   # Access control middleware to block sensitive paths
   - name: extra-api-forbidden-paths
