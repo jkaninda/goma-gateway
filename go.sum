@@ -58,8 +58,8 @@ github.com/jcmturner/rpc/v2 v2.0.3 h1:7FXXj8Ti1IaVFpSAziCZWNzbNuZmnvw/i6CqLNdWfZ
 github.com/jcmturner/rpc/v2 v2.0.3/go.mod h1:VUJYCIDm3PVOEHw8sgt091/20OJjskO/YJki3ELg/Hc=
 github.com/jedib0t/go-pretty/v6 v6.6.8 h1:JnnzQeRz2bACBobIaa/r+nqjvws4yEhcmaZ4n1QzsEc=
 github.com/jedib0t/go-pretty/v6 v6.6.8/go.mod h1:YwC5CE4fJ1HFUDeivSV1r//AmANFHyqczZk+U6BDALU=
-github.com/jkaninda/go-utils v0.1.1 h1:PMrtXR9d51YzHo85y9Z6YVL0YyBURbRTPemHVbFDqZg=
-github.com/jkaninda/go-utils v0.1.1/go.mod h1:pf0/U6k4JbxlablM2G4eSTZdQ2LFshfAsCK5Q8qNfGo=
+github.com/jkaninda/go-utils v0.1.3 h1:BhVRHpR6JIGhE7JVgqOgiFketIqmNtvMvYpveVwDqqY=
+github.com/jkaninda/go-utils v0.1.3/go.mod h1:Aa54jEAcDykc3CnOdreqZG80UfSZOvrYecyusu+oPb4=
 github.com/jkaninda/logger v0.0.5 h1:fTHKgDsHtuN8rkSBvwe6QStfi8yIdm8O3r0g99dRDTY=
 github.com/jkaninda/logger v0.0.5/go.mod h1:ZUXJ2BdxDPG6e8t6mbKhc2ZFaFi2Iuy/4ukquFrPkFE=
 github.com/klauspost/compress v1.18.0 h1:c/Cqfb0r+Yi+JtIEq73FWXVkRonBlf0CRNYc8Zttxdo=
