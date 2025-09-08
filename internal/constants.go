@@ -72,3 +72,24 @@ const (
 	AccessControlMaxAge           = "Access-Control-Max-Age"
 	AccessControlAllowCredentials = "Access-Control-Allow-Credentials"
 )
+
+// ************** SourceType *****************
+const (
+	SourceTypeHeader SourceType = "header"
+	SourceTypeCookie SourceType = "cookie"
+	SourceTypeQuery  SourceType = "query"
+	SourceTypeIp     SourceType = "ip"
+)
+
+// ************** OperatorType *****************
+
+const (
+	OperatorEquals      OperatorType = "equals"
+	OperatorNotEquals   OperatorType = "not_equals"
+	OperatorContains    OperatorType = "contains"
+	OperatorNotContains OperatorType = "not_contains"
+	OperatorStartsWith  OperatorType = "starts_with"
+	OperatorEndsWith    OperatorType = "ends_with"
+	OperatorRegex       OperatorType = "regex"
+	OperatorIn          OperatorType = "in"
+)

@@ -105,7 +105,9 @@ type Backend struct {
 	// Endpoint defines the endpoint of the backend
 	Endpoint string `yaml:"endpoint,omitempty"`
 	// Weight defines Weight for weighted algorithm, it optional
-	Weight int `yaml:"weight,omitempty"`
+	Weight    int            `yaml:"weight,omitempty"`
+	Match     []BackendMatch `yaml:"match,omitempty"`
+	Exclusive bool           `yaml:"exclusive,omitempty"`
 }
 
 type Security struct {
@@ -130,3 +132,12 @@ func (r *Route) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type tmp Route
 	return unmarshal((*tmp)(r))
 }
+
+type BackendMatch struct {
+	Source   SourceType   `yaml:"source"`
+	Name     string       `yaml:"name"`
+	Operator OperatorType `yaml:"operator"`
+	Value    string       `yaml:"value"`
+}
+type SourceType string
+type OperatorType string
