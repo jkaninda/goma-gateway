@@ -30,7 +30,7 @@ type BodyLimit struct {
 
 func (b BodyLimit) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contentType := r.Header.Get("Content-Type")
+		contentType := getContentType(r)
 		// Create a new limited reader with the specified limit
 		lr := &io.LimitedReader{R: r.Body, N: b.MaxBytes + 1}
 		// Read the entire body into a buffer

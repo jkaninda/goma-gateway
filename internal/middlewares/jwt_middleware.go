@@ -30,7 +30,7 @@ func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		contentType := r.Header.Get("Content-Type")
+		contentType := getContentType(r)
 		authHeader, ok := validateHeaders(r, jwtAuth.Origins, w, r, contentType)
 		if !ok {
 			logger.Warn("Invalid or missing headers", "path", r.URL.Path)

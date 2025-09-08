@@ -23,21 +23,21 @@ import (
 )
 
 type Maintenance struct {
-	Enabled bool   `yaml:"enabled"`
-	Status  int    `yaml:"status,omitempty" default:"503"` // default HTTP 503
-	Message string `yaml:"message,omitempty" default:"Service temporarily unavailable"`
+	Enabled    bool   `yaml:"enabled"`
+	StatusCode int    `yaml:"statusCode,omitempty" default:"503"` // default HTTP 503
+	Message    string `yaml:"message,omitempty" default:"Service temporarily unavailable"`
 }
 
 func (m *Maintenance) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	m.Status = http.StatusServiceUnavailable
+	m.StatusCode = http.StatusServiceUnavailable
 	m.Message = "Service temporarily unavailable"
 
 	type tmp Maintenance
 	if err := unmarshal((*tmp)(m)); err != nil {
 		return err
 	}
-	if m.Status == 0 {
-		m.Status = http.StatusServiceUnavailable
+	if m.StatusCode == 0 {
+		m.StatusCode = http.StatusServiceUnavailable
 	}
 	if m.Message == "" {
 		m.Message = "Service temporarily unavailable"
@@ -48,8 +48,8 @@ func (m *Maintenance) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (m *Maintenance) MaintenanceMode(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if m.Enabled {
-			logger.Warn("Route in maintenance mode", "status", m.Status, "client_ip", getRealIP(r), "method", r.Method, "host", r.Host, "url", r.URL.String())
-			middlewares.RespondWithError(w, r, m.Status, m.Message, nil, getContentType(r))
+			logger.Warn("Route in maintenance mode", "status", m.StatusCode, "client_ip", getRealIP(r), "method", r.Method, "host", r.Host, "url", r.URL.String())
+			middlewares.RespondWithError(w, r, m.StatusCode, m.Message, nil, getContentType(r))
 			return
 		}
 		next.ServeHTTP(w, r)

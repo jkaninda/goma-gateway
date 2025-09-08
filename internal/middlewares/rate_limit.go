@@ -42,7 +42,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			contentType := r.Header.Get("Content-Type")
+			contentType := getContentType(r)
 			clientIP, _, err := net.SplitHostPort(getRealIP(r))
 			if err != nil {
 				clientIP = getRealIP(r)

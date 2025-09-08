@@ -123,7 +123,7 @@ func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	startTime := time.Now()
 	requestID := getRequestID(r)
 
-	contentType := r.Header.Get("Content-Type")
+	contentType := getContentType(r)
 	statusCode := ComputeStatusCode(err)
 
 	// Retrieve the value later in the request lifecycle

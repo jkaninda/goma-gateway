@@ -38,7 +38,7 @@ func (basicAuth *AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		contentType := r.Header.Get("Content-Type")
+		contentType := getContentType(r)
 		if basicAuth.Realm == "" {
 			basicAuth.Realm = "Restricted"
 		}
