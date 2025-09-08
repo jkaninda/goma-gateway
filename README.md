@@ -136,18 +136,22 @@ Apply changes instantly without restarts — perfect for CI/CD pipelines.
 ---
 ## Quickstart Guide
 
-### Prerequisites
+Get started with **Goma Gateway** in just a few steps. This guide covers generating a configuration file, customizing it, validating your setup, and running the gateway with Docker.
 
-Before you begin, ensure the following utilities are installed on your system:
+
+## Prerequisites
+
+Before you begin, ensure you have:
 
 * **Docker** — to run the Goma Gateway container
-* **Kubernetes** (optional) — if you plan to deploy on Kubernetes
+* **Kubernetes** *(optional)* — if you plan to deploy on Kubernetes
 
-### Installation Steps
 
-### Step 1: Generate the Default Configuration File
+## Installation Steps
 
-Use the following command to generate a default configuration file (`config.yml`):
+### 1. Generate a Default Configuration
+
+Run the following command to create a default configuration file (`config.yml`):
 
 ```bash
 docker run --rm --name goma-gateway \
@@ -155,15 +159,17 @@ docker run --rm --name goma-gateway \
   jkaninda/goma-gateway config init --output /etc/goma/config.yml
 ```
 
-This creates the configuration file under your local `./config` directory.
+This will generate the configuration under `./config/config.yml`.
 
-### Step 2: Customize the Configuration
 
-Open and edit `./config/config.yml` to define your routes, middlewares, backends, and other settings as needed.
+### 2. Customize the Configuration
 
-### Step 3: Validate Your Configuration
+Edit `./config/config.yml` to define your **routes**, **middlewares**, **backends**, and other settings.
 
-Before running the server, validate your configuration file for any errors:
+
+### 3. Validate Your Configuration
+
+Check the configuration for errors before starting the server:
 
 ```bash
 docker run --rm --name goma-gateway \
@@ -173,9 +179,10 @@ docker run --rm --name goma-gateway \
 
 Fix any reported issues before proceeding.
 
-### Step 4: Start the Goma Gateway Server
 
-Run the server container, mounting your configuration, and Let's Encrypt directories, and exposing the default ports:
+### 4. Start the Gateway
+
+Launch the server with your configuration and Let's Encrypt volumes:
 
 ```bash
 docker run --rm --name goma-gateway \
@@ -186,34 +193,27 @@ docker run --rm --name goma-gateway \
   jkaninda/goma-gateway --config /etc/goma/config.yml
 ```
 
-By default, the gateway listens on:
+By default, Goma Gateway listens on:
 
-* `8080` for HTTP traffic (`web` entry point)
-* `8443` for HTTPS traffic (`webSecure` entry point)
+* **8080** → HTTP (`web` entry point)
+* **8443** → HTTPS (`webSecure` entry point)
 
----
 
-### Optional: Use Standard Ports (`80` & `443`)
+### 5. (Optional) Use Standard Ports 80 & 443
 
-To run the gateway on standard HTTP/HTTPS ports (80 and 443), update your configuration as follows:
+To run on standard HTTP/HTTPS ports, update your config:
 
 ```yaml
 version: 2
 gateway:
-  timeouts:
-    write: 30
-    read: 30
-    idle: 30
   entryPoints:
     web:
       address: ":80"
     webSecure:
       address: ":443"
-  extraConfig:
-    # Additional gateway-specific configs here
 ```
 
-Then start the container with the appropriate port bindings:
+Start the container with:
 
 ```bash
 docker run --rm --name goma-gateway \
@@ -223,29 +223,30 @@ docker run --rm --name goma-gateway \
   -p 443:443 \
   jkaninda/goma-gateway --config /etc/goma/config.yml
 ```
-### 5. Health Checks
 
-Goma Gateway provides the following health check endpoints:
-- Gateway Health:
-  - `/readyz`
-  - `/healthz`
-- Routes Health: `/healthz/routes`
 
-### 6. Simple Deployment with Docker Compose
+### 6. Health Checks
 
-Here’s a simple example of deploying Goma Gateway using Docker Compose:
+Goma Gateway exposes the following endpoints:
 
-Create a file named `config.yaml`:
+* Gateway health:
+
+  * `/readyz`
+  * `/healthz`
+* Routes health:
+
+  * `/healthz/routes`
+
+
+### 7. Deploy with Docker Compose
+
+A simple `docker-compose` setup:
+
+**`config.yaml`**
 
 ```yaml
 version: 2
 gateway:
-  # Timeout settings (in seconds)
-  timeouts:
-    write: 30
-    read: 30
-    idle: 30
-  # Optional, default port 8080
   entryPoints:
     web:
       address: ":80"
@@ -253,24 +254,17 @@ gateway:
       address: ":443"
   log:
     level: info
-  extraConfig:
-    directory: /etc/goma/extra
-    watch: true
-  # Route definitions
   routes:
-    #  Route definition 1
-    - name: api-example           # Descriptive name for the route  
-      path: /             # Base path to match
-      target: http://api-example:8080  # Target URL for this route
+    - name: api-example
+      path: /
+      target: http://api-example:8080
       middlewares: ["rate-limit","basic-auth"]
-    #  Route definition 2
     - name: host-example
       path: /api
-      rewrite: / # Rewrite /api to /
-      enabled: true         # Whether the route is enabled
-      hosts:                  # Host-based routing (virtual hosting)
-        - api.example.com    # Only match requests for this host
-      backends:               # Load balancing backends
+      rewrite: /
+      hosts:
+        - api.example.com
+      backends:
         - endpoint: https://api-1.example.com
           weight: 1
         - endpoint: https://api-2.example.com
@@ -279,32 +273,25 @@ gateway:
         path: /
         interval: 30s
         timeout: 10s
-        healthyStatuses:
-          - 200
-          - 404
-      middlewares: []         # No middlewares for this route
-
-# Middleware definitions
 middlewares:
   - name: rate-limit
-    type: rateLimit # Middleware type (rateLimit)
+    type: rateLimit
     rule:
       unit: minute
-      requestsPerUnit: 20 # 20 requests per minute for testing
-      banAfter: 5 # Optional, temporary ban after repeated abuse
-      banDuration: 5m # Optional, ban duration
-  - name: basic-auth          # Middleware identifier
-    type: basicAuth               # Middleware type (basic auth)
+      requestsPerUnit: 20
+      banAfter: 5
+      banDuration: 5m
+  - name: basic-auth
+    type: basicAuth
     paths: ["/admin","/docs","/openapi"]
     rule:
       realm: Restricted
-      forwardUsername: true  # Forward authenticated username to backend
+      forwardUsername: true
       users:
         - username: admin
-          password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin', password: admin
+          password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin'
         - username: user
-          password: password # Plaintext password for 'user'
-# Certificate management configuration
+          password: password
 certManager:
   acme:
     ## Uncomment email to enable Let's Encrypt
@@ -312,8 +299,9 @@ certManager:
     storageFile: /etc/letsencrypt/acme.json
 ```
 
-```shell
-# compose.yaml
+**`compose.yaml`**
+
+```yaml
 services:
   goma-gateway:
     image: jkaninda/goma-gateway
@@ -322,11 +310,11 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./:/etc/goma/
+      - ./config:/etc/goma/
       - ./letsencrypt:/etc/letsencrypt
-  # API Example Service
+
   api-example:
-    image: jkaninda/okapi-example      
+    image: jkaninda/okapi-example
 ```
 
 Visit http://localhost/docs to see the documentation
@@ -397,37 +385,6 @@ The Goma Gateway project welcomes all contributors. We appreciate your help!
 ## Give a Star! ⭐
 
 If this project helped you, do not skip on giving it a star. Thanks!
-
-## Performance Benchmark: Traefik vs Goma Gateway
-
-This benchmark compares **Traefik** and **Goma Gateway** under identical load conditions using [`wrk`](https://github.com/wg/wrk), a modern HTTP benchmarking tool.
-
-
-> **Test environment:** 8 threads, 500 concurrent connections, 60 seconds duration
-
----
-
-## Summary
-
-| **Metric**              | **Traefik**  | **Goma Gateway** |
-|-------------------------|--------------|------------------|
-| **Requests/sec**        | 🟢 29,278.35 | 23,108.16        |
-| **Avg Latency**         | 81.58 ms     | 🟢 **71.92 ms**  |
-| **Latency StdDev**      | 143.85 ms    | 🟢 **120.47 ms** |
-| **Max Latency**         | 🟢 1.54 s    | 1.82 s           |
-| **Total Requests**      | 🟢 1,757,995 | 1,388,634        |
-| **Timeouts**            | 74           | 🟢 **18**        |
-| **Transfer/sec**        | 6.42 MB      | 🟢 **6.81 MB**   |
-| **Memory (Idle)**       | \~76 MB      | 🟢 **\~5 MB**    |
-| **Memory (Under Load)** | \~250 MB     | 🟢 **\~50 MB**   |
-
-## Reproducing the Test
-
-If you want to reproduce this benchmark, you can use the repository below:
-
-Repository: [jkaninda/goma-gateway-vs-traefik](https://github.com/jkaninda/goma-gateway-vs-traefik)
-
-
 
 ---
 
