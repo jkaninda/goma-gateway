@@ -32,6 +32,8 @@ gateway:
   redis:
     addr: redis:6379         # Redis server address (host:port)
     password: password       # Optional password for Redis authentication
+    db: 0                    # Redis database index (default is 0)
+    flushOnStartup: false  # Whether to flush Redis DB on startup (use with caution, default: false)
 
   timeouts:
     write: 30                # Response write timeout in seconds
