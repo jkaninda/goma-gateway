@@ -210,7 +210,7 @@ func (h *ProxyMiddleware) handleResponseInterception(rec *responseRecorder, w ht
 		)
 		contentType := h.ContentType
 		if contentType == "" {
-			contentType = r.Header.Get("Content-Type")
+			contentType = getContentType(r)
 		}
 		rec.flushHeaders()
 		middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)

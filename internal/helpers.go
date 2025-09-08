@@ -64,6 +64,14 @@ func getRealIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 
+func getContentType(r *http.Request) string {
+	contentType := r.Header.Get("Accept")
+	if contentType == "" {
+		contentType = r.Header.Get("Content-Type")
+	}
+	return contentType
+}
+
 // validateIPAddress checks if the input is a valid IP address (IPv4 or IPv6)
 func validateIPAddress(ip string) bool {
 	return net.ParseIP(ip) != nil

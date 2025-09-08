@@ -173,6 +173,12 @@ func (r *router) AddRoute(route Route) error {
 		networking:    r.networking,
 	}
 	rRouter := r.mux.PathPrefix(route.Path).Subrouter()
+
+	// Check maintenance mode
+	if route.Maintenance.Enabled {
+		logger.Warn("Route maintenance mode enabled", "route", route.Name)
+		rRouter.Use(route.Maintenance.MaintenanceMode)
+	}
 	// Configure handlers
 	r.configureHandlers(route, rRouter, proxyRoute)
 	// Add middlewares

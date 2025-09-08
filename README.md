@@ -59,6 +59,7 @@ More than just a reverse proxy, it streamlines service infrastructure management
 * Multi-domain & multi-service support in one config
 * Reverse proxy with backend abstraction
 * Traffic control: **rate limiting, load balancing, health checks**
+* Canary deployments with weighted backends and conditional routing
 
 ### **Security & Access Control**
 

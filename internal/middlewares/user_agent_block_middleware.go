@@ -36,7 +36,7 @@ func (b UserAgentBlock) Middleware(next http.Handler) http.Handler {
 		}
 
 		userAgent := r.Header.Get("User-Agent")
-		contentType := r.Header.Get("Content-Type")
+		contentType := getContentType(r)
 		clientIP := getRealIP(r)
 		requestPath := r.URL.Path
 

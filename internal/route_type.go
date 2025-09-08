@@ -72,6 +72,11 @@ type Route struct {
 	// BlockCommonExploits
 	// Deprecated
 	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
+	// Maintenance puts the route in maintenance mode.
+	// When enabled, requests to this route return the configured response
+	// instead of being forwarded to the backend.
+	Maintenance Maintenance `yaml:"maintenance,omitempty"`
+
 	// TLS contains the TLS configuration for the route.
 	TLS      TLS      `yaml:"tls,omitempty"`
 	Security Security `yaml:"security,omitempty"`
