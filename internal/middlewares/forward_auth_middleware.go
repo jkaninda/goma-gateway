@@ -31,7 +31,7 @@ import (
 // authorization based on the result of backend's response and continue the request when the client is authorized
 func (f *ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contentType := r.Header.Get("Content-Type")
+		contentType := getContentType(r)
 		if isPathMatching(r.URL.Path, f.Path, f.Paths) {
 			// Authenticate the request
 			authenticated, authResponse := f.authRequest(r)

@@ -52,7 +52,13 @@ func getRealIP(r *http.Request) string {
 	// Return the raw remote address as a last resort.
 	return r.RemoteAddr
 }
-
+func getContentType(r *http.Request) string {
+	contentType := r.Header.Get("Accept")
+	if contentType == "" {
+		contentType = r.Header.Get("Content-Type")
+	}
+	return contentType
+}
 func allowedOrigin(origins []string, origin string) bool {
 	return slices.Contains(origins, origin)
 }
