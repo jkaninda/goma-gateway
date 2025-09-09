@@ -77,7 +77,7 @@ func (p EntryPoint) Validate() {
 		if validateEntrypoint(addr) {
 			webAddress = addr
 		} else {
-			logger.Warn("Invalid web address", "address", addr)
+			logger.Fatal("Error, invalid web address", "address", addr)
 		}
 	}
 
@@ -86,7 +86,7 @@ func (p EntryPoint) Validate() {
 		if validateEntrypoint(addr) {
 			webSecureAddress = addr
 		} else {
-			logger.Warn("Invalid webSecure address", "address", addr)
+			logger.Fatal("Error, invalid webSecure address", "address", addr)
 		}
 	}
 

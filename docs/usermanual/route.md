@@ -252,9 +252,9 @@ gateway:
         enabled: true
         contentType: "application/json"
         errors:
-          - code: 401
+          - statusCode: 401
             body: ""
-          - code: 500
+          - statusCode: 500
             body: "Internal server error"
       middlewares:
         - api-forbidden-paths

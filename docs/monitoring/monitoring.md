@@ -56,9 +56,9 @@ gateway:
     includeRouteHealthErrors: true      # Include route errors in health checks
     middleware:
       metrics:
-        - ldap                          # Middleware for /metrics
+        - ldap-auth                         # Middleware for /metrics
       routeHealthCheck:
-        - ldap                          # Middleware for /healthz/routes
+        - ldap-auth                          # Middleware for /healthz/routes
 ```
 
 ---
