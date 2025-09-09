@@ -34,6 +34,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jkaninda/logger"
+	"github.com/robfig/cron/v3"
 	"math/big"
 	"net/http"
 	"os"
@@ -131,9 +132,9 @@ type CertManager struct {
 	storageFile        string
 	cacheDir           string
 	allowedHosts       []Domain
-	renewalTicker      *time.Ticker
 	inProgressRequests map[string]bool
 	acmeInitialized    bool
+	cronJob            *cron.Cron
 }
 
 // NewCertManager creates a new CertManager instance
@@ -150,6 +151,7 @@ func NewCertManager(config *Config) (*CertManager, error) {
 		storageFile:        storageConfig.StorageFile,
 		cacheDir:           storageConfig.CacheDir,
 		inProgressRequests: make(map[string]bool),
+		cronJob:            cron.New(),
 	}, nil
 }
 
@@ -422,7 +424,7 @@ func (cm *CertManager) processDomain(domain Domain, stats *ProcessingStats, rene
 		return err
 	}
 	if cert != nil {
-		logger.Debug("Certificate obtained for domain", "domain", domain.Name, "hosts", domain.Hosts)
+		logger.Debug("Certificate obtained for domain", "route", domain.Name, "hosts", domain.Hosts)
 		stats.Success++
 	}
 	return nil
@@ -436,10 +438,15 @@ func (cm *CertManager) validateProcessingResults(stats *ProcessingStats) error {
 }
 
 func (cm *CertManager) renewCertificates() {
+	logger.Debug("********************* Renewing certificates *********************")
 	certsToRenew := cm.getCertificatesToRenew()
+	if len(certsToRenew) == 0 {
+		logger.Info("CertManager: No certificates due for renewal")
+		return
+	}
 	stats := &ProcessingStats{}
 
-	logger.Info("Renewing certificates", "count", len(certsToRenew))
+	logger.Info("CertManager: Renewing certificates", "count", len(certsToRenew))
 	for _, host := range certsToRenew {
 		err := cm.requestNewCertificate(host, stats, true)
 		if err != nil {
@@ -781,19 +788,22 @@ func (cm *CertManager) createCertificateInfo(cert *tls.Certificate) (*Certificat
 
 // Renewal Service
 func (cm *CertManager) startRenewalService() {
-	logger.Debug("Starting renewal service")
-	if cm.renewalTicker != nil {
-		logger.Debug("Stopping existing renewal ticker")
-		cm.renewalTicker.Stop()
+	logger.Info("Starting CertManager renewal service")
+	if cm.cronJob != nil {
+		cm.cronJob.Stop()
 	}
+	// Schedule the renewal job to run every 6 hours
+	_, err := cm.cronJob.AddFunc(cronExpression, func() {
+		logger.Debug("Renewing certificates...")
+		cm.renewCertificates()
 
-	cm.renewalTicker = time.NewTicker(renewalCheckInterval)
-	go func() {
-		for range cm.renewalTicker.C {
-			logger.Debug("Renewing certificates...")
-			cm.renewCertificates()
-		}
-	}()
+	})
+	if err != nil {
+		logger.Error("Error starting renewal service", "error", err)
+		return
+	}
+	// Start the cron scheduler
+	cm.cronJob.Start()
 }
 
 // GenerateCertificate generates a self-signed certificate for the given domain
@@ -867,10 +877,9 @@ func (cm *CertManager) isHostAllowed(host string) (bool, Domain) {
 }
 
 func (cm *CertManager) Close() {
-	if cm.renewalTicker != nil {
-		cm.renewalTicker.Stop()
+	if cm.cronJob != nil {
+		cm.cronJob.Stop()
 	}
-
 	if err := cm.saveToStorage(); err != nil {
 		logger.Error("Error saving final state", "error", err)
 	}
