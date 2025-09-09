@@ -33,6 +33,17 @@ Below are the configuration options for defining routes in Goma Gateway:
 * **`priority`** (`int`): Optional priority for route matching. Lower values take precedence.
 * **`disableMetrics`** (`boolean`): If `true`, disables metrics collection for this route.
 
+## Minimal Route Configuration
+
+```yaml
+version: 2
+gateway:
+  routes:
+    - name: Example
+      path: /cart
+      target: http://cart-service:8080
+```
+
 ---
 
 ## Health Check Configuration
@@ -117,9 +128,9 @@ errorInterceptor:
   enabled: true
   contentType: "application/json"
   errors:
-    - code: 401
+    - statusCode: 401
       body: ""
-    - code: 500
+    - statusCode: 500
       body: "Internal server error"
 ```
 
@@ -135,18 +146,6 @@ errorInterceptor:
 * If no route has a `priority` defined, routes are matched by longest path.
 * If `priority` is set, lower numbers take precedence during matching.
 
----
-
-## Minimal Route Configuration
-
-```yaml
-version: 2
-gateway:
-  routes:
-    - name: Example
-      path: /cart
-      target: http://cart-service:8080
-```
 
 ---
 
@@ -253,9 +252,9 @@ gateway:
         enabled: true
         contentType: "application/json"
         errors:
-          - code: 401
+          - statusCode: 401
             body: ""
-          - code: 500
+          - statusCode: 500
             body: "Internal server error"
       middlewares:
         - api-forbidden-paths

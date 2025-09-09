@@ -30,7 +30,7 @@ type Maintenance struct {
 
 func (m *Maintenance) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	m.StatusCode = http.StatusServiceUnavailable
-	m.Message = "Service temporarily unavailable"
+	m.Message = "503 Service temporarily unavailable"
 
 	type tmp Maintenance
 	if err := unmarshal((*tmp)(m)); err != nil {
@@ -40,7 +40,7 @@ func (m *Maintenance) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		m.StatusCode = http.StatusServiceUnavailable
 	}
 	if m.Message == "" {
-		m.Message = "Service temporarily unavailable"
+		m.Message = "503 Service temporarily unavailable"
 	}
 	return nil
 }

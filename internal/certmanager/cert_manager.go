@@ -34,6 +34,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jkaninda/logger"
+	"github.com/robfig/cron/v3"
 	"math/big"
 	"net/http"
 	"os"
@@ -131,9 +132,9 @@ type CertManager struct {
 	storageFile        string
 	cacheDir           string
 	allowedHosts       []Domain
-	renewalTicker      *time.Ticker
 	inProgressRequests map[string]bool
 	acmeInitialized    bool
+	cronJob            *cron.Cron
 }
 
 // NewCertManager creates a new CertManager instance
@@ -150,6 +151,7 @@ func NewCertManager(config *Config) (*CertManager, error) {
 		storageFile:        storageConfig.StorageFile,
 		cacheDir:           storageConfig.CacheDir,
 		inProgressRequests: make(map[string]bool),
+		cronJob:            cron.New(),
 	}, nil
 }
 
@@ -336,14 +338,14 @@ func (cm *CertManager) processCertificates() error {
 	var wg sync.WaitGroup
 
 	for _, domain := range cm.allowedHosts {
-		if cm.shouldSkipDomain(domain, stats) {
+		if cm.shouldSkipDomain(domain, stats, false) {
 			continue
 		}
 
 		wg.Add(1)
 		go func(d Domain) {
 			defer wg.Done()
-			if err := cm.processDomain(d, stats); err != nil {
+			if err := cm.processDomain(d, stats, false); err != nil {
 				time.Sleep(errorDelay)
 				return
 			}
@@ -356,7 +358,7 @@ func (cm *CertManager) processCertificates() error {
 	return cm.validateProcessingResults(stats)
 }
 
-func (cm *CertManager) requestNewCertificate(host string, stats *ProcessingStats) error {
+func (cm *CertManager) requestNewCertificate(host string, stats *ProcessingStats, renewal bool) error {
 	if stats == nil {
 		stats = &ProcessingStats{}
 	}
@@ -374,7 +376,7 @@ func (cm *CertManager) requestNewCertificate(host string, stats *ProcessingStats
 		logger.Debug("Skipping certificate request, domain not recognized", "host", host)
 		return nil
 	}
-	if cm.shouldSkipDomain(domain, stats) {
+	if cm.shouldSkipDomain(domain, stats, renewal) {
 		stats.Skipped++
 		return nil
 	}
@@ -382,28 +384,27 @@ func (cm *CertManager) requestNewCertificate(host string, stats *ProcessingStats
 	inProgress := cm.isRequestInProgress(domain.Hosts)
 	logger.Debug("Request state", "inProgress", inProgress, "requestKey", key)
 
-	if err := cm.processDomain(domain, stats); err != nil {
+	if err := cm.processDomain(domain, stats, renewal); err != nil {
 		if !errors.Is(err, ErrAlreadyInProgress) {
 			logger.Error("Failed to process domain", "domain", domain.Hosts[0], "error", err)
 			time.Sleep(errorDelay)
 			return err
 		}
-		logger.Debug("Certificate request already in progress", "host", host, "domain", domain.Name)
+		logger.Debug("Certificate request already in progress", "host", host, "route", domain.Name, "hosts", domain.Hosts)
 		return nil
 
 	}
-
 	stats.Success++
 	time.Sleep(requestDelay)
 	return nil
 }
 
-func (cm *CertManager) shouldSkipDomain(domain Domain, stats *ProcessingStats) bool {
+func (cm *CertManager) shouldSkipDomain(domain Domain, stats *ProcessingStats, renewal bool) bool {
 	if len(domain.Hosts) == 0 {
 		stats.Skipped++
 		return true
 	}
-	if cm.getExistingValidCertificate(domain.Hosts[0]) != nil {
+	if cm.getExistingValidCertificate(domain.Hosts[0], renewal) != nil {
 		stats.Skipped++
 		return true
 	}
@@ -414,13 +415,16 @@ func (cm *CertManager) shouldSkipDomain(domain Domain, stats *ProcessingStats) b
 	return false
 }
 
-func (cm *CertManager) processDomain(domain Domain, stats *ProcessingStats) error {
-	cert, err := cm.requestCertificateSync(domain)
+func (cm *CertManager) processDomain(domain Domain, stats *ProcessingStats, renewal bool) error {
+	logger.Debug("Processing domain", "domain", domain.Name, "hosts", domain.Hosts)
+	cert, err := cm.requestCertificateSync(domain, renewal)
 	if err != nil {
+		logger.Error("Failed to process domain", "domain", domain.Name, "error", err)
 		stats.Errors++
 		return err
 	}
 	if cert != nil {
+		logger.Debug("Certificate obtained for domain", "route", domain.Name, "hosts", domain.Hosts)
 		stats.Success++
 	}
 	return nil
@@ -434,19 +438,24 @@ func (cm *CertManager) validateProcessingResults(stats *ProcessingStats) error {
 }
 
 func (cm *CertManager) renewCertificates() {
+	logger.Debug("********************* Renewing certificates *********************")
 	certsToRenew := cm.getCertificatesToRenew()
+	if len(certsToRenew) == 0 {
+		logger.Info("CertManager: No certificates due for renewal")
+		return
+	}
 	stats := &ProcessingStats{}
 
-	logger.Debug("Renewing certificates", "count", len(certsToRenew))
+	logger.Info("CertManager: Renewing certificates", "count", len(certsToRenew))
 	for _, host := range certsToRenew {
-		err := cm.requestNewCertificate(host, stats)
+		err := cm.requestNewCertificate(host, stats, true)
 		if err != nil {
 			logger.Error("Error renewing certificate", "host", host, "error", err)
 			continue
 		}
 		time.Sleep(requestDelay)
 	}
-	logger.Debug("Certificate renewal complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
+	logger.Info("Certificate renewal complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
 }
 func (cm *CertManager) getCertificatesToRenew() []string {
 	cm.mu.RLock()
@@ -454,7 +463,8 @@ func (cm *CertManager) getCertificatesToRenew() []string {
 
 	var certsToRenew []string
 	for domain, certInfo := range cm.certs {
-		if certInfo.Resource != nil && time.Until(certInfo.Expires) < renewalBufferTime {
+		logger.Debug("Checking certificate for renewal", "domain", domain, " IssuedAt", certInfo.IssuedAt, "expires", certInfo.Expires, "time_left", time.Until(certInfo.Expires))
+		if time.Until(certInfo.Expires) <= renewalBufferTime {
 			certsToRenew = append(certsToRenew, domain)
 		}
 	}
@@ -462,12 +472,12 @@ func (cm *CertManager) getCertificatesToRenew() []string {
 }
 
 // Certificate Request
-func (cm *CertManager) requestCertificateSync(domain Domain) (*tls.Certificate, error) {
+func (cm *CertManager) requestCertificateSync(domain Domain, renewal bool) (*tls.Certificate, error) {
 	if !cm.acmeInitialized {
 		return nil, errors.New("ACME client not initialized")
 	}
 
-	if cert := cm.checkExistingValidCertificate(domain); cert != nil {
+	if cert := cm.checkExistingValidCertificate(domain, renewal); cert != nil {
 		return cert, nil
 	}
 
@@ -514,12 +524,12 @@ func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certific
 		return cm.getDefaultCertificate()
 	}
 
-	if cert := cm.getExistingValidCertificate(serverName); cert != nil {
+	if cert := cm.getExistingValidCertificate(serverName, false); cert != nil {
 		return cert, nil
 	}
 	logger.Debug("Certificate not found or invalid", "server_name", serverName)
 	go func() {
-		if err := cm.requestNewCertificate(serverName, nil); err != nil {
+		if err := cm.requestNewCertificate(serverName, nil, false); err != nil {
 			logger.Error("Background certificate processing failed", "error", err)
 		}
 	}()
@@ -527,19 +537,29 @@ func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certific
 	return cm.getDefaultCertificate()
 }
 
-func (cm *CertManager) getExistingValidCertificate(serverName string) *tls.Certificate {
+func (cm *CertManager) getExistingValidCertificate(serverName string, renewal bool) *tls.Certificate {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 
 	certInfo := cm.findCertificateInfo(serverName)
-	if certInfo != nil && cm.isCertificateValid(certInfo) {
+	if certInfo != nil && cm.isCertificateValid(certInfo, renewal) {
+		logger.Debug("Certificate found for server", "server_name", serverName)
 		return certInfo.Certificate
 	}
+
+	logger.Debug("Certificate not found or invalid", "server_name", serverName)
 	return nil
 }
 
-func (cm *CertManager) isCertificateValid(certInfo *CertificateInfo) bool {
-	return time.Until(certInfo.Expires) > certificateBufferTime
+func (cm *CertManager) isCertificateValid(certInfo *CertificateInfo, renewal bool) bool {
+	if certInfo == nil || certInfo.Expires.IsZero() {
+		return false
+	}
+	if renewal {
+		return time.Until(certInfo.Expires) > renewalBufferTime
+	}
+	// Standard validity: not expired
+	return time.Now().Before(certInfo.Expires)
 }
 
 func (cm *CertManager) getDefaultCertificate() (*tls.Certificate, error) {
@@ -550,12 +570,12 @@ func (cm *CertManager) getDefaultCertificate() (*tls.Certificate, error) {
 }
 
 // Certificate Management Helpers
-func (cm *CertManager) checkExistingValidCertificate(domain Domain) *tls.Certificate {
+func (cm *CertManager) checkExistingValidCertificate(domain Domain, renewal bool) *tls.Certificate {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 
 	for _, host := range domain.Hosts {
-		if certInfo, exists := cm.certs[host]; exists && cm.isCertificateValid(certInfo) {
+		if certInfo, exists := cm.certs[host]; exists && cm.isCertificateValid(certInfo, renewal) {
 			return certInfo.Certificate
 		}
 	}
@@ -768,17 +788,22 @@ func (cm *CertManager) createCertificateInfo(cert *tls.Certificate) (*Certificat
 
 // Renewal Service
 func (cm *CertManager) startRenewalService() {
-	if cm.renewalTicker != nil {
-		logger.Debug("Stopping existing renewal ticker")
-		cm.renewalTicker.Stop()
+	logger.Info("Starting CertManager renewal service")
+	if cm.cronJob != nil {
+		cm.cronJob.Stop()
 	}
+	// Schedule the renewal job to run every 6 hours
+	_, err := cm.cronJob.AddFunc(cronExpression, func() {
+		logger.Debug("Renewing certificates...")
+		cm.renewCertificates()
 
-	cm.renewalTicker = time.NewTicker(renewalCheckInterval)
-	go func() {
-		for range cm.renewalTicker.C {
-			cm.renewCertificates()
-		}
-	}()
+	})
+	if err != nil {
+		logger.Error("Error starting renewal service", "error", err)
+		return
+	}
+	// Start the cron scheduler
+	cm.cronJob.Start()
 }
 
 // GenerateCertificate generates a self-signed certificate for the given domain
@@ -852,10 +877,9 @@ func (cm *CertManager) isHostAllowed(host string) (bool, Domain) {
 }
 
 func (cm *CertManager) Close() {
-	if cm.renewalTicker != nil {
-		cm.renewalTicker.Stop()
+	if cm.cronJob != nil {
+		cm.cronJob.Stop()
 	}
-
 	if err := cm.saveToStorage(); err != nil {
 		logger.Error("Error saving final state", "error", err)
 	}
