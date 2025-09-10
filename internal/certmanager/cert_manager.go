@@ -455,7 +455,7 @@ func (cm *CertManager) renewCertificates() {
 		}
 		time.Sleep(requestDelay)
 	}
-	logger.Info("Certificate renewal complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
+	logger.Info("CertManager: Certificate renewal complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
 }
 func (cm *CertManager) getCertificatesToRenew() []string {
 	cm.mu.RLock()
