@@ -70,7 +70,7 @@ middlewares:
       backends:
        - endpoint: https://example.com
       methods: [POST, PUT, GET]
-      healthCheck:
+      healthCheck: {}
       cors: {}
       middlewares:
         - oauth-authentik

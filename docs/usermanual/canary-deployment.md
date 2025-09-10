@@ -71,9 +71,9 @@ routes:
     hosts:
       - api.example.com
     backends:
-      - endpoint: "https://api-stable-example.com"
+      - endpoint: "https://api-stable-example"
         weight: 80
-      - endpoint: "https://api-example-beta.com"
+      - endpoint: "https://api-beta-example"
         weight: 20
         exclusive: true
         match:
@@ -93,6 +93,6 @@ routes:
 
 In this configuration:
 
-* **80% of traffic** goes to the stable backend (`api-stable-example.com`).
-* **20% of traffic** goes to the beta backend (`api-example-beta.com`), but **only if** requests match at least one of the defined conditions (e.g., a header, query parameter, or cookie indicating canary usage).
+* **80% of traffic** goes to the stable backend (`api-stable-example`).
+* **20% of traffic** goes to the beta backend (`api-beta-example`), but **only if** requests match at least one of the defined conditions (e.g., a header, query parameter, or cookie indicating canary usage).
 

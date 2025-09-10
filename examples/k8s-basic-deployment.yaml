@@ -1,3 +1,4 @@
+## *************** Goma Gateway basic deployment with Basic Auth and Rate Limiting *********
 ## ************* Goma Gateway ConfigMap *********
 apiVersion: v1
 kind: ConfigMap
