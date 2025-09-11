@@ -259,7 +259,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 			Origins:     route.Cors.Origins,
 			Hosts:       route.Hosts,
 			RedisBased:  redisBased,
-			PathBased:   true,
+			PathBased:   len(mid.Paths) > 0,
 			Paths:       util.AddPrefixPath(route.Path, mid.Paths),
 			BanAfter:    rule.BanAfter,
 			BanDuration: duration,

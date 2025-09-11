@@ -176,6 +176,25 @@ func isPathMatching(urlPath, prefix string, paths []string) bool {
 	return false
 }
 
+// IsPathMatching checks if the urlPath matches any regex pattern or static path from the list.
+func IsPathMatching(urlPath, prefix string, paths []string) (bool, string) {
+	// Check if the string matches any regex pattern
+	if matched, path, err := checkRegexMatch(urlPath, paths); err == nil && matched {
+		return true, path
+	} else if err != nil {
+		logger.Error("Error", "error", err.Error())
+	}
+
+	// Check without and with the route prefix
+	for _, path := range paths {
+		if isMatchingPath(urlPath, path) || isMatchingPath(urlPath, util.ParseURLPath(prefix+path)) {
+			return true, path
+		}
+	}
+
+	return false, ""
+}
+
 // Helper function to determine if the request path is blocked
 func isMatchingPath(requestPath, blockedPath string) bool {
 	// Handle exact match
