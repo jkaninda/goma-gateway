@@ -30,6 +30,7 @@ import (
 // RateLimitMiddleware limits request based on the number of requests peer minutes.
 func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	var window time.Duration
+	var clientID string
 	switch rl.unit {
 	case "hour":
 		window = time.Hour
@@ -47,14 +48,26 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 			if err != nil {
 				clientIP = getRealIP(r)
 			}
-
-			if ok, banUntil := rl.isBanned(clientIP); ok {
-				logger.Warn("IP is banned", "ip", clientIP, "until", banUntil)
-				RespondWithError(w, r, http.StatusForbidden, "403 Forbidden: IP temporarily banned due to repeated abuse", nil, contentType)
-				return
+			clientID = fmt.Sprintf("%s:%s", rl.id, clientIP)
+			// Path-based rate limiting
+			if rl.pathBased && len(rl.paths) > 0 {
+				match, path := IsPathMatching(r.URL.Path, "", rl.paths)
+				clientID = fmt.Sprintf("%s:%s:%s", path, rl.id, clientIP)
+				logger.Debug("Path-based rate limiting", "path", path, "clientID", clientID)
+				// If the request path does not match any of the specified paths, skip rate limiting
+				if !match {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
-
-			clientID := fmt.Sprintf("%s-%s", rl.id, clientIP)
+			// Check if the IP is banned
+			if rl.banAfter > 0 && rl.banDuration > 0 {
+				if ok, banUntil := rl.isBanned(clientIP); ok {
+					logger.Warn("IP is banned", "ip", clientIP, "until", banUntil)
+					RespondWithError(w, r, http.StatusForbidden, "403 Forbidden: IP temporarily banned due to repeated abuse", nil, contentType)
+					return
+				}
+			}
 
 			// Redis-based rate limiting
 			if rl.redisBased && rl.redis != nil {
