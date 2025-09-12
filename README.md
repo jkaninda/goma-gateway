@@ -334,7 +334,14 @@ You can import it using dashboard ID: [23799](https://grafana.com/grafana/dashbo
 ![Goma Gateway Grafana Dashboard](https://raw.githubusercontent.com/jkaninda/goma-gateway/main/docs/images/goma_gateway_observability_dashboard-23799.png)
 
 
-### 8. Kubernetes deployment
+### 8. Production Deployment Guide
+
+For production deployments, use the example from the link below:
+
+[production-deployment](https://github.com/jkaninda/goma-gateway-production-deployment).
+
+
+### 9. Kubernetes deployment
 
 #### Basic Deployment
 
