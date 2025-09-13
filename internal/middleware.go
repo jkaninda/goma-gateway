@@ -248,7 +248,9 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 	}
 	duration, err := time.ParseDuration(rule.BanDuration)
 	if err != nil {
-		logger.Error("Error parsing duration, using default value", "error", err)
+		if rule.BanDuration != "" && rule.BanAfter != 0 {
+			logger.Error("Error parsing banDuration in the rateLimit middleware, using default value", "name", mid.Name, "error", err)
+		}
 		duration = 10 * time.Minute
 	}
 	if rule.RequestsPerUnit != 0 {

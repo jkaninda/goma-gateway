@@ -22,11 +22,20 @@ import (
 )
 
 func (g *GatewayServer) initRedis() {
-	if len(g.gateway.Redis.Addr) != 0 {
-		logger.Info("Initializing Redis...")
-		g.gateway.Redis.InitRedis()
+	if g.gateway.Redis.Addr == "" {
+		return
 	}
 
+	logger.Info("Initializing Redis...")
+
+	if err := g.gateway.Redis.InitRedis(); err != nil {
+		logger.Error("Redis initialization failed", "error", err)
+		logger.Warn("Falling back to in-memory rate limiting and caching")
+		return
+	}
+
+	redisBased = true
+	logger.Info("Redis successfully initialized")
 }
 
 func (g *GatewayServer) closeRedis() {

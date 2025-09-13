@@ -33,18 +33,32 @@ type Redis struct {
 
 }
 
-func (r *Redis) InitRedis() {
+func (r *Redis) InitRedis() error {
+	ctx := context.Background()
+	// Initialize Redis client
 	RedisClient = redis.NewClient(&redis.Options{
 		Addr:     util.ReplaceEnvVars(r.Addr),
 		Password: util.ReplaceEnvVars(r.Password),
 		DB:       r.DB,
 	})
-	limiter = redis_rate.NewLimiter(RedisClient)
-	if r.FlushOnStartup {
-		if err := RedisClient.FlushDBAsync(context.Background()).Err(); err != nil {
-			logger.Error("Error flushing Redis database", "error", err)
-		} else {
-			logger.Info("Redis database flushed successfully")
-		}
+
+	// Test connection with PING
+	if err := RedisClient.Ping(ctx).Err(); err != nil {
+		logger.Error("Failed to connect to Redis", "error", err)
+		return err
 	}
+	logger.Debug("Successfully initialized Redis client")
+	// Initialize rate limiter
+	limiter = redis_rate.NewLimiter(RedisClient)
+
+	// Flush DB if configured
+	if r.FlushOnStartup {
+		if err := RedisClient.FlushDB(ctx).Err(); err != nil {
+			logger.Error("Error flushing Redis database", "error", err)
+			return err
+		}
+		logger.Info("Redis database flushed successfully")
+	}
+
+	return nil
 }

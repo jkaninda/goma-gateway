@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
 	"regexp"
 	"slices"
 	"strings"
@@ -145,7 +146,7 @@ func (pr *ProxyRoute) createProxy(r *http.Request, contentType string, w http.Re
 			pr.target = pr.backends[0].Endpoint
 			logger.Debug("Using single backend proxy", "backends", len(pr.backends))
 		}
-		logger.Debug("Using  single backend proxy ", "target", pr.target)
+		logger.Debug("Using  single backend proxy ", "path", pr.path, "target", pr.target)
 		return pr.createSingleHostProxy(r, contentType, w)
 	}
 	if pr.canaryBased {
@@ -242,14 +243,22 @@ func (pr *ProxyRoute) createProxyTransport() *http.Transport {
 
 // rewritePath rewrites the request path if it matches the configured prefix.
 func (pr *ProxyRoute) rewritePath(r *http.Request) {
-	if pr.path != "" && pr.rewrite != "" {
-		pathPrefix := pr.path + "/"
-		if strings.HasPrefix(r.URL.Path, pathPrefix) {
-			logger.Debug(">>> Rewriting path", "route", pr.name, "current_path", r.URL.Path, "path", pr.path, "rewrite", pr.rewrite)
-			newPath := pr.rewrite + "/" + r.URL.Path[len(pathPrefix):]
-			r.URL.Path = util.ParseURLPath(newPath)
-			logger.Debug(">>> Rewrote path", "route", pr.name, "path", pr.path, "rewrite", pr.rewrite, "new_path", r.URL.Path)
+	if pr.path == "" || pr.rewrite == "" {
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, pr.path) {
+		logger.Debug(">>> Rewriting path", "route", pr.name, "current_path", r.URL.Path, "path", pr.path, "rewrite", pr.rewrite)
+		// Trim the matched prefix from the request path
+		trimmed := strings.TrimPrefix(r.URL.Path, pr.path)
+
+		newPath := path.Join(pr.rewrite, trimmed)
+
+		if strings.HasSuffix(r.URL.Path, "/") && !strings.HasSuffix(newPath, "/") {
+			newPath += "/"
 		}
+		r.URL.Path = util.ParseURLPath(newPath)
+		logger.Debug(">>> Rewrote path", "route", pr.name, "path", pr.path, "rewrite", pr.rewrite, "new_path", r.URL.Path)
 	}
 }
 
