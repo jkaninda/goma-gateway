@@ -29,7 +29,6 @@ type PrometheusMetrics struct {
 	TotalRequests                 *prometheus.CounterVec
 	ResponseStatus                *prometheus.CounterVec
 	HttpDuration                  *prometheus.HistogramVec
-	HTTPRequestSize               *prometheus.HistogramVec
 	GatewayTotalRequests          *prometheus.CounterVec
 	GatewayUptime                 prometheus.Gauge
 	GatewayRoutesCount            prometheus.Gauge
@@ -79,14 +78,6 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Name:    "http_request_duration_seconds",
 				Help:    "Duration of HTTP requests in seconds",
 				Buckets: prometheus.DefBuckets,
-			},
-			[]string{"name", "method"},
-		),
-		HTTPRequestSize: promauto.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name:    "http_request_size_bytes",
-				Help:    "Size of HTTP requests in bytes",
-				Buckets: []float64{100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000},
 			},
 			[]string{"name", "method"},
 		),
