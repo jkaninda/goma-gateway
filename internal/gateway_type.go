@@ -46,7 +46,7 @@ type Gateway struct {
 	Log        Log        `yaml:"log"`
 	Networking Networking `yaml:"networking,omitempty"`
 	// When enabled, the router will match the path with or without a trailing slash.
-	EnableStrictSlash bool `yaml:"enableStrictSlash,omitempty"`
+	StrictSlash bool `yaml:"strictSlash,omitempty"`
 	// EnableMetrics enables or disables server metrics collection.
 	// Deprecated
 	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
@@ -197,6 +197,7 @@ func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Monitoring
 	g.Monitoring.EnableLiveness = true
 	g.Monitoring.EnableReadiness = true
+	g.StrictSlash = true
 
 	// Cors
 	g.Cors.Enabled = true

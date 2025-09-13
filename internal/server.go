@@ -50,7 +50,7 @@ func (g *GatewayServer) Start() error {
 		return err
 	}
 
-	logger.Info("Initializing route completed", "route_count", len(dynamicRoutes), "middleware_count", len(dynamicMiddlewares))
+	logger.Info("Initializing route completed", "routes_count", len(dynamicRoutes), "middlewares_count", len(dynamicMiddlewares))
 
 	// Configure TLS
 	tlsConfig := &tls.Config{
