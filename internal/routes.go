@@ -68,7 +68,6 @@ func (g *GatewayServer) Initialize() error {
 		logger.Error("Configuration validation failed", "error", err)
 		return err
 	}
-	
 	// Route sorting
 	if hasPositivePriority(dynamicRoutes) {
 		sort.Slice(dynamicRoutes, func(i, j int) bool {
