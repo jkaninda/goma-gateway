@@ -21,7 +21,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/util"
 	"sort"
 )
 
@@ -69,13 +68,6 @@ func (g *GatewayServer) Initialize() error {
 		logger.Error("Configuration validation failed", "error", err)
 		return err
 	}
-
-	// Redis check
-	if len(gateway.Redis.Addr) > 0 {
-		redisBased = true
-		logger.Debug("Redis enabled", "address", util.ReplaceEnvVars(gateway.Redis.Addr))
-	}
-
 	// Route sorting
 	if hasPositivePriority(dynamicRoutes) {
 		sort.Slice(dynamicRoutes, func(i, j int) bool {

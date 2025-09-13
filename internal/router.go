@@ -40,17 +40,19 @@ type router struct {
 	mux           *mux.Router
 	enableMetrics bool
 	sync.RWMutex
-	gateway    *Gateway
-	networking Networking
+	gateway     *Gateway
+	networking  Networking
+	strictSlash bool
 }
 
 // NewRouter creates a new router instance.
 func (g *Gateway) NewRouter() Router {
 	rt := &router{
-		mux:           mux.NewRouter().StrictSlash(g.EnableStrictSlash),
+		mux:           mux.NewRouter().StrictSlash(g.StrictSlash),
 		enableMetrics: g.Monitoring.EnableMetrics,
 		gateway:       g,
 		networking:    g.Networking,
+		strictSlash:   g.StrictSlash,
 	}
 
 	g.addGlobalHandler(rt.mux)
@@ -108,7 +110,7 @@ func (r *router) UpdateHandler(gateway *Gateway) {
 	close(stopChan)
 	reloaded = true
 	logger.Debug("Updating router with new routes")
-	r.mux = mux.NewRouter().StrictSlash(gateway.EnableStrictSlash)
+	r.mux = mux.NewRouter().StrictSlash(r.strictSlash)
 	gateway.addGlobalHandler(r.mux)
 
 	err := r.AddRoutes()
@@ -172,8 +174,7 @@ func (r *router) AddRoute(route Route) error {
 		certPool:      certPool,
 		networking:    r.networking,
 	}
-	rRouter := r.mux.PathPrefix(route.Path).Subrouter()
-
+	rRouter := r.mux.PathPrefix(route.Path).Subrouter().StrictSlash(r.strictSlash)
 	// Check maintenance mode
 	if route.Maintenance.Enabled {
 		logger.Warn("Route maintenance mode enabled", "route", route.Name)

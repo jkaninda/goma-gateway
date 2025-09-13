@@ -217,22 +217,9 @@ func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]
 
 // Set stores an item in both Redis and the in-memory cache with memory limit checks.
 func (c *Cache) Set(ctx context.Context, key string, response []byte, contentType string) error {
-	itemSize := int64(len(response))
 	// Check if the item will exceed the memory limit.
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	// Evict items if necessary to stay within the memory limit.
-	for c.memoryUsed+itemSize > c.memoryLimit {
-		c.evictOldest()
-	}
-	// Add the new item to the in-memory cache.
-	item := &CacheItem{
-		Response:    response,
-		ContentType: contentType,
-		Size:        itemSize,
-		ExpiresAt:   time.Now().Add(c.ttl),
-	}
 
 	if c.redisBased {
 		// Store the item in Redis as a hash with response and contentType.
@@ -249,9 +236,24 @@ func (c *Cache) Set(ctx context.Context, key string, response []byte, contentTyp
 		return RedisClient.Expire(ctx, key, c.ttl).Err()
 	}
 
+	itemSize := int64(len(response))
+
+	// Evict items if necessary to stay within the memory limit.
+	for c.memoryUsed+itemSize > c.memoryLimit {
+		c.evictOldest()
+	}
+	// Add the new item to the in-memory cache.
+	item := &CacheItem{
+		Response:    response,
+		ContentType: contentType,
+		Size:        itemSize,
+		ExpiresAt:   time.Now().Add(c.ttl),
+	}
+
 	c.data[key] = item
 	c.memoryUsed += itemSize
 	logger.Debug("In memory: Response saved")
+	logger.Debug("http cache memory usage", "used", c.memoryUsed, "limit", c.memoryLimit)
 	return nil
 }
 

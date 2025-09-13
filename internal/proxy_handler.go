@@ -154,10 +154,8 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		if h.enableMetrics {
 			duration := time.Since(startTime).Seconds()
 			statusStr := strconv.Itoa(rec.statusCode)
-			requestBytes := r.ContentLength
 			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, h.Name, method).Inc()
 			prometheusMetrics.HttpDuration.WithLabelValues(h.Name, method).Observe(duration)
-			prometheusMetrics.HTTPRequestSize.WithLabelValues(h.Name, method).Observe(float64(requestBytes))
 
 			logger.Debug("Metrics recorded",
 				"status", statusStr,
