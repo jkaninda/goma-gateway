@@ -33,17 +33,17 @@ type PrometheusMetrics struct {
 	GatewayUptime                 prometheus.Gauge
 	GatewayRoutesCount            prometheus.Gauge
 	GatewayMiddlewaresCount       prometheus.Gauge
+	GatewayRealTimeVisitorsCount  prometheus.Gauge
 	GatewayTotalErrorsIntercepted *prometheus.CounterVec
 }
 
 // NewPrometheusMetrics creates a new set of Prometheus metrics
 func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusMetrics {
-	gatewayUptime := promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "gateway_uptime_seconds",
-		Help: "Uptime of the gateway application in seconds",
-	})
 	pm := &PrometheusMetrics{
-		GatewayUptime: gatewayUptime,
+		GatewayUptime: promauto.NewGauge(prometheus.GaugeOpts{
+			Name: "gateway_uptime_seconds",
+			Help: "Uptime of the gateway application in seconds",
+		}),
 		GatewayRoutesCount: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "gateway_routes_count",
 			Help: "Current number of routes registered in the gateway",
@@ -51,6 +51,10 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 		GatewayMiddlewaresCount: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "gateway_middlewares_count",
 			Help: "Current number of middlewares registered in the gateway",
+		}),
+		GatewayRealTimeVisitorsCount: promauto.NewGauge(prometheus.GaugeOpts{
+			Name: "gateway_realtime_visitors_count",
+			Help: "Number of real-time active visitors connected to the gateway",
 		}),
 		GatewayTotalRequests: promauto.NewCounterVec(
 			prometheus.CounterOpts{

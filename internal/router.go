@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"sync"
@@ -230,15 +231,31 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 	if r.enableMetrics && route.DisableMetrics {
 		logger.Debug("Metrics collection disabled for route", "route", route.Name)
 	}
+	var visitorTracker *VisitorTracker
+	if enableMetrics {
+		var visitorStore VisitorStore
+		if redisBased {
+			visitorStore = NewRedisStore(middlewares.RedisClient)
+		} else {
+			visitorStore = NewMemoryStore()
+		}
+
+		visitorTracker = NewVisitorTracker(Config{
+			TTL:             5 * time.Minute,
+			CleanupInterval: 5 * time.Minute,
+			Store:           visitorStore,
+		})
+	}
 	// Proxy middleware
 	proxyMiddleware := &ProxyMiddleware{
-		Name:          route.Name,
-		Path:          route.Path,
-		enableMetrics: enableMetrics,
-		Enabled:       route.ErrorInterceptor.Enabled,
-		ContentType:   route.ErrorInterceptor.ContentType,
-		Errors:        route.ErrorInterceptor.Errors,
-		Origins:       route.Cors.Origins,
+		Name:           route.Name,
+		Path:           route.Path,
+		enableMetrics:  enableMetrics,
+		Enabled:        route.ErrorInterceptor.Enabled,
+		ContentType:    route.ErrorInterceptor.ContentType,
+		Errors:         route.ErrorInterceptor.Errors,
+		Origins:        route.Cors.Origins,
+		VisitorTracker: visitorTracker,
 	}
 	rRouter.Use(proxyMiddleware.Wrap)
 	if route.Cors.Enabled {
@@ -318,11 +335,11 @@ func (g *Gateway) registerMetricsHandler(mux *mux.Router) {
 	} else {
 		sub.PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
 	}
-	if middlewares := g.Monitoring.Middleware.Metrics; len(middlewares) > 0 {
+	if metricsMiddlewares := g.Monitoring.Middleware.Metrics; len(metricsMiddlewares) > 0 {
 		route := Route{
 			Path:           path,
 			Name:           "metrics",
-			Middlewares:    middlewares,
+			Middlewares:    metricsMiddlewares,
 			DisableMetrics: true,
 		}
 		attachMiddlewares(route, sub)
@@ -344,11 +361,11 @@ func (g *Gateway) registerRouteHealthHandler(mux *mux.Router, health HealthCheck
 		sub.PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
 	}
 
-	if middlewares := g.Monitoring.Middleware.RouteHealthCheck; len(middlewares) > 0 {
+	if healthCheckMiddlewares := g.Monitoring.Middleware.RouteHealthCheck; len(healthCheckMiddlewares) > 0 {
 		route := Route{
 			Path:           path,
 			Name:           "routeHealth",
-			Middlewares:    middlewares,
+			Middlewares:    healthCheckMiddlewares,
 			DisableMetrics: true,
 		}
 		attachMiddlewares(route, sub)

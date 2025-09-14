@@ -261,13 +261,14 @@ type UserAgentBlockRuleMiddleware struct {
 	UserAgents []string `yaml:"userAgents"`
 }
 type ProxyMiddleware struct {
-	Name          string
-	Path          string
-	Enabled       bool
-	enableMetrics bool
-	ContentType   string
-	Errors        []middlewares.RouteError
-	Origins       []string
+	Name           string
+	Path           string
+	Enabled        bool
+	enableMetrics  bool
+	ContentType    string
+	Errors         []middlewares.RouteError
+	Origins        []string
+	VisitorTracker *VisitorTracker
 }
 type httpCacheRule struct {
 	MaxTtl                   int64    `yaml:"maxTtl"`
