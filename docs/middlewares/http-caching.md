@@ -52,7 +52,11 @@ The HTTP Cache Middleware provides the following configuration options:
 
 - **`excludedResponseCodes`** (`array of strings`):  
   Configures specific HTTP response status codes or ranges of codes for which caching is disabled. For example, you can exclude error responses like `404` or `500-599`.
+- **`public`** (`boolean`, default=`false`):  
+  When set to `true`, marks all responses as public, allowing them to be cached by any cache, even if they would normally be considered private.
 
+- **`paths`** (`array of strings`):  
+  Defines the URL paths or patterns to which the caching rules apply. Supports regex patterns for flexible matching.
 ---
 
 ## Example Configuration
@@ -70,6 +74,7 @@ middlewares:
     rule:
       maxTtl: 60
       memoryLimit: 1Mi  # Supported units: Ki, Mi, Gi, Ti or K, M, G, T
+      public: true
       disableCacheStatusHeader: false
       excludedResponseCodes: ["404", "418", "500-599"]
 ```

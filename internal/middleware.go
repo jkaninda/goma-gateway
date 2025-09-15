@@ -136,7 +136,7 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 	case redirectScheme:
 		applyRedirectSchemeMiddleware(mid, router)
 	case bodyLimit:
-		applyBodyLimitMiddleware(mid, router)
+		applyBodyLimitMiddleware(mid, route, router)
 	case userAgentBlock:
 		applyUserAgentBlockMiddleware(mid, router)
 	}
@@ -144,7 +144,7 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 	attachAuthMiddlewares(route, mid, router)
 }
 
-func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {
+func applyBodyLimitMiddleware(mid Middleware, route Route, r *mux.Router) {
 	rule := &BodyLimitRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
@@ -156,7 +156,11 @@ func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {
 			logger.Error("Error middleware not applied", "error", err)
 		}
 		if maxBytes > 0 {
-			bodyLimitMiddleware := &middlewares.BodyLimit{MaxBytes: maxBytes}
+			bodyLimitMiddleware := &middlewares.BodyLimit{
+				MaxBytes: maxBytes,
+				Paths:    mid.Paths,
+				Path:     route.Path,
+			}
 			r.Use(bodyLimitMiddleware.Middleware)
 		}
 	}
@@ -215,6 +219,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 		TTL:                      time.Duration(ttl),
 		MaxStale:                 time.Duration(maxStale),
 		RedisBased:               redisBased,
+		Public:                   rule.Public,
 		DisableCacheStatusHeader: rule.DisableCacheStatusHeader,
 		ExcludedResponseCodes:    codes,
 	}

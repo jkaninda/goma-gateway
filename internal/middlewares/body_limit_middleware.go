@@ -26,10 +26,19 @@ import (
 
 type BodyLimit struct {
 	MaxBytes int64
+	Paths    []string
+	Path     string
 }
 
 func (b BodyLimit) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if the request path is in the list of paths to limit
+		if len(b.Paths) > 0 {
+			if !isPathMatching(r.URL.Path, b.Path, b.Paths) {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
 		contentType := getContentType(r)
 		// Create a new limited reader with the specified limit
 		lr := &io.LimitedReader{R: r.Body, N: b.MaxBytes + 1}

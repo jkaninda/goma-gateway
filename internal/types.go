@@ -276,6 +276,7 @@ type httpCacheRule struct {
 	DisableCacheStatusHeader bool     `yaml:"disableCacheStatusHeader,omitempty"`
 	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty"`
 	MemoryLimit              string   `yaml:"memoryLimit,omitempty"`
+	Public                   bool     `yaml:"public,omitempty"`
 }
 type RedirectSchemeRuleMiddleware struct {
 	Scheme    string `yaml:"scheme"`

@@ -43,6 +43,7 @@ type HttpCacheConfig struct {
 	RedisBased               bool
 	DisableCacheStatusHeader bool
 	ExcludedResponseCodes    []int
+	Public                   bool
 }
 
 // Cache is a wrapper around the Redis client.
@@ -290,15 +291,22 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 				if allowedOrigin(h.Origins, r.Header.Get("Origin")) {
 					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 				}
-				writeCachedResponse(w, contentType, response, ttl, h.DisableCacheStatusHeader)
+				writeCachedResponse(w, contentType, response, ttl, h.DisableCacheStatusHeader, h.Public)
 				logger.Debug("Cache: served from cache", "path", r.URL.Path)
 				return
 			}
 			if !h.DisableCacheStatusHeader {
 				// Set Cache-Control for new response
-				w.Header().Set("X-Cache-Status", "MISS") // Indicate cache miss
-				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", h.TTL.Seconds()))
+				cacheControl := fmt.Sprintf("max-age=%d", int(h.TTL.Seconds()))
+				if h.Public {
+					cacheControl = "public, " + cacheControl
+				} else {
+					cacheControl = "private, " + cacheControl
+				}
+				w.Header().Set("Cache-Control", cacheControl)
+				w.Header().Set("X-Cache-Status", "MISS")
 			}
+
 		}
 
 		// Capture the response
@@ -334,12 +342,18 @@ func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *ht
 }
 
 // writeCachedResponse writes a cached response to the client.
-func writeCachedResponse(w http.ResponseWriter, contentType string, response []byte, ttl time.Duration, disableCacheStatusHeader bool) {
+func writeCachedResponse(w http.ResponseWriter, contentType string, response []byte, ttl time.Duration, disableCacheStatusHeader, public bool) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Proxied-By", "Goma Gateway")
 	if !disableCacheStatusHeader {
-		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(ttl.Seconds())))
-		w.Header().Set("X-Cache-Status", "HIT") // Indicate cache hit
+		cacheControl := fmt.Sprintf("max-age=%d", int(ttl.Seconds()))
+		if public {
+			cacheControl = "public, " + cacheControl
+		} else {
+			cacheControl = "private, " + cacheControl
+		}
+		w.Header().Set("Cache-Control", cacheControl)
+		w.Header().Set("X-Cache-Status", "HIT")
 	}
 	_, err := w.Write(response)
 	if err != nil {
