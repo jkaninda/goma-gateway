@@ -19,6 +19,7 @@ package internal
 
 import (
 	"bytes"
+	"context"
 	"github.com/google/uuid"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -147,6 +148,11 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			logger.Debug("Metrics collection started")
 			prometheusMetrics.TotalRequests.WithLabelValues(h.Name, method).Inc()
 			prometheusMetrics.GatewayTotalRequests.WithLabelValues(h.Name, method).Inc()
+
+			// Update real-time visitors gauge
+			if h.VisitorTracker != nil {
+				h.VisitorTracker.AddVisitor(context.Background(), ip, r.UserAgent())
+			}
 		}
 
 		next.ServeHTTP(rec, r)
