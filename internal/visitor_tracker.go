@@ -181,7 +181,7 @@ func (r *RedisStore) AddVisitor(ctx context.Context, key string, visitor *Visito
 
 	pipe = r.client.Pipeline()
 	pipe.HSet(ctx, key, visitorData)
-	pipe.Expire(ctx, key, time.Minute*5) // Set TTL for automatic expiration
+	pipe.Expire(ctx, key, time.Minute*5) // Set TTL for automatic expiration, 5m
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -208,7 +208,7 @@ func (r *RedisStore) UpdateLastSeen(ctx context.Context, key string, lastSeen ti
 
 func (r *RedisStore) CountVisitors(ctx context.Context) (int, error) {
 	logger.Debug("visitorTracker:: Counting visitors in Redis")
-	keys, err := r.client.Keys(ctx, "visitor-*").Result()
+	keys, err := r.client.Keys(ctx, fmt.Sprintf("%s*", visitorPrefix)).Result()
 	if err != nil {
 		return 0, err
 	}
@@ -237,6 +237,7 @@ func (vt *VisitorTracker) AddVisitor(ctx context.Context, ip string, userAgent s
 			FirstSeen: now,
 			LastSeen:  now,
 		}
+		logger.Debug("VisitorTracker:: Tracking visitor", "ip", ip, "userAgent", userAgent, "key", key)
 		if err := vt.store.AddVisitor(ctx, key, visitor); err != nil {
 			logger.Error("visitorTracker:: Failed to add visitor", "error", err, "ip", ip)
 		}
@@ -286,5 +287,5 @@ func (vt *VisitorTracker) Stop() error {
 }
 
 func generateVisitorID(ip string, agent string) string {
-	return fmt.Sprintf("visitor-%s-%s", ip, goutils.Slug(agent))
+	return fmt.Sprintf("%s%s-%s", visitorPrefix, ip, goutils.Slug(agent))
 }
