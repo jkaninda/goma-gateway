@@ -59,7 +59,11 @@ More than just a reverse proxy, it streamlines service infrastructure management
 * Multi-domain & multi-service support in one config
 * Reverse proxy with backend abstraction
 * Traffic control: **rate limiting, load balancing, health checks**
-* Canary deployments with weighted backends and conditional routing
+* **Canary Deployments**:
+  Safely roll out new versions of your services with advanced canary deployment strategies:
+
+  * **Weighted Backends** – Gradually shift traffic between service versions using percentage-based routing.
+  * **Conditional Routing** – Route requests based on user groups, headers, query parameters, or cookies for targeted rollouts.
 
 ### **Security & Access Control**
 
@@ -267,9 +271,9 @@ gateway:
         - api.example.com
       backends:
         - endpoint: https://api-1.example.com
-          weight: 1
+          weight: 20
         - endpoint: https://api-2.example.com
-          weight: 3
+          weight: 80
       healthCheck:
         path: /
         interval: 30s
