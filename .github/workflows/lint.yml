@@ -15,9 +15,9 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '~1.24'
+          go-version: '~1.25'
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.1.2
+          version: v2.4.0
