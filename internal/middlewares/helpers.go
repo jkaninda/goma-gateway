@@ -65,7 +65,7 @@ func allowedOrigin(origins []string, origin string) bool {
 
 func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, logMessage string, origins []string, contentType string) {
 	// Set the message for the error response
-	message := http.StatusText(statusCode)
+	message := fmt.Sprintf("%d %s", statusCode, http.StatusText(statusCode))
 	if len(logMessage) > 0 {
 		message = logMessage
 	}
