@@ -17,7 +17,8 @@ The project is named after Goma, a vibrant city located in the eastern region of
 
 ## Features
 
-Goma Gateway is built for simplicity, flexibility, and high performance. It offers a comprehensive set of modern features to help you efficiently manage, route, and secure traffic across your services.
+**Goma Gateway** is a modern, developer-friendly API Gateway built for simplicity, security, and scale.
+More than just a reverse proxy, it streamlines service infrastructure management with **declarative configuration** and **enterprise-grade features**.
 
 ### Core Features
 
@@ -47,6 +48,12 @@ Goma Gateway is built for simplicity, flexibility, and high performance. It offe
 
 * **Backend Error Interception**
   Intercept and handle backend errors gracefully to improve reliability and user experience.
+
+* **Canary Deployments**
+  Safely roll out new versions of your services with advanced canary deployment strategies:
+
+  * **Weighted Backends** – Gradually shift traffic between service versions using percentage-based routing.
+  * **Conditional Routing** – Route requests based on user groups, headers, query parameters, or cookies for targeted rollouts.
 
 * **Monitoring & Logging**
   Gain deep visibility into gateway operations with comprehensive monitoring and logging features.
@@ -175,7 +182,7 @@ We are open to receiving stars, PRs, and issues!
 
 ---
 
-The [jkaninda/goma-gateway](https://hub.docker.com/r/jkaninda/goma-gateway) Docker image can be deployed on Docker, Docker in Swarm mode, and Kubernetes. 
+The [jkaninda/goma-gateway](https://hub.docker.com/r/jkaninda/goma-gateway) Docker image can be deployed on Docker, Docker in Swarm mode, and Kubernetes.
 
 
 ## Available image registries
