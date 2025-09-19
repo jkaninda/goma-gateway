@@ -279,13 +279,12 @@ func initConfig(configFile string) error {
 				Idle:  30,
 			},
 			Log: Log{
-				Level:    "error",
+				Level:    "info",
 				FilePath: "",
-				Format:   "text",
 			},
 			Monitoring: Monitoring{
 				EnableMetrics:   true,
-				EnableReadiness: true,
+				EnableReadiness: false,
 				EnableLiveness:  true,
 			},
 			ExtraConfig: ExtraRouteConfig{
@@ -315,13 +314,13 @@ func initConfig(configFile string) error {
 				},
 				{
 					Name:    "api",
-					Path:    "/",
-					Hosts:   []string{"app.example.com"},
+					Path:    "/v1",
+					Hosts:   []string{"api.example.com"},
 					Rewrite: "/",
 					Backends: Backends{
-						Backend{Endpoint: "https://api-1.example.com", Weight: 5},
-						Backend{Endpoint: "https://api-2.example.com", Weight: 2},
-						Backend{Endpoint: "https://api-3.example.com", Weight: 1},
+						Backend{Endpoint: "https://api-1.example.com", Weight: 50},
+						Backend{Endpoint: "https://api-2.example.com", Weight: 20},
+						Backend{Endpoint: "https://api-3.example.com", Weight: 30},
 					},
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
@@ -330,8 +329,7 @@ func initConfig(configFile string) error {
 						HealthyStatuses: []int{200, 404},
 					},
 					ErrorInterceptor: middlewares.RouteErrorInterceptor{
-						Enabled:     true,
-						ContentType: applicationJson,
+						Enabled: true,
 						Errors: []middlewares.RouteError{
 							{
 								StatusCode: 403,
@@ -347,7 +345,7 @@ func initConfig(configFile string) error {
 						},
 					},
 					Cors: Cors{
-						Origins:          []string{"http://localhost:3000", "https://dev.example.com"},
+						Origins:          []string{"https://dev.example.com", "https://example.com"},
 						Headers:          map[string]string{},
 						MaxAge:           1728000,
 						AllowCredentials: true,
@@ -362,13 +360,13 @@ func initConfig(configFile string) error {
 				Name: "basic-auth",
 				Type: BasicAuth,
 				Paths: []string{
-					"/*",
+					"/.*",
 				},
 				Rule: BasicRuleMiddleware{
 					Realm: "Restricted",
 					Users: []middlewares.User{
 						{Username: "admin", Password: "$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO"},
-						{Username: "admin", Password: "admin"},
+						{Username: "user", Password: "password"},
 					},
 				},
 			},
@@ -376,15 +374,14 @@ func initConfig(configFile string) error {
 				Name: "block-access",
 				Type: AccessMiddleware,
 				Paths: []string{
-					"/swagger-ui/*",
-					"/api-docs/*",
-					"/actuator/*",
+					"/docs/.*",
+					"/actuator/.*",
 				},
 			}, {
 				Name: "block-admin-access",
 				Type: AccessMiddleware,
 				Paths: []string{
-					"/admin/*",
+					"/admin/.*",
 				},
 				Rule: AccessRuleMiddleware{
 					StatusCode: 404,
