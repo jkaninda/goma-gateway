@@ -14,14 +14,12 @@
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
 title: Goma Gateway
-email: hi@jonaskaninda.com
+email: me@jkaninda.dev
 description: >- # this means to ignore newlines until "baseurl:"
-  Goma Gateway is a lightweight, high-performance API Gateway written in Go.
-  It supports domain-based routing, reverse proxy, WebSocket, rate limiting, and authentication middleware.
-  With real-time monitoring, and load balancing, Goma simplifies modern API management with flexibility and ease.
+  Goma Gateway is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly..
 
-baseurl: "/goma-gateway" # the subpath of your site, e.g. /blog
-url: ""#"jkaninda.github.io/goma-gateway/" # the base hostname & protocol for your site, e.g. http://example.com
+baseurl: "/" # the subpath of your site, e.g. /blog
+url: "https://goma.jkaninda.dev"#"jkaninda.github.io/goma-gateway/" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username: jonaskaninda
 github_username:  jkaninda
 
