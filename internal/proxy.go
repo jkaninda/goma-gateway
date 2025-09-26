@@ -40,7 +40,7 @@ func (pr *ProxyRoute) ProxyHandler() http.HandlerFunc {
 	transport := pr.createProxyTransport()
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		contentType := r.Header.Get("Content-Type")
+		contentType := getContentType(r)
 		origin := r.Header.Get("Origin")
 
 		// Validate if the HTTP method is allowed
@@ -317,6 +317,8 @@ func (b Backends) SelectBackend() *Backend {
 	if totalWeight == 0 {
 		return nil
 	}
+	// Update availability status for all backends
+	b.updateAvailability()
 
 	r := rand.Intn(totalWeight)
 
@@ -333,6 +335,19 @@ func (b Backends) SelectBackend() *Backend {
 
 	// Return nil if no backend is selected (should not happen if weights are valid)
 	return nil
+}
+
+// updateAvailability updates the availability status of all backends
+func (b Backends) updateAvailability() {
+	logger.Debug("Update backend availability", "unavailable count", len(unavailableBackends))
+	for i := range b {
+		if unavailableBackends[b[i].Endpoint] {
+			b[i].unavailable = true
+			logger.Debug("Backend unavailable, ", "backend", b[i].Endpoint)
+		} else {
+			b[i].unavailable = false
+		}
+	}
 }
 
 // HasPositiveWeight checks if at least one backend has a positive weight.
@@ -365,12 +380,16 @@ func (b Backends) hasAvailableBackends() bool {
 
 // availableBackendCount returns the count of available backends.
 func (b Backends) availableBackendCount() int {
+	// Update availability status for all backends
+	b.updateAvailability()
+
 	count := 0
 	for _, backend := range b {
 		if !backend.unavailable {
 			count++
 		}
 	}
+	logger.Debug("Available backends", "count", count)
 	return count
 }
 

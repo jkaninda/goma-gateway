@@ -16,7 +16,7 @@
 title: Goma Gateway
 email: me@jkaninda.dev
 description: >- # this means to ignore newlines until "baseurl:"
-  Goma Gateway is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly..
+  Goma Gateway is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly.
 
 baseurl: "/" # the subpath of your site, e.g. /blog
 url: "https://goma.jkaninda.dev"#"jkaninda.github.io/goma-gateway/" # the base hostname & protocol for your site, e.g. http://example.com
@@ -57,7 +57,7 @@ nav_external_links:
   - title: GitHub Kubernetes Operator
     url: https://github.com/jkaninda/goma-operator
 footer_content: >-
-  Copyright &copy; 2024 <a target="_blank" href="https://www.jonaskaninda.com">Jonas Kaninda</a>.
+  Copyright &copy; 2025 <a target="_blank" href="https://www.jonaskaninda.com">Jonas Kaninda</a>.
   Distributed under the <a href="https://github.com/jkaninda/goma-gateway/tree/main/LICENSE">Apache-2.0 License.</a><br>
   Something missing, unclear or not working? Open <a href="https://github.com/jkaninda/goma-gateway/issues">an issue</a>.
 

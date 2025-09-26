@@ -24,6 +24,7 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -205,4 +206,11 @@ func extractHostsFromRoutes(routes []Route) []certmanager.Domain {
 		}
 	}
 	return hosts
+}
+func getBaseURL(fullURL string) (string, error) {
+	parsed, err := url.Parse(fullURL)
+	if err != nil {
+		return "", err
+	}
+	return parsed.Scheme + "://" + parsed.Host, nil
 }

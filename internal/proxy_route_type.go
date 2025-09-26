@@ -28,6 +28,7 @@ type ProxyRoute struct {
 	target        string
 	weightedBased bool
 	canaryBased   bool
+	hasHeathCheck bool
 	backends      Backends
 	methods       []string
 	cors          Cors
