@@ -26,13 +26,13 @@ import (
 
 // PrometheusMetrics defines all Prometheus metrics tracked by the gateway.
 type PrometheusMetrics struct {
-	// Deprecated: use GatewayTotalRequests instead.
+	// Deprecated, use GatewayTotalRequests instead.
 	TotalRequests *prometheus.CounterVec
 
-	// Deprecated: use GatewayResponseStatus instead.
+	// Deprecated, use GatewayResponseStatus instead.
 	ResponseStatus *prometheus.CounterVec
 
-	// Deprecated: use GatewayRequestDuration instead.
+	// Deprecated, use GatewayRequestDuration instead.
 	HttpDuration *prometheus.HistogramVec
 
 	// Total number of requests handled by the gateway, labeled by route name and method.
