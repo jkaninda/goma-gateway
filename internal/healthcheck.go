@@ -157,6 +157,7 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 		logger.Debug("Route is healthy", "route", health.Name)
 		if endpoint, err := getBaseURL(health.URL); err == nil && unavailableBackends[endpoint] {
 			delete(unavailableBackends, endpoint)
+			logger.Info("Route Backend recovered", "route", health.Name, "backend", endpoint)
 		}
 	})
 	if err != nil {
