@@ -26,19 +26,32 @@ import (
 )
 
 var (
-	counter            uint32
-	dynamicRoutes      []Route
+	// counter is used for the round-robin load balancer.
+	counter uint32
+
+	// dynamicRoutes stores the currently registered routes.
+	// It is updated only after successful validation when new changes occur,
+	// ensuring that active routes are not interrupted during reloads.
+	dynamicRoutes []Route
+
+	// dynamicMiddlewares stores the currently registered middlewares.
+	// Similar to routes, this list is updated dynamically after validation
+	// to avoid disrupting running middlewares during reloads.
 	dynamicMiddlewares []Middleware
-	redisBased         = false
-	stopChan           = make(chan struct{})
-	reloaded           = false
-	webAddress         = "[::]:8080"
-	webSecureAddress   = "[::]:8443"
-	logger             = logger2.Default()
-	certManager        *certmanager.CertManager
-	cachedDialer       = NewCachedDialer(5 * time.Minute)
-	shutdownChan       = make(chan os.Signal, 1)
-	processStartTime   = time.Now()
-	prometheusMetrics  = metrics.NewPrometheusMetrics(processStartTime, shutdownChan)
-	debugMode          = false
+
+	// unavailableBackends keeps track of backend endpoints marked as unavailable.
+	unavailableBackends = make(map[string]bool)
+
+	redisBased        = false
+	stopChan          = make(chan struct{})
+	reloaded          = false
+	webAddress        = "[::]:8080"
+	webSecureAddress  = "[::]:8443"
+	logger            = logger2.Default()
+	certManager       *certmanager.CertManager
+	cachedDialer      = NewCachedDialer(5 * time.Minute)
+	shutdownChan      = make(chan os.Signal, 1)
+	processStartTime  = time.Now()
+	prometheusMetrics = metrics.NewPrometheusMetrics(processStartTime, shutdownChan)
+	debugMode         = false
 )

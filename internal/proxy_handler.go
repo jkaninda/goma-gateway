@@ -146,8 +146,10 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		// Metrics
 		if h.enableMetrics {
 			logger.Debug("Metrics collection started")
-			prometheusMetrics.TotalRequests.WithLabelValues(h.Name, method).Inc()
 			prometheusMetrics.GatewayTotalRequests.WithLabelValues(h.Name, method).Inc()
+
+			// Deprecated metrics (backward compatibility)
+			prometheusMetrics.TotalRequests.WithLabelValues(h.Name, method).Inc()
 
 			// Update real-time visitors gauge
 			if h.VisitorTracker != nil {
@@ -160,6 +162,10 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		if h.enableMetrics {
 			duration := time.Since(startTime).Seconds()
 			statusStr := strconv.Itoa(rec.statusCode)
+			prometheusMetrics.GatewayResponseStatus.WithLabelValues(statusStr, h.Name, method).Inc()
+			prometheusMetrics.GatewayRequestDuration.WithLabelValues(h.Name, method).Observe(duration)
+
+			// Deprecated metrics (backward compatibility)
 			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, h.Name, method).Inc()
 			prometheusMetrics.HttpDuration.WithLabelValues(h.Name, method).Observe(duration)
 

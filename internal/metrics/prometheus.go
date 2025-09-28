@@ -24,76 +24,120 @@ import (
 	"time"
 )
 
-// PrometheusMetrics holds all Prometheus metrics
+// PrometheusMetrics defines all Prometheus metrics tracked by the gateway.
 type PrometheusMetrics struct {
-	TotalRequests                 *prometheus.CounterVec
-	ResponseStatus                *prometheus.CounterVec
-	HttpDuration                  *prometheus.HistogramVec
-	GatewayTotalRequests          *prometheus.CounterVec
-	GatewayUptime                 prometheus.Gauge
-	GatewayRoutesCount            prometheus.Gauge
-	GatewayMiddlewaresCount       prometheus.Gauge
-	GatewayRealTimeVisitorsCount  prometheus.Gauge
+	// Deprecated, use GatewayTotalRequests instead.
+	TotalRequests *prometheus.CounterVec
+
+	// Deprecated, use GatewayResponseStatus instead.
+	ResponseStatus *prometheus.CounterVec
+
+	// Deprecated, use GatewayRequestDuration instead.
+	HttpDuration *prometheus.HistogramVec
+
+	// Total number of requests handled by the gateway, labeled by route name and method.
+	GatewayTotalRequests *prometheus.CounterVec
+
+	// Uptime of the gateway application, in seconds since startup.
+	GatewayUptime prometheus.Gauge
+
+	// Current number of active routes registered in the gateway.
+	GatewayRoutesCount prometheus.Gauge
+
+	// Current number of middlewares registered in the gateway.
+	GatewayMiddlewaresCount prometheus.Gauge
+
+	// Number of real-time active visitors connected to the gateway.
+	GatewayRealTimeVisitorsCount prometheus.Gauge
+
+	// Total number of errors intercepted by the gateway,
+	// labeled by route name and HTTP status code.
 	GatewayTotalErrorsIntercepted *prometheus.CounterVec
+
+	// Duration of HTTP requests handled by the gateway in seconds,
+	// labeled by route name and method.
+	GatewayRequestDuration *prometheus.HistogramVec
+
+	// Total number of HTTP responses sent by the gateway,
+	// labeled by status code, route name, and method.
+	GatewayResponseStatus *prometheus.CounterVec
 }
 
-// NewPrometheusMetrics creates a new set of Prometheus metrics
+// NewPrometheusMetrics initializes and registers all Prometheus metrics for the gateway.
 func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusMetrics {
 	pm := &PrometheusMetrics{
 		GatewayUptime: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "gateway_uptime_seconds",
-			Help: "Uptime of the gateway application in seconds",
+			Help: "Uptime of the gateway application in seconds since startup",
 		}),
 		GatewayRoutesCount: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "gateway_routes_count",
-			Help: "Current number of routes registered in the gateway",
+			Help: "Current number of registered routes in the gateway",
 		}),
 		GatewayMiddlewaresCount: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "gateway_middlewares_count",
-			Help: "Current number of middlewares registered in the gateway",
+			Help: "Current number of registered middlewares in the gateway",
 		}),
 		GatewayRealTimeVisitorsCount: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "gateway_realtime_visitors_count",
-			Help: "Number of real-time active visitors connected to the gateway",
+			Help: "Number of currently connected real-time active visitors",
 		}),
 		GatewayTotalRequests: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gateway_requests_total",
-				Help: "Total number of requests handled by the gateway since startup",
+				Help: "Total number of requests processed by the gateway",
 			},
 			[]string{"name", "method"},
 		),
+		GatewayResponseStatus: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_response_status_total",
+				Help: "Total number of HTTP responses sent, labeled by status code, route name, and method",
+			},
+			[]string{"status", "name", "method"},
+		),
+		GatewayRequestDuration: promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "gateway_request_duration_seconds",
+				Help:    "Histogram of request durations in seconds",
+				Buckets: prometheus.DefBuckets,
+			},
+			[]string{"name", "method"},
+		),
+		GatewayTotalErrorsIntercepted: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_total_errors_intercepted",
+				Help: "Total number of errors intercepted, labeled by route name and status code",
+			},
+			[]string{"name", "status"},
+		),
+
+		// Deprecated metrics (backward compatibility)
 		TotalRequests: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "http_requests_total",
-				Help: "Total number of HTTP requests, similar to gateway_requests_total",
+				Help: "Deprecated: use gateway_requests_total instead",
 			},
 			[]string{"name", "method"},
 		),
 		ResponseStatus: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "http_response_status_total",
-				Help: "Total number of HTTP responses by status code",
+				Help: "Deprecated: use gateway_response_status_total instead",
 			},
 			[]string{"status", "name", "method"},
 		),
 		HttpDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "http_request_duration_seconds",
-				Help:    "Duration of HTTP requests in seconds",
+				Help:    "Deprecated: use gateway_request_duration_seconds instead",
 				Buckets: prometheus.DefBuckets,
 			},
 			[]string{"name", "method"},
 		),
-		GatewayTotalErrorsIntercepted: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "gateway_total_errors_intercepted",
-			Help: "Total number of errors intercepted by the gateway, grouped by name and status_code",
-		},
-			[]string{"name", "status_code"},
-		),
 	}
 
-	// Start a goroutine to continuously update the gateway uptime
+	// Start background goroutine to track uptime until the stop signal is received.
 	go pm.trackUptime(startTime, stop)
 
 	return pm

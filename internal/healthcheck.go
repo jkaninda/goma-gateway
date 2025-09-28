@@ -49,14 +49,14 @@ func (health Health) Check() error {
 	// Perform the HTTP request
 	healthResp, err := client.Do(healthReq)
 	if err != nil {
-		logger.Debug("Error performing HealthCheck request for route %s: %v", health.Name, err)
+		logger.Debug("Error performing HealthCheck request", "route", health.Name, "error", err)
 		return fmt.Errorf("error performing HealthCheck request: %v", err)
 	}
 	defer health.closeResponseBody(healthResp.Body)
 
 	// Validate the response status code
-	if err := health.validateStatusCode(healthResp.StatusCode); err != nil {
-		logger.Debug("Health check failed for route %s: %v", health.Name, err)
+	if err = health.validateStatusCode(healthResp.StatusCode); err != nil {
+		logger.Debug("Health check failed", "route", health.Name, "error", err)
 		return err
 	}
 
@@ -148,10 +148,16 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 	_, err := c.AddFunc(expression, func() {
 		err := health.Check()
 		if err != nil {
+			if endpoint, err := getBaseURL(health.URL); err == nil {
+				unavailableBackends[endpoint] = true
+			}
 			logger.Error("Route is unhealthy,", "route", health.Name, "error", err)
 			return
 		}
 		logger.Debug("Route is healthy", "route", health.Name)
+		if endpoint, err := getBaseURL(health.URL); err == nil && unavailableBackends[endpoint] {
+			delete(unavailableBackends, endpoint)
+		}
 	})
 	if err != nil {
 		return err
