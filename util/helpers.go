@@ -18,8 +18,10 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"github.com/jkaninda/logger"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
@@ -346,4 +348,62 @@ func ReplaceEnvVars(s string) string {
 		logger.Error("No environment variable found", "env", name)
 		return match
 	})
+}
+
+// ValidateEndpoint checks if the endpoint is a valid URL/IP/host with optional port,
+// and ensures it does not end with a trailing slash.
+func ValidateEndpoint(endpoint string) error {
+	if endpoint == "" {
+		return errors.New("endpoint cannot be empty")
+	}
+
+	// Reject trailing slash (landing path)
+	if strings.HasSuffix(endpoint, "/") {
+		return fmt.Errorf("endpoint must not end with '/' : %s", endpoint)
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid endpoint: %w", err)
+	}
+
+	if u.Scheme == "" {
+		return fmt.Errorf("missing scheme (http/https) in endpoint: %s", endpoint)
+	}
+
+	// Must have host
+	if u.Host == "" {
+		return fmt.Errorf("missing host in endpoint: %s", endpoint)
+	}
+
+	host, _, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		// If no port, Host is just the hostname/IP
+		host = u.Host
+	}
+
+	if ip := net.ParseIP(host); ip == nil {
+		if err = validateHostname(host); err != nil {
+			return fmt.Errorf("invalid host: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// validateHostname ensures the hostname follows DNS rules
+func validateHostname(host string) error {
+	if len(host) == 0 || len(host) > 253 {
+		return errors.New("hostname length invalid")
+	}
+	labels := strings.Split(host, ".")
+	for _, label := range labels {
+		if len(label) == 0 || len(label) > 63 {
+			return fmt.Errorf("invalid label length: %s", label)
+		}
+		if strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
+			return fmt.Errorf("label cannot start/end with hyphen: %s", label)
+		}
+	}
+	return nil
 }
