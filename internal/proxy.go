@@ -192,6 +192,10 @@ func (pr *ProxyRoute) createWeightedProxy(r *http.Request, contentType string, w
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}
+	logger.Debug("Backend Selected",
+		"route", pr.name,
+		"type", "weighted",
+		"backend", backendURL.String())
 	return proxy, err
 }
 
@@ -211,7 +215,53 @@ func (pr *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string,
 	}
 	// Save backend in context
 	// r.WithContext(context.WithValue(r.Context(), CtxSelectedBackend, backendURL.Hostname()))
+	logger.Debug("Backend Selected",
+		"route", pr.name,
+		"type", "round-robin",
+		"backend", backendURL.String())
 	return proxy, err
+}
+
+// createCanaryProxy creates a reverse proxy using canary deployment logic.
+func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
+	if !pr.backends.hasAvailableBackends() {
+		logger.Error("No available backends", "route", pr.name)
+		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
+			"503 service unavailable", pr.cors.Origins, contentType)
+		return nil, fmt.Errorf("no available backends for route=%s", pr.name)
+	}
+
+	backend := pr.backends.SelectCanaryBackend(r)
+	if backend == nil {
+		backend = pr.backends.SelectStableBackend()
+		if backend == nil {
+			logger.Error("No available stable backends", "route", pr.name)
+			middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
+				"503 service unavailable", pr.cors.Origins, contentType)
+			return nil, fmt.Errorf("no available stable backends for route=%s", pr.name)
+		}
+	}
+	// Parse the backend URL and update the request
+	backendURL, err := url.Parse(backend.Endpoint)
+	if err != nil {
+		logger.Error("Error parsing backend URL", "route", pr.name, "error", err)
+		middlewares.RespondWithError(w, r, http.StatusInternalServerError,
+			http.StatusText(http.StatusInternalServerError), pr.cors.Origins, contentType)
+		return nil, err
+	}
+
+	// Update the headers to allow for SSL redirection if host forwarding is disabled
+	if !pr.security.ForwardHostHeaders {
+		logger.Debug(">>> Forwarding host headers disabled")
+		r.URL.Scheme = backendURL.Scheme
+		r.Host = backendURL.Host
+	}
+
+	logger.Debug("Backend Selected",
+		"route", pr.name,
+		"type", "canary",
+		"backend", backendURL.String())
+	return httputil.NewSingleHostReverseProxy(backendURL), nil
 }
 
 // createProxyTransport creates custom transport for the reverse proxy.
@@ -306,6 +356,9 @@ func (pr *ProxyRoute) NewRoundRobinReverseProxy(r *http.Request) (*httputil.Reve
 func (b Backends) TotalWeight() int {
 	total := 0
 	for _, backend := range b {
+		if backend.unavailable {
+			continue
+		}
 		total += backend.Weight
 	}
 	return total
@@ -313,16 +366,14 @@ func (b Backends) TotalWeight() int {
 
 // SelectBackend selects a backend based on weighted randomization.
 func (b Backends) SelectBackend() *Backend {
+	b.updateAvailability()
+
 	totalWeight := b.TotalWeight()
 	if totalWeight == 0 {
 		return nil
 	}
-	// Update availability status for all backends
-	b.updateAvailability()
-
 	r := rand.Intn(totalWeight)
 
-	// Iterate through the backends and select one based on the random number
 	for _, backend := range b {
 		if backend.unavailable {
 			continue
@@ -332,17 +383,12 @@ func (b Backends) SelectBackend() *Backend {
 			return backend
 		}
 	}
-
-	// Return nil if no backend is selected (should not happen if weights are valid)
 	return nil
 }
 
 // updateAvailability updates the availability status of all backends
 func (b Backends) updateAvailability() {
 	logger.Debug("Update backend availability", "unavailable count", len(unavailableBackends))
-	if len(unavailableBackends) == 0 {
-		return
-	}
 	for _, backend := range b {
 		if unavailableBackends[backend.Endpoint] {
 			if !backend.unavailable {
@@ -352,6 +398,7 @@ func (b Backends) updateAvailability() {
 		} else {
 			if backend.unavailable {
 				logger.Debug("Backend recovered", "backend", backend.Endpoint)
+
 			}
 			backend.unavailable = false
 		}
@@ -422,51 +469,10 @@ func (b Backends) getNextAvailableBackend(availableCount int) *Backend {
 	return nil
 }
 
-// createCanaryProxy creates a reverse proxy using canary deployment logic.
-func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
-	if !pr.backends.hasAvailableBackends() {
-		logger.Error("No available backends", "route", pr.name)
-		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
-			"503 service unavailable", pr.cors.Origins, contentType)
-		return nil, fmt.Errorf("no available backends for route=%s", pr.name)
-	}
-
-	backend := pr.backends.SelectCanaryBackend(r)
-	if backend == nil {
-		backend = pr.backends.SelectStableBackend()
-		if backend == nil {
-			logger.Error("No available stable backends", "route", pr.name)
-			middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
-				"503 service unavailable", pr.cors.Origins, contentType)
-			return nil, fmt.Errorf("no available stable backends for route=%s", pr.name)
-		}
-	}
-	// Parse the backend URL and update the request
-	backendURL, err := url.Parse(backend.Endpoint)
-	if err != nil {
-		logger.Error("Error parsing backend URL", "route", pr.name, "error", err)
-		middlewares.RespondWithError(w, r, http.StatusInternalServerError,
-			http.StatusText(http.StatusInternalServerError), pr.cors.Origins, contentType)
-		return nil, err
-	}
-
-	// Update the headers to allow for SSL redirection if host forwarding is disabled
-	if !pr.security.ForwardHostHeaders {
-		logger.Debug(">>> Forwarding host headers disabled")
-		r.URL.Scheme = backendURL.Scheme
-		r.Host = backendURL.Host
-	}
-
-	logger.Debug("Selected backend for canary deployment",
-		"route", pr.name,
-		"backend", backend.Endpoint,
-		"isCanary", len(backend.Match) > 0)
-
-	return httputil.NewSingleHostReverseProxy(backendURL), nil
-}
-
 // SelectCanaryBackend selects a backend based on canary deployment rules.
 func (b Backends) SelectCanaryBackend(r *http.Request) *Backend {
+	// Update availability status for all backends
+	b.updateAvailability()
 	// check for exclusive canary backends that match the request
 	for _, backend := range b {
 		if backend.unavailable {

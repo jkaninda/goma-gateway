@@ -45,7 +45,7 @@ func initTestConfig(configFile string) error {
 					Path:    "/",
 					Methods: []string{"GET", "PATCH", "OPTIONS"},
 					Backends: Backends{
-						Backend{Endpoint: "https://example.com"},
+						&Backend{Endpoint: "https://example.com"},
 					},
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
@@ -61,9 +61,9 @@ func initTestConfig(configFile string) error {
 					Path:    "/load-balancing",
 					Methods: []string{"GET", "OPTIONS"},
 					Backends: Backends{
-						Backend{Endpoint: "https://example.com"},
-						Backend{Endpoint: "https://example1.com"},
-						Backend{Endpoint: "https://example2.com"},
+						&Backend{Endpoint: "https://example.com"},
+						&Backend{Endpoint: "https://example1.com"},
+						&Backend{Endpoint: "https://example2.com"},
 					},
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
@@ -78,9 +78,9 @@ func initTestConfig(configFile string) error {
 					Name: "weighted-load-balancing",
 					Path: "/load-balancing2",
 					Backends: Backends{
-						Backend{Endpoint: "https://example.com", Weight: 5},
-						Backend{Endpoint: "https://example1.com", Weight: 2},
-						Backend{Endpoint: "https://example2.com", Weight: 1},
+						&Backend{Endpoint: "https://example.com", Weight: 5},
+						&Backend{Endpoint: "https://example1.com", Weight: 2},
+						&Backend{Endpoint: "https://example2.com", Weight: 1},
 					},
 					Rewrite:               "/",
 					DisableHostForwarding: false,

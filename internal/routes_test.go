@@ -33,7 +33,7 @@ func initExtraRoute(path string) error {
 				Path:    "/extra",
 				Methods: []string{"GET"},
 				Backends: Backends{
-					Backend{Endpoint: "https://extra-example.com"},
+					&Backend{Endpoint: "https://extra-example.com"},
 				},
 				Rewrite: "/",
 				HealthCheck: RouteHealthCheck{
@@ -50,7 +50,7 @@ func initExtraRoute(path string) error {
 				Path:    "/api",
 				Methods: []string{"GET"},
 				Backends: Backends{
-					Backend{Endpoint: "https://example.com"},
+					&Backend{Endpoint: "https://example.com"},
 				},
 				Rewrite: "/",
 				HealthCheck: RouteHealthCheck{
@@ -67,9 +67,9 @@ func initExtraRoute(path string) error {
 				Name: "weighted-load-balancing",
 				Path: "/weighted-extra",
 				Backends: Backends{
-					Backend{Endpoint: "https://example.com", Weight: 5},
-					Backend{Endpoint: "https://example1.com", Weight: 2},
-					Backend{Endpoint: "https://example2.com", Weight: 1},
+					&Backend{Endpoint: "https://example.com", Weight: 5},
+					&Backend{Endpoint: "https://example1.com", Weight: 2},
+					&Backend{Endpoint: "https://example2.com", Weight: 1},
 				},
 				Rewrite:     "/",
 				HealthCheck: RouteHealthCheck{},
