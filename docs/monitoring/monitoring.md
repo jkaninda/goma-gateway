@@ -112,13 +112,14 @@ scrape_configs:
 
 Goma Gateway exposes several Prometheus metrics to monitor the gateway at various levels:
 
-* `gateway_middlewares_count` — Number of registered middlewares.
-* `gateway_routes_count` — Number of active routes.
-* `gateway_uptime_seconds` — Gateway uptime in seconds.
-* `gateway_requests_total` — Total processed requests (method, path, route).
-* `http_response_status_total` — HTTP responses by status, method, path, route.
-* `http_request_duration_seconds` — Histogram of request latencies.
-* `http_request_size_bytes` — Histogram of request sizes.
+* `gateway_uptime_seconds` — Uptime of the gateway application in seconds since startup"
+* `gateway_routes_count` — Current number of registered routes in the gateway.
+* `gateway_middlewares_count` — Current number of registered middlewares in the gateway.
+* `gateway_realtime_visitors_count` — Number of currently connected real-time active visitors(5m).
+* `gateway_requests_total` — Total number of requests processed by the gateway.
+* `gateway_response_status_total` — Total number of HTTP responses sent, labeled by status code, route name, and method.
+* `gateway_request_duration_seconds` — Histogram of request durations in seconds.
+* `gateway_total_errors_intercepted` — Total number of errors intercepted, labeled by route name and status code.
 * And many more...
 
 ---

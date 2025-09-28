@@ -37,7 +37,7 @@ func (g *GatewayServer) Initialize() error {
 	// Load Extra Configurations
 	if len(gateway.ExtraConfig.Directory) > 0 {
 		// Load Extra Middlewares
-		logger.Info("Loading extra middlewares", "directory", gateway.ExtraConfig.Directory)
+		logger.Debug("Loading extra middlewares", "directory", gateway.ExtraConfig.Directory)
 		extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
 		if err != nil {
 			logger.Error("Failed to load extra middlewares", "error", err)
@@ -45,11 +45,11 @@ func (g *GatewayServer) Initialize() error {
 		}
 		if len(extraMiddlewares) > 0 {
 			dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
-			logger.Info("Extra middlewares loaded", "count", len(extraMiddlewares))
+			logger.Debug("Extra middlewares loaded", "count", len(extraMiddlewares))
 		}
 
 		// Load Extra Routes
-		logger.Info("Loading extra routes", "directory", gateway.ExtraConfig.Directory)
+		logger.Debug("Loading extra routes", "directory", gateway.ExtraConfig.Directory)
 		extraRoutes, err := loadExtraRoutes(gateway.ExtraConfig.Directory)
 		if err != nil {
 			logger.Error("Failed to load extra routes", "error", err)
@@ -57,7 +57,7 @@ func (g *GatewayServer) Initialize() error {
 		}
 		if len(extraRoutes) > 0 {
 			dynamicRoutes = append(dynamicRoutes, extraRoutes...)
-			logger.Info("Extra routes loaded", "count", len(extraRoutes))
+			logger.Debug("Extra routes loaded", "count", len(extraRoutes))
 		}
 	}
 
@@ -81,7 +81,7 @@ func (g *GatewayServer) Initialize() error {
 		logger.Debug("Routes sorted by path length")
 	}
 
-	logger.Info("Validating routes", "count", len(dynamicRoutes))
+	logger.Debug("Validating routes", "count", len(dynamicRoutes))
 	dynamicRoutes = validateRoutes(*gateway, dynamicRoutes)
 
 	// Health check

@@ -96,23 +96,39 @@ func checkRoutes(routes []Route, middlewares []Middleware) {
 
 // validateConfig checks configurations and returns error
 func validateConfig(routes []Route, middlewares []Middleware) error {
-	logger.Info("Validating configurations...")
+	logger.Debug("Validating configurations...")
 	midNames := middlewareNames(middlewares)
 	for _, route := range routes {
 		if len(route.Name) == 0 {
-			des := route.Target
-			if des == "" {
+			target := route.Target
+			if target == "" {
 				if len(route.Backends) > 0 {
-					des = route.Backends[0].Endpoint
+					target = route.Backends[0].Endpoint
 				}
 			}
-			return fmt.Errorf("route name is empty, route with target: %s", des)
+			return fmt.Errorf("route name is empty, route with target: %s", target)
 		}
 		if route.Path == "" {
-			return fmt.Errorf("route [%s] has en empty path", route.Name)
+			return fmt.Errorf("route [%s] has an empty path", route.Name)
 		}
 		if route.Destination == "" && route.Target == "" && len(route.Backends) == 0 {
 			return fmt.Errorf("no target or backends specified for route: %s ", route.Name)
+		}
+		if len(route.Target) > 0 {
+			if err := util.ValidateEndpoint(route.Target); err != nil {
+				return fmt.Errorf("route [%s] has an invalid target endpoint: %s, error: %w", route.Name, route.Target, err)
+			}
+		}
+		// Validate backends
+		if len(route.Backends) > 0 {
+			for _, backend := range route.Backends {
+				if len(backend.Endpoint) > 0 {
+					if err := util.ValidateEndpoint(backend.Endpoint); err != nil {
+						return fmt.Errorf("route [%s] has an invalid backend  endpoint: %s, error: %w", route.Name, backend.Endpoint, err)
+
+					}
+				}
+			}
 		}
 		// checking middleware applied to routes
 		for _, middleware := range route.Middlewares {
