@@ -45,7 +45,7 @@ func (g *GatewayServer) Initialize() error {
 		}
 		if len(extraMiddlewares) > 0 {
 			dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
-			logger.Info("Extra middlewares loaded", "count", len(extraMiddlewares))
+			logger.Debug("Extra middlewares loaded", "count", len(extraMiddlewares))
 		}
 
 		// Load Extra Routes

@@ -20,7 +20,7 @@ This ensures high availability, scalability, and optimal resource utilization in
 * **Weighted**: Allocates traffic proportionally based on assigned weights.
 * **Health Checks**: Ensures only healthy backends receive traffic.
 * **Scalable Architecture**: Supports seamless addition/removal of backend servers.
-* **Smart Fallback**: Automatically removes failing backends from the rotation. — Not fully implemented
+* **Smart Fallback**: Automatically removes failing backends from the rotation.
 
 ---
 
