@@ -318,9 +318,9 @@ func initConfig(configFile string) error {
 					Hosts:   []string{"api.example.com"},
 					Rewrite: "/",
 					Backends: Backends{
-						Backend{Endpoint: "https://api-1.example.com", Weight: 50},
-						Backend{Endpoint: "https://api-2.example.com", Weight: 20},
-						Backend{Endpoint: "https://api-3.example.com", Weight: 30},
+						&Backend{Endpoint: "https://api-1.example.com", Weight: 50},
+						&Backend{Endpoint: "https://api-2.example.com", Weight: 20},
+						&Backend{Endpoint: "https://api-3.example.com", Weight: 30},
 					},
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",

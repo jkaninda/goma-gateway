@@ -323,13 +323,13 @@ func (b Backends) SelectBackend() *Backend {
 	r := rand.Intn(totalWeight)
 
 	// Iterate through the backends and select one based on the random number
-	for i := range b {
-		if b[i].unavailable {
+	for _, backend := range b {
+		if backend.unavailable {
 			continue
 		}
-		r -= b[i].Weight
+		r -= backend.Weight
 		if r < 0 {
-			return &b[i]
+			return backend
 		}
 	}
 
@@ -340,12 +340,20 @@ func (b Backends) SelectBackend() *Backend {
 // updateAvailability updates the availability status of all backends
 func (b Backends) updateAvailability() {
 	logger.Debug("Update backend availability", "unavailable count", len(unavailableBackends))
-	for i := range b {
-		if unavailableBackends[b[i].Endpoint] {
-			b[i].unavailable = true
-			logger.Debug("Backend unavailable, ", "backend", b[i].Endpoint)
+	if len(unavailableBackends) == 0 {
+		return
+	}
+	for _, backend := range b {
+		if unavailableBackends[backend.Endpoint] {
+			if !backend.unavailable {
+				logger.Debug("Backend marked unavailable", "backend", backend.Endpoint)
+			}
+			backend.unavailable = true
 		} else {
-			b[i].unavailable = false
+			if backend.unavailable {
+				logger.Debug("Backend recovered", "backend", backend.Endpoint)
+			}
+			backend.unavailable = false
 		}
 	}
 }
@@ -402,10 +410,10 @@ func (b Backends) getNextAvailableBackend(availableCount int) *Backend {
 	index := atomic.AddUint32(&counter, 1) % uint32(availableCount)
 	currentIndex := uint32(0)
 
-	for i := range b {
-		if !b[i].unavailable {
+	for _, backend := range b {
+		if !backend.unavailable {
 			if currentIndex == index {
-				return &b[i]
+				return backend
 			}
 			currentIndex++
 		}
@@ -460,25 +468,25 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 // SelectCanaryBackend selects a backend based on canary deployment rules.
 func (b Backends) SelectCanaryBackend(r *http.Request) *Backend {
 	// check for exclusive canary backends that match the request
-	for i := range b {
-		if b[i].unavailable {
+	for _, backend := range b {
+		if backend.unavailable {
 			continue
 		}
 
 		// Check if this is a canary backend with matching rules
-		if len(b[i].Match) > 0 {
-			if b.matchesRequest(&b[i], r) {
+		if len(backend.Match) > 0 {
+			if b.matchesRequest(backend, r) {
 				logger.Debug("Canary backend matched",
-					"endpoint", b[i].Endpoint,
-					"exclusive", b[i].Exclusive)
+					"endpoint", backend.Endpoint,
+					"exclusive", backend.Exclusive)
 
 				// If it's an exclusive canary and matches, use it
-				if b[i].Exclusive {
-					return &b[i]
+				if backend.Exclusive {
+					return backend
 				}
 
 				// TODO: Improve logic for non-exclusive canary
-				return &b[i]
+				return backend
 			}
 		}
 	}
@@ -488,16 +496,16 @@ func (b Backends) SelectCanaryBackend(r *http.Request) *Backend {
 
 // SelectStableBackend selects a stable (non-canary) backend using weighted selection.
 func (b Backends) SelectStableBackend() *Backend {
-	var stableBackends []Backend
+	var stableBackends []*Backend
 
 	// Collect all stable (non-canary) backends
-	for i := range b {
-		if b[i].unavailable {
+	for _, backend := range b {
+		if backend.unavailable {
 			continue
 		}
 
-		if len(b[i].Match) == 0 {
-			stableBackends = append(stableBackends, b[i])
+		if len(backend.Match) == 0 {
+			stableBackends = append(stableBackends, backend)
 		}
 	}
 

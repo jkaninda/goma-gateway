@@ -128,7 +128,7 @@ type SecurityTLS struct {
 }
 
 // Backends defines List of backend servers to route traffic to
-type Backends []Backend
+type Backends []*Backend
 
 func (r *Route) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	r.Enabled = true
