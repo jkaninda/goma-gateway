@@ -273,7 +273,9 @@ func (pr *ProxyRoute) createProxyTransport() *http.Transport {
 		"MaxIdleConns", pr.networking.Transport.MaxIdleConns,
 		"MaxIdleConnsPerHost", pr.networking.Transport.MaxIdleConnsPerHost,
 		"IdleConnTimeout", pr.networking.Transport.IdleConnTimeout,
-		"ForceAttemptHTTP2", pr.networking.Transport.ForceAttemptHTTP2)
+		"ForceAttemptHTTP2", pr.networking.Transport.ForceAttemptHTTP2,
+		"mTls Enabled", len(pr.clientCerts) > 0 && pr.certPool != nil,
+	)
 	return &http.Transport{
 		DisableCompression:    pr.networking.Transport.DisableCompression,
 		MaxIdleConns:          pr.networking.Transport.MaxIdleConns,
@@ -286,7 +288,9 @@ func (pr *ProxyRoute) createProxyTransport() *http.Transport {
 		ForceAttemptHTTP2:     pr.networking.Transport.ForceAttemptHTTP2,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: pr.security.TLS.InsecureSkipVerify,
+			Certificates:       pr.clientCerts,
 			RootCAs:            pr.certPool,
+			MinVersion:         tls.VersionTLS12,
 		},
 	}
 }

@@ -19,6 +19,8 @@ package internal
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -244,6 +246,8 @@ type Health struct {
 	Interval           string
 	HealthyStatuses    []int
 	InsecureSkipVerify bool
+	certPool           *x509.CertPool
+	clientCerts        []tls.Certificate
 }
 
 // ExtraRouteConfig contains additional routes and middlewares directory

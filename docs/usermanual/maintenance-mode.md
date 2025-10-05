@@ -2,7 +2,7 @@
 title: Maintenance Mode
 layout: default
 parent: User Manual
-nav_order: 10
+nav_order: 11
 ---
 
 # Maintenance Mode

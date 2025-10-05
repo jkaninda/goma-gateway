@@ -19,7 +19,7 @@ package internal
 
 import (
 	"context"
-	"crypto/x509"
+	"crypto/tls"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -154,11 +154,15 @@ func (r *router) AddRoute(route Route) error {
 	}
 	// Configure CORS
 	r.configureCORS(&route)
-
+	var clientCerts []tls.Certificate
 	// Load certificates
-	certPool, err := r.loadCertPool(route.Security.TLS.RootCAs)
+	clientCert, certPool, err := route.initMTLS()
 	if err != nil {
-		logger.Error("Failed to load certificate pool", "error", err)
+		logger.Error("Failed to load client certificates", "error", err)
+	} else {
+		if clientCert != nil {
+			clientCerts = append(clientCerts, *clientCert)
+		}
 	}
 	// Create proxy route
 	proxyRoute := &ProxyRoute{
@@ -173,6 +177,7 @@ func (r *router) AddRoute(route Route) error {
 		hasHeathCheck: len(route.HealthCheck.Path) > 0,
 		cors:          route.Cors,
 		security:      route.Security,
+		clientCerts:   clientCerts,
 		certPool:      certPool,
 		networking:    r.networking,
 	}
@@ -210,19 +215,6 @@ func (r *router) configureCORS(route *Route) {
 		route.Cors.AllowMethods = append(route.Cors.AllowMethods, method)
 	}
 
-}
-
-// loadCertPool loads certificate pool with better error handling
-func (r *router) loadCertPool(rootCAs string) (*x509.CertPool, error) {
-	if len(rootCAs) == 0 {
-		return nil, nil
-	}
-	certPool, err := loadCertPool(rootCAs)
-	if err != nil {
-		logger.Error("Error loading certificate pool", "error", err)
-		return nil, err
-	}
-	return certPool, nil
 }
 
 // attachMiddlewares configures all middlewares for a route
