@@ -18,6 +18,7 @@
 package internal
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 )
 
@@ -34,5 +35,6 @@ type ProxyRoute struct {
 	cors          Cors
 	security      Security
 	certPool      *x509.CertPool
+	clientCerts   []tls.Certificate
 	networking    Networking
 }

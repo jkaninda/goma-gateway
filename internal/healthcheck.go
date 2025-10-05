@@ -78,6 +78,8 @@ func (health Health) createHTTPClient() *http.Client {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: health.InsecureSkipVerify, // Skip SSL certificate verification
+			RootCAs:            health.certPool,
+			Certificates:       health.clientCerts,
 		},
 	}
 	return &http.Client{
@@ -189,6 +191,14 @@ func healthCheckRoutes(routes []Route) []Health {
 				}
 				timeout = d1
 			}
+			var clientCerts []tls.Certificate
+			// Load certificates
+			clientCert, certPool, err := route.initMTLS()
+			if err == nil {
+				if clientCert != nil {
+					clientCerts = append(clientCerts, *clientCert)
+				}
+			}
 			if len(route.Backends) != 0 {
 				for index, backend := range route.Backends {
 					health := Health{
@@ -198,6 +208,8 @@ func healthCheckRoutes(routes []Route) []Health {
 						Interval:           route.HealthCheck.Interval,
 						HealthyStatuses:    route.HealthCheck.HealthyStatuses,
 						InsecureSkipVerify: route.Security.TLS.InsecureSkipVerify,
+						certPool:           certPool,
+						clientCerts:        clientCerts,
 					}
 					healthRoutes = append(healthRoutes, health)
 				}
@@ -210,6 +222,8 @@ func healthCheckRoutes(routes []Route) []Health {
 					Interval:           route.HealthCheck.Interval,
 					HealthyStatuses:    route.HealthCheck.HealthyStatuses,
 					InsecureSkipVerify: route.Security.TLS.InsecureSkipVerify,
+					certPool:           certPool,
+					clientCerts:        clientCerts,
 				}
 				healthRoutes = append(healthRoutes, health)
 			}

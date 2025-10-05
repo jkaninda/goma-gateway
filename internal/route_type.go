@@ -18,6 +18,8 @@
 package internal
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
@@ -125,6 +127,8 @@ type SecurityTLS struct {
 	SkipVerification   bool   `yaml:"SkipVerification,omitempty"`
 	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
 	RootCAs            string `yaml:"rootCAs,omitempty"`
+	ClientCert         string `yaml:"clientCert,omitempty"`
+	ClientKey          string `yaml:"clientKey,omitempty"`
 }
 
 // Backends defines List of backend servers to route traffic to
@@ -136,6 +140,51 @@ func (r *Route) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	r.Cors.Enabled = true
 	type tmp Route
 	return unmarshal((*tmp)(r))
+}
+
+// loadCertPool loads certificate pool with better error handling
+func (r *Route) loadCertPool() (*x509.CertPool, error) {
+	if len(r.Security.TLS.RootCAs) == 0 {
+		return nil, nil
+	}
+	certPool, err := loadCertPool(r.Security.TLS.RootCAs)
+	if err != nil {
+		return nil, err
+	}
+	return certPool, nil
+}
+func (r *Route) loadClientCert() (*tls.Certificate, error) {
+	if len(r.Security.TLS.ClientCert) == 0 || len(r.Security.TLS.ClientKey) == 0 {
+		return nil, nil
+	}
+	clientCert, err := loadCertAndKey(r.Security.TLS.ClientCert, r.Security.TLS.ClientKey)
+	if err != nil {
+		return nil, err
+	}
+	return clientCert, nil
+}
+
+func (r *Route) initMTLS() (*tls.Certificate, *x509.CertPool, error) {
+	var clientCert *tls.Certificate
+	var certPool *x509.CertPool
+	var err error
+	// Check if mTLS is configured
+	if len(r.Security.TLS.ClientCert) == 0 || len(r.Security.TLS.ClientKey) == 0 || len(r.Security.TLS.RootCAs) == 0 {
+		return nil, nil, nil
+	}
+	// Load certificates
+	certPool, err = r.loadCertPool()
+	if err != nil {
+		logger.Error("Failed to load rootCAs", "error", err)
+		return nil, nil, err
+	}
+	clientCert, err = r.loadClientCert()
+	if err != nil {
+		logger.Error("Failed to load client certificate", "error", err)
+		return nil, certPool, err
+	}
+	return clientCert, certPool, nil
+
 }
 
 type BackendMatch struct {
