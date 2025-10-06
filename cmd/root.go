@@ -20,7 +20,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/cmd/config"
-	"github.com/jkaninda/goma-gateway/pkg/version"
+	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
 	"os"
@@ -30,7 +30,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:     "goma",
 	Short:   "Goma Gateway is a lightweight API Gateway Management",
-	Long:    "Goma Gateway is a lightweight, high-performance,security-focused API Gateway Management",
+	Long:    "Goma Gateway is a lightweight, high-performance, security-focused API Gateway Management",
 	Example: util.MainExample,
 	Version: version.Version,
 	Run: func(cmd *cobra.Command, args []string) {

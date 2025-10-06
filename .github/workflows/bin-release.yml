@@ -37,5 +37,5 @@ jobs:
           project_path: "./"
           binary_name: "goma"
           build_flags: -v
-          ldflags: -X "github.com/jkaninda/goma-gateway/pkg/version.Version=${{ env.VERSION }}" -X "github.com/jkaninda/goma-gateway/pkg/version.buildTime=${{ env.BUILD_TIME }}" -X github.com/jkaninda/goma-gateway/pkg/version.gitCommit=${{ github.sha }}
+          ldflags: -X "github.com/jkaninda/goma-gateway/internal/version.Version=${{ env.VERSION }}" -X "github.com/jkaninda/goma-gateway/internal/version.buildTime=${{ env.BUILD_TIME }}" -X github.com/jkaninda/goma-gateway/internal/version.gitCommit=${{ github.sha }}
           #extra_files: LICENSE README.md
