@@ -44,7 +44,7 @@ func (ps *PassThroughServer) Start() error {
 	if ps == nil || len(ps.rules) == 0 {
 		return nil
 	}
-	ps.logger.Info("Starting TCP/UDP ProxyPassthrough", "rules", len(ps.rules))
+	ps.logger.Info("Starting TCP/UDP ProxyServer", "rules", len(ps.rules))
 	for _, rule := range ps.rules {
 		if err := ps.validateRule(rule); err != nil {
 			return fmt.Errorf("invalid rule for port %d: %w", rule.Port, err)
@@ -65,7 +65,7 @@ func (ps *PassThroughServer) Start() error {
 			logger.Warn("Unknown protocol", "protocol", rule.Protocol, "port", rule.Port)
 		}
 	}
-	ps.logger.Info("TCP/UDP ProxyPassthrough Started", "rules", len(ps.rules))
+	ps.logger.Info("TCP/UDP ProxyServer Started", "rules", len(ps.rules))
 	return nil
 }
 
@@ -73,11 +73,11 @@ func (ps *PassThroughServer) Stop() {
 	if ps == nil || len(ps.rules) == 0 {
 		return
 	}
-	ps.logger.Info("Shutting Down TCP/UDP ProxyPassthrough")
+	ps.logger.Info("Shutting Down TCP/UDP Proxy")
 	ps.cancel()
 	ps.wg.Wait()
 	close(ps.shutdown)
-	logger.Info("TCP/UDP ProxyPassthrough Stopped")
+	logger.Info("TCP/UDP Proxy Stopped")
 }
 
 func (ps *PassThroughServer) validateRule(rule ForwardRule) error {
@@ -405,14 +405,14 @@ func (ps *PassThroughServer) proxyData(clientConn, serverConn net.Conn) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// Client → ProxyPassthrough
+	// Client → ProxyServer
 	go func() {
 		defer wg.Done()
 		ps.copyData(serverConn, clientConn, "client->server")
 		ps.closeWrite(serverConn)
 	}()
 
-	// ProxyPassthrough → Client
+	// ProxyServer → Client
 	go func() {
 		defer wg.Done()
 		ps.copyData(clientConn, serverConn, "server->client")
