@@ -20,7 +20,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/jkaninda/goma-gateway/cmd/config"
-	"github.com/jkaninda/goma-gateway/internal/version"
+	"github.com/jkaninda/goma-gateway/pkg/version"
 	"github.com/jkaninda/goma-gateway/util"
 	"github.com/spf13/cobra"
 	"os"

@@ -33,9 +33,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "https://dl.google.com/go/go1.23.2.linux-amd64.tar.gz"
+          goversion: "https://dl.google.com/go/go1.25.1.linux-amd64.tar.gz"
           project_path: "./"
           binary_name: "goma"
           build_flags: -v
-          ldflags: -X "github.com/jkaninda/goma-gateway/util.Version=${{ env.VERSION }}" -X "github.com/jkaninda/goma-gateway/util.buildTime=${{ env.BUILD_TIME }}" -X github.com/jkaninda/goma-gateway/util.gitCommit=${{ github.sha }}
+          ldflags: -X "github.com/jkaninda/goma-gateway/pkg/version.Version=${{ env.VERSION }}" -X "github.com/jkaninda/goma-gateway/pkg/version.buildTime=${{ env.BUILD_TIME }}" -X github.com/jkaninda/goma-gateway/pkg/version.gitCommit=${{ github.sha }}
           #extra_files: LICENSE README.md
