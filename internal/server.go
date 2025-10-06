@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -78,8 +79,8 @@ func (g *GatewayServer) Start() error {
 	g.webServer = g.createServer(webAddress, g.createHTTPHandler(newRouter), nil)
 	g.webSecureServer = g.createServer(webSecureAddress, newRouter, tlsConfig)
 
-	// Create proxy instance
-	g.proxyServer = NewProxyServer(g.gateway.EntryPoints.PassThrough.Forwards, g.ctx)
+	// Create pass through proxy instance
+	g.proxyServer = proxy.NewProxyServer(g.gateway.EntryPoints.PassThrough.Forwards, g.ctx, logger)
 
 	// Start HTTP/HTTPS and proxy servers
 	g.startServers()

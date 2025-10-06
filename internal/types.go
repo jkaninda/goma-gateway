@@ -22,12 +22,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
-	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -191,30 +190,14 @@ type GatewayServer struct {
 	ctx             context.Context
 	webServer       *http.Server
 	webSecureServer *http.Server
-	proxyServer     *ProxyServer
+	proxyServer     *proxy.PassThroughServer
 	certManager     *certmanager.Config
 	configFile      string
 	version         string
 	gateway         *Gateway
 	middlewares     []Middleware
 }
-type ProxyServer struct {
-	rules    []ForwardRule
-	ctx      context.Context
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-	shutdown chan struct{}
-}
-type udpSession struct {
-	clientConn   net.PacketConn
-	clientAddr   net.Addr
-	targetConn   net.Conn
-	rule         ForwardRule
-	lastActivity time.Time
-	done         chan struct{}
-	ctx          context.Context
-	cancel       context.CancelFunc
-}
+
 type HealthCheckRoute struct {
 	DisableRouteHealthCheckError bool
 	Routes                       []Route

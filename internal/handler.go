@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"io"
 	"net"
 	"net/http"

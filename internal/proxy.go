@@ -20,7 +20,7 @@ package internal
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
 	"math/rand"
 	"net/http"

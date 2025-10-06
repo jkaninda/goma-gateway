@@ -20,7 +20,7 @@ package internal
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
 // Route defines a gateway route configuration.

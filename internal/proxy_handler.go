@@ -22,7 +22,7 @@ import (
 	"context"
 	"github.com/google/uuid"
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"net/http"
 	"strconv"
 	"strings"

@@ -19,8 +19,8 @@ package internal
 
 import (
 	"fmt"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/version"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 	"gopkg.in/yaml.v3"
 	"os"
 )

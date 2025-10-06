@@ -20,7 +20,7 @@ package internal
 import (
 	"fmt"
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"

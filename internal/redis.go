@@ -18,7 +18,7 @@
 package internal
 
 import (
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
 func (g *GatewayServer) initRedis() {
