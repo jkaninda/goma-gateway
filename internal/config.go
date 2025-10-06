@@ -20,10 +20,10 @@ package internal
 import (
 	"context"
 	"fmt"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/log"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
 	logger2 "github.com/jkaninda/logger"
 	"golang.org/x/oauth2"

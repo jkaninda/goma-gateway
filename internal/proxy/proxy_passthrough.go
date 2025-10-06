@@ -15,34 +15,36 @@
  *
  */
 
-package internal
+package proxy
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/logger"
 	"io"
 	"net"
 	"sync"
 	"time"
 )
 
-func NewProxyServer(rules []ForwardRule, ctxt context.Context) *ProxyServer {
+func NewProxyServer(rules []ForwardRule, ctxt context.Context, l *logger.Logger) *PassThroughServer {
 	ctx, cancel := context.WithCancel(ctxt)
-	return &ProxyServer{
+	return &PassThroughServer{
 		rules:    rules,
 		ctx:      ctx,
 		cancel:   cancel,
 		shutdown: make(chan struct{}),
+		logger:   l,
 	}
 }
 
-func (ps *ProxyServer) Start() error {
+func (ps *PassThroughServer) Start() error {
 	if ps == nil || len(ps.rules) == 0 {
 		return nil
 	}
-	logger.Info("Starting TCP/UDP Server", "rules", len(ps.rules))
+	ps.logger.Info("Starting TCP/UDP ProxyPassthrough", "rules", len(ps.rules))
 	for _, rule := range ps.rules {
 		if err := ps.validateRule(rule); err != nil {
 			return fmt.Errorf("invalid rule for port %d: %w", rule.Port, err)
@@ -63,22 +65,22 @@ func (ps *ProxyServer) Start() error {
 			logger.Warn("Unknown protocol", "protocol", rule.Protocol, "port", rule.Port)
 		}
 	}
-	logger.Info("TCP/UDP Server Started", "rules", len(ps.rules))
+	ps.logger.Info("TCP/UDP ProxyPassthrough Started", "rules", len(ps.rules))
 	return nil
 }
 
-func (ps *ProxyServer) Stop() {
+func (ps *PassThroughServer) Stop() {
 	if ps == nil || len(ps.rules) == 0 {
 		return
 	}
-	logger.Info("Shutting Down TCP/UDP Server")
+	ps.logger.Info("Shutting Down TCP/UDP ProxyPassthrough")
 	ps.cancel()
 	ps.wg.Wait()
 	close(ps.shutdown)
-	logger.Info("TCP/UDP Server Stopped")
+	logger.Info("TCP/UDP ProxyPassthrough Stopped")
 }
 
-func (ps *ProxyServer) validateRule(rule ForwardRule) error {
+func (ps *PassThroughServer) validateRule(rule ForwardRule) error {
 	if rule.Port <= 0 || rule.Port > 65535 {
 		return fmt.Errorf("invalid port: %d", rule.Port)
 	}
@@ -94,18 +96,18 @@ func (ps *ProxyServer) validateRule(rule ForwardRule) error {
 	return nil
 }
 
-func (ps *ProxyServer) startTCPListener(rule ForwardRule) {
+func (ps *PassThroughServer) startTCPListener(rule ForwardRule) {
 	defer ps.wg.Done()
 
 	addr := fmt.Sprintf(":%d", rule.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		logger.Fatal("Failed to start TCP listener",
+		ps.logger.Fatal("Failed to start TCP listener",
 			"port", rule.Port, "error", err)
 		return
 	}
 
-	logger.Info("TCP Listening for connections",
+	ps.logger.Info("TCP Listening for connections",
 		"port", rule.Port, "target", rule.Target)
 
 	go ps.acceptTCPConnections(listener, rule)
@@ -113,24 +115,24 @@ func (ps *ProxyServer) startTCPListener(rule ForwardRule) {
 	// Wait for shutdown signal
 	<-ps.ctx.Done()
 
-	if err := listener.Close(); err != nil {
-		logger.Error("Failed to close TCP listener",
+	if err = listener.Close(); err != nil {
+		ps.logger.Error("Failed to close TCP listener",
 			"port", rule.Port, "error", err)
 	}
 }
 
-func (ps *ProxyServer) startUDPListener(rule ForwardRule) {
+func (ps *PassThroughServer) startUDPListener(rule ForwardRule) {
 	defer ps.wg.Done()
 
 	addr := fmt.Sprintf(":%d", rule.Port)
 	conn, err := net.ListenPacket("udp", addr)
 	if err != nil {
-		logger.Fatal("Failed to start UDP listener",
+		ps.logger.Fatal("Failed to start UDP listener",
 			"port", rule.Port, "error", err)
 		return
 	}
 
-	logger.Info("UDP Listening for packets",
+	ps.logger.Info("UDP Listening for packets",
 		"port", rule.Port, "target", rule.Target)
 
 	go ps.handleUDPPackets(conn, rule)
@@ -139,12 +141,12 @@ func (ps *ProxyServer) startUDPListener(rule ForwardRule) {
 	<-ps.ctx.Done()
 
 	if err = conn.Close(); err != nil {
-		logger.Error("Failed to close UDP listener",
+		ps.logger.Error("Failed to close UDP listener",
 			"port", rule.Port, "error", err)
 	}
 }
 
-func (ps *ProxyServer) acceptTCPConnections(listener net.Listener, rule ForwardRule) {
+func (ps *PassThroughServer) acceptTCPConnections(listener net.Listener, rule ForwardRule) {
 	for {
 		select {
 		case <-ps.ctx.Done():
@@ -156,7 +158,7 @@ func (ps *ProxyServer) acceptTCPConnections(listener net.Listener, rule ForwardR
 		if tcpListener, ok := listener.(*net.TCPListener); ok {
 			err := tcpListener.SetDeadline(time.Now().Add(10 * time.Second))
 			if err != nil {
-				logger.Warn("Failed to set deadline")
+				ps.logger.Warn("Failed to set deadline")
 				return
 			}
 		}
@@ -172,7 +174,7 @@ func (ps *ProxyServer) acceptTCPConnections(listener net.Listener, rule ForwardR
 			case <-ps.ctx.Done():
 				return
 			default:
-				logger.Error("Failed to accept TCP connection",
+				ps.logger.Error("Failed to accept TCP connection",
 					"port", rule.Port, "error", err)
 				continue
 			}
@@ -182,7 +184,7 @@ func (ps *ProxyServer) acceptTCPConnections(listener net.Listener, rule ForwardR
 	}
 }
 
-func (ps *ProxyServer) handleUDPPackets(conn net.PacketConn, rule ForwardRule) {
+func (ps *PassThroughServer) handleUDPPackets(conn net.PacketConn, rule ForwardRule) {
 	// Map to track client sessions for UDP
 	sessions := make(map[string]*udpSession)
 	sessionsMutex := sync.RWMutex{}
@@ -205,7 +207,7 @@ func (ps *ProxyServer) handleUDPPackets(conn net.PacketConn, rule ForwardRule) {
 		// Set read timeout to allow periodic context checks
 		err := conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 		if err != nil {
-			logger.Warn("Failed to set read deadline")
+			ps.logger.Warn("Failed to set read deadline")
 			return
 		}
 
@@ -220,7 +222,7 @@ func (ps *ProxyServer) handleUDPPackets(conn net.PacketConn, rule ForwardRule) {
 			case <-ps.ctx.Done():
 				return
 			default:
-				logger.Error("Failed to read UDP packet", "error", err)
+				ps.logger.Error("Failed to read UDP packet", "error", err)
 				continue
 			}
 		}
@@ -258,10 +260,10 @@ func (ps *ProxyServer) handleUDPPackets(conn net.PacketConn, rule ForwardRule) {
 	}
 }
 
-func (ps *ProxyServer) createUDPSession(clientConn net.PacketConn, clientAddr net.Addr, rule ForwardRule) *udpSession {
+func (ps *PassThroughServer) createUDPSession(clientConn net.PacketConn, clientAddr net.Addr, rule ForwardRule) *udpSession {
 	targetConn, err := ps.dialWithTimeout("udp", rule.Target, 10*time.Second)
 	if err != nil {
-		logger.Error("Failed to connect to UDP target",
+		ps.logger.Error("Failed to connect to UDP target",
 			"target", rule.Target, "error", err)
 		return nil
 	}
@@ -276,9 +278,10 @@ func (ps *ProxyServer) createUDPSession(clientConn net.PacketConn, clientAddr ne
 		done:         make(chan struct{}),
 		ctx:          ctx,
 		cancel:       cancel,
+		logger:       ps.logger,
 	}
 
-	logger.Info("UDP session created",
+	ps.logger.Info("UDP session created",
 		"client", clientAddr, "target", rule.Target)
 
 	// Start goroutine to handle responses from target
@@ -294,7 +297,7 @@ func (s *udpSession) forwardToTarget(data []byte) {
 	s.lastActivity = time.Now()
 	_, err := s.targetConn.Write(data)
 	if err != nil {
-		logger.Error("Failed to forward UDP packet to target",
+		s.logger.Error("Failed to forward UDP packet to target",
 			"target", s.rule.Target, "error", err)
 	}
 }
@@ -312,7 +315,7 @@ func (s *udpSession) handleTargetResponses() {
 
 		err := s.targetConn.SetReadDeadline(time.Now().Add(1 * time.Second))
 		if err != nil {
-			logger.Error("Failed to set read deadline")
+			s.logger.Error("Failed to set read deadline")
 			return
 		}
 		n, err := s.targetConn.Read(buffer)
@@ -322,7 +325,7 @@ func (s *udpSession) handleTargetResponses() {
 				continue
 			}
 			if err != io.EOF {
-				logger.Error("Failed to read from UDP target", "error", err)
+				s.logger.Error("Failed to read from UDP target", "error", err)
 			}
 			return
 		}
@@ -330,7 +333,7 @@ func (s *udpSession) handleTargetResponses() {
 		s.lastActivity = time.Now()
 		_, err = s.clientConn.WriteTo(buffer[:n], s.clientAddr)
 		if err != nil {
-			logger.Error("Failed to forward UDP response to client", "error", err)
+			s.logger.Error("Failed to forward UDP response to client", "error", err)
 			return
 		}
 	}
@@ -346,7 +349,7 @@ func (s *udpSession) handleTimeout() {
 			return
 		case <-ticker.C:
 			if time.Since(s.lastActivity) > 5*time.Minute {
-				logger.Info("UDP session timeout",
+				s.logger.Info("UDP session timeout",
 					"client", s.clientAddr, "target", s.rule.Target)
 				s.close()
 				return
@@ -359,16 +362,16 @@ func (s *udpSession) close() {
 	s.cancel()
 	err := s.targetConn.Close()
 	if err != nil {
-		logger.Error("Failed to close UDP connection", "error", err)
+		s.logger.Error("Failed to close UDP connection", "error", err)
 		return
 	}
 	close(s.done)
 }
 
-func (ps *ProxyServer) handleTCPConnection(clientConn net.Conn, rule ForwardRule) {
+func (ps *PassThroughServer) handleTCPConnection(clientConn net.Conn, rule ForwardRule) {
 	defer ps.closeConnection(clientConn, "client")
 
-	logger.Info("Accepted TCP client connection",
+	ps.logger.Info("Accepted TCP client connection",
 		"client", clientConn.RemoteAddr(), "target", rule.Target)
 
 	serverConn, err := ps.dialWithTimeout("tcp", rule.Target, 10*time.Second)
@@ -379,18 +382,18 @@ func (ps *ProxyServer) handleTCPConnection(clientConn net.Conn, rule ForwardRule
 	}
 	defer ps.closeConnection(serverConn, "server")
 	startTime := time.Now()
-	logger.Info("TCP Proxying started",
+	ps.logger.Info("TCP Proxying started",
 		"client", clientConn.RemoteAddr(), "target", rule.Target)
 
 	ps.proxyData(clientConn, serverConn)
 
 	formatted := goutils.FormatDuration(time.Since(startTime), 2)
-	logger.Info("TCP Connection closed",
+	ps.logger.Info("TCP Connection closed",
 		"client", clientConn.RemoteAddr(), "target", rule.Target,
 		"duration", formatted)
 }
 
-func (ps *ProxyServer) dialWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
+func (ps *PassThroughServer) dialWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
 	ctx, cancel := context.WithTimeout(ps.ctx, timeout)
 	defer cancel()
 
@@ -398,18 +401,18 @@ func (ps *ProxyServer) dialWithTimeout(network, address string, timeout time.Dur
 	return d.DialContext(ctx, network, address)
 }
 
-func (ps *ProxyServer) proxyData(clientConn, serverConn net.Conn) {
+func (ps *PassThroughServer) proxyData(clientConn, serverConn net.Conn) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// Client → Server
+	// Client → ProxyPassthrough
 	go func() {
 		defer wg.Done()
 		ps.copyData(serverConn, clientConn, "client->server")
 		ps.closeWrite(serverConn)
 	}()
 
-	// Server → Client
+	// ProxyPassthrough → Client
 	go func() {
 		defer wg.Done()
 		ps.copyData(clientConn, serverConn, "server->client")
@@ -419,10 +422,10 @@ func (ps *ProxyServer) proxyData(clientConn, serverConn net.Conn) {
 	wg.Wait()
 }
 
-func (ps *ProxyServer) copyData(dst, src net.Conn, direction string) {
+func (ps *PassThroughServer) copyData(dst, src net.Conn, direction string) {
 	_, err := io.Copy(dst, src)
 	if err != nil && !ps.isConnectionClosed(err) {
-		logger.Error("Error copying data",
+		ps.logger.Error("Error copying data",
 			"direction", direction,
 			"src", src.RemoteAddr(),
 			"dst", dst.RemoteAddr(),
@@ -430,23 +433,23 @@ func (ps *ProxyServer) copyData(dst, src net.Conn, direction string) {
 	}
 }
 
-func (ps *ProxyServer) closeWrite(conn net.Conn) {
+func (ps *PassThroughServer) closeWrite(conn net.Conn) {
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		if err := tcpConn.CloseWrite(); err != nil {
-			logger.Warn("Failed to close write",
+			ps.logger.Warn("Failed to close write",
 				"addr", conn.RemoteAddr(), "error", err)
 		}
 	}
 }
 
-func (ps *ProxyServer) closeConnection(conn net.Conn, connType string) {
+func (ps *PassThroughServer) closeConnection(conn net.Conn, connType string) {
 	if err := conn.Close(); err != nil {
-		logger.Warn("Failed to close connection",
+		ps.logger.Warn("Failed to close connection",
 			"type", connType, "addr", conn.RemoteAddr(), "error", err)
 	}
 }
 
-func (ps *ProxyServer) isConnectionClosed(err error) bool {
+func (ps *PassThroughServer) isConnectionClosed(err error) bool {
 	if err == io.EOF {
 		return true
 	}

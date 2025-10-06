@@ -19,8 +19,8 @@ package internal
 
 import (
 	"github.com/gorilla/mux"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 	"sort"
 )
 

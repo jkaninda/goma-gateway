@@ -18,7 +18,8 @@
 package internal
 
 import (
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/proxy"
 )
 
 // Gateway contains the configuration options for the Goma Proxy Gateway.
@@ -67,8 +68,8 @@ type EntryPoint struct {
 	PassThrough EntryPointAddress `yaml:"passThrough,omitempty"`
 }
 type EntryPointAddress struct {
-	Address  string        `yaml:"address,omitempty"`
-	Forwards []ForwardRule `yaml:"forwards,omitempty"`
+	Address  string              `yaml:"address,omitempty"`
+	Forwards []proxy.ForwardRule `yaml:"forwards,omitempty"`
 }
 
 func (p EntryPoint) Validate() {
@@ -97,11 +98,11 @@ func (p EntryPoint) Validate() {
 		}
 
 		switch forward.Protocol {
-		case ProtocolTCP:
+		case proxy.ProtocolTCP:
 			logger.Debug("Protocol: TCP", "port", forward.Port, "target", forward.Target)
-		case ProtocolUDP:
+		case proxy.ProtocolUDP:
 			logger.Debug("Protocol: UDP", "port", forward.Port, "target", forward.Target)
-		case ProtocolTCPUDP:
+		case proxy.ProtocolTCPUDP:
 			logger.Debug("Protocol: TCP/UDP", "port", forward.Port, "target", forward.Target)
 		default:
 			logger.Fatal("Unknown protocol", "protocol", forward.Protocol, "port", forward.Port)
@@ -151,12 +152,6 @@ type MonitoringMiddleware struct {
 	RouteHealthCheck []string `yaml:"routeHealthCheck,omitempty"` // optional, for /healthz/routes`
 }
 
-type Protocol string
-type ForwardRule struct {
-	Protocol Protocol `yaml:"protocol,omitempty"`
-	Port     int      `yaml:"port,omitempty"`
-	Target   string   `yaml:"target,omitempty"`
-}
 type Timeouts struct {
 	Write int `yaml:"write" env:"GOMA_WRITE_TIMEOUT,overwrite"`
 	Read  int `yaml:"read" env:"GOMA_READ_TIMEOUT,overwrite"`

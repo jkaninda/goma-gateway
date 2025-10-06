@@ -22,7 +22,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/pkg/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"sync"

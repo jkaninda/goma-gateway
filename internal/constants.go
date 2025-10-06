@@ -58,11 +58,6 @@ const (
 	bodyLimit           MiddlewareType = "bodyLimit"
 	userAgentBlock      MiddlewareType = "userAgentBlock"
 )
-const (
-	ProtocolTCP    Protocol = "tcp"
-	ProtocolUDP    Protocol = "udp"
-	ProtocolTCPUDP Protocol = "tcp/udp"
-)
 
 // ************** CORS ***************
 const (
