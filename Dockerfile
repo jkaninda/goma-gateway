@@ -18,9 +18,9 @@ RUN go mod download
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w \
-    -X 'github.com/jkaninda/goma-gateway/pkg/version.Version=${appVersion}' \
-    -X 'github.com/jkaninda/goma-gateway/pkg/version.buildTime=${buildTime}' \
-    -X 'github.com/jkaninda/goma-gateway/pkg/version.gitCommit=${gitCommit}'" \
+    -X 'github.com/jkaninda/goma-gateway/internal/version.Version=${appVersion}' \
+    -X 'github.com/jkaninda/goma-gateway/internal/version.buildTime=${buildTime}' \
+    -X 'github.com/jkaninda/goma-gateway/internal/version.gitCommit=${gitCommit}'" \
     -o /app/goma
 
 ########################
