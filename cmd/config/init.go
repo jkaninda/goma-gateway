@@ -19,7 +19,7 @@ package config
 
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal"
+	"github.com/jkaninda/goma-gateway/pkg"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -43,7 +43,7 @@ var InitConfigCmd = &cobra.Command{
 					os.Exit(1)
 				}
 			}
-			err := internal.InitConfig(configFile)
+			err := pkg.InitConfig(configFile)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)

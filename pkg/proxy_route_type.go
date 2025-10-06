@@ -15,21 +15,26 @@
  *
  */
 
-package cmd
+package pkg
 
 import (
-	"github.com/jkaninda/goma-gateway/pkg/version"
-	"github.com/spf13/cobra"
+	"crypto/tls"
+	"crypto/x509"
 )
 
-var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Run: func(cmd *cobra.Command, args []string) {
-		appVersion()
-	},
-}
-
-func appVersion() {
-	version.FullVersion()
+type ProxyRoute struct {
+	name          string
+	path          string
+	rewrite       string
+	target        string
+	weightedBased bool
+	canaryBased   bool
+	hasHeathCheck bool
+	backends      Backends
+	methods       []string
+	cors          Cors
+	security      Security
+	certPool      *x509.CertPool
+	clientCerts   []tls.Certificate
+	networking    Networking
 }
