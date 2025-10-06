@@ -32,29 +32,37 @@ func initTestConfig(configFile string) error {
 	conf := &GatewayConfig{
 		Version: version.ConfigVersion,
 		GatewayConfig: Gateway{
-			WriteTimeout: 15,
-			ReadTimeout:  15,
-			IdleTimeout:  30,
 			ExtraConfig: ExtraRouteConfig{
 				Directory: extraRoutePath,
 				Watch:     true,
 			},
 			Routes: []Route{
 				{
-					Name:    "Example",
-					Path:    "/",
-					Methods: []string{"GET", "PATCH", "OPTIONS"},
-					Backends: Backends{
-						&Backend{Endpoint: "https://example.com"},
-					},
+					Name:    "api-v1",
+					Path:    "/api/v1",
+					Rewrite: "/api",
+					Methods: []string{"GET", "POST"},
+					Target:  "http://localhost:9090",
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
 						Interval:        "30s",
 						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
 					},
-					DisableHostForwarding: true,
-					Middlewares:           []string{"block-access"},
+					Middlewares: []string{"block-access", "basic-auth"},
+				},
+				{
+					Name:    "api-v2",
+					Path:    "/api/v2",
+					Methods: []string{"GET"},
+					Target:  "http://localhost:9090",
+					HealthCheck: RouteHealthCheck{
+						Path:            "/",
+						Interval:        "30s",
+						Timeout:         "10s",
+						HealthyStatuses: []int{200, 404},
+					},
+					Middlewares: []string{},
 				},
 				{
 					Name:    "round-robin-load-balancing",
@@ -71,19 +79,17 @@ func initTestConfig(configFile string) error {
 						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
 					},
-					DisableHostForwarding: true,
-					Middlewares:           []string{"block-access"},
+					Middlewares: []string{"block-access"},
 				},
 				{
-					Name: "weighted-load-balancing",
+					Name: "weighted-load-balancing-2",
 					Path: "/load-balancing2",
 					Backends: Backends{
 						&Backend{Endpoint: "https://example.com", Weight: 5},
 						&Backend{Endpoint: "https://example1.com", Weight: 2},
 						&Backend{Endpoint: "https://example2.com", Weight: 1},
 					},
-					Rewrite:               "/",
-					DisableHostForwarding: false,
+					Rewrite: "/",
 					ErrorInterceptor: middlewares.RouteErrorInterceptor{
 						Enabled:     true,
 						ContentType: applicationJson,
@@ -118,13 +124,13 @@ func initTestConfig(configFile string) error {
 				Name: "basic-auth",
 				Type: BasicAuth,
 				Paths: []string{
-					"/*",
+					"/api/.*",
 				},
 				Rule: BasicRuleMiddleware{
 					Realm: "Restricted",
 					Users: []middlewares.User{
 						{Username: "admin", Password: "$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO"},
-						{Username: "admin", Password: "admin"},
+						{Username: "user", Password: "password"},
 					},
 				},
 			},
@@ -132,9 +138,7 @@ func initTestConfig(configFile string) error {
 				Name: "block-access",
 				Type: AccessMiddleware,
 				Paths: []string{
-					"/swagger-ui/*",
-					"/api-docs/*",
-					"/actuator/*",
+					"/docs/.*",
 				},
 			},
 			{

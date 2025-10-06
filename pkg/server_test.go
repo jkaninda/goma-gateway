@@ -20,19 +20,21 @@ package pkg
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"github.com/gorilla/mux"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
 const testPath = "./tests"
 const extraRoutePath = "./tests/extra"
-const serverURL = "http://localhost:8080"
 
 var configFile = filepath.Join(testPath, "goma.yml")
 var configFile2 = filepath.Join(testPath, "goma2.yml")
@@ -97,63 +99,120 @@ func TestStart(t *testing.T) {
 			return
 		}
 	}()
-	log.Println("Wait...")
-	time.Sleep(5 * time.Second) // Sleep for 5 seconds
+	// start mock server
+	mockServer := startMockServer()
+	defer func() {
+		err := mockServer.Shutdown(ctx)
+		if err != nil {
+			t.Error("Error shutting down mock server:", err)
+		}
+	}()
+	waitForMockServer()
+	assertStatus(t, http.MethodGet, "http://localhost:8080/readyz", nil, nil, "", http.StatusOK)
 
-	resp, err := makeRequest("http://localhost:8080/readyz")
-	if err != nil {
-		t.Fatalf("Error making request: %s", err.Error())
-	}
-	assertResponse(t, resp, http.StatusOK)
+	assertStatus(t, http.MethodGet, "http://localhost:8080/api/v1/books", nil, nil, "", http.StatusUnauthorized)
+	assertStatus(t, http.MethodGet, "http://localhost:8080/api/v2/books", nil, nil, "", http.StatusOK)
+	// Test Method Not Allowed
+	assertStatus(t, http.MethodPost, "http://localhost:8080/api/v2/books", nil, strings.NewReader("Hello"), "", http.StatusMethodNotAllowed)
 
+	assertStatus(t, http.MethodGet, "http://localhost:8080/api/v1/docs/", nil, nil, "", http.StatusForbidden)
+
+	// Test basic auth request
 	testBasicAuthRequest(t)
 
-	ctx.Done()
-}
-
-func assertResponse(t *testing.T, resp *http.Response, status int) {
-	// assert response
-	if resp.StatusCode != status {
-		t.Fatalf("expected status code %d, got %d", status, resp.StatusCode)
-	}
-	log.Println("Response status code:", resp.StatusCode)
-}
-
-func makeRequest(url string) (*http.Response, error) {
-	response, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
+	shutdownMockServer(t, mockServer)
 }
 
 func testBasicAuthRequest(t *testing.T) {
-	// Create a request to the mock server
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api", serverURL), nil)
-	if err != nil {
-		t.Fatalf("Error creating request: %v", err)
+	headers := map[string]string{
+		"Authorization": "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:wrongpassword")),
+	}
+	// Test GET /api/v1 with Basic Auth
+	assertStatus(t, http.MethodGet, "http://localhost:8080/api/v1/books", headers, nil, "application/json", http.StatusUnauthorized)
+	headers["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:admin"))
+	assertStatus(t, http.MethodGet, "http://localhost:8080/api/v1/books", headers, nil, "", http.StatusOK)
+	assertStatus(t, http.MethodGet, "http://localhost:8080/api/v1/books", headers, nil, "", http.StatusOK)
+
+}
+
+func startMockServer() *http.Server {
+	mRouter := mux.NewRouter()
+	mRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("Hello, World!"))
+	}).Methods(http.MethodGet)
+
+	mRouter.HandleFunc("/api/books", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"books": [{"id": 1, "title": "Book One"}, {"id": 2, "title": "Book Two"}]}`))
+	}).Methods(http.MethodGet)
+	mRouter.HandleFunc("/api/books", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		body, _ := io.ReadAll(r.Body)
+		_, _ = fmt.Fprintf(w, `{"message": "Book created", "data": %s}`, string(body))
+	}).Methods(http.MethodPost)
+	mRouter.HandleFunc("/api/v2/books", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"books": [{"id": 1, "title": "Book One"}, {"id": 2, "title": "Book Two"}]}`))
+	}).Methods(http.MethodGet)
+	mRouter.HandleFunc("/api/v2/books", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"books": [{"id": 1, "title": "Book One"}, {"id": 2, "title": "Book Two"}]}`))
+	}).Methods(http.MethodPost)
+	server := &http.Server{
+		Addr:    ":9090",
+		Handler: mRouter,
 	}
 
-	// Add Basic Auth header
-	auth := "admin:admin"
-	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
-	req.Header.Add("Authorization", basicAuth)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Could not listen on :9090: %v\n", err)
+		}
+	}()
 
-	// Send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	time.Sleep(1 * time.Second)
+
+	return server
+}
+func shutdownMockServer(t *testing.T, mockServer *http.Server) {
+	err := mockServer.Shutdown(context.Background())
 	if err != nil {
-		t.Fatalf("Error sending request: %v", err)
+		t.Error("Error shutting down mock server:", err)
+	}
+
+}
+func waitForMockServer() {
+	time.Sleep(1 * time.Second)
+}
+func assertStatus(t *testing.T, method, url string,
+	headers map[string]string,
+	body io.Reader,
+	contentType string,
+	expected int) {
+	t.Helper()
+
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		t.Fatalf("Failed to create %s request to %s: %v", method, url, err)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to make %s request to %s: %v", method, url, err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			t.Error("Error closing body")
+			t.Errorf("Failed to close response body: %v", err)
 		}
 	}(resp.Body)
 
-	// Check the response status
-	if resp.StatusCode != http.StatusNotFound {
-		t.Errorf("Expected status code %d, got %d", http.StatusNotFound, resp.StatusCode)
+	if resp.StatusCode != expected {
+		t.Errorf("Expected status %d for %s %s, got %d", expected, method, url, resp.StatusCode)
 	}
 }

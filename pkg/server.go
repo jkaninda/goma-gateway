@@ -75,17 +75,17 @@ func (g *GatewayServer) Start() error {
 	go startAutoCert()
 	// Validate entrypoint
 	g.gateway.EntryPoints.Validate()
-	httpServer := g.createServer(webAddress, g.createHTTPHandler(newRouter), nil)
-	httpsServer := g.createServer(webSecureAddress, newRouter, tlsConfig)
+	g.webServer = g.createServer(webAddress, g.createHTTPHandler(newRouter), nil)
+	g.webSecureServer = g.createServer(webSecureAddress, newRouter, tlsConfig)
 
 	// Create proxy instance
 	g.proxyServer = NewProxyServer(g.gateway.EntryPoints.PassThrough.Forwards, g.ctx)
 
 	// Start HTTP/HTTPS and proxy servers
-	g.startServers(httpServer, httpsServer)
+	g.startServers()
 
 	// Handle graceful shutdown
-	return g.shutdown(httpServer, httpsServer)
+	return g.shutdown()
 }
 
 func (g *GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
@@ -120,28 +120,28 @@ func (g *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
 	})
 }
 
-func (g *GatewayServer) startServers(httpServer, httpsServer *http.Server) {
+func (g *GatewayServer) startServers() {
 	// Start proxy server
 	if err := g.proxyServer.Start(); err != nil {
 		logger.Fatal("Failed to start proxy server", "error", err)
 	}
 	go func() {
 		logger.Info("Starting Web server on", "addr", webAddress)
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := g.webServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("HTTP server error: %v", err)
 		}
 	}()
 
 	go func() {
 		logger.Info("Starting WebSecure server on ", "addr", webSecureAddress)
-		if err := httpsServer.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := g.webSecureServer.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("HTTPS server error", "error", err)
 		}
 	}()
 
 }
 
-func (g *GatewayServer) shutdown(httpServer, httpsServer *http.Server) error {
+func (g *GatewayServer) shutdown() error {
 	signal.Notify(shutdownChan, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownChan
 	logger.Info("Shutting down Goma Gateway...")
@@ -149,11 +149,11 @@ func (g *GatewayServer) shutdown(httpServer, httpsServer *http.Server) error {
 	shutdownCtx, cancel := context.WithTimeout(g.ctx, 10*time.Second)
 	defer cancel()
 	logger.Info("Shutting down HTTP/HTTPS servers")
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+	if err := g.webServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Error shutting down HTTP server", "error", err)
 	}
 
-	if err := httpsServer.Shutdown(shutdownCtx); err != nil {
+	if err := g.webSecureServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Error shutting down HTTPS server", "error", err)
 	}
 	// stop TCP/UDP server

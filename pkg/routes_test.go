@@ -45,8 +45,8 @@ func initExtraRoute(path string) error {
 				Middlewares: []string{"block-access"},
 			},
 			{
-				Name:    "api",
-				Path:    "/api",
+				Name:    "example",
+				Path:    "/example",
 				Methods: []string{"GET"},
 				Backends: Backends{
 					&Backend{Endpoint: "https://example.com"},
