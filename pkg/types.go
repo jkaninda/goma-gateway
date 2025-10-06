@@ -25,6 +25,7 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/middlewares"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -187,13 +188,15 @@ type GatewayConfig struct {
 }
 
 type GatewayServer struct {
-	ctx         context.Context
-	certManager *certmanager.Config
-	proxyServer *ProxyServer
-	configFile  string
-	version     string
-	gateway     *Gateway
-	middlewares []Middleware
+	ctx             context.Context
+	webServer       *http.Server
+	webSecureServer *http.Server
+	proxyServer     *ProxyServer
+	certManager     *certmanager.Config
+	configFile      string
+	version         string
+	gateway         *Gateway
+	middlewares     []Middleware
 }
 type ProxyServer struct {
 	rules    []ForwardRule
