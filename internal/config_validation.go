@@ -42,7 +42,7 @@ func CheckConfig(fileName string) error {
 	gateway := &GatewayServer{
 		ctx:         nil,
 		version:     c.Version,
-		gateway:     &c.GatewayConfig,
+		gateway:     &c.Gateway,
 		middlewares: c.Middlewares,
 	}
 	// Check middlewares

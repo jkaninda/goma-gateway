@@ -175,8 +175,8 @@ type RouteHealthCheck struct {
 }
 type GatewayConfig struct {
 	Version string `yaml:"version"`
-	// GatewayConfig holds Gateway config
-	GatewayConfig Gateway `yaml:"gateway"`
+	// Gateway holds Gateway config
+	Gateway Gateway `yaml:"gateway"`
 	// Middlewares holds proxy middlewares
 	Middlewares []Middleware `yaml:"middlewares"`
 	// CertificateManager holds acme configuration
@@ -184,6 +184,12 @@ type GatewayConfig struct {
 	CertificateManager *certmanager.Config `yaml:"certificateManager,omitempty"`
 	// CertManager hols CertManager config
 	CertManager *certmanager.Config `yaml:"certManager"`
+	// Defaults holds default configurations applied to routes
+	Defaults DefaultConfig `yaml:"defaults,omitempty"`
+}
+
+type DefaultConfig struct {
+	Middlewares []string `yaml:"middlewares"`
 }
 
 type GatewayServer struct {
@@ -196,6 +202,7 @@ type GatewayServer struct {
 	version         string
 	gateway         *Gateway
 	middlewares     []Middleware
+	defaults        DefaultConfig
 }
 
 type HealthCheckRoute struct {
