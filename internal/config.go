@@ -56,8 +56,9 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 			configFile:  configFile,
 			certManager: c.GetCertManagerConfig(),
 			version:     c.Version,
-			gateway:     &c.GatewayConfig,
+			gateway:     &c.Gateway,
 			middlewares: c.Middlewares,
+			defaults:    c.Defaults,
 		}, nil
 	}
 	logger.Error("Configuration file not found", "file", configFile)
@@ -79,7 +80,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 			ctx:         ctx,
 			certManager: c.GetCertManagerConfig(),
 			configFile:  ConfigFile,
-			gateway:     &c.GatewayConfig,
+			gateway:     &c.Gateway,
 			middlewares: c.Middlewares,
 		}, nil
 
@@ -111,7 +112,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 	return &GatewayServer{
 		ctx:         ctx,
 		configFile:  ConfigFile,
-		gateway:     &c.GatewayConfig,
+		gateway:     &c.Gateway,
 		certManager: c.GetCertManagerConfig(),
 		middlewares: c.Middlewares,
 	}, nil
@@ -272,7 +273,7 @@ func initConfig(configFile string) error {
 	}
 	conf := &GatewayConfig{
 		Version: version.ConfigVersion,
-		GatewayConfig: Gateway{
+		Gateway: Gateway{
 			Timeouts: Timeouts{
 				Read:  30,
 				Write: 30,
@@ -424,7 +425,7 @@ func (g *Gateway) Setup(conf string) *Gateway {
 		if err != nil {
 			logger.Fatal("Error loading configuration %v", err.Error())
 		}
-		return &c.GatewayConfig
+		return &c.Gateway
 	}
 	return &Gateway{}
 

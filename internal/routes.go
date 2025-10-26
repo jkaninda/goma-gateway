@@ -60,7 +60,8 @@ func (g *GatewayServer) Initialize() error {
 			logger.Debug("Extra routes loaded", "count", len(extraRoutes))
 		}
 	}
-
+	// Attach default configurations
+	attachDefaultConfigurations(g.defaults)
 	// Validate configuration
 	logger.Info("Validating configuration", "routes", len(dynamicRoutes), "middlewares", len(dynamicMiddlewares))
 	err := validateConfig(dynamicRoutes, dynamicMiddlewares)
@@ -122,6 +123,16 @@ func (g *GatewayServer) Initialize() error {
 		logger.Warn("No routes found, add routes to the configuration file")
 	}
 	return nil
+}
+func attachDefaultConfigurations(defaults DefaultConfig) {
+	// Apply default middlewares to the routes
+	if len(defaults.Middlewares) > 0 {
+		logger.Debug("Applying default middlewares", "count", len(defaults.Middlewares))
+		for i, route := range dynamicRoutes {
+			logger.Debug("Applying default middlewares", "route", route.Name)
+			dynamicRoutes[i].Middlewares = append(defaults.Middlewares, route.Middlewares...)
+		}
+	}
 }
 
 // attachMiddlewares attaches middlewares to the route

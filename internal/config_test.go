@@ -31,7 +31,7 @@ func initTestConfig(configFile string) error {
 	}
 	conf := &GatewayConfig{
 		Version: version.ConfigVersion,
-		GatewayConfig: Gateway{
+		Gateway: Gateway{
 			ExtraConfig: ExtraRouteConfig{
 				Directory: extraRoutePath,
 				Watch:     true,
