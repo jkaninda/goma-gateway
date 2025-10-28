@@ -39,7 +39,7 @@ import (
 )
 
 // Config reads config file and returns Gateway
-func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewayServer, error) {
+func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 	if util.FileExists(configFile) {
 		buf, err := os.ReadFile(configFile)
 		if err != nil {
@@ -51,7 +51,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", configFile, err)
 		}
-		return &GatewayServer{
+		return &Goma{
 			ctx:         ctx,
 			configFile:  configFile,
 			certManager: c.GetCertManagerConfig(),
@@ -76,7 +76,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", ConfigFile, err)
 		}
-		return &GatewayServer{
+		return &Goma{
 			ctx:         ctx,
 			certManager: c.GetCertManagerConfig(),
 			configFile:  ConfigFile,
@@ -109,7 +109,7 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		return nil, fmt.Errorf("in file %q: %w", ConfigFile, err)
 	}
 	logger.Info("Generating new configuration file...done")
-	return &GatewayServer{
+	return &Goma{
 		ctx:         ctx,
 		configFile:  ConfigFile,
 		gateway:     &c.Gateway,
@@ -129,7 +129,7 @@ func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
 }
 
 // InitLogger sets environment variables and initialize the logger
-func (g *GatewayServer) InitLogger() {
+func (g *Goma) InitLogger() {
 	level := strings.ToLower(g.gateway.Log.Level)
 	util.SetEnv("GOMA_LOG_LEVEL", level)
 	util.SetEnv("GOMA_LOG_FILE", g.gateway.Log.FilePath)
