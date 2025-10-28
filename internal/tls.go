@@ -28,7 +28,7 @@ import (
 	"sync"
 )
 
-func (g *GatewayServer) initTLS() (bool, []tls.Certificate) {
+func (g *Goma) initTLS() (bool, []tls.Certificate) {
 	certs := loadTLS(g.gateway.TLS)
 	if len(certs) > 0 {
 		return true, certs

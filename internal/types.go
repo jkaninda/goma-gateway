@@ -18,14 +18,11 @@
 package internal
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -190,19 +187,6 @@ type GatewayConfig struct {
 
 type DefaultConfig struct {
 	Middlewares []string `yaml:"middlewares"`
-}
-
-type GatewayServer struct {
-	ctx             context.Context
-	webServer       *http.Server
-	webSecureServer *http.Server
-	proxyServer     *proxy.PassThroughServer
-	certManager     *certmanager.Config
-	configFile      string
-	version         string
-	gateway         *Gateway
-	middlewares     []Middleware
-	defaults        DefaultConfig
 }
 
 type HealthCheckRoute struct {

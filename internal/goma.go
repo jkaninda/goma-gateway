@@ -18,14 +18,31 @@
 package internal
 
 import (
+	"context"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
 	"sort"
 )
 
+type Goma struct {
+	ctx             context.Context
+	webServer       *http.Server
+	webSecureServer *http.Server
+	proxyServer     *proxy.PassThroughServer
+	certManager     *certmanager.Config
+	configFile      string
+	version         string
+	gateway         *Gateway
+	middlewares     []Middleware
+	defaults        DefaultConfig
+}
+
 // Initialize initializes the routes
-func (g *GatewayServer) Initialize() error {
+func (g *Goma) Initialize() error {
 	gateway := g.gateway
 	// Handle deprecations
 	gateway.handleDeprecations()
@@ -155,5 +172,103 @@ func attachMiddlewares(route Route, router *mux.Router) {
 
 		// Apply middlewares by type
 		applyMiddlewareByType(mid, route, router)
+	}
+}
+
+// NewRouter creates a new router instance.
+func (g *Gateway) NewRouter() Router {
+	rt := &router{
+		mux:           mux.NewRouter().StrictSlash(g.StrictSlash),
+		enableMetrics: g.Monitoring.EnableMetrics,
+		gateway:       g,
+		networking:    g.Networking,
+		strictSlash:   g.StrictSlash,
+	}
+
+	g.addGlobalHandler(rt.mux)
+
+	return rt
+}
+
+// addGlobalHandler configures global handlers with better error handling
+func (g *Gateway) addGlobalHandler(mux *mux.Router) {
+	logger.Debug("Adding global handler")
+
+	health := HealthCheckRoute{
+		DisableRouteHealthCheckError: g.Monitoring.IncludeRouteHealthErrors,
+		Routes:                       dynamicRoutes,
+	}
+
+	// Register global observability endpoints
+	g.registerMetricsHandler(mux)
+	g.registerRouteHealthHandler(mux, health)
+
+	// Gateway health endpoints
+	if g.Monitoring.EnableReadiness {
+		mux.HandleFunc("/readyz", health.HealthReadyHandler).Methods(http.MethodGet)
+	}
+	if g.Monitoring.EnableLiveness {
+		mux.HandleFunc("/healthz", health.HealthReadyHandler).Methods(http.MethodGet)
+	}
+
+	// Global middleware
+	//	mux.Use(CORSHandler(g.Cors))
+
+	logger.Debug("Added global handler")
+}
+
+// registerMetricsHandler configures the /metrics endpoint
+func (g *Gateway) registerMetricsHandler(mux *mux.Router) {
+	if !g.Monitoring.EnableMetrics {
+		return
+	}
+
+	logger.Debug("Metrics enabled")
+
+	path := "/metrics"
+	if g.Monitoring.MetricsPath != "" {
+		path = g.Monitoring.MetricsPath
+	}
+
+	sub := mux.PathPrefix(path).Subrouter()
+	if g.Monitoring.Host != "" {
+		sub.Host(g.Monitoring.Host).PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
+	} else {
+		sub.PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
+	}
+	if metricsMiddlewares := g.Monitoring.Middleware.Metrics; len(metricsMiddlewares) > 0 {
+		route := Route{
+			Path:           path,
+			Name:           "metrics",
+			Middlewares:    metricsMiddlewares,
+			DisableMetrics: true,
+		}
+		attachMiddlewares(route, sub)
+	}
+}
+
+// registerRouteHealthHandler configures the /healthz/routes endpoint
+func (g *Gateway) registerRouteHealthHandler(mux *mux.Router, health HealthCheckRoute) {
+	if !g.Monitoring.EnableRouteHealthCheck {
+		return
+	}
+
+	logger.Debug("Route health check enabled")
+	path := "/healthz/routes"
+	sub := mux.PathPrefix(path).Subrouter()
+	if g.Monitoring.Host != "" {
+		sub.Host(g.Monitoring.Host).PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
+	} else {
+		sub.PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
+	}
+
+	if healthCheckMiddlewares := g.Monitoring.Middleware.RouteHealthCheck; len(healthCheckMiddlewares) > 0 {
+		route := Route{
+			Path:           path,
+			Name:           "routeHealth",
+			Middlewares:    healthCheckMiddlewares,
+			DisableMetrics: true,
+		}
+		attachMiddlewares(route, sub)
 	}
 }

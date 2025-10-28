@@ -22,7 +22,7 @@ import (
 )
 
 // watchExtraConfig watches the extra configuration directory for changes
-func (g *GatewayServer) watchExtraConfig(r Router) {
+func (g *Goma) watchExtraConfig(r Router) {
 	// Create a new watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

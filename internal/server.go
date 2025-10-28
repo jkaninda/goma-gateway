@@ -32,7 +32,7 @@ import (
 )
 
 // Start / Start starts the server
-func (g *GatewayServer) Start() error {
+func (g *Goma) Start() error {
 	// Initialize redis if configured
 	g.initRedis()
 	defer g.closeRedis()
@@ -89,7 +89,7 @@ func (g *GatewayServer) Start() error {
 	return g.shutdown()
 }
 
-func (g *GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
+func (g *Goma) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
 	return &http.Server{
 		Addr:         addr,
 		WriteTimeout: time.Second * time.Duration(g.gateway.Timeouts.Write),
@@ -101,7 +101,7 @@ func (g *GatewayServer) createServer(addr string, handler http.Handler, tlsConfi
 }
 
 // Create HTTP handler
-func (g *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
+func (g *Goma) createHTTPHandler(handler http.Handler) http.Handler {
 	// Create the ACME reverse proxy once
 	acmeProxy := httputil.NewSingleHostReverseProxy(&url.URL{
 		Scheme: "http",
@@ -121,7 +121,7 @@ func (g *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
 	})
 }
 
-func (g *GatewayServer) startServers() {
+func (g *Goma) startServers() {
 	// Start proxy server
 	if err := g.proxyServer.Start(); err != nil {
 		logger.Fatal("Failed to start proxy server", "error", err)
@@ -142,7 +142,7 @@ func (g *GatewayServer) startServers() {
 
 }
 
-func (g *GatewayServer) shutdown() error {
+func (g *Goma) shutdown() error {
 	signal.Notify(shutdownChan, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownChan
 	logger.Info("Shutting down Goma Gateway...")
