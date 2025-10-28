@@ -251,7 +251,7 @@ func (g *Goma) registerRouteHealthHandler(mux *mux.Router, health HealthCheckRou
 // applyDefaultMiddlewarePaths applies default paths to middlewares without specified paths
 func (g *Goma) applyDefaultMiddlewarePaths() {
 	// Apply default paths to middlewares if no paths are specified
-	for i, _ := range g.middlewares {
+	for i := range g.middlewares {
 		if len(g.middlewares[i].Paths) == 0 {
 			// protect all paths by default
 			g.middlewares[i].Paths = append(g.middlewares[i].Paths, "/.*")
