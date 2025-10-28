@@ -32,7 +32,7 @@ import (
 )
 
 // Start / Start starts the server
-func (g *GatewayServer) Start() error {
+func (g *Goma) Start() error {
 	// Initialize redis if configured
 	g.initRedis()
 	defer g.closeRedis()
@@ -44,14 +44,14 @@ func (g *GatewayServer) Start() error {
 	}
 
 	// Create router
-	newRouter := g.gateway.NewRouter()
+	newRouter := g.NewRouter()
 	err = newRouter.AddRoutes()
 	if err != nil {
 		logger.Error("Failed to add routes", "error", err)
 		return err
 	}
 
-	logger.Info("Initializing route completed", "routes_count", len(dynamicRoutes), "middlewares_count", len(dynamicMiddlewares))
+	logger.Info("Initializing route completed", "routes_count", len(g.routes), "middlewares_count", len(g.middlewares))
 
 	// Configure TLS
 	tlsConfig := &tls.Config{
@@ -65,7 +65,7 @@ func (g *GatewayServer) Start() error {
 	}
 	// Add default certificate
 	certManager.AddCertificate("default", *certificate)
-	printRoute(dynamicRoutes)
+	printRoute(g.routes)
 	// Watch for changes
 	if g.gateway.ExtraConfig.Watch && len(g.gateway.ExtraConfig.Directory) > 0 {
 		logger.Debug("Dynamic configuration watch enabled")
@@ -73,7 +73,7 @@ func (g *GatewayServer) Start() error {
 
 	}
 	// Start acme service
-	go startAutoCert()
+	go startAutoCert(g.routes)
 	// Validate entrypoint
 	g.gateway.EntryPoints.Validate()
 	g.webServer = g.createServer(webAddress, g.createHTTPHandler(newRouter), nil)
@@ -89,7 +89,7 @@ func (g *GatewayServer) Start() error {
 	return g.shutdown()
 }
 
-func (g *GatewayServer) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
+func (g *Goma) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
 	return &http.Server{
 		Addr:         addr,
 		WriteTimeout: time.Second * time.Duration(g.gateway.Timeouts.Write),
@@ -101,7 +101,7 @@ func (g *GatewayServer) createServer(addr string, handler http.Handler, tlsConfi
 }
 
 // Create HTTP handler
-func (g *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
+func (g *Goma) createHTTPHandler(handler http.Handler) http.Handler {
 	// Create the ACME reverse proxy once
 	acmeProxy := httputil.NewSingleHostReverseProxy(&url.URL{
 		Scheme: "http",
@@ -121,7 +121,7 @@ func (g *GatewayServer) createHTTPHandler(handler http.Handler) http.Handler {
 	})
 }
 
-func (g *GatewayServer) startServers() {
+func (g *Goma) startServers() {
 	// Start proxy server
 	if err := g.proxyServer.Start(); err != nil {
 		logger.Fatal("Failed to start proxy server", "error", err)
@@ -142,7 +142,7 @@ func (g *GatewayServer) startServers() {
 
 }
 
-func (g *GatewayServer) shutdown() error {
+func (g *Goma) shutdown() error {
 	signal.Notify(shutdownChan, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownChan
 	logger.Info("Shutting down Goma Gateway...")

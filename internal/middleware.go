@@ -119,20 +119,20 @@ func findDuplicateMiddlewareNames(middlewares []Middleware) ([]string, error) {
 	}
 	return duplicates, nil
 }
-func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
+func (r *Route) applyMiddlewareByType(mid Middleware, router *mux.Router) {
 	switch mid.Type {
 	case AccessMiddleware:
-		applyAccessMiddleware(mid, route, router)
+		applyAccessMiddleware(mid, *r, router)
 	case rateLimit, MiddlewareType(strings.ToLower(string(rateLimit))):
-		applyRateLimitMiddleware(mid, route, router)
+		applyRateLimitMiddleware(mid, *r, router)
 	case accessPolicy:
-		applyAccessPolicyMiddleware(mid, route, router)
+		applyAccessPolicyMiddleware(mid, *r, router)
 	case addPrefix:
 		applyAddPrefixMiddleware(mid, router)
 	case redirectRegex, rewriteRegex:
 		applyRewriteRegexMiddleware(mid, router)
 	case httpCache:
-		applyHttpCacheMiddleware(route, mid, router)
+		applyHttpCacheMiddleware(*r, mid, router)
 	case redirectScheme:
 		applyRedirectSchemeMiddleware(mid, router)
 	case bodyLimit:
@@ -141,7 +141,7 @@ func applyMiddlewareByType(mid Middleware, route Route, router *mux.Router) {
 		applyUserAgentBlockMiddleware(mid, router)
 	}
 	// Attach Auth middlewares
-	attachAuthMiddlewares(route, mid, router)
+	attachAuthMiddlewares(*r, mid, router)
 }
 
 func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {

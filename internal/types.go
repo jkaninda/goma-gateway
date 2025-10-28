@@ -18,14 +18,11 @@
 package internal
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -175,8 +172,8 @@ type RouteHealthCheck struct {
 }
 type GatewayConfig struct {
 	Version string `yaml:"version"`
-	// GatewayConfig holds Gateway config
-	GatewayConfig Gateway `yaml:"gateway"`
+	// Gateway holds Gateway config
+	Gateway Gateway `yaml:"gateway"`
 	// Middlewares holds proxy middlewares
 	Middlewares []Middleware `yaml:"middlewares"`
 	// CertificateManager holds acme configuration
@@ -184,18 +181,12 @@ type GatewayConfig struct {
 	CertificateManager *certmanager.Config `yaml:"certificateManager,omitempty"`
 	// CertManager hols CertManager config
 	CertManager *certmanager.Config `yaml:"certManager"`
+	// Defaults holds default configurations applied to routes
+	Defaults DefaultConfig `yaml:"defaults,omitempty"`
 }
 
-type GatewayServer struct {
-	ctx             context.Context
-	webServer       *http.Server
-	webSecureServer *http.Server
-	proxyServer     *proxy.PassThroughServer
-	certManager     *certmanager.Config
-	configFile      string
-	version         string
-	gateway         *Gateway
-	middlewares     []Middleware
+type DefaultConfig struct {
+	Middlewares []string `yaml:"middlewares"`
 }
 
 type HealthCheckRoute struct {

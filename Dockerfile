@@ -1,7 +1,7 @@
 ########################
 # Builder Stage
 ########################
-FROM golang:1.25.1 AS build
+FROM golang:1.25.3 AS build
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 ########################
 # Final Stage
 ########################
-FROM alpine:3.22.1
+FROM alpine:3.22.2
 
 ENV TZ=UTC
 

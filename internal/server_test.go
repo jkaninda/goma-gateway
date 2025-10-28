@@ -83,7 +83,7 @@ func TestStart(t *testing.T) {
 		t.Fatalf("Error checking config: %s", err.Error())
 	}
 	ctx := context.Background()
-	g := GatewayServer{}
+	g := Goma{}
 	gatewayServer, err := g.Config(configFile, ctx)
 	if err != nil {
 		t.Error(err)

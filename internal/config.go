@@ -39,7 +39,7 @@ import (
 )
 
 // Config reads config file and returns Gateway
-func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewayServer, error) {
+func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 	if util.FileExists(configFile) {
 		buf, err := os.ReadFile(configFile)
 		if err != nil {
@@ -51,13 +51,14 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", configFile, err)
 		}
-		return &GatewayServer{
+		return &Goma{
 			ctx:         ctx,
 			configFile:  configFile,
 			certManager: c.GetCertManagerConfig(),
 			version:     c.Version,
-			gateway:     &c.GatewayConfig,
+			gateway:     &c.Gateway,
 			middlewares: c.Middlewares,
+			defaults:    c.Defaults,
 		}, nil
 	}
 	logger.Error("Configuration file not found", "file", configFile)
@@ -75,11 +76,11 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", ConfigFile, err)
 		}
-		return &GatewayServer{
+		return &Goma{
 			ctx:         ctx,
 			certManager: c.GetCertManagerConfig(),
 			configFile:  ConfigFile,
-			gateway:     &c.GatewayConfig,
+			gateway:     &c.Gateway,
 			middlewares: c.Middlewares,
 		}, nil
 
@@ -108,10 +109,10 @@ func (*GatewayServer) Config(configFile string, ctx context.Context) (*GatewaySe
 		return nil, fmt.Errorf("in file %q: %w", ConfigFile, err)
 	}
 	logger.Info("Generating new configuration file...done")
-	return &GatewayServer{
+	return &Goma{
 		ctx:         ctx,
 		configFile:  ConfigFile,
-		gateway:     &c.GatewayConfig,
+		gateway:     &c.Gateway,
 		certManager: c.GetCertManagerConfig(),
 		middlewares: c.Middlewares,
 	}, nil
@@ -128,7 +129,7 @@ func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
 }
 
 // InitLogger sets environment variables and initialize the logger
-func (g *GatewayServer) InitLogger() {
+func (g *Goma) InitLogger() {
 	level := strings.ToLower(g.gateway.Log.Level)
 	util.SetEnv("GOMA_LOG_LEVEL", level)
 	util.SetEnv("GOMA_LOG_FILE", g.gateway.Log.FilePath)
@@ -272,7 +273,7 @@ func initConfig(configFile string) error {
 	}
 	conf := &GatewayConfig{
 		Version: version.ConfigVersion,
-		GatewayConfig: Gateway{
+		Gateway: Gateway{
 			Timeouts: Timeouts{
 				Read:  30,
 				Write: 30,
@@ -424,7 +425,7 @@ func (g *Gateway) Setup(conf string) *Gateway {
 		if err != nil {
 			logger.Fatal("Error loading configuration %v", err.Error())
 		}
-		return &c.GatewayConfig
+		return &c.Gateway
 	}
 	return &Gateway{}
 
