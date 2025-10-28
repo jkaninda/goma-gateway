@@ -76,6 +76,7 @@ func (g *Goma) Initialize() error {
 			logger.Debug("Extra routes loaded", "count", len(extraRoutes))
 		}
 	}
+	g.applyDefaultMiddlewarePaths()
 	// Attach default configurations
 	g.attachDefaultConfigurations()
 	// Validate configuration
@@ -244,5 +245,16 @@ func (g *Goma) registerRouteHealthHandler(mux *mux.Router, health HealthCheckRou
 			DisableMetrics: true,
 		}
 		route.attachMiddlewares(sub, g.middlewares)
+	}
+}
+
+// applyDefaultMiddlewarePaths applies default paths to middlewares without specified paths
+func (g *Goma) applyDefaultMiddlewarePaths() {
+	// Apply default paths to middlewares if no paths are specified
+	for i := range g.middlewares {
+		if len(g.middlewares[i].Paths) == 0 {
+			// protect all paths by default
+			g.middlewares[i].Paths = append(g.middlewares[i].Paths, "/.*")
+		}
 	}
 }
