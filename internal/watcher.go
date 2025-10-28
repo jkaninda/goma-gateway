@@ -66,7 +66,7 @@ func (g *Goma) watchExtraConfig(r Router) {
 					} else {
 						// Update the routes
 						logger.Debug("Updating routes")
-						r.UpdateHandler(g.gateway)
+						r.UpdateHandler(g)
 					}
 
 				}

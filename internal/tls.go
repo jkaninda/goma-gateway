@@ -29,7 +29,7 @@ import (
 )
 
 func (g *Goma) initTLS() (bool, []tls.Certificate) {
-	certs := loadTLS(g.gateway.TLS)
+	certs := g.loadTLS()
 	if len(certs) > 0 {
 		return true, certs
 	}
@@ -37,7 +37,7 @@ func (g *Goma) initTLS() (bool, []tls.Certificate) {
 }
 
 // loadTLS initializes a TLS configuration by loading certificates from dynamic routes.
-func loadTLS(t TLS) []tls.Certificate {
+func (g *Goma) loadTLS() []tls.Certificate {
 	var mu sync.Mutex
 	certs := []tls.Certificate{}
 
@@ -66,9 +66,9 @@ func loadTLS(t TLS) []tls.Certificate {
 	}
 
 	wg.Add(1)
-	go loadCertificates(t, "the gateway")
+	go loadCertificates(g.gateway.TLS, "the gateway")
 
-	for _, route := range dynamicRoutes {
+	for _, route := range g.routes {
 		wg.Add(1)
 		go loadCertificates(route.TLS, fmt.Sprintf("route: %s", route.Name))
 	}
@@ -157,7 +157,7 @@ func isBase64(input string) bool {
 	_, err := base64.StdEncoding.DecodeString(input)
 	return err == nil
 }
-func startAutoCert() {
+func startAutoCert(routes []Route) {
 	logger.Debug("Initializing certificate manager...")
 	err := certManager.Initialize()
 	if err != nil {
@@ -165,7 +165,7 @@ func startAutoCert() {
 	}
 	logger.Debug("Starting AutoCert service")
 	if certManager != nil && certManager.AcmeInitialized() {
-		certManager.AutoCert(hostNames(dynamicRoutes))
+		certManager.AutoCert(hostNames(routes))
 	}
 
 }

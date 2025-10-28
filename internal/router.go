@@ -32,7 +32,7 @@ type Router interface {
 	AddRoute(route Route) error
 	AddRoutes() error
 	Mux() http.Handler
-	UpdateHandler(*Gateway)
+	UpdateHandler(goma *Goma)
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 
@@ -43,16 +43,18 @@ type router struct {
 	gateway     *Gateway
 	networking  Networking
 	strictSlash bool
+	routes      []Route
+	middlewares []Middleware
 }
 
 // AddRoutes adds multiple routes from another router.
 func (r *router) AddRoutes() error {
-	logger.Debug("Adding routes to router", "count", len(dynamicRoutes))
+	logger.Debug("Adding routes to router", "count", len(r.routes))
 
 	var addedCount int
 	var errors []error
 
-	for _, route := range dynamicRoutes {
+	for _, route := range r.routes {
 		if !route.Enabled {
 			logger.Debug("Skipping disabled route", "route", route.Name, "path", route.Path)
 			continue
@@ -90,13 +92,15 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // UpdateHandler updates the router's handler based on the gateway configuration.
-func (r *router) UpdateHandler(gateway *Gateway) {
-	logger.Debug("Updating handler", "routes", len(dynamicRoutes))
+func (r *router) UpdateHandler(g *Goma) {
+	r.routes = g.routes
+	r.middlewares = g.middlewares
+	logger.Debug("Updating handler", "routes", len(r.routes))
 	close(stopChan)
 	reloaded = true
 	logger.Debug("Updating router with new routes")
 	r.mux = mux.NewRouter().StrictSlash(r.strictSlash)
-	gateway.addGlobalHandler(r.mux)
+	g.addGlobalHandler(r.mux)
 
 	err := r.AddRoutes()
 	if err != nil {
@@ -104,14 +108,14 @@ func (r *router) UpdateHandler(gateway *Gateway) {
 		return
 	}
 	r.startHealthCheck()
-	logger.Info("Configuration successfully reloaded", "routes", len(dynamicRoutes))
+	logger.Info("Configuration successfully reloaded", "routes", len(r.routes))
 }
 
 // startHealthCheck starts the health check routine
 func (r *router) startHealthCheck() {
 	stopChan = make(chan struct{})
 	logger.Debug("Starting health check...")
-	routesHealthCheck(dynamicRoutes, stopChan)
+	routesHealthCheck(r.routes, stopChan)
 }
 
 // validateRoute performs comprehensive route validation
@@ -174,7 +178,7 @@ func (r *router) AddRoute(route Route) error {
 	// Configure handlers
 	r.configureHandlers(route, rRouter, proxyRoute)
 	// Add middlewares
-	r.attachMiddlewares(route, rRouter)
+	r.attachMiddlewares(route, rRouter, r.middlewares)
 	return nil
 }
 
@@ -202,7 +206,7 @@ func (r *router) configureCORS(route *Route) {
 }
 
 // attachMiddlewares configures all middlewares for a route
-func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
+func (r *router) attachMiddlewares(route Route, rRouter *mux.Router, globalMiddlewares []Middleware) {
 	enableMetrics := r.enableMetrics && !route.DisableMetrics
 
 	if r.enableMetrics && route.DisableMetrics {
@@ -241,7 +245,30 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router) {
 		rRouter.Use(cors.CORSHandler())
 	}
 	// Custom middlewares
-	attachMiddlewares(route, rRouter)
+	route.attachMiddlewares(rRouter, globalMiddlewares)
+}
+
+// attachMiddlewares attaches middlewares to the route
+func (r *Route) attachMiddlewares(router *mux.Router, globalMiddlewares []Middleware) {
+	if r.Security.EnableExploitProtection {
+		logger.Debug("Block common exploits enabled")
+		router.Use(middlewares.BlockExploitsMiddleware)
+	}
+
+	for _, middleware := range r.Middlewares {
+		if len(middleware) == 0 {
+			continue
+		}
+
+		mid, err := getMiddleware([]string{middleware}, globalMiddlewares)
+		if err != nil {
+			logger.Error("Error validating middleware", "error", err)
+			continue
+		}
+
+		// Apply middlewares by type
+		r.applyMiddlewareByType(mid, router)
+	}
 }
 
 // configureHandlers sets up route handlers

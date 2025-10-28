@@ -29,11 +29,6 @@ import (
 var (
 	// counter is used for the round-robin load balancer.
 	counter uint32
-
-	// dynamicRoutes stores the currently registered routes
-	dynamicRoutes []Route
-	// dynamicMiddlewares stores the currently registered middlewares.
-	dynamicMiddlewares []Middleware
 	// unavailableBackends keeps track of backend endpoints marked as unavailable.
 	unavailableBackends = make(map[string]bool)
 

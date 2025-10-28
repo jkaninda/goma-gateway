@@ -20,7 +20,6 @@ package internal
 import (
 	"context"
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -38,6 +37,7 @@ type Goma struct {
 	version         string
 	gateway         *Gateway
 	middlewares     []Middleware
+	routes          []Route
 	defaults        DefaultConfig
 }
 
@@ -48,8 +48,7 @@ func (g *Goma) Initialize() error {
 	gateway.handleDeprecations()
 
 	// Load core configuration
-	dynamicRoutes = gateway.Routes
-	dynamicMiddlewares = g.middlewares
+	g.routes = gateway.Routes
 
 	// Load Extra Configurations
 	if len(gateway.ExtraConfig.Directory) > 0 {
@@ -61,7 +60,7 @@ func (g *Goma) Initialize() error {
 			return err
 		}
 		if len(extraMiddlewares) > 0 {
-			dynamicMiddlewares = append(dynamicMiddlewares, extraMiddlewares...)
+			g.middlewares = append(g.middlewares, extraMiddlewares...)
 			logger.Debug("Extra middlewares loaded", "count", len(extraMiddlewares))
 		}
 
@@ -73,44 +72,44 @@ func (g *Goma) Initialize() error {
 			return err
 		}
 		if len(extraRoutes) > 0 {
-			dynamicRoutes = append(dynamicRoutes, extraRoutes...)
+			g.routes = append(g.routes, extraRoutes...)
 			logger.Debug("Extra routes loaded", "count", len(extraRoutes))
 		}
 	}
 	// Attach default configurations
-	attachDefaultConfigurations(g.defaults)
+	g.attachDefaultConfigurations()
 	// Validate configuration
-	logger.Info("Validating configuration", "routes", len(dynamicRoutes), "middlewares", len(dynamicMiddlewares))
-	err := validateConfig(dynamicRoutes, dynamicMiddlewares)
+	logger.Info("Validating configuration", "routes", len(g.routes), "middlewares", len(g.middlewares))
+	err := validateConfig(g.routes, g.middlewares)
 	if err != nil {
 		logger.Error("Configuration validation failed", "error", err)
 		return err
 	}
 	// Route sorting
-	if hasPositivePriority(dynamicRoutes) {
-		sort.Slice(dynamicRoutes, func(i, j int) bool {
-			return dynamicRoutes[i].Priority < dynamicRoutes[j].Priority
+	if hasPositivePriority(g.routes) {
+		sort.Slice(g.routes, func(i, j int) bool {
+			return g.routes[i].Priority < g.routes[j].Priority
 		})
 		logger.Debug("Routes sorted by priority")
 	} else {
-		sort.Slice(dynamicRoutes, func(i, j int) bool {
-			return len(dynamicRoutes[i].Path) > len(dynamicRoutes[j].Path)
+		sort.Slice(g.routes, func(i, j int) bool {
+			return len(g.routes[i].Path) > len(g.routes[j].Path)
 		})
 		logger.Debug("Routes sorted by path length")
 	}
 
-	logger.Debug("Validating routes", "count", len(dynamicRoutes))
-	dynamicRoutes = validateRoutes(*gateway, dynamicRoutes)
+	logger.Debug("Validating routes", "count", len(g.routes))
+	g.routes = validateRoutes(*gateway, g.routes)
 
 	// Health check
 	if !reloaded {
 		logger.Debug("Starting background routes healthcheck")
-		routesHealthCheck(dynamicRoutes, stopChan)
+		routesHealthCheck(g.routes, stopChan)
 		logger.Debug("Routes healthcheck running")
 	}
 	if gateway.Monitoring.EnableMetrics {
-		prometheusMetrics.GatewayRoutesCount.Set(float64(len(dynamicRoutes)))
-		prometheusMetrics.GatewayMiddlewaresCount.Set(float64(len(dynamicMiddlewares)))
+		prometheusMetrics.GatewayRoutesCount.Set(float64(len(g.routes)))
+		prometheusMetrics.GatewayMiddlewaresCount.Set(float64(len(g.middlewares)))
 	}
 	// Certificate Manager
 	if certManager == nil {
@@ -131,58 +130,37 @@ func (g *Goma) Initialize() error {
 
 	// Domain update for certManager
 	if certManager != nil && certManager.AcmeInitialized() {
-		domains := hostNames(dynamicRoutes)
+		domains := hostNames(g.routes)
 		certManager.UpdateDomains(domains)
 		logger.Debug("Updated ACME domains", "count", len(domains))
 	}
 	debugMode = gateway.Debug
-	if len(dynamicRoutes) == 0 {
+	if len(g.routes) == 0 {
 		logger.Warn("No routes found, add routes to the configuration file")
 	}
 	return nil
 }
-func attachDefaultConfigurations(defaults DefaultConfig) {
+func (g *Goma) attachDefaultConfigurations() {
 	// Apply default middlewares to the routes
-	if len(defaults.Middlewares) > 0 {
-		logger.Debug("Applying default middlewares", "count", len(defaults.Middlewares))
-		for i, route := range dynamicRoutes {
+	if len(g.defaults.Middlewares) > 0 {
+		logger.Debug("Applying default middlewares", "count", len(g.defaults.Middlewares))
+		for i, route := range g.routes {
 			logger.Debug("Applying default middlewares", "route", route.Name)
-			dynamicRoutes[i].Middlewares = append(defaults.Middlewares, route.Middlewares...)
+			g.routes[i].Middlewares = append(g.defaults.Middlewares, route.Middlewares...)
 		}
-	}
-}
-
-// attachMiddlewares attaches middlewares to the route
-func attachMiddlewares(route Route, router *mux.Router) {
-	if route.Security.EnableExploitProtection {
-		logger.Debug("Block common exploits enabled")
-		router.Use(middlewares.BlockExploitsMiddleware)
-	}
-
-	for _, middleware := range route.Middlewares {
-		if len(middleware) == 0 {
-			continue
-		}
-
-		mid, err := getMiddleware([]string{middleware}, dynamicMiddlewares)
-		if err != nil {
-			logger.Error("Error validating middleware", "error", err)
-			continue
-		}
-
-		// Apply middlewares by type
-		applyMiddlewareByType(mid, route, router)
 	}
 }
 
 // NewRouter creates a new router instance.
-func (g *Gateway) NewRouter() Router {
+func (g *Goma) NewRouter() Router {
 	rt := &router{
-		mux:           mux.NewRouter().StrictSlash(g.StrictSlash),
-		enableMetrics: g.Monitoring.EnableMetrics,
-		gateway:       g,
-		networking:    g.Networking,
-		strictSlash:   g.StrictSlash,
+		mux:           mux.NewRouter().StrictSlash(g.gateway.StrictSlash),
+		enableMetrics: g.gateway.Monitoring.EnableMetrics,
+		gateway:       g.gateway,
+		networking:    g.gateway.Networking,
+		strictSlash:   g.gateway.StrictSlash,
+		routes:        g.routes,
+		middlewares:   g.middlewares,
 	}
 
 	g.addGlobalHandler(rt.mux)
@@ -191,12 +169,12 @@ func (g *Gateway) NewRouter() Router {
 }
 
 // addGlobalHandler configures global handlers with better error handling
-func (g *Gateway) addGlobalHandler(mux *mux.Router) {
+func (g *Goma) addGlobalHandler(mux *mux.Router) {
 	logger.Debug("Adding global handler")
 
 	health := HealthCheckRoute{
-		DisableRouteHealthCheckError: g.Monitoring.IncludeRouteHealthErrors,
-		Routes:                       dynamicRoutes,
+		DisableRouteHealthCheckError: g.gateway.Monitoring.IncludeRouteHealthErrors,
+		Routes:                       g.routes,
 	}
 
 	// Register global observability endpoints
@@ -204,71 +182,67 @@ func (g *Gateway) addGlobalHandler(mux *mux.Router) {
 	g.registerRouteHealthHandler(mux, health)
 
 	// Gateway health endpoints
-	if g.Monitoring.EnableReadiness {
+	if g.gateway.Monitoring.EnableReadiness {
 		mux.HandleFunc("/readyz", health.HealthReadyHandler).Methods(http.MethodGet)
 	}
-	if g.Monitoring.EnableLiveness {
+	if g.gateway.Monitoring.EnableLiveness {
 		mux.HandleFunc("/healthz", health.HealthReadyHandler).Methods(http.MethodGet)
 	}
-
-	// Global middleware
-	//	mux.Use(CORSHandler(g.Cors))
-
 	logger.Debug("Added global handler")
 }
 
 // registerMetricsHandler configures the /metrics endpoint
-func (g *Gateway) registerMetricsHandler(mux *mux.Router) {
-	if !g.Monitoring.EnableMetrics {
+func (g *Goma) registerMetricsHandler(mux *mux.Router) {
+	if !g.gateway.Monitoring.EnableMetrics {
 		return
 	}
 
 	logger.Debug("Metrics enabled")
 
 	path := "/metrics"
-	if g.Monitoring.MetricsPath != "" {
-		path = g.Monitoring.MetricsPath
+	if g.gateway.Monitoring.MetricsPath != "" {
+		path = g.gateway.Monitoring.MetricsPath
 	}
 
 	sub := mux.PathPrefix(path).Subrouter()
-	if g.Monitoring.Host != "" {
-		sub.Host(g.Monitoring.Host).PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
+	if g.gateway.Monitoring.Host != "" {
+		sub.Host(g.gateway.Monitoring.Host).PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
 	} else {
 		sub.PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
 	}
-	if metricsMiddlewares := g.Monitoring.Middleware.Metrics; len(metricsMiddlewares) > 0 {
-		route := Route{
+	if metricsMiddlewares := g.gateway.Monitoring.Middleware.Metrics; len(metricsMiddlewares) > 0 {
+		route := &Route{
 			Path:           path,
 			Name:           "metrics",
 			Middlewares:    metricsMiddlewares,
 			DisableMetrics: true,
 		}
-		attachMiddlewares(route, sub)
+		route.attachMiddlewares(sub, g.middlewares)
 	}
 }
 
 // registerRouteHealthHandler configures the /healthz/routes endpoint
-func (g *Gateway) registerRouteHealthHandler(mux *mux.Router, health HealthCheckRoute) {
-	if !g.Monitoring.EnableRouteHealthCheck {
+func (g *Goma) registerRouteHealthHandler(mux *mux.Router, health HealthCheckRoute) {
+	if !g.gateway.Monitoring.EnableRouteHealthCheck {
 		return
 	}
 
 	logger.Debug("Route health check enabled")
 	path := "/healthz/routes"
 	sub := mux.PathPrefix(path).Subrouter()
-	if g.Monitoring.Host != "" {
-		sub.Host(g.Monitoring.Host).PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
+	if g.gateway.Monitoring.Host != "" {
+		sub.Host(g.gateway.Monitoring.Host).PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
 	} else {
 		sub.PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
 	}
 
-	if healthCheckMiddlewares := g.Monitoring.Middleware.RouteHealthCheck; len(healthCheckMiddlewares) > 0 {
-		route := Route{
+	if healthCheckMiddlewares := g.gateway.Monitoring.Middleware.RouteHealthCheck; len(healthCheckMiddlewares) > 0 {
+		route := &Route{
 			Path:           path,
 			Name:           "routeHealth",
 			Middlewares:    healthCheckMiddlewares,
 			DisableMetrics: true,
 		}
-		attachMiddlewares(route, sub)
+		route.attachMiddlewares(sub, g.middlewares)
 	}
 }
