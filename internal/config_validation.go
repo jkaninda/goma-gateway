@@ -40,10 +40,10 @@ func CheckConfig(fileName string) error {
 		return fmt.Errorf("parsing the configuration file %q: %w", fileName, err)
 	}
 	g := &Goma{
-		ctx:         nil,
-		version:     c.Version,
-		gateway:     &c.Gateway,
-		middlewares: c.Middlewares,
+		ctx:                nil,
+		version:            c.Version,
+		gateway:            &c.Gateway,
+		dynamicMiddlewares: c.Middlewares,
 	}
 	// Check middlewares
 	fmt.Println("Checking middlewares...")
@@ -59,10 +59,10 @@ func CheckConfig(fileName string) error {
 	// Check additional routes
 	fmt.Println("Checking routes...")
 	// Check routes
-	checkRoutes(g.gateway.Routes, g.middlewares)
+	checkRoutes(g.gateway.Routes, g.dynamicMiddlewares)
 	fmt.Println("Checking routes...done")
 
-	fmt.Printf("Routes count=%d Middlewares count=%d\n", len(g.gateway.Routes), len(g.middlewares))
+	fmt.Printf("Routes count=%d Middlewares count=%d\n", len(g.gateway.Routes), len(g.dynamicMiddlewares))
 
 	return nil
 

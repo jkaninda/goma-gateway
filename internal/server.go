@@ -51,7 +51,7 @@ func (g *Goma) Start() error {
 		return err
 	}
 
-	logger.Info("Initializing route completed", "routes_count", len(g.routes), "middlewares_count", len(g.middlewares))
+	logger.Info("Initializing route completed", "routes_count", len(g.dynamicRoutes), "middlewares_count", len(g.dynamicMiddlewares))
 
 	// Configure TLS
 	tlsConfig := &tls.Config{
@@ -65,7 +65,7 @@ func (g *Goma) Start() error {
 	}
 	// Add default certificate
 	certManager.AddCertificate("default", *certificate)
-	printRoute(g.routes)
+	printRoute(g.dynamicRoutes)
 	// Watch for changes
 	if g.gateway.ExtraConfig.Watch && len(g.gateway.ExtraConfig.Directory) > 0 {
 		logger.Debug("Dynamic configuration watch enabled")
@@ -73,7 +73,7 @@ func (g *Goma) Start() error {
 
 	}
 	// Start acme service
-	go startAutoCert(g.routes)
+	go startAutoCert(g.dynamicRoutes)
 	// Validate entrypoint
 	g.gateway.EntryPoints.Validate()
 	g.webServer = g.createServer(webAddress, g.createHTTPHandler(newRouter), nil)
