@@ -40,21 +40,21 @@ type router struct {
 	mux           *mux.Router
 	enableMetrics bool
 	sync.RWMutex
-	gateway     *Gateway
-	networking  Networking
-	strictSlash bool
-	routes      []Route
-	middlewares []Middleware
+	gateway            *Gateway
+	networking         Networking
+	strictSlash        bool
+	dynamicRoutes      []Route
+	dynamicMiddlewares []Middleware
 }
 
 // AddRoutes adds multiple routes from another router.
 func (r *router) AddRoutes() error {
-	logger.Debug("Adding routes to router", "count", len(r.routes))
+	logger.Debug("Adding routes to router", "count", len(r.dynamicRoutes))
 
 	var addedCount int
 	var errors []error
 
-	for _, route := range r.routes {
+	for _, route := range r.dynamicRoutes {
 		if !route.Enabled {
 			logger.Debug("Skipping disabled route", "route", route.Name, "path", route.Path)
 			continue
@@ -93,9 +93,9 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // UpdateHandler updates the router's handler based on the gateway configuration.
 func (r *router) UpdateHandler(g *Goma) {
-	r.routes = g.routes
-	r.middlewares = g.middlewares
-	logger.Debug("Updating handler", "routes", len(r.routes))
+	r.dynamicRoutes = g.dynamicRoutes
+	r.dynamicMiddlewares = g.dynamicMiddlewares
+	logger.Debug("Updating handler", "routes", len(r.dynamicRoutes))
 	close(stopChan)
 	reloaded = true
 	logger.Debug("Updating router with new routes")
@@ -108,14 +108,14 @@ func (r *router) UpdateHandler(g *Goma) {
 		return
 	}
 	r.startHealthCheck()
-	logger.Info("Configuration successfully reloaded", "routes", len(r.routes))
+	logger.Info("Configuration successfully reloaded", "routes", len(r.dynamicRoutes))
 }
 
 // startHealthCheck starts the health check routine
 func (r *router) startHealthCheck() {
 	stopChan = make(chan struct{})
 	logger.Debug("Starting health check...")
-	routesHealthCheck(r.routes, stopChan)
+	routesHealthCheck(r.dynamicRoutes, stopChan)
 }
 
 // validateRoute performs comprehensive route validation
@@ -178,7 +178,7 @@ func (r *router) AddRoute(route Route) error {
 	// Configure handlers
 	r.configureHandlers(route, rRouter, proxyRoute)
 	// Add middlewares
-	r.attachMiddlewares(route, rRouter, r.middlewares)
+	r.attachMiddlewares(route, rRouter, r.dynamicMiddlewares)
 	return nil
 }
 

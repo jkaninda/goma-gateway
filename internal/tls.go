@@ -68,7 +68,7 @@ func (g *Goma) loadTLS() []tls.Certificate {
 	wg.Add(1)
 	go loadCertificates(g.gateway.TLS, "the gateway")
 
-	for _, route := range g.routes {
+	for _, route := range g.dynamicRoutes {
 		wg.Add(1)
 		go loadCertificates(route.TLS, fmt.Sprintf("route: %s", route.Name))
 	}
