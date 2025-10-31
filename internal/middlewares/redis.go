@@ -19,8 +19,10 @@ package middlewares
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"github.com/go-redis/redis_rate/v10"
-	"github.com/jkaninda/goma-gateway/util"
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -30,32 +32,58 @@ type Redis struct {
 	Password       string `yaml:"password"`
 	DB             int    `yaml:"db"`             // Redis database number (0–15)
 	FlushOnStartup bool   `yaml:"flushOnStartup"` // FlushOnStartup indicates whether to flush the Redis database on startup
+	// TLS contains optional TLS configuration settings for Redis.
+	TLS RedisTLS `yaml:"tls,omitempty"`
+}
 
+// RedisTLS defines the TLS configuration for Redis connections.
+type RedisTLS struct {
+	ClientCA   string `yaml:"clientCa,omitempty"`
+	ClientCert string `yaml:"clientCert,omitempty"`
+	ClientKey  string `yaml:"clientKey,omitempty"`
 }
 
 func (r *Redis) InitRedis() error {
 	ctx := context.Background()
-	// Initialize Redis client
+	var (
+		tlsConfig *tls.Config
+		err       error
+	)
+
+	// Prepare TLS config if provided
+	if r.TLS.ClientCA != "" && r.TLS.ClientCert != "" && r.TLS.ClientKey != "" {
+		tlsConfig, err = goutils.LoadTLSConfig(r.TLS.ClientCert, r.TLS.ClientKey, r.TLS.ClientCA, true)
+		if err != nil {
+			logger.Error("Failed to load Redis TLS configuration", "error", err)
+			return fmt.Errorf("failed to load Redis TLS config: %w", err)
+		}
+		logger.Debug("Redis TLS configuration applied")
+	}
+
+	// Create Redis client
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr:     util.ReplaceEnvVars(r.Addr),
-		Password: util.ReplaceEnvVars(r.Password),
-		DB:       r.DB,
+		Addr:      goutils.ReplaceEnvVars(r.Addr),
+		Password:  goutils.ReplaceEnvVars(r.Password),
+		DB:        r.DB,
+		TLSConfig: tlsConfig,
 	})
 
-	// Test connection with PING
-	if err := RedisClient.Ping(ctx).Err(); err != nil {
+	// Test connection
+	if err = RedisClient.Ping(ctx).Err(); err != nil {
 		logger.Error("Failed to connect to Redis", "error", err)
-		return err
+		return fmt.Errorf("failed to connect to redis: %w", err)
 	}
-	logger.Debug("Successfully initialized Redis client")
+
+	logger.Info("Successfully initialized Redis client")
+
 	// Initialize rate limiter
 	limiter = redis_rate.NewLimiter(RedisClient)
 
-	// Flush DB if configured
+	// Optionally flush DB
 	if r.FlushOnStartup {
-		if err := RedisClient.FlushDB(ctx).Err(); err != nil {
+		if err = RedisClient.FlushDB(ctx).Err(); err != nil {
 			logger.Error("Error flushing Redis database", "error", err)
-			return err
+			return fmt.Errorf("failed to flush redis database: %w", err)
 		}
 		logger.Info("Redis database flushed successfully")
 	}

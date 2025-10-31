@@ -34,6 +34,10 @@ gateway:
     password: password       # Optional password for Redis authentication
     db: 0                    # Redis database index (default is 0)
     flushOnStartup: false  # Whether to flush Redis DB on startup (use with caution, default: false)
+    tls:
+      clientCa: /path/to/ca.crt        # Optional: Path to CA certificate for TLS
+      clientCert: /path/to/client.crt  # Optional: Path to client certificate for TLS
+      clientKey: /path/to/client.key    # Optional: Path to client private key for TLS
 
   timeouts:
     write: 30                # Response write timeout in seconds
