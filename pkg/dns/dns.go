@@ -55,24 +55,40 @@ func (d *CachedDialer) DialContext(ctx context.Context, network, address string)
 
 	d.cacheLock.Lock()
 	entry, ok := d.cache[host]
+	d.cacheLock.Unlock()
+
 	if !ok || time.Since(entry.timestamp) > d.ttl {
 		ips, err := net.DefaultResolver.LookupHost(ctx, host)
 		if err != nil {
-			d.cacheLock.Unlock()
 			return nil, err
 		}
 		entry = dnsCacheEntry{
 			addrs:     ips,
 			timestamp: time.Now(),
 		}
+		d.cacheLock.Lock()
 		d.cache[host] = entry
+		d.cacheLock.Unlock()
 	}
-	d.cacheLock.Unlock()
 
-	target := net.JoinHostPort(entry.addrs[0], port)
-	return d.Dialer.DialContext(ctx, network, target)
+	var lastErr error
+	for _, ip := range entry.addrs {
+		target := net.JoinHostPort(ip, port)
+		conn, err := d.Dialer.DialContext(ctx, network, target)
+		if err == nil {
+			return conn, nil
+		}
+		lastErr = err
+	}
+	d.ClearHost(host)
+	return nil, lastErr
 }
 
+func (d *CachedDialer) ClearHost(host string) {
+	d.cacheLock.Lock()
+	defer d.cacheLock.Unlock()
+	delete(d.cache, host)
+}
 func (d *CachedDialer) ClearCache() {
 	d.cacheLock.Lock()
 	defer d.cacheLock.Unlock()

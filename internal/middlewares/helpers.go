@@ -99,14 +99,14 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 		}
 		return
 
-	case "application/xhtml+xml":
+	case "application/xhtml+xml", "application/xml", "text/xml":
 		w.Header().Set("Content-Type", "application/xhtml+xml")
 		w.WriteHeader(statusCode)
 
 		xmlResponse := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 			<error>
 				<success>false</success>
-				<status>%d</status>
+				<statusCode>%d</statusCode>
 				<error>%s</error>
 			</error>`, statusCode, html.EscapeString(message))
 
