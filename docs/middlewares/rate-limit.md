@@ -19,7 +19,7 @@ middlewares:
   - name: rate-limit
     type: rateLimit
     rule:
-      unit: second
+      unit: minute
       requestsPerUnit: 60
 ```
 
@@ -31,6 +31,19 @@ middlewares:
 | `requestsPerUnit` | integer | Maximum requests allowed per time unit         | Any positive integer            |
 | `banAfter`        | integer | Number of rate limit violations before banning | Any positive integer            |
 | `banDuration`     | string  | Duration of the ban                            | Time units: `ms`, `s`, `m`, `h` |
+| `keyStrategy`     | object  | Strategy to identify clients for rate limiting | See Key Strategy section below  |
+
+### Key Strategy
+The `keyStrategy` defines how clients are identified for rate limiting. You can choose from the following strategies:
+
+| Strategy Type    | Description                                     | Additional Parameters             |
+|------------------|-------------------------------------------------|-----------------------------------|
+| `source: ip`     | Uses the client's IP address for identification | None                              |
+| `source: header` | Uses a specific HTTP header for identification  | `name`: Name of the header to use |
+| `source: cookie` | Uses a specific cookie for identification       | `name`: Name of the cookie to use |
+
+
+
 
 ### Example Scenarios
 
@@ -71,6 +84,9 @@ middlewares:
       requestsPerUnit: 100
       banAfter: 5
       banDuration: 30m
+      keyStrategy:
+        source: header
+        name: Authorization
 ```
 
 ### Ban Duration Examples

@@ -20,30 +20,10 @@ package middlewares
 import (
 	"context"
 	"crypto/rsa"
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
 	"sync"
 	"time"
 )
-
-// RateLimiter defines requests limit properties.
-type RateLimiter struct {
-	requests    int
-	unit        string
-	id          string
-	clientMap   map[string]*Client
-	mu          sync.Mutex
-	origins     []string
-	redisBased  bool
-	redis       *redis.Client
-	pathBased   bool
-	paths       []string
-	banList     map[string]time.Time
-	banAfter    int
-	banDuration time.Duration
-	strikeMap   map[string]int
-	ctx         context.Context
-}
 
 // Client stores request count and window expiration for each client.
 type Client struct {
@@ -61,6 +41,7 @@ type RateLimit struct {
 	Paths       []string
 	BanAfter    int
 	BanDuration time.Duration
+	KeyStrategy RateLimitKeyStrategy
 }
 
 // NewRateLimiterWindow creates a new RateLimiter.
@@ -79,6 +60,7 @@ func (rateLimit RateLimit) NewRateLimiterWindow() *RateLimiter {
 		banDuration: rateLimit.BanDuration,
 		strikeMap:   make(map[string]int),
 		redis:       RedisClient,
+		keyStrategy: rateLimit.KeyStrategy,
 		ctx:         context.Background(),
 	}
 }

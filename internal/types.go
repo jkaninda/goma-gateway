@@ -148,10 +148,16 @@ type OauthEndpoint struct {
 }
 
 type RateLimitRuleMiddleware struct {
-	Unit            string `yaml:"unit"`
-	RequestsPerUnit int    `yaml:"requestsPerUnit"`
-	BanAfter        int    `yaml:"banAfter,omitempty"`    // Ban IP after this many failed requests
-	BanDuration     string `yaml:"banDuration,omitempty"` // Duration to ban IP
+	Unit            string                   `yaml:"unit"`
+	RequestsPerUnit int                      `yaml:"requestsPerUnit"`
+	BanAfter        int                      `yaml:"banAfter,omitempty"`    // Ban IP after this many failed requests
+	BanDuration     string                   `yaml:"banDuration,omitempty"` // Duration to ban IP
+	KeyStrategy     RateLimitRuleKeyStrategy `yaml:"keyStrategy,omitempty"`
+}
+type RateLimitRuleKeyStrategy struct {
+	Source string `yaml:"source"` // "ip", "header", "cookie"
+	Name   string `yaml:"name"`   // header name or cookie name
+
 }
 
 func (r *RateLimitRuleMiddleware) UnmarshalYAML(unmarshal func(interface{}) error) error {

@@ -255,15 +255,19 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 	}
 	if rule.RequestsPerUnit != 0 {
 		rt := middlewares.RateLimit{
-			Unit:        rule.Unit,
-			Id:          util.Slug(route.Name),
-			Requests:    rule.RequestsPerUnit,
-			Origins:     route.Cors.Origins,
-			Hosts:       route.Hosts,
-			RedisBased:  redisBased,
-			PathBased:   len(mid.Paths) > 0,
-			Paths:       util.AddPrefixPath(route.Path, mid.Paths),
-			BanAfter:    rule.BanAfter,
+			Unit:       rule.Unit,
+			Id:         util.Slug(route.Name),
+			Requests:   rule.RequestsPerUnit,
+			Origins:    route.Cors.Origins,
+			Hosts:      route.Hosts,
+			RedisBased: redisBased,
+			PathBased:  len(mid.Paths) > 0,
+			Paths:      util.AddPrefixPath(route.Path, mid.Paths),
+			BanAfter:   rule.BanAfter,
+			KeyStrategy: middlewares.RateLimitKeyStrategy{
+				Source: rule.KeyStrategy.Source,
+				Name:   rule.KeyStrategy.Name,
+			},
 			BanDuration: duration,
 		}
 		limiter := rt.NewRateLimiterWindow()
