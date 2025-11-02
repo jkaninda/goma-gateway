@@ -67,19 +67,24 @@ More than just a reverse proxy, it streamlines service infrastructure management
 
 ### **Security & Access Control**
 
+Enterprise-grade security without the enterprise complexity
+
 * Automatic HTTPS via **Let’s Encrypt** or custom TLS
 * **Mutual TLS (mTLS)** for client certificate authentication
 * Built-in authentication: **Basic Auth, JWT, OAuth, LDAP, ForwardAuth**
 * CORS policies, header injection, fine-grained access control
 * Exploit protection: **SQL injection, XSS**, and bot detection
 * Method restrictions and regex-based URL rewriting
+* **Extensible security** – Custom middleware plugins for specialized authentication and authorization logic
 
 ### **Performance & Reliability**
 
-* **HTTP caching** (in-memory or Redis) with smart invalidation
+* **Intelligent caching**: HTTP caching with in-memory or Redis backend, smart cache invalidation
 * Load balancing: round-robin, weighted, with health checks
-* Scalable rate limiting: local or Redis-based
-  *(with automatic banning for repeated abuse)*
+* Scalable rate limiting: Flexible strategies to prevent abuse:
+  * Local or Redis-based for distributed systems
+  * Automatic client banning for repeated violations
+  * Customizable keys: IP address, API keys, custom headers, or session cookies
 
 ### **Operations & Monitoring**
 

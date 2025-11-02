@@ -97,10 +97,8 @@ func (g *Goma) Initialize() error {
 		logger.Error("Configuration validation failed", "error", err)
 		return err
 	}
-	err = g.registerPlugins()
-	if err != nil {
-		return err
-	}
+	g.registerPlugins()
+
 	// Route sorting
 	if hasPositivePriority(g.dynamicRoutes) {
 		sort.Slice(g.dynamicRoutes, func(i, j int) bool {
@@ -309,38 +307,36 @@ func (g *Goma) initTrustedProxyConfig() {
 	)
 }
 
-func (g *Goma) registerPlugins() error {
-
-	// load plugins
-	err := g.loadPlugins()
-	if err != nil {
-		return err
+func (g *Goma) registerPlugins() {
+	if err := g.loadPlugins(); err != nil {
+		logger.Error("Failed to load plugins", "error", err)
+		return
 	}
-	// Register plugins
+
 	logger.Debug("Registering middlewares...")
-	for _, middleware := range g.dynamicMiddlewares {
-		mw, err := middlewares.Create(string(middleware.Type), middleware.Paths, middleware.Rule)
+
+	for _, m := range g.dynamicMiddlewares {
+		mw, err := middlewares.Create(string(m.Type), m.Paths, m.Rule)
 		if err != nil {
 			if errors.Is(err, middlewares.ErrPluginNotFound) {
-				if doesExist(string(middleware.Type)) {
-					continue
-				} else {
-					logger.Error("Failed to register middleware,the middleware does not exist", "name", middleware.Name, "type", middleware.Type)
+				if !doesExist(string(m.Type)) {
+					logger.Error("Middleware type not found", "name", m.Name, "type", m.Type)
 				}
+				continue
 			}
-			// Ignore errors for non-registered plugins
-			return nil
-		}
-		// Validate middleware
-		err = mw.Validate()
-		if err != nil {
-			return fmt.Errorf("failed to validate plugin, plugin not registered: %s, error: %w", middleware.Name, err)
+
+			logger.Error("Failed to create middleware plugin", "name", m.Name, "type", m.Type, "error", err)
+			continue
 		}
 
-		g.plugins[middleware.Name] = mw
-		logger.Debug(">>>>>>>>>. Plugin registered", "type", middleware.Type)
+		if err := mw.Validate(); err != nil {
+			logger.Error("Failed to validate middleware plugin", "name", m.Name, "type", m.Type, "error", err)
+			continue
+		}
+
+		g.plugins[m.Name] = mw
+		logger.Debug("Plugin registered", "name", m.Name, "type", m.Type)
 	}
-	logger.Debug("Registering plugins... done", "  count", len(g.plugins))
-	return nil
 
+	logger.Debug("Plugins registration completed", "count", len(g.plugins))
 }
