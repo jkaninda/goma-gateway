@@ -34,6 +34,17 @@ When enabled, Goma inspects specific headers (such as `X-Forwarded-For`) **only*
 
 ### Example Configuration
 
+#### Minimal Example
+```yaml
+gateway:
+  proxy:
+    enabled: true
+    # Default headers X-Forwarded-For and X-Real-IP will be used
+   # ipHeaders: ["CF-Connecting-IP"] 
+```
+
+#### Full Example
+
 ```yaml
 gateway:
   proxy:
