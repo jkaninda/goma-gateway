@@ -46,4 +46,23 @@ var (
 	prometheusMetrics  = metrics.NewPrometheusMetrics(processStartTime, shutdownChan)
 	debugMode          = false
 	trustedProxyConfig *config.ProxyConfig
+	buildInMiddlewares = []string{
+		string(AccessMiddleware),
+		string(BasicAuthMiddleware),
+		string(BasicAuth),
+		string(JWTAuthMiddleware),
+		string(LDAPAuthMiddleware),
+		string(OAuth),
+		string(OAuth2),
+		string(accessPolicy),
+		string(addPrefix),
+		string(rateLimit),
+		string(redirectRegex),
+		string(rewriteRegex),
+		string(forwardAuth),
+		string(httpCache),
+		string(redirectScheme),
+		string(bodyLimit),
+		string(userAgentBlock),
+	}
 )

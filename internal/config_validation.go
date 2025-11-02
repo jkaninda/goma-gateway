@@ -19,6 +19,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -44,6 +45,7 @@ func CheckConfig(fileName string) error {
 		version:     c.Version,
 		gateway:     &c.Gateway,
 		middlewares: c.Middlewares,
+		plugins:     map[string]plugins.Middleware{},
 	}
 	// Check middlewares
 	fmt.Println("Checking middlewares...")
