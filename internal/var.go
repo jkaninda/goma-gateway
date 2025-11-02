@@ -50,6 +50,7 @@ var (
 		string(BasicAuth),
 		string(JWTAuthMiddleware),
 		string(LDAPAuthMiddleware),
+		string(LDAPAuth),
 		string(OAuth),
 		string(OAuth2),
 		string(accessPolicy),
