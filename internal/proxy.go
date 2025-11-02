@@ -130,7 +130,7 @@ func (pr *ProxyRoute) allowedOrigin(origin string) bool {
 
 // forwardedHeaders sets headers for forwarding client information.
 func (pr *ProxyRoute) forwardedHeaders(r *http.Request) {
-	realIP := getRealIP(r)
+	realIP := realIP(r)
 	r.Header.Set("X-Forwarded-Host", r.Host)
 	r.Header.Set("X-Forwarded-For", realIP)
 	r.Header.Set("X-Real-IP", realIP)
@@ -551,7 +551,7 @@ func (b Backends) evaluateMatch(match BackendMatch, r *http.Request) bool {
 	case SourceTypeQuery:
 		value = r.URL.Query().Get(match.Name)
 	case SourceTypeIp:
-		value = getRealIP(r)
+		value = realIP(r)
 	default:
 		logger.Warn("Unknown source type for canary matching", "source", match.Source)
 		return false

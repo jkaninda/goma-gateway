@@ -33,9 +33,9 @@ type AccessPolicy struct {
 func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get the client's IP address
-		clientIP, _, err := net.SplitHostPort(getRealIP(r))
+		clientIP, _, err := net.SplitHostPort(realIP(r))
 		if err != nil {
-			clientIP = getRealIP(r)
+			clientIP = realIP(r)
 		}
 		contentType := getContentType(r)
 

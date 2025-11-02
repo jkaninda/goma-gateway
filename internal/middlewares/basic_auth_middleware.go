@@ -75,14 +75,14 @@ func (basicAuth *AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 
 			// Check rate limit before attempting LDAP authentication
 			if !basicAuth.checkRateLimit() {
-				logger.Warn("Too many requests", "ip", getRealIP(r), "url", r.URL, "user_agent", r.UserAgent())
+				logger.Warn("Too many requests", "ip", realIP(r), "url", r.URL, "user_agent", r.UserAgent())
 				tooManyRequestsResponse(w, r, basicAuth.rateLimitTTL, basicAuth.Realm, contentType)
 				return
 			}
 		}
 
 		if !basicAuth.validateCredentials(parts[0], parts[1]) {
-			logger.Warn("Invalid credentials", "auth", "basicAuth", "username", parts[0], "ip", getRealIP(r))
+			logger.Warn("Invalid credentials", "auth", "basicAuth", "username", parts[0], "ip", realIP(r))
 			unauthorizedResponse(w, r, basicAuth.Realm, contentType)
 			return
 		}

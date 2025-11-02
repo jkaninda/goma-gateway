@@ -18,11 +18,12 @@
 package internal
 
 import (
+	"github.com/jkaninda/goma-gateway/internal/config"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
 )
 
-// Gateway contains the configuration options for the Goma Proxy Gateway.
+// Gateway contains the configuration options for the Goma Gateway.
 type Gateway struct {
 	// TLS specifies a list of tls certificate, cert and key
 	TLS TLS `yaml:"tls,omitempty"`
@@ -41,6 +42,9 @@ type Gateway struct {
 	Timeouts Timeouts `yaml:"timeouts,omitempty"`
 	// EntryPoints of the server
 	EntryPoints EntryPoint `yaml:"entryPoints,omitempty"`
+
+	// Proxy defines how Goma Gateway behaves when running behind a reverse proxy or CDN (e.g., Cloudflare, Nginx, HAProxy, AWS ELB, Traefik, etc.)
+	Proxy config.ProxyConfig `yaml:"proxy,omitempty"`
 	// Monitoring grouped monitoring and diagnostics configuration
 	Monitoring Monitoring `yaml:"monitoring,omitempty"`
 	// Log defines the logging config

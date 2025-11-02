@@ -20,6 +20,8 @@ package internal
 import (
 	"context"
 	"github.com/gorilla/mux"
+	"github.com/jkaninda/goma-gateway/internal/config"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -78,6 +80,7 @@ func (g *Goma) Initialize() error {
 			logger.Debug("Extra routes loaded", "count", len(extraRoutes))
 		}
 	}
+	g.initTrustedProxyConfig()
 	g.applyDefaultMiddlewarePaths()
 	// Attach default configurations
 	g.attachDefaultConfigurations()
@@ -259,4 +262,28 @@ func (g *Goma) applyDefaultMiddlewarePaths() {
 			g.dynamicMiddlewares[i].Paths = append(g.dynamicMiddlewares[i].Paths, "/.*")
 		}
 	}
+}
+
+func (g *Goma) initTrustedProxyConfig() {
+	cfg := g.gateway.Proxy
+	if !cfg.Enabled {
+		trustedProxyConfig = &config.ProxyConfig{}
+		middlewares.TrustedProxyConfig = trustedProxyConfig
+		logger.Debug("Proxy configuration disabled")
+		return
+	}
+
+	// Initialize trusted proxies
+	proxyConfig, err := cfg.Init()
+	if err != nil {
+		logger.Error("Failed to initialize proxy configuration", "error", err)
+		return
+	}
+
+	trustedProxyConfig = proxyConfig
+	middlewares.TrustedProxyConfig = trustedProxyConfig
+	logger.Debug("Proxy configuration initialized",
+		"trusted_proxies_count", len(cfg.TrustedProxies),
+		"ip_headers_count", len(cfg.IPHeaders),
+	)
 }
