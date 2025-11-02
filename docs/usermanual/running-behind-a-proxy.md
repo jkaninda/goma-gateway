@@ -6,7 +6,7 @@ nav_order: 11
 ---
 
 
-# Running Behind a Proxy or CDN
+# Running Goma Gateway Behind a Proxy or CDN
 
 When deploying **Goma Gateway** behind a reverse proxy or Content Delivery Network (CDN) — such as **Nginx**, **Traefik**, **Cloudflare**, or **AWS CloudFront** — special configuration is required to ensure correct client IP detection and reliable request logging.
 
