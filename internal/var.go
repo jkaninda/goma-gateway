@@ -18,6 +18,7 @@
 package internal
 
 import (
+	"github.com/jkaninda/goma-gateway/internal/config"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/dns"
@@ -32,16 +33,17 @@ var (
 	// unavailableBackends keeps track of backend endpoints marked as unavailable.
 	unavailableBackends = make(map[string]bool)
 
-	redisBased        = false
-	stopChan          = make(chan struct{})
-	reloaded          = false
-	webAddress        = "[::]:8080"
-	webSecureAddress  = "[::]:8443"
-	logger            = logger2.Default()
-	certManager       *certmanager.CertManager
-	cachedDialer      = dns.NewCachedDialer(5 * time.Minute)
-	shutdownChan      = make(chan os.Signal, 1)
-	processStartTime  = time.Now()
-	prometheusMetrics = metrics.NewPrometheusMetrics(processStartTime, shutdownChan)
-	debugMode         = false
+	redisBased         = false
+	stopChan           = make(chan struct{})
+	reloaded           = false
+	webAddress         = "[::]:8080"
+	webSecureAddress   = "[::]:8443"
+	logger             = logger2.Default()
+	certManager        *certmanager.CertManager
+	cachedDialer       = dns.NewCachedDialer(5 * time.Minute)
+	shutdownChan       = make(chan os.Signal, 1)
+	processStartTime   = time.Now()
+	prometheusMetrics  = metrics.NewPrometheusMetrics(processStartTime, shutdownChan)
+	debugMode          = false
+	trustedProxyConfig *config.ProxyConfig
 )

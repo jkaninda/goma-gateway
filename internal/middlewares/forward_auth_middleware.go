@@ -37,7 +37,7 @@ func (f *ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 			authenticated, authResponse := f.authRequest(r)
 			if !authenticated {
 				if authResponse == nil || authResponse.StatusCode == http.StatusInternalServerError {
-					logger.Error("Proxy error authenticating request", "path", r.URL.Path, "status", authResponse.StatusCode, "client_ip", getRealIP(r), "error", "Authentication failed")
+					logger.Error("Proxy error authenticating request", "path", r.URL.Path, "status", authResponse.StatusCode, "client_ip", realIP(r), "error", "Authentication failed")
 					RespondWithError(w, r, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), f.Origins, contentType)
 					return
 				}
@@ -121,8 +121,8 @@ func (f *ForwardAuth) authCopyHeadersAndCookies(src *http.Request, dest *http.Re
 	dest.Header.Set("X-Forwarded-Host", src.Host)
 	dest.Header.Set("X-Forwarded-Method", src.Method)
 	dest.Header.Set("X-Forwarded-Proto", sSchema)
-	dest.Header.Set("X-Forwarded-For", getRealIP(src))
-	dest.Header.Set("X-Real-IP", getRealIP(src))
+	dest.Header.Set("X-Forwarded-For", realIP(src))
+	dest.Header.Set("X-Real-IP", realIP(src))
 	dest.Header.Set("User-Agent", src.UserAgent())
 	dest.Header.Set("X-Forwarded-URI", fmt.Sprintf("%s://%s%s", sSchema, src.Host, src.URL.RequestURI()))
 	dest.Header.Set("X-Original-URL", fmt.Sprintf("%s://%s%s", sSchema, src.Host, src.URL.RequestURI()))

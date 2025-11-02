@@ -48,7 +48,7 @@ func (m *Maintenance) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (m *Maintenance) MaintenanceMode(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if m.Enabled {
-			logger.Warn("Route in maintenance mode", "status", m.StatusCode, "client_ip", getRealIP(r), "method", r.Method, "host", r.Host, "url", r.URL.String())
+			logger.Warn("Route in maintenance mode", "status", m.StatusCode, "client_ip", realIP(r), "method", r.Method, "host", r.Host, "url", r.URL.String())
 			middlewares.RespondWithError(w, r, m.StatusCode, m.Message, nil, getContentType(r))
 			return
 		}

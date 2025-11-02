@@ -29,27 +29,39 @@ import (
 	"strings"
 )
 
-// getRealIP extracts the real IP address of the client from the HTTP request.
-func getRealIP(r *http.Request) string {
-	// Check the X-Forwarded-For header for the client IP.
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Take the first IP in the comma-separated list.
-		if ips := strings.Split(xff, ","); len(ips) > 0 {
-			return strings.TrimSpace(ips[0])
+// realIP extracts the real IP address of the client from the HTTP request.
+func realIP(r *http.Request) string {
+	remoteIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+
+	if !TrustedProxyConfig.Enabled {
+		if remoteIP != "" {
+			return remoteIP
+		}
+		return r.RemoteAddr
+	}
+
+	// Check if request actually came through a trusted proxy
+	if len(TrustedProxyConfig.TrustedProxies) > 0 {
+		if !TrustedProxyConfig.IsTrustedSource(remoteIP) {
+			return remoteIP
 		}
 	}
 
-	// Check the X-Real-IP header as a fallback.
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return strings.TrimSpace(ip)
+	//  configured IP headers
+	for _, header := range TrustedProxyConfig.IPHeaders {
+		if val := r.Header.Get(header); val != "" {
+			ips := strings.Split(val, ",")
+			for _, ip := range ips {
+				trimmed := strings.TrimSpace(ip)
+				if trimmed != "" {
+					return trimmed
+				}
+			}
+		}
 	}
-
-	// Use the remote address if headers are not set.
-	if ip, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return ip
+	if remoteIP != "" {
+		return remoteIP
 	}
-
-	// Return the raw remote address as a last resort.
 	return r.RemoteAddr
 }
 func getContentType(r *http.Request) string {

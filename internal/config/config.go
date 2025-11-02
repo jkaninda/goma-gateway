@@ -16,8 +16,3 @@
  */
 
 package config
-
-type AcmeConfig struct {
-	Email      string `yaml:"email"`
-	Entrypoint string `yaml:"entrypoint"`
-}

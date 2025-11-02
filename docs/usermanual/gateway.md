@@ -165,6 +165,36 @@ gateway:
 
 ---
 
+## Proxy
+
+Proxy settings help Goma correctly identify client IPs and handle requests when operating behind reverse proxies or CDNs.
+
+### Available Options
+| Key              | Type       | Default                           | Description                                                               |
+|------------------|------------|-----------------------------------|---------------------------------------------------------------------------|
+| `enabled`        | `bool`     | `false`                           | Set to `true` if Goma is behind a reverse proxy or CDN.                   |
+| `trustedProxies` | `[]string` | `[]`                              | List of trusted proxy IPs or CIDRs to identify client IPs correctly.      |
+| `ipHeaders`      | `[]string` | `["X-Forwarded-For","X-Real-IP"]` | List of headers to check (in order) for the client’s original IP address. |
+---
+### Example Configuration
+
+```yaml
+gateway:
+  proxy:
+    enabled: true                    # true if Goma is behind a proxy or CDN
+    trustedProxies:                  # IPs or CIDRs for trusted proxy layers
+      - "127.0.0.1"
+      - "10.0.0.0/8"
+      - "192.168.0.0/16"
+    ipHeaders:                       # List of headers to check, in order
+      - "CF-Connecting-IP"
+      - "X-Forwarded-For"
+      - "X-Real-IP"
+      - "True-Client-IP"
+      - "Forwarded"
+```
+---
+
 ## Networking
 
 The `networking` section defines low-level HTTP transport and connection pooling settings used by the internal proxy to forward traffic to backend services. These configurations help optimize performance, connection reuse, and resource usage across all routes.
@@ -175,7 +205,7 @@ These options apply to the internal HTTP client used by the gateway for outbound
 
 ---
 
-### 📘 Available Options
+###  Available Options
 
 | Key                     | Type   | Default | Description                                                                              |
 |-------------------------|--------|---------|------------------------------------------------------------------------------------------|
