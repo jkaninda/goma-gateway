@@ -44,24 +44,9 @@ func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error)
 	return Middleware{}, errors.New("middleware not found with name:  [" + strings.Join(rules, ";") + "]")
 }
 
-func doesExist(tyName MiddlewareType) bool {
-	middlewareList := []MiddlewareType{
-		BasicAuth,
-		JWTAuth,
-		AccessMiddleware,
-		accessPolicy,
-		addPrefix,
-		rateLimit,
-		redirectRegex,
-		forwardAuth,
-		rewriteRegex,
-		httpCache,
-		redirectScheme,
-		bodyLimit,
-	}
-
+func doesExist(tyName string) bool {
 	// Convert input to MiddlewareType and compare
-	return slices.Contains(middlewareList, tyName)
+	return slices.Contains(buildInMiddlewares, tyName)
 }
 func GetMiddleware(rule string, middlewares []Middleware) (Middleware, error) {
 	for _, m := range middlewares {
@@ -349,8 +334,8 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Route
 	case OAuth, OAuth2:
 		applyOAuthMiddleware(route, routeMiddleware, r)
 	default:
-		if !doesExist(routeMiddleware.Type) {
-			logger.Error("Unknown middleware type, middleware not applied ", "type", routeMiddleware.Type)
+		if !doesExist(string(routeMiddleware.Type)) {
+			logger.Debug("Middleware type not found, skipping middleware application", "middleware", routeMiddleware.Name, "type", routeMiddleware.Type)
 		}
 	}
 }

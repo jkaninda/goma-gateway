@@ -19,11 +19,14 @@ package internal
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/config"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
+	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"sort"
@@ -38,10 +41,12 @@ type Goma struct {
 	configFile         string
 	version            string
 	gateway            *Gateway
+	plugins            map[string]plugins.Middleware
 	middlewares        []Middleware
 	defaults           DefaultConfig
 	dynamicMiddlewares []Middleware
 	dynamicRoutes      []Route
+	pluginConfig       PluginConfig
 }
 
 // Initialize initializes the routes
@@ -84,11 +89,16 @@ func (g *Goma) Initialize() error {
 	g.applyDefaultMiddlewarePaths()
 	// Attach default configurations
 	g.attachDefaultConfigurations()
+
 	// Validate configuration
 	logger.Info("Validating configuration", "routes", len(g.dynamicRoutes), "middlewares", len(g.dynamicMiddlewares))
 	err := validateConfig(g.dynamicRoutes, g.dynamicMiddlewares)
 	if err != nil {
 		logger.Error("Configuration validation failed", "error", err)
+		return err
+	}
+	err = g.registerPlugins()
+	if err != nil {
 		return err
 	}
 	// Route sorting
@@ -114,6 +124,7 @@ func (g *Goma) Initialize() error {
 		logger.Debug("Routes healthcheck running")
 	}
 	if gateway.Monitoring.EnableMetrics {
+
 		prometheusMetrics.GatewayRoutesCount.Set(float64(len(g.dynamicRoutes)))
 		prometheusMetrics.GatewayMiddlewaresCount.Set(float64(len(g.dynamicMiddlewares)))
 	}
@@ -160,6 +171,7 @@ func (g *Goma) attachDefaultConfigurations() {
 // NewRouter creates a new router instance.
 func (g *Goma) NewRouter() Router {
 	rt := &router{
+		plugins:            g.plugins,
 		mux:                mux.NewRouter().StrictSlash(g.gateway.StrictSlash),
 		enableMetrics:      g.gateway.Monitoring.EnableMetrics,
 		gateway:            g.gateway,
@@ -223,7 +235,7 @@ func (g *Goma) registerMetricsHandler(mux *mux.Router) {
 			Middlewares:    metricsMiddlewares,
 			DisableMetrics: true,
 		}
-		route.attachMiddlewares(sub, g.dynamicMiddlewares)
+		route.attachMiddlewares(sub, g.dynamicMiddlewares, g.plugins)
 	}
 }
 
@@ -249,11 +261,11 @@ func (g *Goma) registerRouteHealthHandler(mux *mux.Router, health HealthCheckRou
 			Middlewares:    healthCheckMiddlewares,
 			DisableMetrics: true,
 		}
-		route.attachMiddlewares(sub, g.dynamicMiddlewares)
+		route.attachMiddlewares(sub, g.dynamicMiddlewares, g.plugins)
 	}
 }
 
-// applyDefaultMiddlewarePaths applies default paths to middlewares without specified paths
+// applyDefaultMiddlewarePaths applies default paths to dynamicMiddlewares without specified paths
 func (g *Goma) applyDefaultMiddlewarePaths() {
 	// Apply default paths to middlewares if no paths are specified
 	for i := range g.dynamicMiddlewares {
@@ -263,7 +275,19 @@ func (g *Goma) applyDefaultMiddlewarePaths() {
 		}
 	}
 }
+func (g *Goma) loadPlugins() error {
+	if len(g.pluginConfig.Path) > 0 {
 
+		// Load plugins
+		logger.Debug("Loading plugins...", " path", g.pluginConfig.Path)
+		err := middlewares.LoadPluginsFromDir(g.pluginConfig.Path)
+		if err != nil {
+			return fmt.Errorf("failed to load plugins: %w", err)
+		}
+		logger.Debug("Plugins loaded")
+	}
+	return nil
+}
 func (g *Goma) initTrustedProxyConfig() {
 	cfg := g.gateway.Proxy
 	if !cfg.Enabled {
@@ -286,4 +310,40 @@ func (g *Goma) initTrustedProxyConfig() {
 		"trusted_proxies_count", len(cfg.TrustedProxies),
 		"ip_headers_count", len(cfg.IPHeaders),
 	)
+}
+
+func (g *Goma) registerPlugins() error {
+
+	// load plugins
+	err := g.loadPlugins()
+	if err != nil {
+		return err
+	}
+	// Register plugins
+	logger.Debug("Registering middlewares...")
+	for _, middleware := range g.dynamicMiddlewares {
+		mw, err := middlewares.Create(string(middleware.Type), middleware.Paths, middleware.Rule)
+		if err != nil {
+			if errors.Is(err, middlewares.ErrPluginNotFound) {
+				if doesExist(string(middleware.Type)) {
+					continue
+				} else {
+					logger.Error("Failed to register middleware,the middleware does not exist", "name", middleware.Name, "type", middleware.Type)
+				}
+			}
+			// Ignore errors for non-registered plugins
+			return nil
+		}
+		// Validate middleware
+		err = mw.Validate()
+		if err != nil {
+			return fmt.Errorf("failed to validate plugin, plugin not registered: %s, error: %w", middleware.Name, err)
+		}
+
+		g.plugins[middleware.Name] = mw
+		logger.Debug(">>>>>>>>>. Plugin registered", "type", middleware.Type)
+	}
+	logger.Debug("Registering plugins... done", "  count", len(g.plugins))
+	return nil
+
 }
