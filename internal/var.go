@@ -49,6 +49,7 @@ var (
 		string(BasicAuthMiddleware),
 		string(BasicAuth),
 		string(JWTAuthMiddleware),
+		string(JWTAuth),
 		string(LDAPAuthMiddleware),
 		string(LDAPAuth),
 		string(OAuth),
