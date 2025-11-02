@@ -34,7 +34,8 @@ When enabled, Goma inspects specific headers (such as `X-Forwarded-For`) **only*
 
 ### Example Configuration
 
-#### Minimal Example
+> Minimal Example
+
 ```yaml
 gateway:
   proxy:
@@ -43,7 +44,7 @@ gateway:
    # ipHeaders: ["CF-Connecting-IP"] 
 ```
 
-#### Full Example
+>  Full Example
 
 ```yaml
 gateway:
