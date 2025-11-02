@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/config"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
@@ -55,6 +54,8 @@ func (g *Goma) Initialize() error {
 	// Handle deprecations
 	gateway.handleDeprecations()
 
+	// Initialize trusted proxies
+	g.initTrustedProxyConfig()
 	// Load core configuration
 	g.dynamicRoutes = gateway.Routes
 	g.dynamicMiddlewares = g.middlewares
@@ -85,7 +86,6 @@ func (g *Goma) Initialize() error {
 			logger.Debug("Extra routes loaded", "count", len(extraRoutes))
 		}
 	}
-	g.initTrustedProxyConfig()
 	g.applyDefaultMiddlewarePaths()
 	// Attach default configurations
 	g.attachDefaultConfigurations()
@@ -291,8 +291,6 @@ func (g *Goma) loadPlugins() error {
 func (g *Goma) initTrustedProxyConfig() {
 	cfg := g.gateway.Proxy
 	if !cfg.Enabled {
-		trustedProxyConfig = &config.ProxyConfig{}
-		middlewares.TrustedProxyConfig = trustedProxyConfig
 		logger.Debug("Proxy configuration disabled")
 		return
 	}
@@ -304,8 +302,7 @@ func (g *Goma) initTrustedProxyConfig() {
 		return
 	}
 
-	trustedProxyConfig = proxyConfig
-	middlewares.TrustedProxyConfig = trustedProxyConfig
+	middlewares.TrustedProxyConfig = proxyConfig
 	logger.Debug("Proxy configuration initialized",
 		"trusted_proxies_count", len(cfg.TrustedProxies),
 		"ip_headers_count", len(cfg.IPHeaders),

@@ -18,7 +18,6 @@
 package internal
 
 import (
-	"github.com/jkaninda/goma-gateway/internal/config"
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/dns"
@@ -45,7 +44,6 @@ var (
 	processStartTime   = time.Now()
 	prometheusMetrics  = metrics.NewPrometheusMetrics(processStartTime, shutdownChan)
 	debugMode          = false
-	trustedProxyConfig *config.ProxyConfig
 	buildInMiddlewares = []string{
 		string(AccessMiddleware),
 		string(BasicAuthMiddleware),

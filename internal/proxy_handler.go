@@ -130,7 +130,7 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ip := realIP(r)
+		ip := middlewares.RealIP(r)
 		if val := r.Context().Value(CtxRequestStartTime); val != nil {
 			startTime = val.(time.Time)
 		}

@@ -41,41 +41,7 @@ func printRoute(routes []Route) {
 	fmt.Println(t.Render())
 }
 
-// realIP extracts the real IP address of the client from the HTTP request.
-func realIP(r *http.Request) string {
-	remoteIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-
-	if !trustedProxyConfig.Enabled {
-		if remoteIP != "" {
-			return remoteIP
-		}
-		return r.RemoteAddr
-	}
-
-	// Check if request actually came through a trusted proxy
-	if len(trustedProxyConfig.TrustedProxies) > 0 {
-		if !trustedProxyConfig.IsTrustedSource(remoteIP) {
-			return remoteIP
-		}
-	}
-	//  configured IP headers
-	for _, header := range trustedProxyConfig.IPHeaders {
-		if val := r.Header.Get(header); val != "" {
-			ips := strings.Split(val, ",")
-			for _, ip := range ips {
-				trimmed := strings.TrimSpace(ip)
-				if trimmed != "" {
-					return trimmed
-				}
-			}
-		}
-	}
-	if remoteIP != "" {
-		return remoteIP
-	}
-	return r.RemoteAddr
-}
-
+// getContentType retrieves the content type from the request headers
 func getContentType(r *http.Request) string {
 	contentType := r.Header.Get("Accept")
 	if contentType == "" {

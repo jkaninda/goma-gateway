@@ -38,7 +38,7 @@ var (
 
 var (
 	RedisClient        *redis.Client
-	TrustedProxyConfig *config.ProxyConfig
+	TrustedProxyConfig = &config.ProxyConfig{}
 	limiter            *redis_rate.Limiter
 	logger             = logger2.Default()
 	jwtAlgo            = []string{"RS256", "HS256", "ES256"}

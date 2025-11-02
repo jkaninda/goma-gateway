@@ -29,8 +29,8 @@ import (
 	"strings"
 )
 
-// realIP extracts the real IP address of the client from the HTTP request.
-func realIP(r *http.Request) string {
+// RealIP extracts the real IP address of the client from the HTTP request.
+func RealIP(r *http.Request) string {
 	remoteIP, _, _ := net.SplitHostPort(r.RemoteAddr)
 
 	if !TrustedProxyConfig.Enabled {
