@@ -192,9 +192,9 @@ func (rl *RateLimiter) getClientIdentifier(r *http.Request) string {
 
 // getIPAddress extracts the client IP address from the request.
 func (rl *RateLimiter) getIPAddress(r *http.Request) string {
-	clientIP, _, err := net.SplitHostPort(realIP(r))
+	clientIP, _, err := net.SplitHostPort(RealIP(r))
 	if err != nil {
-		clientIP = realIP(r)
+		clientIP = RealIP(r)
 	}
 	return fmt.Sprintf("ip:%s", clientIP)
 }

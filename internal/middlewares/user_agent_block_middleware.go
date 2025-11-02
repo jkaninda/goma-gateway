@@ -37,7 +37,7 @@ func (b UserAgentBlock) Middleware(next http.Handler) http.Handler {
 
 		userAgent := r.Header.Get("User-Agent")
 		contentType := getContentType(r)
-		clientIP := realIP(r)
+		clientIP := RealIP(r)
 		requestPath := r.URL.Path
 
 		for _, blockedAgent := range b.UserAgents {

@@ -24,6 +24,7 @@ import (
 	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/log"
+	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"github.com/jkaninda/goma-gateway/util"
 	logger2 "github.com/jkaninda/logger"
 	"golang.org/x/oauth2"
@@ -52,13 +53,15 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", configFile, err)
 		}
 		return &Goma{
-			ctx:         ctx,
-			configFile:  configFile,
-			certManager: c.GetCertManagerConfig(),
-			version:     c.Version,
-			gateway:     &c.Gateway,
-			middlewares: c.Middlewares,
-			defaults:    c.Defaults,
+			ctx:          ctx,
+			configFile:   configFile,
+			certManager:  c.GetCertManagerConfig(),
+			version:      c.Version,
+			gateway:      &c.Gateway,
+			middlewares:  c.Middlewares,
+			defaults:     c.Defaults,
+			pluginConfig: c.Plugins,
+			plugins:      map[string]plugins.Middleware{},
 		}, nil
 	}
 	logger.Error("Configuration file not found", "file", configFile)
@@ -77,11 +80,13 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", ConfigFile, err)
 		}
 		return &Goma{
-			ctx:         ctx,
-			certManager: c.GetCertManagerConfig(),
-			configFile:  ConfigFile,
-			gateway:     &c.Gateway,
-			middlewares: c.Middlewares,
+			ctx:          ctx,
+			certManager:  c.GetCertManagerConfig(),
+			configFile:   ConfigFile,
+			gateway:      &c.Gateway,
+			middlewares:  c.Middlewares,
+			pluginConfig: c.Plugins,
+			plugins:      map[string]plugins.Middleware{},
 		}, nil
 
 	}
@@ -110,11 +115,13 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 	}
 	logger.Info("Generating new configuration file...done")
 	return &Goma{
-		ctx:         ctx,
-		configFile:  ConfigFile,
-		gateway:     &c.Gateway,
-		certManager: c.GetCertManagerConfig(),
-		middlewares: c.Middlewares,
+		ctx:          ctx,
+		configFile:   ConfigFile,
+		gateway:      &c.Gateway,
+		certManager:  c.GetCertManagerConfig(),
+		middlewares:  c.Middlewares,
+		pluginConfig: c.Plugins,
+		plugins:      map[string]plugins.Middleware{},
 	}, nil
 }
 func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {

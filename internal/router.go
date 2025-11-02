@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"net/http"
 	"sync"
 	"time"
@@ -43,6 +44,7 @@ type router struct {
 	gateway            *Gateway
 	networking         Networking
 	strictSlash        bool
+	plugins            map[string]plugins.Middleware
 	dynamicRoutes      []Route
 	dynamicMiddlewares []Middleware
 }
@@ -93,8 +95,10 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // UpdateHandler updates the router's handler based on the gateway configuration.
 func (r *router) UpdateHandler(g *Goma) {
+
 	r.dynamicRoutes = g.dynamicRoutes
 	r.dynamicMiddlewares = g.dynamicMiddlewares
+	r.plugins = g.plugins
 	logger.Debug("Updating handler", "routes", len(r.dynamicRoutes))
 	close(stopChan)
 	reloaded = true
@@ -245,11 +249,12 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router, globalMiddl
 		rRouter.Use(cors.CORSHandler())
 	}
 	// Custom middlewares
-	route.attachMiddlewares(rRouter, globalMiddlewares)
+	route.attachMiddlewares(rRouter, globalMiddlewares, r.plugins)
+
 }
 
 // attachMiddlewares attaches middlewares to the route
-func (r *Route) attachMiddlewares(router *mux.Router, globalMiddlewares []Middleware) {
+func (r *Route) attachMiddlewares(router *mux.Router, globalMiddlewares []Middleware, plugins map[string]plugins.Middleware) {
 	if r.Security.EnableExploitProtection {
 		logger.Debug("Block common exploits enabled")
 		router.Use(middlewares.BlockExploitsMiddleware)
@@ -259,7 +264,12 @@ func (r *Route) attachMiddlewares(router *mux.Router, globalMiddlewares []Middle
 		if len(middleware) == 0 {
 			continue
 		}
-
+		// Attempt to get middleware from plugins
+		if m, exists := plugins[middleware]; exists {
+			router.Use(m.Handler)
+			continue
+		}
+		// Attempt to get middleware from global middlewares
 		mid, err := getMiddleware([]string{middleware}, globalMiddlewares)
 		if err != nil {
 			logger.Error("Error validating middleware", "error", err)
