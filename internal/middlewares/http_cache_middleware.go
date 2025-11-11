@@ -91,10 +91,11 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 
 // CacheItem represents a cached response.
 type CacheItem struct {
-	Response    []byte
-	ContentType string
-	Size        int64 // Size of the item in memory
-	ExpiresAt   time.Time
+	Response        []byte
+	ContentType     string
+	ContentEncoding string
+	Size            int64 // Size of the item in memory
+	ExpiresAt       time.Time
 }
 
 // GetTTL retrieves the remaining TTL for a given cache key.
@@ -152,81 +153,70 @@ func (c *Cache) evictOldest() {
 }
 
 // Get retrieves an item from Redis or the in-memory cache with max-stale support.
-func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, time.Duration, bool) {
+func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, string, time.Duration, bool) {
 	ttl := c.GetTTL(ctx, key)
 	if c.redisBased && RedisClient != nil {
-		//  check Redis.
 		val, err := RedisClient.HGetAll(ctx, key).Result()
 		if errors.Is(err, redis.Nil) {
-			// Key does not exist in Redis.
-			return nil, "", time.Duration(0), false
+			return nil, "", "", time.Duration(0), false
 		} else if err != nil {
-			// Redis error.
 			logger.Error("Error retrieving item from Redis", "error", err)
-			return nil, "", time.Duration(0), false
+			return nil, "", "", time.Duration(0), false
 		}
-		// The item was found in Redis, retrieve the response and contentType.
+
 		response := val["response"]
 		contentType := val["contentType"]
+		contentEncoding := val["contentEncoding"]
 		expiresAtStr := val["expiresAt"]
 
-		// If any of the necessary fields are missing, return a cache miss.
 		if response == "" || contentType == "" || expiresAtStr == "" {
 			logger.Debug("Cache entry missing data for key", "key", key)
-			return nil, "", time.Duration(0), false
+			return nil, "", "", time.Duration(0), false
 		}
 
-		// Parse the expiration timestamp.
 		expiresAt, err := strconv.ParseInt(expiresAtStr, 10, 64)
 		if err != nil {
 			logger.Debug("Invalid cache, cache expired", "key", key, "error", err)
-			return nil, "", time.Duration(0), false
+			return nil, "", "", time.Duration(0), false
 		}
 
-		// Check expiration and max-stale.
 		now := time.Now()
 		if now.After(time.Unix(expiresAt, 0)) {
-			// Item is expired, check if within max-stale window.
 			if maxStale > 0 && now.Before(time.Unix(expiresAt, 0).Add(maxStale)) {
-				return []byte(response), contentType, ttl, true
+				return []byte(response), contentType, contentEncoding, ttl, true
 			}
-			// Item expired and beyond max-stale period.
-			return nil, "", ttl, false
+			return nil, "", "", ttl, false
 		}
-		// Item is fresh.
-		return []byte(response), contentType, ttl, true
-
+		return []byte(response), contentType, contentEncoding, ttl, true
 	}
-	// check the in-memory cache.
+
+	// In-memory cache
 	c.mu.RLock()
 	item, found := c.data[key]
 	c.mu.RUnlock()
 	if found {
 		now := time.Now()
 		if item.ExpiresAt.After(now) {
-			return item.Response, item.ContentType, ttl, true
+			return item.Response, item.ContentType, item.ContentEncoding, ttl, true
 		}
-
-		// If expired, check if max-stale allows serving the stale item.
 		if maxStale > 0 && now.Before(item.ExpiresAt.Add(maxStale)) {
-			return item.Response, item.ContentType, ttl, true
+			return item.Response, item.ContentType, item.ContentEncoding, ttl, true
 		}
 	}
-	return nil, "", ttl, false
+	return nil, "", "", ttl, false
 }
 
 // Set stores an item in both Redis and the in-memory cache with memory limit checks.
-func (c *Cache) Set(ctx context.Context, key string, response []byte, contentType string) error {
-	// Check if the item will exceed the memory limit.
+func (c *Cache) Set(ctx context.Context, key string, response []byte, contentType, contentEncoding string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.redisBased {
-		// Store the item in Redis as a hash with response and contentType.
 		data := map[string]interface{}{
-			"response":    response,
-			"contentType": contentType,
-			"expiresAt":   time.Now().Add(c.ttl).Unix(),
+			"response":        response,
+			"contentType":     contentType,
+			"contentEncoding": contentEncoding,
+			"expiresAt":       time.Now().Add(c.ttl).Unix(),
 		}
 		err := RedisClient.HSet(ctx, key, data).Err()
 		if err != nil {
@@ -237,23 +227,21 @@ func (c *Cache) Set(ctx context.Context, key string, response []byte, contentTyp
 	}
 
 	itemSize := int64(len(response))
-
-	// Evict items if necessary to stay within the memory limit.
 	for c.memoryUsed+itemSize > c.memoryLimit {
 		c.evictOldest()
 	}
-	// Add the new item to the in-memory cache.
+
 	item := &CacheItem{
-		Response:    response,
-		ContentType: contentType,
-		Size:        itemSize,
-		ExpiresAt:   time.Now().Add(c.ttl),
+		Response:        response,
+		ContentType:     contentType,
+		ContentEncoding: contentEncoding,
+		Size:            itemSize,
+		ExpiresAt:       time.Now().Add(c.ttl),
 	}
 
 	c.data[key] = item
 	c.memoryUsed += itemSize
 	logger.Debug("In memory: Response saved")
-	logger.Debug("http cache memory usage", "used", c.memoryUsed, "limit", c.memoryLimit)
 	return nil
 }
 
@@ -277,45 +265,41 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cacheKey := fmt.Sprintf("%s-%s", h.Name, r.URL.Path)
 		ctx := r.Context()
-		// Check if the path is eligible for caching
+
 		if !isPathMatching(r.URL.Path, h.Path, h.Paths) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		// Only cache GET requests
+
 		if r.Method == http.MethodGet {
-			// Parse the max-stale value from the Cache-Control header
 			maxStale := parseMaxStale(r.Header.Get("Cache-Control"))
-			if response, contentType, ttl, found := h.Cache.Get(ctx, cacheKey, maxStale); found {
+			if response, contentType, contentEncoding, ttl, found := h.Cache.Get(ctx, cacheKey, maxStale); found {
 				if allowedOrigin(h.Origins, r.Header.Get("Origin")) {
 					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 				}
-				writeCachedResponse(w, contentType, response, ttl, h.DisableCacheStatusHeader)
+				writeCachedResponse(w, contentType, contentEncoding, response, ttl, h.DisableCacheStatusHeader)
 				logger.Debug("Cache: served from cache", "path", r.URL.Path)
 				return
 			}
 			if !h.DisableCacheStatusHeader {
-				// Set Cache-Control for new response
-				w.Header().Set("X-Cache-Status", "MISS") // Indicate cache miss
+				w.Header().Set("X-Cache-Status", "MISS")
 				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", h.TTL.Seconds()))
 			}
 		}
 
-		// Capture the response
 		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(rec, r)
 
-		// Check if the response code is excluded from caching
 		if isExcludedResponseCode(rec.statusCode, h.ExcludedResponseCodes) {
 			logger.Debug("StatusCode code excluded from caching", "status", rec.statusCode)
 			return
 		}
-		// Handle cache invalidation and caching based on the request method and response status
+
 		h.handleCache(ctx, cacheKey, r, rec)
 	})
 }
 
-// handleCache handles Redis-based caching logic
+// handleCache handles caching logic
 func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *http.Request, rec *responseRecorder) {
 	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
 		if err := h.Cache.Delete(ctx, cacheKey); err != nil {
@@ -326,7 +310,10 @@ func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *ht
 	}
 
 	if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
-		if err := h.Cache.Set(ctx, cacheKey, rec.body, rec.Header().Get("Content-Type")); err != nil {
+		contentType := rec.Header().Get("Content-Type")
+		contentEncoding := rec.Header().Get("Content-Encoding")
+
+		if err := h.Cache.Set(ctx, cacheKey, rec.body, contentType, contentEncoding); err != nil {
 			logger.Error("Error saving response in cache", "error", err.Error())
 			return
 		}
@@ -334,13 +321,19 @@ func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *ht
 }
 
 // writeCachedResponse writes a cached response to the client.
-func writeCachedResponse(w http.ResponseWriter, contentType string, response []byte, ttl time.Duration, disableCacheStatusHeader bool) {
+func writeCachedResponse(w http.ResponseWriter, contentType, contentEncoding string, response []byte, ttl time.Duration, disableCacheStatusHeader bool) {
 	w.Header().Set("Content-Type", contentType)
+
+	if contentEncoding != "" {
+		w.Header().Set("Content-Encoding", contentEncoding)
+	}
+
 	w.Header().Set("Proxied-By", "Goma Gateway")
 	if !disableCacheStatusHeader {
 		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(ttl.Seconds())))
-		w.Header().Set("X-Cache-Status", "HIT") // Indicate cache hit
+		w.Header().Set("X-Cache-Status", "HIT")
 	}
+
 	_, err := w.Write(response)
 	if err != nil {
 		logger.Error("Failed to write cached response", "error", err)
