@@ -195,6 +195,30 @@ gateway:
 ```
 ---
 
+
+## Default Configuration
+
+The **default configuration** defines global settings that are automatically applied to all routes in the gateway.
+
+In particular, the `middlewares` field under `defaults` allows you to specify middleware that should be executed for every route by default. 
+This is useful for applying common security, authentication, or rate-limiting policies across your entire gateway.
+
+```yaml
+version: 2
+gateway:
+  entryPoints:
+    web:
+      address: ":80"
+    webSecure:
+      address: ":443"
+
+  # Default middlewares automatically applied to all routes
+  defaults:
+    middlewares:
+      - rate-limit
+      - basic-auth
+```
+
 ## Networking
 
 The `networking` section defines low-level HTTP transport and connection pooling settings used by the internal proxy to forward traffic to backend services. These configurations help optimize performance, connection reuse, and resource usage across all routes.

@@ -187,8 +187,6 @@ type GatewayConfig struct {
 	CertificateManager *certmanager.Config `yaml:"certificateManager,omitempty"`
 	// CertManager hols CertManager config
 	CertManager *certmanager.Config `yaml:"certManager"`
-	// Defaults holds default configurations applied to routes
-	Defaults DefaultConfig `yaml:"defaults,omitempty"`
 	// Plugins configuration
 	Plugins PluginConfig `yaml:"plugins,omitempty"`
 }
