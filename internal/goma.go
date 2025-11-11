@@ -42,7 +42,6 @@ type Goma struct {
 	gateway            *Gateway
 	plugins            map[string]plugins.Middleware
 	middlewares        []Middleware
-	defaults           DefaultConfig
 	dynamicMiddlewares []Middleware
 	dynamicRoutes      []Route
 	pluginConfig       PluginConfig
@@ -156,13 +155,28 @@ func (g *Goma) Initialize() error {
 	return nil
 }
 func (g *Goma) attachDefaultConfigurations() {
-	// Apply default middlewares to the routes
-	if len(g.defaults.Middlewares) > 0 {
-		logger.Debug("Applying default middlewares", "count", len(g.defaults.Middlewares))
-		for i, route := range g.dynamicRoutes {
-			logger.Debug("Applying default middlewares", "route", route.Name)
-			g.dynamicRoutes[i].Middlewares = append(g.defaults.Middlewares, route.Middlewares...)
+	if len(g.gateway.Defaults.Middlewares) == 0 {
+		return
+	}
+
+	logger.Debug("Applying default middlewares", "count", len(g.gateway.Defaults.Middlewares))
+
+	for i, route := range g.dynamicRoutes {
+		logger.Debug("Applying default middlewares", "route", route.Name)
+		existing := make(map[string]struct{})
+		for _, m := range route.Middlewares {
+			existing[m] = struct{}{}
 		}
+		final := make([]string, 0, len(g.gateway.Defaults.Middlewares)+len(route.Middlewares))
+
+		for _, m := range g.gateway.Defaults.Middlewares {
+			if _, ok := existing[m]; !ok {
+				final = append(final, m)
+			}
+		}
+		final = append(final, route.Middlewares...)
+
+		g.dynamicRoutes[i].Middlewares = final
 	}
 }
 

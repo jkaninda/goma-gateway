@@ -63,6 +63,8 @@ type Gateway struct {
 	Cors Cors `yaml:"cors,omitempty"`
 	// ExtraConfig provides additional configuration, including routes and middleware, from a specified directory.
 	ExtraConfig ExtraRouteConfig `yaml:"extraConfig,omitempty"`
+	// Defaults holds default configurations applied to routes
+	Defaults DefaultConfig `yaml:"defaults,omitempty"`
 	// Routes defines the list of proxy routes.
 	Routes []Route `yaml:"routes"`
 }

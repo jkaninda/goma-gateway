@@ -59,7 +59,6 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 			version:      c.Version,
 			gateway:      &c.Gateway,
 			middlewares:  c.Middlewares,
-			defaults:     c.Defaults,
 			pluginConfig: c.Plugins,
 			plugins:      map[string]plugins.Middleware{},
 		}, nil
