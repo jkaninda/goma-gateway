@@ -22,8 +22,8 @@ github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/r
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
-github.com/go-acme/lego/v4 v4.27.0 h1:cIhWd7Uj4BNFLEF3IpwuMkukVVRs5qjlp4KdUGa75yU=
-github.com/go-acme/lego/v4 v4.27.0/go.mod h1:9FfNZHZmg6hf5CWOp4Lzo4gU8aBEvqZvrwdkBboa+4g=
+github.com/go-acme/lego/v4 v4.28.1 h1:zt301JYF51UIEkpSXsdeGq9hRePeFzQCq070OdAmP0Q=
+github.com/go-acme/lego/v4 v4.28.1/go.mod h1:bzjilr03IgbaOwlH396hq5W56Bi0/uoRwW/JM8hP7m4=
 github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 h1:BP4M0CvQ4S3TGls2FvczZtj5Re/2ZzkV9VwqPHH/3Bo=
 github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667/go.mod h1:hEBeB/ic+5LoWskz+yKT7vGhhPYkProFKoKdwZRWMe0=
 github.com/go-jose/go-jose/v4 v4.1.3 h1:CVLmWDhDVRa6Mi/IgCgaopNosCaHz7zrMeF9MlZRkrs=
