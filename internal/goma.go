@@ -85,7 +85,6 @@ func (g *Goma) Initialize() error {
 			logger.Debug("Extra routes loaded", "count", len(extraRoutes))
 		}
 	}
-	g.applyDefaultMiddlewarePaths()
 	// Attach default configurations
 	g.attachDefaultConfigurations()
 
@@ -162,7 +161,7 @@ func (g *Goma) attachDefaultConfigurations() {
 	logger.Debug("Applying default middlewares", "count", len(g.gateway.Defaults.Middlewares))
 
 	for i, route := range g.dynamicRoutes {
-		logger.Debug("Applying default middlewares", "route", route.Name)
+		logger.Debug("Applying default middlewares", "route", route.Name, "count", len(g.gateway.Defaults.Middlewares))
 		existing := make(map[string]struct{})
 		for _, m := range route.Middlewares {
 			existing[m] = struct{}{}
@@ -175,8 +174,7 @@ func (g *Goma) attachDefaultConfigurations() {
 			}
 		}
 		final = append(final, route.Middlewares...)
-
-		g.dynamicRoutes[i].Middlewares = final
+		g.dynamicRoutes[i].Middlewares = append([]string(nil), final...)
 	}
 }
 
@@ -277,16 +275,6 @@ func (g *Goma) registerRouteHealthHandler(mux *mux.Router, health HealthCheckRou
 	}
 }
 
-// applyDefaultMiddlewarePaths applies default paths to dynamicMiddlewares without specified paths
-func (g *Goma) applyDefaultMiddlewarePaths() {
-	// Apply default paths to middlewares if no paths are specified
-	for i := range g.dynamicMiddlewares {
-		if len(g.dynamicMiddlewares[i].Paths) == 0 {
-			// protect all paths by default
-			g.dynamicMiddlewares[i].Paths = append(g.dynamicMiddlewares[i].Paths, "/.*")
-		}
-	}
-}
 func (g *Goma) loadPlugins() error {
 	if len(g.pluginConfig.Path) > 0 {
 
