@@ -33,6 +33,7 @@ type Client struct {
 type RateLimit struct {
 	Id          string
 	Unit        string
+	Path        string
 	Requests    int
 	Origins     []string
 	Hosts       []string
@@ -62,6 +63,7 @@ func (rateLimit RateLimit) NewRateLimiterWindow() *RateLimiter {
 		redis:       RedisClient,
 		keyStrategy: rateLimit.KeyStrategy,
 		ctx:         context.Background(),
+		path:        rateLimit.Path,
 	}
 }
 

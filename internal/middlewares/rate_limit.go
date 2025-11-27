@@ -42,6 +42,7 @@ type RateLimiter struct {
 	redisBased  bool
 	redis       *redis.Client
 	pathBased   bool
+	path        string
 	paths       []string
 	banList     map[string]time.Time
 	banAfter    int
@@ -86,7 +87,8 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 
 			// Path-based rate limiting
 			if rl.pathBased && len(rl.paths) > 0 {
-				match, path := IsPathMatching(r.URL.Path, "", rl.paths)
+				logger.Debug("RateLimit:: pathBased Processing request", "clientID", clientID, "url", r.URL, "path", rl.path, "paths", rl.paths, "request_path", r.URL.Path)
+				match, path := IsPathMatching(r.URL.Path, rl.path, rl.paths)
 				clientID = fmt.Sprintf("%s:%s:%s", path, rl.id, clientIdentifier)
 				logger.Debug("Path-based rate limiting", "path", path, "clientID", clientID)
 				// If the request path does not match any of the specified paths, skip rate limiting
