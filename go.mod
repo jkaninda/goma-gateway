@@ -4,7 +4,7 @@ go 1.25.4
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-acme/lego/v4 v4.28.1
+	github.com/go-acme/lego/v4 v4.29.0
 	github.com/go-ldap/ldap/v3 v3.4.12
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
