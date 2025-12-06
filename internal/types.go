@@ -258,7 +258,6 @@ type ProxyMiddleware struct {
 	enableMetrics  bool
 	logRule        *LogEnrichRule
 	Policies       []HeaderPolicy
-	//cors           *Cors
 }
 type httpCacheRule struct {
 	MaxTtl                   int64    `yaml:"maxTtl"`
