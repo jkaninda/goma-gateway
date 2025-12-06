@@ -43,6 +43,7 @@ type Route struct {
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
+	// Deprecated, use headerPolicy middleware type
 	Cors Cors `yaml:"cors,omitempty"`
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
 	Methods []string `yaml:"methods"`
@@ -70,6 +71,7 @@ type Route struct {
 	// Deprecated, use security.forwardHostHeaders
 	DisableHostForwarding bool `yaml:"disableHostForwarding,omitempty"`
 	// ErrorInterceptor provides configuration for handling backend errors.
+	// Deprecated, use errorInterceptor middleware
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// BlockCommonExploits
 	// Deprecated
@@ -85,7 +87,10 @@ type Route struct {
 	// DisableMetrics disables metrics collection for this route.
 	DisableMetrics bool `yaml:"disableMetrics,omitempty"`
 	// Middlewares lists middleware names to apply to this route.
-	Middlewares []string `yaml:"middlewares"`
+	Middlewares      []string                           `yaml:"middlewares"`
+	logRule          *LogEnrichRule                     `yaml:"-"`
+	policies         []HeaderPolicy                     `yaml:"-"`
+	errorInterceptor *middlewares.RouteErrorInterceptor `yaml:"-"`
 }
 
 type ExtraRoute struct {

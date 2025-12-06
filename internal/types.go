@@ -251,11 +251,14 @@ type ProxyMiddleware struct {
 	Name           string
 	Path           string
 	Enabled        bool
-	enableMetrics  bool
 	ContentType    string
 	Errors         []middlewares.RouteError
 	Origins        []string
 	VisitorTracker *VisitorTracker
+	enableMetrics  bool
+	logRule        *LogEnrichRule
+	Policies       []HeaderPolicy
+	//cors           *Cors
 }
 type httpCacheRule struct {
 	MaxTtl                   int64    `yaml:"maxTtl"`
@@ -273,3 +276,36 @@ type BodyLimitRuleMiddleware struct {
 	Limit string `yaml:"limit"`
 }
 type contextKey string
+
+type LogEnrichRule struct {
+	Headers []string `yaml:"headers,omitempty"`
+	Query   []string `yaml:"query,omitempty"`
+	Cookies []string `yaml:"cookies,omitempty"`
+}
+
+// HeaderPolicy defines the configuration structure for managing response headers
+// including CORS and custom security headers
+type HeaderPolicy struct {
+	// Name specifies the unique name of the header policy (inherited from middleware)
+	Name string `yaml:"name,omitempty"`
+
+	// MatchedPath stores the path pattern that matched this policy (used for sorting by specificity)
+	MatchedPath string `yaml:"-"`
+
+	// Cors contains CORS (Cross-Origin Resource Sharing) configuration
+	// When enabled, CORS headers will be added/override backend CORS headers
+	Cors *Cors `yaml:"cors,omitempty"`
+
+	// SetHeaders contains headers to set or override in the response
+	// Behavior:
+	// - If the backend sends a header with the same key, it will be overridden
+	// - If the backend doesn't send the header, it will be added
+	// - Set value to empty string "" to remove a backend header
+	//
+	// Examples:
+	//   X-Frame-Options: "DENY"              # Add or override
+	//   X-Content-Type-Options: "nosniff"    # Add or override
+	//   X-Powered-By: ""                     # Remove backend header
+	//   Server: ""                           # Remove backend header
+	SetHeaders map[string]string `yaml:"setHeaders,omitempty"`
+}

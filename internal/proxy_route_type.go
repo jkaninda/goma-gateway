@@ -32,9 +32,12 @@ type ProxyRoute struct {
 	hasHeathCheck bool
 	backends      Backends
 	methods       []string
-	cors          Cors
-	security      Security
-	certPool      *x509.CertPool
-	clientCerts   []tls.Certificate
-	networking    Networking
+	// cors
+	// Deprecated, use headerPolicy middleware type
+	cors        Cors
+	security    Security
+	certPool    *x509.CertPool
+	clientCerts []tls.Certificate
+	networking  Networking
+	policies    []HeaderPolicy
 }

@@ -189,6 +189,7 @@ func (r *Route) validateRoute() {
 }
 func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.RouteErrorInterceptor) {
 	if gatewayInterceptor.Enabled {
+		logger.Warn("ErrorInterceptor defined in gateway level is deprecated, please use the ErrorInterceptor middleware instead.")
 		route.ErrorInterceptor.Errors = append(route.ErrorInterceptor.Errors, gatewayInterceptor.Errors...)
 		route.ErrorInterceptor.Enabled = true
 		if route.ErrorInterceptor.ContentType == "" {
@@ -538,6 +539,18 @@ func (a AccessPolicyRuleMiddleware) validate() error {
 			}
 		}
 
+	}
+	return nil
+}
+func (a HeaderPolicy) validate() error {
+	if a.Cors == nil && len(a.SetHeaders) == 0 {
+		return fmt.Errorf("empty headers and cors in header policy middleware")
+	}
+	return nil
+}
+func (l LogEnrichRule) validate() error {
+	if len(l.Headers) == 0 && len(l.Query) == 0 && len(l.Cookies) == 0 {
+		return fmt.Errorf("empty headers, query and cookies in log enrich middleware")
 	}
 	return nil
 }

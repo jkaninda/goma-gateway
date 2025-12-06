@@ -47,19 +47,12 @@ func (pr *ProxyRoute) ProxyHandler() http.HandlerFunc {
 		if !pr.validateMethod(r.Method, w, r, contentType) {
 			return
 		}
-		// Check if CORS is enabled for this route
-		if pr.cors.Enabled && pr.allowedOrigin(origin) {
-			// Set CORS headers from the CORS configuration
-			pr.applyCORSHeaders(w)
-
-			// Handle preflight requests (OPTIONS) for CORS only if the origins are defined
-			if len(pr.cors.Origins) > 0 && origin != "" {
-				if pr.handlePreflight(w, r, origin) {
-					return
-				}
-			}
+		if pr.handlePreflight(w, r, origin) {
+			return
 		}
 
+		// Check if CORS is enabled for this route
+		pr.applyCORSHeaders(w)
 		// Set headers for forwarding client information
 		pr.forwardedHeaders(r)
 
@@ -88,7 +81,10 @@ func (pr *ProxyRoute) ProxyHandler() http.HandlerFunc {
 // validateMethod checks if the HTTP method is allowed for the request.
 // Returns false and sends an error response if the method is not allowed.
 func (pr *ProxyRoute) validateMethod(method string, w http.ResponseWriter, r *http.Request, contentType string) bool {
-	if len(pr.methods) > 0 && !slices.Contains(pr.methods, method) {
+	if len(pr.methods) == 0 {
+		return true
+	}
+	if !slices.Contains(pr.methods, method) {
 		logger.Warn("Method not allowed", "method", method, "allowed_methods", pr.methods)
 		middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed,
 			"405 "+method+" method not allowed", pr.cors.Origins, contentType)
@@ -107,25 +103,49 @@ func (pr *ProxyRoute) applyCORSHeaders(w http.ResponseWriter) {
 // handlePreflight handles preflight requests (OPTIONS) for CORS.
 // Returns true if the request is a preflight request and has been handled.
 func (pr *ProxyRoute) handlePreflight(w http.ResponseWriter, r *http.Request, origin string) bool {
-	logger.Debug("Handling preflight request,", "origin", origin)
-	w.Header().Set(accessControlAllowOrigin, origin)
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusNoContent)
-		return true
+	if pr.shouldHandlePreflight(r) {
+		logger.Debug("Handling preflight request,", "origin", origin)
+		w.Header().Set(accessControlAllowOrigin, origin)
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return true
+		}
 	}
 
 	return false
 }
-func (pr *ProxyRoute) allowedOrigin(origin string) bool {
-	if len(pr.cors.Origins) == 0 || origin == "" {
-		return true // Allow all origins if none specified
+
+// shouldHandlePreflight checks if this is a valid CORS preflight request that should be handled
+func (pr *ProxyRoute) shouldHandlePreflight(r *http.Request) bool {
+	// Must be an OPTIONS request
+	if r.Method != http.MethodOptions {
+		return false
 	}
-	for _, o := range pr.cors.Origins {
-		if o == "*" || o == origin {
-			return true // Match found
+	// Must have Origin header
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return false
+	}
+	// handle legacy CORS preflight
+	// Deprecated: Handle preflight request
+	if pr.cors.Enabled {
+		if allowedOrigin(pr.cors.Origins, origin) {
+			return true
 		}
 	}
-	return false // No match found
+	// Must have Access-Control-Request-Method header for preflight
+	// if r.Header.Get("Access-Control-Request-Method") == "" {
+	//	return false
+	// }
+	for _, policy := range pr.policies {
+		if policy.Cors != nil && policy.Cors.Enabled {
+			if allowedOrigin(policy.Cors.Origins, origin) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // forwardedHeaders sets headers for forwarding client information.

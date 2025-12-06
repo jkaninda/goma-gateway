@@ -20,6 +20,7 @@ package middlewares
 import (
 	"context"
 	"crypto/rsa"
+	"fmt"
 	"golang.org/x/time/rate"
 	"sync"
 	"time"
@@ -173,6 +174,7 @@ type RouteError struct {
 	Status     int    `yaml:"status,omitempty"` // Deprecated
 	StatusCode int    `yaml:"statusCode,omitempty"`
 	Body       string `yaml:"body,omitempty"`
+	File       string `yaml:"file,omitempty"`
 }
 
 type ForwardAuth struct {
@@ -190,4 +192,11 @@ type ForwardAuth struct {
 }
 type ClaimExpression interface {
 	Evaluate(claims map[string]interface{}) (bool, error)
+}
+
+func (r RouteErrorInterceptor) Validate() error {
+	if len(r.Errors) == 0 {
+		return fmt.Errorf("empty errors in error interceptor middleware")
+	}
+	return nil
 }

@@ -64,5 +64,8 @@ var (
 		string(redirectScheme),
 		string(bodyLimit),
 		string(userAgentBlock),
+		string(accessLog),
+		string(headerPolicy),
+		string(errorInterceptor),
 	}
 )
