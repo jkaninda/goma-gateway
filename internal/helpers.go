@@ -155,14 +155,28 @@ func isPortValid(port int) bool {
 	return true
 }
 
-func allowedOrigin(origins []string, origin string) bool {
-	for _, o := range origins {
-		if o == "*" || o == origin {
+func allowedOrigin(allowedOrigins []string, origin string) bool {
+	if origin == "" {
+		return false
+	}
+
+	for _, allowed := range allowedOrigins {
+		if allowed == "*" {
 			return true
 		}
+		if allowed == origin {
+			return true
+		}
+		// Try wildcard subdomain match
+		if strings.HasPrefix(allowed, "*.") {
+			domain := strings.TrimPrefix(allowed, "*.")
+			if strings.HasSuffix(origin, domain) {
+				return true
+			}
+		}
 	}
-	return false
 
+	return false
 }
 
 func hostNames(routes []Route) []certmanager.Domain {

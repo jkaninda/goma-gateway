@@ -24,10 +24,15 @@ import (
 	"html"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 )
+
+var htmlCache = make(map[string][]byte)
+var htmlCacheMu sync.RWMutex
 
 // RealIP extracts the real IP address of the client from the HTTP request.
 func RealIP(r *http.Request) string {
@@ -134,6 +139,34 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 	}
 }
 
+// RespondWithErrorHTML adds support for responding with HTML files.
+func RespondWithErrorHTML(
+	w http.ResponseWriter,
+	r *http.Request,
+	statusCode int,
+	logMessage string,
+	origins []string,
+	contentType string,
+	htmlFile string,
+) {
+	// Handle CORS
+	if allowedOrigin(origins, r.Header.Get("Origin")) {
+		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+	}
+	w.Header().Del("Content-Length")
+
+	if htmlFile != "" {
+		serveHTMLFile(w, statusCode, htmlFile)
+		return
+	}
+
+	if contentType == "text/html" {
+		serveHTMLString(w, statusCode, logMessage)
+		return
+	}
+	RespondWithError(w, r, statusCode, logMessage, origins, contentType)
+}
+
 // isJson checks if the given string is valid JSON
 func isJson(s string) bool {
 	var js interface{}
@@ -221,4 +254,56 @@ func isMatchingPath(requestPath, blockedPath string) bool {
 		}
 	}
 	return false
+}
+func serveHTMLFile(w http.ResponseWriter, statusCode int, filePath string) {
+	htmlCacheMu.RLock()
+	buf, ok := htmlCache[filePath]
+	htmlCacheMu.RUnlock()
+
+	if !ok {
+		// Load file
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			logger.Error("Failed to read HTML file", "file", filePath, "error", err)
+			fallbackHTML(w, statusCode)
+			return
+		}
+
+		// Store in cache
+		htmlCacheMu.Lock()
+		htmlCache[filePath] = data
+		htmlCacheMu.Unlock()
+
+		buf = data
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(statusCode)
+
+	if _, err := w.Write(buf); err != nil {
+		logger.Error("Error writing HTML file to response", "error", err)
+	}
+}
+func serveHTMLString(w http.ResponseWriter, statusCode int, htmlContent string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(statusCode)
+
+	if htmlContent == "" {
+		htmlContent = fmt.Sprintf("<h1>%d %s</h1>", statusCode, http.StatusText(statusCode))
+	}
+
+	if _, err := w.Write([]byte(htmlContent)); err != nil {
+		logger.Error("Error writing inline HTML response", "error", err)
+	}
+}
+
+func fallbackHTML(w http.ResponseWriter, statusCode int) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(statusCode)
+
+	fallback := fmt.Sprintf("<h1>%d %s</h1>", statusCode, http.StatusText(statusCode))
+	_, err := w.Write([]byte(fallback))
+	if err != nil {
+		return
+	}
 }

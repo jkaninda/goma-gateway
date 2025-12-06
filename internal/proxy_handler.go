@@ -24,6 +24,7 @@ import (
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -40,10 +41,12 @@ type responseRecorder struct {
 	bodySize    int64
 	maxBodySize int64
 	skipBuffer  bool
+	request     *http.Request
+	policies    []HeaderPolicy
 }
 
 // newResponseRecorder creates a new responseRecorder
-func newResponseRecorder(w http.ResponseWriter, intercept bool) *responseRecorder {
+func newResponseRecorder(w http.ResponseWriter, r *http.Request, intercept bool, policies []HeaderPolicy) *responseRecorder {
 	return &responseRecorder{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
@@ -51,6 +54,8 @@ func newResponseRecorder(w http.ResponseWriter, intercept bool) *responseRecorde
 		header:         make(http.Header),
 		body:           bytes.NewBuffer(nil),
 		maxBodySize:    10 * 1024 * 1024, // 10MB
+		policies:       policies,
+		request:        r,
 	}
 }
 
@@ -66,6 +71,8 @@ func (rec *responseRecorder) WriteHeader(code int) {
 	rec.statusCode = code
 	rec.wroteHeader = true
 
+	// Apply header policies before writing headers
+	rec.applyHeaderPolicies()
 	rec.header.Del("Server")
 	rec.header.Set("Proxied-By", GatewayName)
 
@@ -121,7 +128,7 @@ func (rec *responseRecorder) flushBufferedResponse() {
 }
 
 // Wrap intercepts responses based on the status code
-func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
+func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		requestID := getRequestID(r)
@@ -138,36 +145,36 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			requestID = val.(string)
 		}
 
-		intercept := h.Enabled && len(h.Errors) > 0
-		rec := newResponseRecorder(w, intercept)
+		intercept := p.Enabled && len(p.Errors) > 0
+		rec := newResponseRecorder(w, r, intercept, p.Policies)
 		rec.Header().Set(RequestIDHeader, requestID)
 		method := r.Method
 
 		// Metrics
-		if h.enableMetrics {
+		if p.enableMetrics {
 			logger.Debug("Metrics collection started")
-			prometheusMetrics.GatewayTotalRequests.WithLabelValues(h.Name, method).Inc()
+			prometheusMetrics.GatewayTotalRequests.WithLabelValues(p.Name, method).Inc()
 
 			// Deprecated metrics (backward compatibility)
-			prometheusMetrics.TotalRequests.WithLabelValues(h.Name, method).Inc()
+			prometheusMetrics.TotalRequests.WithLabelValues(p.Name, method).Inc()
 
 			// Update real-time visitors gauge
-			if h.VisitorTracker != nil {
-				h.VisitorTracker.AddVisitor(context.Background(), ip, r.UserAgent())
+			if p.VisitorTracker != nil {
+				p.VisitorTracker.AddVisitor(context.Background(), ip, r.UserAgent())
 			}
 		}
 
 		next.ServeHTTP(rec, r)
 
-		if h.enableMetrics {
+		if p.enableMetrics {
 			duration := time.Since(startTime).Seconds()
 			statusStr := strconv.Itoa(rec.statusCode)
-			prometheusMetrics.GatewayResponseStatus.WithLabelValues(statusStr, h.Name, method).Inc()
-			prometheusMetrics.GatewayRequestDuration.WithLabelValues(h.Name, method).Observe(duration)
+			prometheusMetrics.GatewayResponseStatus.WithLabelValues(statusStr, p.Name, method).Inc()
+			prometheusMetrics.GatewayRequestDuration.WithLabelValues(p.Name, method).Observe(duration)
 
 			// Deprecated metrics (backward compatibility)
-			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, h.Name, method).Inc()
-			prometheusMetrics.HttpDuration.WithLabelValues(h.Name, method).Observe(duration)
+			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, p.Name, method).Inc()
+			prometheusMetrics.HttpDuration.WithLabelValues(p.Name, method).Observe(duration)
 
 			logger.Debug("Metrics recorded",
 				"status", statusStr,
@@ -187,8 +194,12 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			"referer", r.Referer(),
 			"status", rec.statusCode,
 			"duration", goutils.FormatDuration(time.Since(startTime), 2),
-			"route", h.Name,
+			"route", p.Name,
 			"user_agent", r.UserAgent(),
+		}
+		if p.logRule != nil {
+			logger.Debug("Appending custom log fields")
+			p.appendCustomLogFields(&logFields, r)
 		}
 
 		if val := r.Context().Value(CtxSelectedBackend); val != nil {
@@ -196,14 +207,14 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		}
 
 		if debugMode {
-			debugFields := h.buildDebugFields(r, rec)
+			debugFields := p.buildDebugFields(r, rec)
 			logFields = append(logFields, debugFields...)
 
 		}
 		// Handle response interception
 		if intercept && !rec.skipBuffer {
-			if h.handleResponseInterception(rec, w, r) {
-				prometheusMetrics.GatewayTotalErrorsIntercepted.WithLabelValues(h.Name, strconv.Itoa(rec.statusCode)).Inc()
+			if p.handleResponseInterception(rec, w, r) {
+				prometheusMetrics.GatewayTotalErrorsIntercepted.WithLabelValues(p.Name, strconv.Itoa(rec.statusCode)).Inc()
 				logProxyResponse(rec.statusCode, "Proxied request", logFields...)
 				return
 			}
@@ -211,25 +222,30 @@ func (h *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		logProxyResponse(rec.statusCode, "Proxied request", logFields...)
 	})
 }
-func (h *ProxyMiddleware) handleResponseInterception(rec *responseRecorder, w http.ResponseWriter, r *http.Request) bool {
-	if ok, message := middlewares.ShouldIntercept(rec.statusCode, h.Errors); ok {
+func (p *ProxyMiddleware) handleResponseInterception(rec *responseRecorder, w http.ResponseWriter, r *http.Request) bool {
+	if ok, messageOrFile, serveFile := middlewares.ShouldIntercept(rec.statusCode, p.Errors); ok {
 		logger.Debug("Response intercepted",
 			"status", rec.statusCode,
-			"route", h.Name,
+			"route", p.Name,
 			"reason", "matched_error_condition",
 		)
-		contentType := h.ContentType
+		contentType := p.ContentType
 		if contentType == "" {
 			contentType = getContentType(r)
 		}
+		// Flush headers before responding with error
 		rec.flushHeaders()
-		middlewares.RespondWithError(w, r, rec.statusCode, message, h.Origins, contentType)
+		if serveFile {
+			middlewares.RespondWithErrorHTML(w, r, rec.statusCode, messageOrFile, p.Origins, contentType, messageOrFile)
+			return true
+		}
+		middlewares.RespondWithError(w, r, rec.statusCode, messageOrFile, p.Origins, contentType)
 		return true
 	}
 
 	logger.Debug("Response not intercepted; sending buffered response",
 		"status", rec.statusCode,
-		"route", h.Name,
+		"route", p.Name,
 		"reason", "no_matching_error_condition",
 	)
 	// Flush the buffered response
@@ -238,7 +254,7 @@ func (h *ProxyMiddleware) handleResponseInterception(rec *responseRecorder, w ht
 }
 
 // buildDebugFields creates debug log fields
-func (h *ProxyMiddleware) buildDebugFields(r *http.Request, rec *responseRecorder) []any {
+func (p *ProxyMiddleware) buildDebugFields(r *http.Request, rec *responseRecorder) []any {
 	contentLength := r.Header.Get("Content-Length")
 	if contentLength == "" {
 		contentLength = "0"
@@ -326,6 +342,163 @@ func getRequestID(r *http.Request) string {
 		return requestID
 	}
 	return strings.ReplaceAll(uuid.New().String(), "-", "")
+}
+func (p *ProxyMiddleware) appendCustomLogFields(fields *[]any, r *http.Request) {
+	if p.logRule == nil {
+		return
+	}
+	for _, hKey := range p.logRule.Headers {
+		if val := r.Header.Get(hKey); val != "" {
+			*fields = append(*fields, strings.ToLower(hKey), val)
+		}
+	}
+
+	q := r.URL.Query()
+	for _, qKey := range p.logRule.Query {
+		if val := q.Get(qKey); val != "" {
+			*fields = append(*fields, qKey, val)
+		}
+	}
+	for _, cKey := range p.logRule.Cookies {
+		if c, err := r.Cookie(cKey); err == nil {
+			*fields = append(*fields, cKey, c.Value)
+		}
+	}
+
+}
+
+func (rec *responseRecorder) applyHeaderPolicies() {
+	policies := rec.getSortedPolicies()
+	if len(policies) == 0 {
+		logger.Debug("No policies configured; skipping header application")
+		return
+	}
+	logger.Debug("Applying policies", "count", len(policies))
+	headers := rec.Header()
+
+	// Apply each policy in order
+	for _, policy := range policies {
+		logger.Debug("Applying header policy",
+			"policy", policy.Name,
+			"path", rec.request.URL.Path,
+		)
+
+		// Apply custom headers (set, override, or remove)
+		for key, value := range policy.SetHeaders {
+			if value == "" {
+				headers.Del(key)
+				logger.Debug("Removed header",
+					"header", key,
+					"policy", policy.Name,
+				)
+			} else {
+				headers.Set(key, value)
+				logger.Debug("Set/overridden header",
+					"header", key,
+					"value", value,
+					"policy", policy.Name,
+				)
+			}
+		}
+
+		// Apply CORS if configured
+		if policy.Cors != nil && policy.Cors.Enabled {
+			rec.applyCorsHeaders(policy)
+		}
+	}
+}
+
+// getSortedPolicies returns policies sorted by specificity
+// More general paths are applied first, more specific paths last
+func (rec *responseRecorder) getSortedPolicies() []HeaderPolicy {
+	if len(rec.policies) == 0 {
+		return nil
+	}
+
+	// Create a copy to avoid modifying the original
+	sorted := make([]HeaderPolicy, len(rec.policies))
+	copy(sorted, rec.policies)
+
+	// Sort by path length (shorter = more general = applied first)
+	sort.Slice(sorted, func(i, j int) bool {
+		return len(sorted[i].MatchedPath) < len(sorted[j].MatchedPath)
+	})
+
+	return sorted
+}
+
+// applyCorsHeaders applies CORS headers from a specific policy
+// Gateway CORS headers always override backend CORS headers
+func (rec *responseRecorder) applyCorsHeaders(policy HeaderPolicy) {
+	cors := policy.Cors
+	if cors == nil || !cors.Enabled {
+		return
+	}
+
+	logger.Debug("======== Applying cors policy", "count", len(rec.policies))
+
+	origin := rec.request.Header.Get("Origin")
+
+	// Skip CORS handling if the origin is not allowed
+	if !allowedOrigin(cors.Origins, origin) {
+		logger.Debug("Origin not allowed",
+			"origin", origin,
+			"policy", policy.Name,
+			"allowed_origins", cors.Origins,
+		)
+		return
+	}
+
+	headers := rec.Header()
+
+	// Set allowed origin (overrides any backend CORS)
+	headers.Set("Access-Control-Allow-Origin", origin)
+
+	// Set allow credentials header if configured
+	if cors.AllowCredentials {
+		headers.Set("Access-Control-Allow-Credentials", "true")
+	}
+
+	// Handle allowed headers
+	if len(cors.AllowedHeaders) > 0 {
+		headers.Set("Access-Control-Allow-Headers", strings.Join(cors.AllowedHeaders, ", "))
+	} else if reqHeaders := rec.request.Header.Get("Access-Control-Request-Headers"); reqHeaders != "" {
+		headers.Set("Access-Control-Allow-Headers", reqHeaders)
+	}
+
+	// Handle allowed methods
+	if len(cors.AllowMethods) > 0 {
+		headers.Set("Access-Control-Allow-Methods", strings.Join(cors.AllowMethods, ", "))
+	} else if reqMethod := rec.request.Header.Get("Access-Control-Request-Method"); reqMethod != "" {
+		headers.Set("Access-Control-Allow-Methods", reqMethod)
+	}
+
+	// Set exposed headers if configured
+	if len(cors.ExposeHeaders) > 0 {
+		headers.Set("Access-Control-Expose-Headers", strings.Join(cors.ExposeHeaders, ", "))
+	}
+
+	// Set max age for preflight cache if configured
+	if cors.MaxAge > 0 {
+		headers.Set("Access-Control-Max-Age", strconv.Itoa(cors.MaxAge))
+	}
+
+	for k, v := range cors.Headers {
+		if !strings.EqualFold(k, "Access-Control-Allow-Origin") {
+			if v == "" {
+				headers.Del(k)
+			} else {
+				headers.Set(k, v)
+			}
+		}
+	}
+
+	logger.Debug("CORS headers applied",
+		"policy", policy.Name,
+		"origin", origin,
+		"credentials", cors.AllowCredentials,
+		"methods", cors.AllowMethods,
+	)
 }
 func logProxyResponse(status int, msg string, fields ...any) {
 	switch {

@@ -30,7 +30,7 @@ import (
 )
 
 type Router interface {
-	AddRoute(route Route) error
+	AddRoute(route *Route) error
 	AddRoutes() error
 	Mux() http.Handler
 	UpdateHandler(goma *Goma)
@@ -62,7 +62,7 @@ func (r *router) AddRoutes() error {
 			continue
 		}
 
-		if err := r.AddRoute(route); err != nil {
+		if err := r.AddRoute(&route); err != nil {
 			logger.Error("Failed to add route", "route", route.Name, "error", err)
 			errors = append(errors, fmt.Errorf("route %s: %w", route.Name, err))
 			continue
@@ -123,7 +123,7 @@ func (r *router) startHealthCheck() {
 }
 
 // validateRoute performs comprehensive route validation
-func (r *router) validateRoute(route Route) error {
+func (r *router) validateRoute(route *Route) error {
 	if route.Name == "" {
 		return fmt.Errorf("route name cannot be empty")
 	}
@@ -140,12 +140,12 @@ func (r *router) validateRoute(route Route) error {
 }
 
 // AddRoute adds a single route to the router.
-func (r *router) AddRoute(route Route) error {
+func (r *router) AddRoute(route *Route) error {
 	if err := r.validateRoute(route); err != nil {
 		return fmt.Errorf("route validation failed: %w", err)
 	}
 	// Configure CORS
-	r.configureCORS(&route)
+	r.configureCORS(route)
 	var clientCerts []tls.Certificate
 	// Load certificates
 	clientCert, certPool, err := route.initMTLS()
@@ -156,6 +156,7 @@ func (r *router) AddRoute(route Route) error {
 			clientCerts = append(clientCerts, *clientCert)
 		}
 	}
+
 	// Create proxy route
 	proxyRoute := &ProxyRoute{
 		name:          route.Name,
@@ -183,6 +184,9 @@ func (r *router) AddRoute(route Route) error {
 	r.configureHandlers(route, rRouter, proxyRoute)
 	// Add middlewares
 	r.attachMiddlewares(route, rRouter, r.dynamicMiddlewares)
+
+	// Update proxyRoure
+	proxyRoute.policies = route.policies
 	return nil
 }
 
@@ -210,7 +214,7 @@ func (r *router) configureCORS(route *Route) {
 }
 
 // attachMiddlewares configures all middlewares for a route
-func (r *router) attachMiddlewares(route Route, rRouter *mux.Router, globalMiddlewares []Middleware) {
+func (r *router) attachMiddlewares(route *Route, rRouter *mux.Router, globalMiddlewares []Middleware) {
 	enableMetrics := r.enableMetrics && !route.DisableMetrics
 
 	if r.enableMetrics && route.DisableMetrics {
@@ -231,6 +235,7 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router, globalMiddl
 			Store:           visitorStore,
 		})
 	}
+	logger.Debug("Attaching middleware", "route", route.Name, "policies", len(route.policies))
 	// Proxy middleware
 	proxyMiddleware := &ProxyMiddleware{
 		Name:           route.Name,
@@ -243,6 +248,7 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router, globalMiddl
 		VisitorTracker: visitorTracker,
 	}
 	rRouter.Use(proxyMiddleware.Wrap)
+	// Deprecated CORS middleware
 	if route.Cors.Enabled {
 		cors := &route.Cors
 		// CORS middleware
@@ -250,6 +256,15 @@ func (r *router) attachMiddlewares(route Route, rRouter *mux.Router, globalMiddl
 	}
 	// Custom middlewares
 	route.attachMiddlewares(rRouter, globalMiddlewares, r.plugins)
+
+	// Update proxyMiddleware
+	proxyMiddleware.Policies = route.policies
+	proxyMiddleware.logRule = route.logRule
+	if route.errorInterceptor != nil {
+		proxyMiddleware.Enabled = route.errorInterceptor.Enabled
+		proxyMiddleware.ContentType = route.errorInterceptor.ContentType
+		proxyMiddleware.Errors = route.errorInterceptor.Errors
+	}
 
 }
 
@@ -282,7 +297,7 @@ func (r *Route) attachMiddlewares(router *mux.Router, globalMiddlewares []Middle
 }
 
 // configureHandlers sets up route handlers
-func (r *router) configureHandlers(route Route, rRouter *mux.Router, proxyRoute *ProxyRoute) {
+func (r *router) configureHandlers(route *Route, rRouter *mux.Router, proxyRoute *ProxyRoute) {
 	handler := proxyRoute.ProxyHandler()
 
 	if len(route.Hosts) > 0 {

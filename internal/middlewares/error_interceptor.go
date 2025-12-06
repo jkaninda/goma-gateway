@@ -22,14 +22,19 @@ import (
 	"net/http"
 )
 
-func ShouldIntercept(status int, routeErrors []RouteError) (bool, string) {
+// ShouldIntercept checks if the given status code matches any of the route errors.
+// If a match is found, it returns true along with the corresponding body or file to be used for the response.
+func ShouldIntercept(status int, routeErrors []RouteError) (bool, string, bool) {
 	for _, routeError := range routeErrors {
 		if status == routeError.StatusCode || status == routeError.Status || status == routeError.Code {
 			if routeError.Body != "" {
-				return true, routeError.Body
+				return true, routeError.Body, false
 			}
-			return true, fmt.Sprintf("%d %s", status, http.StatusText(status))
+			if len(routeError.File) > 0 {
+				return true, routeError.File, true
+			}
+			return true, fmt.Sprintf("%d %s", status, http.StatusText(status)), false
 		}
 	}
-	return false, ""
+	return false, "", false
 }

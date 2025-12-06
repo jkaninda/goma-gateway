@@ -57,6 +57,9 @@ const (
 	redirectScheme      MiddlewareType = "redirectScheme"
 	bodyLimit           MiddlewareType = "bodyLimit"
 	userAgentBlock      MiddlewareType = "userAgentBlock"
+	accessLog           MiddlewareType = "accessLog"
+	headerPolicy        MiddlewareType = "headerPolicy"
+	errorInterceptor    MiddlewareType = "errorInterceptor"
 )
 
 // ************** CORS ***************

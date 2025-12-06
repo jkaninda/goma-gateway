@@ -124,9 +124,60 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *mux.Router) {
 		applyBodyLimitMiddleware(mid, router)
 	case userAgentBlock:
 		applyUserAgentBlockMiddleware(mid, router)
+	case accessLog:
+		applyAccessLogMiddleware(mid, r)
+	case headerPolicy:
+		applyHeaderPolicyMiddleware(mid, r)
+	case errorInterceptor:
+		applyErrorInterceptorMiddleware(mid, r)
 	}
 	// Attach Auth middlewares
 	attachAuthMiddlewares(*r, mid, router)
+}
+
+func applyErrorInterceptorMiddleware(mid Middleware, r *Route) {
+	logger.Debug("Applying error interceptor middleware", "middleware", mid.Name, "route", r.Name)
+	rule := &middlewares.RouteErrorInterceptor{}
+	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
+		logger.Error("Error middleware not applied", "error", err)
+		return
+	}
+	if err := rule.Validate(); err != nil {
+		logger.Error(fmt.Sprintf("Error: %v", err.Error()))
+		return
+	}
+	r.errorInterceptor = rule
+
+}
+func applyAccessLogMiddleware(mid Middleware, r *Route) {
+	logger.Debug("Applying access log middleware", "middleware", mid.Name, "route", r.Name)
+	rule := &LogEnrichRule{}
+	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
+		logger.Error("Error middleware not applied", "error", err)
+		return
+	}
+	if err := rule.validate(); err != nil {
+		logger.Error(fmt.Sprintf("Error: %v", err.Error()))
+		return
+	}
+	r.logRule = rule
+}
+func applyHeaderPolicyMiddleware(mid Middleware, r *Route) {
+	logger.Debug("Applying header policy middleware", "middleware", mid.Name, "route", r.Name)
+	rule := &HeaderPolicy{}
+	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
+		logger.Error("Error middleware not applied", "error", err)
+		return
+	}
+	if err := rule.validate(); err != nil {
+		logger.Error(fmt.Sprintf("Error: %v", err.Error()))
+		return
+	}
+	rule.Name = mid.Name
+	if len(mid.Paths) > 0 {
+		rule.MatchedPath = mid.Paths[0]
+	}
+	r.policies = append(r.policies, *rule)
 }
 
 func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {
