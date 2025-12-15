@@ -389,7 +389,7 @@ func (rec *responseRecorder) applyResponseHeaders() {
 				headers.Del(key)
 				logger.Debug("Removed header",
 					"header", key,
-					"header", header.Name,
+					"name", header.Name,
 				)
 				continue
 			}
@@ -400,7 +400,7 @@ func (rec *responseRecorder) applyResponseHeaders() {
 				logger.Debug("Skipping header (non-200 status)",
 					"header", key,
 					"status", rec.statusCode,
-					"header", header.Name,
+					"name", header.Name,
 				)
 				continue
 			}
@@ -409,17 +409,39 @@ func (rec *responseRecorder) applyResponseHeaders() {
 			logger.Debug("Set/overridden header",
 				"header", key,
 				"value", value,
-				"header", header.Name,
+				"name", header.Name,
 			)
 		}
 
-		// Apply dedicated CacheControl field (only for successful responses)
-		if header.CacheControl != "" && rec.statusCode == http.StatusOK {
-			headers.Set("Cache-Control", header.CacheControl)
-			logger.Debug("Applied CacheControl from header field",
-				"value", header.CacheControl,
-				"header", header.Name,
-			)
+		// Apply dedicated CacheControl field with status code matching
+		if header.CacheControl != "" {
+			// If cacheStatuses is empty, apply to all status codes
+			// Otherwise, only apply if current status matches
+			shouldApplyCache := len(header.CacheStatuses) == 0
+
+			if !shouldApplyCache {
+				for _, allowedStatus := range header.CacheStatuses {
+					if rec.statusCode == allowedStatus {
+						shouldApplyCache = true
+						break
+					}
+				}
+			}
+
+			if shouldApplyCache {
+				headers.Set("Cache-Control", header.CacheControl)
+				logger.Debug("Applied CacheControl",
+					"value", header.CacheControl,
+					"status", rec.statusCode,
+					"name", header.Name,
+				)
+			} else {
+				logger.Debug("Skipped CacheControl (status not in cacheStatuses)",
+					"status", rec.statusCode,
+					"allowedStatuses", header.CacheStatuses,
+					"name", header.Name,
+				)
+			}
 		}
 
 		// Apply CORS if configured
