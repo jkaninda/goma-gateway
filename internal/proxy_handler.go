@@ -42,11 +42,11 @@ type responseRecorder struct {
 	maxBodySize int64
 	skipBuffer  bool
 	request     *http.Request
-	policies    []HeaderPolicy
+	policies    []ResponseHeader
 }
 
 // newResponseRecorder creates a new responseRecorder
-func newResponseRecorder(w http.ResponseWriter, r *http.Request, intercept bool, policies []HeaderPolicy) *responseRecorder {
+func newResponseRecorder(w http.ResponseWriter, r *http.Request, intercept bool, headers []ResponseHeader) *responseRecorder {
 	return &responseRecorder{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
@@ -54,7 +54,7 @@ func newResponseRecorder(w http.ResponseWriter, r *http.Request, intercept bool,
 		header:         make(http.Header),
 		body:           bytes.NewBuffer(nil),
 		maxBodySize:    10 * 1024 * 1024, // 10MB
-		policies:       policies,
+		policies:       headers,
 		request:        r,
 	}
 }
@@ -71,8 +71,8 @@ func (rec *responseRecorder) WriteHeader(code int) {
 	rec.statusCode = code
 	rec.wroteHeader = true
 
-	// Apply header policies before writing headers
-	rec.applyHeaderPolicies()
+	// Apply header responseHeaders before writing headers
+	rec.applyResponseHeaders()
 	rec.header.Del("Server")
 	rec.header.Set("Proxied-By", GatewayName)
 
@@ -146,7 +146,7 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		}
 
 		intercept := p.Enabled && len(p.Errors) > 0
-		rec := newResponseRecorder(w, r, intercept, p.Policies)
+		rec := newResponseRecorder(w, r, intercept, p.headers)
 		rec.Header().Set(RequestIDHeader, requestID)
 		method := r.Method
 
@@ -367,56 +367,77 @@ func (p *ProxyMiddleware) appendCustomLogFields(fields *[]any, r *http.Request) 
 
 }
 
-func (rec *responseRecorder) applyHeaderPolicies() {
-	policies := rec.getSortedPolicies()
-	if len(policies) == 0 {
-		logger.Debug("No policies configured; skipping header application")
+func (rec *responseRecorder) applyResponseHeaders() {
+	sortedResponseHeaders := rec.getSortedResponseHeaders()
+	if len(sortedResponseHeaders) == 0 {
+		logger.Debug("No responseHeaders configured; skipping header application")
 		return
 	}
-	logger.Debug("Applying policies", "count", len(policies))
+	logger.Debug("Applying responseHeaders", "count", len(sortedResponseHeaders))
 	headers := rec.Header()
 
-	// Apply each policy in order
-	for _, policy := range policies {
-		logger.Debug("Applying header policy",
-			"policy", policy.Name,
+	// Apply each responseHeader in order
+	for _, header := range sortedResponseHeaders {
+		logger.Debug("Applying header",
+			"header", header.Name,
 			"path", rec.request.URL.Path,
 		)
 
 		// Apply custom headers (set, override, or remove)
-		for key, value := range policy.SetHeaders {
+		for key, value := range header.SetHeaders {
 			if value == "" {
 				headers.Del(key)
 				logger.Debug("Removed header",
 					"header", key,
-					"policy", policy.Name,
+					"header", header.Name,
 				)
-			} else {
-				headers.Set(key, value)
-				logger.Debug("Set/overridden header",
-					"header", key,
-					"value", value,
-					"policy", policy.Name,
-				)
+				continue
 			}
+
+			// Only apply most headers on successful responses
+			// Exception: Allow explicit Cache-Control overrides for error pages
+			if rec.statusCode != http.StatusOK && !strings.EqualFold(key, "Cache-Control") {
+				logger.Debug("Skipping header (non-200 status)",
+					"header", key,
+					"status", rec.statusCode,
+					"header", header.Name,
+				)
+				continue
+			}
+
+			headers.Set(key, value)
+			logger.Debug("Set/overridden header",
+				"header", key,
+				"value", value,
+				"header", header.Name,
+			)
+		}
+
+		// Apply dedicated CacheControl field (only for successful responses)
+		if header.CacheControl != "" && rec.statusCode == http.StatusOK {
+			headers.Set("Cache-Control", header.CacheControl)
+			logger.Debug("Applied CacheControl from header field",
+				"value", header.CacheControl,
+				"header", header.Name,
+			)
 		}
 
 		// Apply CORS if configured
-		if policy.Cors != nil && policy.Cors.Enabled {
-			rec.applyCorsHeaders(policy)
+		if header.Cors != nil && header.Cors.Enabled {
+			rec.applyCorsHeaders(header)
 		}
 	}
 }
 
-// getSortedPolicies returns policies sorted by specificity
+// getSortedResponseHeaders returns headers sorted by specificity
 // More general paths are applied first, more specific paths last
-func (rec *responseRecorder) getSortedPolicies() []HeaderPolicy {
+func (rec *responseRecorder) getSortedResponseHeaders() []ResponseHeader {
 	if len(rec.policies) == 0 {
 		return nil
 	}
 
 	// Create a copy to avoid modifying the original
-	sorted := make([]HeaderPolicy, len(rec.policies))
+	sorted := make([]ResponseHeader, len(rec.policies))
 	copy(sorted, rec.policies)
 
 	// Sort by path length (shorter = more general = applied first)
@@ -427,15 +448,15 @@ func (rec *responseRecorder) getSortedPolicies() []HeaderPolicy {
 	return sorted
 }
 
-// applyCorsHeaders applies CORS headers from a specific policy
+// applyCorsHeaders applies CORS headers from a specific ResponseHeader
 // Gateway CORS headers always override backend CORS headers
-func (rec *responseRecorder) applyCorsHeaders(policy HeaderPolicy) {
+func (rec *responseRecorder) applyCorsHeaders(policy ResponseHeader) {
 	cors := policy.Cors
 	if cors == nil || !cors.Enabled {
 		return
 	}
 
-	logger.Debug("======== Applying cors policy", "count", len(rec.policies))
+	logger.Debug("======== Applying responseHeader", "count", len(rec.policies))
 
 	origin := rec.request.Header.Get("Origin")
 

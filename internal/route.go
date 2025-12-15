@@ -43,7 +43,7 @@ type Route struct {
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
-	// Deprecated, use headerPolicy middleware type
+	// Deprecated, use responseHeaders middleware type
 	Cors Cors `yaml:"cors,omitempty"`
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
 	Methods []string `yaml:"methods"`
@@ -89,7 +89,7 @@ type Route struct {
 	// Middlewares lists middleware names to apply to this route.
 	Middlewares      []string                           `yaml:"middlewares"`
 	logRule          *LogEnrichRule                     `yaml:"-"`
-	policies         []HeaderPolicy                     `yaml:"-"`
+	responseHeaders  []ResponseHeader                   `yaml:"-"`
 	errorInterceptor *middlewares.RouteErrorInterceptor `yaml:"-"`
 }
 

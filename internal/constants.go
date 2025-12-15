@@ -58,15 +58,15 @@ const (
 	bodyLimit           MiddlewareType = "bodyLimit"
 	userAgentBlock      MiddlewareType = "userAgentBlock"
 	accessLog           MiddlewareType = "accessLog"
-	headerPolicy        MiddlewareType = "headerPolicy"
+	responseHeaders     MiddlewareType = "responseHeaders"
 	errorInterceptor    MiddlewareType = "errorInterceptor"
 )
 
 // ************** CORS ***************
 const (
 	AccessControlAllowOrigin      = "Access-Control-Allow-Origin"
-	AccessControlAllowHeaders     = "Access-Control-Allow-Headers"
-	AccessControlExposeHeaders    = "Access-Control-Expose-Headers"
+	AccessControlAllowHeaders     = "Access-Control-Allow-headers"
+	AccessControlExposeHeaders    = "Access-Control-Expose-headers"
 	AccessControlAllowMethods     = "Access-Control-Allow-Methods"
 	AccessControlMaxAge           = "Access-Control-Max-Age"
 	AccessControlAllowCredentials = "Access-Control-Allow-Credentials"
