@@ -66,6 +66,7 @@ var (
 		string(userAgentBlock),
 		string(accessLog),
 		string(responseHeaders),
+		string(requestHeaders),
 		string(errorInterceptor),
 	}
 )

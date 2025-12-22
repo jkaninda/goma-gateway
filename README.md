@@ -39,7 +39,6 @@ Architecture:
 
 - [Docker Hub](https://hub.docker.com/r/jkaninda/goma-gateway)
 - [Github](https://github.com/jkaninda/goma-gateway)
-- [Kubernetes operator](https://github.com/jkaninda/goma-operator)
 
 ### [Documentation](https://jkaninda.github.io/goma-gateway)
 
@@ -358,11 +357,6 @@ For production deployments, use the example from the link below:
 kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-gateway/main/examples/k8s-basic-deployment.yaml
 ```
 
-#### Advanced with CRDs
-
--  [Kubernetes installation](https://jkaninda.github.io/goma-gateway/install/kubernetes.html)
-
-- [Kubernetes advanced deployment using CRDs and Operator](https://jkaninda.github.io/goma-gateway/install/kuberntes-advanced.html)
 
 ## Supported Systems
 

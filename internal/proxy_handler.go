@@ -376,26 +376,34 @@ func (rec *responseRecorder) applyResponseHeaders() {
 	logger.Debug("Applying responseHeaders", "count", len(sortedResponseHeaders))
 	headers := rec.Header()
 
-	// Apply each responseHeader in order
 	for _, header := range sortedResponseHeaders {
+		// Check path matching first
+		if len(header.Paths) != 0 {
+			logger.Debug("Using Path based", "path", rec.request.URL.Path)
+			if match, _ := middlewares.IsPathMatching(rec.request.URL.Path, "", header.Paths); !match {
+				continue // Skip
+			}
+		}
+
+		// Apply CORS after path validation
+		if header.Cors != nil && header.Cors.Enabled {
+			rec.applyCorsHeaders(header)
+		}
+
 		logger.Debug("Applying header",
 			"header", header.Name,
 			"path", rec.request.URL.Path,
 		)
 
-		// Apply custom headers (set, override, or remove)
+		// Apply custom headers
 		for key, value := range header.SetHeaders {
 			if value == "" {
 				headers.Del(key)
-				logger.Debug("Removed header",
-					"header", key,
-					"name", header.Name,
-				)
+				logger.Debug("Removed header", "header", key, "name", header.Name)
 				continue
 			}
 
-			// Only apply most headers on successful responses
-			// Exception: Allow explicit Cache-Control overrides for error pages
+			// Skipping non 200
 			if rec.statusCode != http.StatusOK && !strings.EqualFold(key, "Cache-Control") {
 				logger.Debug("Skipping header (non-200 status)",
 					"header", key,
@@ -406,19 +414,12 @@ func (rec *responseRecorder) applyResponseHeaders() {
 			}
 
 			headers.Set(key, value)
-			logger.Debug("Set/overridden header",
-				"header", key,
-				"value", value,
-				"name", header.Name,
-			)
+			logger.Debug("Set/overridden header", "header", key, "value", value, "name", header.Name)
 		}
 
-		// Apply dedicated CacheControl field with status code matching
+		// Dedicated CacheControl field
 		if header.CacheControl != "" {
-			// If cacheStatuses is empty, apply to all status codes
-			// Otherwise, only apply if current status matches
 			shouldApplyCache := len(header.CacheStatuses) == 0
-
 			if !shouldApplyCache {
 				for _, allowedStatus := range header.CacheStatuses {
 					if rec.statusCode == allowedStatus {
@@ -442,11 +443,6 @@ func (rec *responseRecorder) applyResponseHeaders() {
 					"name", header.Name,
 				)
 			}
-		}
-
-		// Apply CORS if configured
-		if header.Cors != nil && header.Cors.Enabled {
-			rec.applyCorsHeaders(header)
 		}
 	}
 }

@@ -36,7 +36,7 @@ const (
 	visitorPrefix                        = "visitor-"
 )
 
-// ************** Middlewares types ***************
+// ************** Built-In Middlewares types ***************
 const (
 	AccessMiddleware    MiddlewareType = "access"    // access middlewares
 	BasicAuthMiddleware MiddlewareType = "basic"     // basic authentication middlewares
@@ -59,6 +59,7 @@ const (
 	userAgentBlock      MiddlewareType = "userAgentBlock"
 	accessLog           MiddlewareType = "accessLog"
 	responseHeaders     MiddlewareType = "responseHeaders"
+	requestHeaders      MiddlewareType = "requestHeaders"
 	errorInterceptor    MiddlewareType = "errorInterceptor"
 )
 

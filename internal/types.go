@@ -289,7 +289,8 @@ type ResponseHeader struct {
 	Name string `yaml:"name,omitempty"`
 
 	// MatchedPath stores the path pattern that matched this policy (used for sorting by specificity)
-	MatchedPath string `yaml:"-"`
+	MatchedPath string   `yaml:"-"`
+	Paths       []string `yaml:"paths"`
 
 	// Cors contains CORS (Cross-Origin Resource Sharing) configuration
 	// When enabled, CORS headers will be added/override backend CORS headers

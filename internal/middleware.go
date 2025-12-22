@@ -176,6 +176,7 @@ func applyResponseHeadersMiddleware(mid Middleware, r *Route) {
 	rule.Name = mid.Name
 	if len(mid.Paths) > 0 {
 		rule.MatchedPath = mid.Paths[0]
+		rule.Paths = mid.Paths
 	}
 	r.responseHeaders = append(r.responseHeaders, *rule)
 }
