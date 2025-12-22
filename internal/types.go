@@ -257,7 +257,7 @@ type ProxyMiddleware struct {
 	VisitorTracker *VisitorTracker
 	enableMetrics  bool
 	logRule        *LogEnrichRule
-	Policies       []HeaderPolicy
+	headers        []ResponseHeader
 }
 type httpCacheRule struct {
 	MaxTtl                   int64    `yaml:"maxTtl"`
@@ -282,14 +282,15 @@ type LogEnrichRule struct {
 	Cookies []string `yaml:"cookies,omitempty"`
 }
 
-// HeaderPolicy defines the configuration structure for managing response headers
+// ResponseHeader defines the configuration structure for managing response headers
 // including CORS and custom security headers
-type HeaderPolicy struct {
+type ResponseHeader struct {
 	// Name specifies the unique name of the header policy (inherited from middleware)
 	Name string `yaml:"name,omitempty"`
 
 	// MatchedPath stores the path pattern that matched this policy (used for sorting by specificity)
-	MatchedPath string `yaml:"-"`
+	MatchedPath string   `yaml:"-"`
+	Paths       []string `yaml:"paths"`
 
 	// Cors contains CORS (Cross-Origin Resource Sharing) configuration
 	// When enabled, CORS headers will be added/override backend CORS headers
@@ -306,5 +307,7 @@ type HeaderPolicy struct {
 	//   X-Content-Type-Options: "nosniff"    # Add or override
 	//   X-Powered-By: ""                     # Remove backend header
 	//   Server: ""                           # Remove backend header
-	SetHeaders map[string]string `yaml:"setHeaders,omitempty"`
+	SetHeaders    map[string]string `yaml:"setHeaders,omitempty"`
+	CacheControl  string            `yaml:"cacheControl,omitempty"`
+	CacheStatuses []int             `yaml:"cacheStatuses,omitempty"`
 }

@@ -126,8 +126,8 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *mux.Router) {
 		applyUserAgentBlockMiddleware(mid, router)
 	case accessLog:
 		applyAccessLogMiddleware(mid, r)
-	case headerPolicy:
-		applyHeaderPolicyMiddleware(mid, r)
+	case responseHeaders:
+		applyResponseHeadersMiddleware(mid, r)
 	case errorInterceptor:
 		applyErrorInterceptorMiddleware(mid, r)
 	}
@@ -162,9 +162,9 @@ func applyAccessLogMiddleware(mid Middleware, r *Route) {
 	}
 	r.logRule = rule
 }
-func applyHeaderPolicyMiddleware(mid Middleware, r *Route) {
-	logger.Debug("Applying header policy middleware", "middleware", mid.Name, "route", r.Name)
-	rule := &HeaderPolicy{}
+func applyResponseHeadersMiddleware(mid Middleware, r *Route) {
+	logger.Debug("Applying response headers middleware", "middleware", mid.Name, "route", r.Name)
+	rule := &ResponseHeader{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
 		return
@@ -176,8 +176,9 @@ func applyHeaderPolicyMiddleware(mid Middleware, r *Route) {
 	rule.Name = mid.Name
 	if len(mid.Paths) > 0 {
 		rule.MatchedPath = mid.Paths[0]
+		rule.Paths = mid.Paths
 	}
-	r.policies = append(r.policies, *rule)
+	r.responseHeaders = append(r.responseHeaders, *rule)
 }
 
 func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {

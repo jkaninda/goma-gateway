@@ -33,11 +33,11 @@ type ProxyRoute struct {
 	backends      Backends
 	methods       []string
 	// cors
-	// Deprecated, use headerPolicy middleware type
-	cors        Cors
-	security    Security
-	certPool    *x509.CertPool
-	clientCerts []tls.Certificate
-	networking  Networking
-	policies    []HeaderPolicy
+	// Deprecated, use responseHeaders middleware type
+	cors            Cors
+	security        Security
+	certPool        *x509.CertPool
+	clientCerts     []tls.Certificate
+	networking      Networking
+	responseHeaders []ResponseHeader
 }

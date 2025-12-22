@@ -65,7 +65,8 @@ var (
 		string(bodyLimit),
 		string(userAgentBlock),
 		string(accessLog),
-		string(headerPolicy),
+		string(responseHeaders),
+		string(requestHeaders),
 		string(errorInterceptor),
 	}
 )

@@ -137,7 +137,7 @@ func (pr *ProxyRoute) shouldHandlePreflight(r *http.Request) bool {
 	// if r.Header.Get("Access-Control-Request-Method") == "" {
 	//	return false
 	// }
-	for _, policy := range pr.policies {
+	for _, policy := range pr.responseHeaders {
 		if policy.Cors != nil && policy.Cors.Enabled {
 			if allowedOrigin(policy.Cors.Origins, origin) {
 				return true

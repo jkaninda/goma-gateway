@@ -36,7 +36,7 @@ const (
 	visitorPrefix                        = "visitor-"
 )
 
-// ************** Middlewares types ***************
+// ************** Built-In Middlewares types ***************
 const (
 	AccessMiddleware    MiddlewareType = "access"    // access middlewares
 	BasicAuthMiddleware MiddlewareType = "basic"     // basic authentication middlewares
@@ -58,15 +58,16 @@ const (
 	bodyLimit           MiddlewareType = "bodyLimit"
 	userAgentBlock      MiddlewareType = "userAgentBlock"
 	accessLog           MiddlewareType = "accessLog"
-	headerPolicy        MiddlewareType = "headerPolicy"
+	responseHeaders     MiddlewareType = "responseHeaders"
+	requestHeaders      MiddlewareType = "requestHeaders"
 	errorInterceptor    MiddlewareType = "errorInterceptor"
 )
 
 // ************** CORS ***************
 const (
 	AccessControlAllowOrigin      = "Access-Control-Allow-Origin"
-	AccessControlAllowHeaders     = "Access-Control-Allow-Headers"
-	AccessControlExposeHeaders    = "Access-Control-Expose-Headers"
+	AccessControlAllowHeaders     = "Access-Control-Allow-headers"
+	AccessControlExposeHeaders    = "Access-Control-Expose-headers"
 	AccessControlAllowMethods     = "Access-Control-Allow-Methods"
 	AccessControlMaxAge           = "Access-Control-Max-Age"
 	AccessControlAllowCredentials = "Access-Control-Allow-Credentials"

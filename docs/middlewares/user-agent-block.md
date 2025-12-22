@@ -2,7 +2,7 @@
 title: User Agent Block
 layout: default
 parent: Middlewares
-nav_order: 15
+nav_order: 16
 ---
 
 # User Agent Block Middleware

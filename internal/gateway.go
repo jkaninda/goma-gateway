@@ -60,7 +60,7 @@ type Gateway struct {
 	// ErrorInterceptor provides advanced error-handling configuration for intercepted backend errors.
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// Cors defines the global Cross-Origin Resource Sharing (CORS) configuration for the gateway.
-	// Deprecated, use headerPolicy middleware type
+	// Deprecated, use responseHeaders middleware type
 	Cors Cors `yaml:"cors,omitempty"`
 	// ExtraConfig provides additional configuration, including routes and middleware, from a specified directory.
 	ExtraConfig ExtraRouteConfig `yaml:"extraConfig,omitempty"`

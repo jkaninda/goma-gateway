@@ -542,9 +542,9 @@ func (a AccessPolicyRuleMiddleware) validate() error {
 	}
 	return nil
 }
-func (a HeaderPolicy) validate() error {
+func (a ResponseHeader) validate() error {
 	if a.Cors == nil && len(a.SetHeaders) == 0 {
-		return fmt.Errorf("empty headers and cors in header policy middleware")
+		return fmt.Errorf("empty headers and cors in responseHeader middleware")
 	}
 	return nil
 }

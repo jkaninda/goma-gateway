@@ -31,7 +31,7 @@ type Cors struct {
 	AllowedHeaders []string `yaml:"allowedHeaders"`
 
 	// Headers contains custom headers to be set in the response
-	// Deprecated, use headerPolicy middleware type
+	// Deprecated, use responseHeaders middleware type
 	Headers map[string]string `yaml:"headers"`
 
 	// ExposeHeaders indicates which response headers can be exposed to the client

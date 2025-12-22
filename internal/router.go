@@ -184,9 +184,7 @@ func (r *router) AddRoute(route *Route) error {
 	r.configureHandlers(route, rRouter, proxyRoute)
 	// Add middlewares
 	r.attachMiddlewares(route, rRouter, r.dynamicMiddlewares)
-
-	// Update proxyRoure
-	proxyRoute.policies = route.policies
+	proxyRoute.responseHeaders = route.responseHeaders
 	return nil
 }
 
@@ -235,7 +233,7 @@ func (r *router) attachMiddlewares(route *Route, rRouter *mux.Router, globalMidd
 			Store:           visitorStore,
 		})
 	}
-	logger.Debug("Attaching middleware", "route", route.Name, "policies", len(route.policies))
+	logger.Debug("Attaching middleware", "route", route.Name, "responseHeaders", len(route.responseHeaders))
 	// Proxy middleware
 	proxyMiddleware := &ProxyMiddleware{
 		Name:           route.Name,
@@ -258,7 +256,7 @@ func (r *router) attachMiddlewares(route *Route, rRouter *mux.Router, globalMidd
 	route.attachMiddlewares(rRouter, globalMiddlewares, r.plugins)
 
 	// Update proxyMiddleware
-	proxyMiddleware.Policies = route.policies
+	proxyMiddleware.headers = route.responseHeaders
 	proxyMiddleware.logRule = route.logRule
 	if route.errorInterceptor != nil {
 		proxyMiddleware.Enabled = route.errorInterceptor.Enabled
