@@ -18,9 +18,9 @@
 [![GitHub Release](https://img.shields.io/github/v/release/jkaninda/goma-gateway)](https://github.com/jkaninda/goma-gateway/releases)
 ![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/jkaninda/goma-gateway?style=flat-square)
 ![Docker Pulls](https://img.shields.io/docker/pulls/jkaninda/goma-gateway?style=flat-square)
+
 **Goma Gateway** is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly.
 
----
 
 **Why "Goma"? 🇨🇩**
 
@@ -212,7 +212,7 @@ By default, Goma Gateway listens on:
 
 ### 5. (Optional) Use Standard Ports 80 & 443
 
-To run on standard HTTP/HTTPS ports, update your config:
+To run on standard HTTP/HTTPS ports, update your config file:
 
 ```yaml
 version: 2
