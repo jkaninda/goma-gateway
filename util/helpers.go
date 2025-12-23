@@ -20,7 +20,6 @@ package util
 import (
 	"errors"
 	"fmt"
-	"github.com/jkaninda/logger"
 	"net"
 	"net/url"
 	"os"
@@ -31,8 +30,6 @@ import (
 
 	"github.com/robfig/cron/v3"
 )
-
-var envPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
 
 // FileExists checks if the file does exist
 func FileExists(filename string) bool {
@@ -160,120 +157,6 @@ func ParseDuration(durationStr string) (time.Duration, error) {
 	return duration, nil
 }
 
-func Slug(text string) string {
-	// Convert to lowercase
-	text = strings.ToLower(text)
-
-	// Replace spaces and special characters with hyphens
-	re := regexp.MustCompile(`\W+`)
-	text = re.ReplaceAllString(text, "-")
-
-	// Remove leading and trailing hyphens
-	text = strings.Trim(text, "-")
-
-	return text
-}
-
-func AddPrefixPath(prefix string, paths []string) []string {
-	for i := range paths {
-		paths[i] = ParseURLPath(prefix + paths[i])
-	}
-	return paths
-
-}
-func TruncateText(text string, limit int) string {
-	if len(text) > limit {
-		return text[:limit] + "..."
-	}
-	return text
-}
-
-// ConvertBytes converts bytes to a human-readable string with the appropriate unit (bytes, MiB, or GiB).
-func ConvertBytes(bytes uint64) string {
-	const (
-		MiB = 1024 * 1024
-		GiB = MiB * 1024
-	)
-	switch {
-	case bytes >= GiB:
-		return fmt.Sprintf("%.2f GiB", float64(bytes)/float64(GiB))
-	case bytes >= MiB:
-		return fmt.Sprintf("%.2f MiB", float64(bytes)/float64(MiB))
-	default:
-		return fmt.Sprintf("%d bytes", bytes)
-	}
-}
-
-// ConvertToBytes converts a string with a size suffix (e.g., "1M", "1Mi") to bytes.
-func ConvertToBytes(input string) (int64, error) {
-	// Define the mapping for binary (Mi) and decimal (M) units
-	binaryUnits := map[string]int64{
-		"Ki": 1024,
-		"Mi": 1024 * 1024,
-		"Gi": 1024 * 1024 * 1024,
-		"Ti": 1024 * 1024 * 1024 * 1024,
-		"Pi": 1024 * 1024 * 1024 * 1024 * 1024,
-		"Ei": 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-	}
-	decimalUnits := map[string]int64{
-		"K": 1000,
-		"M": 1000 * 1000,
-		"G": 1000 * 1000 * 1000,
-		"T": 1000 * 1000 * 1000 * 1000,
-		"P": 1000 * 1000 * 1000 * 1000 * 1000,
-		"E": 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-	}
-
-	// Extract the numeric part and the unit
-	var numberPart string
-	var unitPart string
-
-	for i, r := range input {
-		if r < '0' || r > '9' {
-			numberPart = input[:i]
-			unitPart = input[i:]
-			break
-		}
-	}
-
-	// Handle case where no valid unit is found
-	if unitPart == "" {
-		return 0, fmt.Errorf("invalid format: no unit provided")
-	}
-
-	// Convert the numeric part to an integer
-	value, err := strconv.ParseInt(numberPart, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid number format: %w", err)
-	}
-
-	// Determine the multiplier
-	var multiplier int64
-	if strings.HasSuffix(unitPart, "i") {
-		// Binary units
-		multiplier, err = findMultiplier(unitPart, binaryUnits)
-	} else {
-		// Decimal units
-		multiplier, err = findMultiplier(unitPart, decimalUnits)
-	}
-
-	if err != nil {
-		return 0, err
-	}
-
-	// Calculate the bytes
-	return value * multiplier, nil
-}
-
-// Helper function to find the multiplier for a given unit
-func findMultiplier(unit string, units map[string]int64) (int64, error) {
-	multiplier, ok := units[unit]
-	if !ok {
-		return 0, fmt.Errorf("invalid unit: %s", unit)
-	}
-	return multiplier, nil
-}
-
 // ParseRanges converts a list of range strings to a slice of integers
 func ParseRanges(rangeStrings []string) ([]int, error) {
 	var result []int
@@ -317,37 +200,6 @@ func ParseRanges(rangeStrings []string) ([]int, error) {
 		}
 	}
 	return result, nil
-}
-
-// RemoveDuplicates Duplicated
-func RemoveDuplicates[T comparable](elements []T) []T {
-	encountered := make(map[T]bool)
-	result := make([]T, 0, len(elements))
-
-	for _, elem := range elements {
-		if !encountered[elem] {
-			encountered[elem] = true
-			result = append(result, elem)
-		}
-	}
-
-	return result
-}
-
-// ReplaceEnvVars replaces ${VAR} with the environment variable value if present
-func ReplaceEnvVars(s string) string {
-	if !envPattern.MatchString(s) {
-		logger.Debug("No env pattern found")
-		return s
-	}
-	return envPattern.ReplaceAllStringFunc(s, func(match string) string {
-		name := envPattern.FindStringSubmatch(match)[1]
-		if val, ok := os.LookupEnv(name); ok {
-			return val
-		}
-		logger.Error("No environment variable found", "env", name)
-		return match
-	})
 }
 
 // ValidateEndpoint checks if the endpoint is a valid URL/IP/host with optional port,

@@ -18,6 +18,14 @@ The simple deployment uses standard Kubernetes deployment resources to run Goma 
 - Details on using Goma Gateway in Kubernetes can be found on the [Docker Hub repository](https://hub.docker.com/r/jkaninda/goma-gateway).
 - Explore [Kubernetes deployment templates](https://github.com/jkaninda/goma-gateway/tree/main/examples) for built-in orchestration and scalability.
 
+#### Basic Deployment
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-gateway/main/examples/k8s-basic-deployment.yaml
+```
+
+### Configuration Steps
+
 ### Step 1: Generate Configuration File
 
 Use the following command to create a configuration file:

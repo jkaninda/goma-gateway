@@ -8,6 +8,11 @@ nav_order: 2
 ## Gateway
 The **Gateway** serves as the entry point to the server, handling and routing incoming traffic.
 
+{: .warning }
+The Kubernetes Operator for Goma Gateway is not compatible with the current version of Goma Gateway. Please use Kubernetes native deployment method instead. See [Installation](./installation.md) for more details.
+
+
+
 ### Installation Details
 
 When a Gateway is installed, it automatically creates the following Kubernetes resources, all with the same name as the Gateway:

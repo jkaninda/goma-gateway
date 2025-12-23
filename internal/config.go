@@ -20,6 +20,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/version"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
@@ -501,8 +502,8 @@ func (basicAuth *BasicRuleMiddleware) validate() error {
 		}
 	}
 	for index, user := range basicAuth.Users {
-		basicAuth.Users[index].Username = util.ReplaceEnvVars(user.Username)
-		basicAuth.Users[index].Password = util.ReplaceEnvVars(user.Password)
+		basicAuth.Users[index].Username = goutils.ReplaceEnvVars(user.Username)
+		basicAuth.Users[index].Password = goutils.ReplaceEnvVars(user.Password)
 	}
 	return nil
 }
@@ -514,11 +515,11 @@ func (l *LdapRuleMiddleware) validate() error {
 		return fmt.Errorf("LDAP BaseDN is required")
 	}
 	// ReplaceEnvVars
-	l.URL = util.ReplaceEnvVars(l.URL)
-	l.BaseDN = util.ReplaceEnvVars(l.BaseDN)
-	l.BindDN = util.ReplaceEnvVars(l.BindDN)
-	l.BindPass = util.ReplaceEnvVars(l.BindPass)
-	l.UserFilter = util.ReplaceEnvVars(l.UserFilter)
+	l.URL = goutils.ReplaceEnvVars(l.URL)
+	l.BaseDN = goutils.ReplaceEnvVars(l.BaseDN)
+	l.BindDN = goutils.ReplaceEnvVars(l.BindDN)
+	l.BindPass = goutils.ReplaceEnvVars(l.BindPass)
+	l.UserFilter = goutils.ReplaceEnvVars(l.UserFilter)
 	return nil
 }
 func (a AccessPolicyRuleMiddleware) validate() error {
@@ -542,9 +543,194 @@ func (a AccessPolicyRuleMiddleware) validate() error {
 	}
 	return nil
 }
-func (a ResponseHeader) validate() error {
-	if a.Cors == nil && len(a.SetHeaders) == 0 {
-		return fmt.Errorf("empty headers and cors in responseHeader middleware")
+
+// resolveHeaderValue resolves template variables and environment variables in header values
+func (a *ResponseHeader) resolveHeaderValue(key, value string, route *Route) string {
+	if value == "" {
+		return value
+	}
+
+	// Replace context variables
+	resolved := a.replaceContextVariables(value, route)
+
+	// Replace environment variables
+	resolved = goutils.ReplaceEnvVars(resolved)
+	return resolved
+}
+
+// replaceContextVariables replaces route and gateway context variables
+func (a *ResponseHeader) replaceContextVariables(value string, route *Route) string {
+	contextVars := map[string]string{
+		"{route.name}":      route.Name,
+		"{route.path}":      route.Path,
+		"{route.target}":    route.Target,
+		"{gateway.version}": version.Version,
+	}
+	result := value
+	for placeholder, replaceWith := range contextVars {
+		if replaceWith != "" {
+			result = strings.ReplaceAll(result, placeholder, replaceWith)
+		}
+	}
+
+	return result
+}
+func (a *ResponseHeader) validate(route *Route) error {
+	// Check if middleware has any configuration
+	if a.Cors == nil && len(a.SetHeaders) == 0 && len(a.SetCookies) == 0 && a.CacheControl == "" {
+		return fmt.Errorf("responseHeader middleware '%s' has no configuration (cors, setHeaders, setCookies, or cacheControl required)", a.Name)
+	}
+
+	// Validate and process headers
+	if err := a.validateHeaders(route); err != nil {
+		return fmt.Errorf("invalid headers in middleware '%s': %w", a.Name, err)
+	}
+
+	// Validate and process cookies
+	if err := a.validateCookies(); err != nil {
+		return fmt.Errorf("invalid cookies in middleware '%s': %w", a.Name, err)
+	}
+
+	// Validate CORS if present
+	if a.Cors != nil {
+		if err := a.Cors.validate(); err != nil {
+			return fmt.Errorf("invalid CORS config in middleware '%s': %w", a.Name, err)
+		}
+	}
+
+	// Validate cache control if present
+	if err := a.validateCacheControl(); err != nil {
+		return fmt.Errorf("invalid cache control in middleware '%s': %w", a.Name, err)
+	}
+
+	return nil
+}
+
+func (a *ResponseHeader) validateHeaders(r *Route) error {
+	if len(a.SetHeaders) == 0 {
+		return nil
+	}
+
+	// Reserved/dangerous headers that shouldn't be set via middleware
+	dangerousHeaders := map[string]bool{
+		"content-length":    true,
+		"transfer-encoding": true,
+		"trailer":           true,
+		"connection":        true,
+		"upgrade":           true,
+	}
+	for key, value := range a.SetHeaders {
+		if strings.TrimSpace(key) == "" {
+			return fmt.Errorf("empty header name found")
+		}
+
+		if dangerousHeaders[strings.ToLower(key)] {
+			return fmt.Errorf("cannot set reserved header: %s", key)
+		}
+
+		// Replace environment variables
+		//a.SetHeaders[key] = goutils.ReplaceEnvVars(value)
+		// Replace route placeholders
+		a.SetHeaders[key] = a.resolveHeaderValue(a.SetHeaders[key], value, r)
+
+		if strings.ContainsAny(a.SetHeaders[key], "\r\n") {
+			return fmt.Errorf("header '%s' contains invalid characters (CRLF)", key)
+		}
+	}
+
+	return nil
+}
+
+func (a *ResponseHeader) validateCookies() error {
+	if len(a.SetCookies) == 0 {
+		return nil
+	}
+
+	validSameSite := map[string]bool{
+		"":       true,
+		"strict": true,
+		"lax":    true,
+		"none":   true,
+	}
+
+	cookieNames := make(map[string]bool)
+
+	for i, cookie := range a.SetCookies {
+		// Validate cookie name
+		if strings.TrimSpace(cookie.Name) == "" {
+			return fmt.Errorf("cookie at index %d has empty name", i)
+		}
+
+		// Check for duplicate names
+		if cookieNames[cookie.Name] {
+			return fmt.Errorf("duplicate cookie name: %s", cookie.Name)
+		}
+		cookieNames[cookie.Name] = true
+
+		// Cookie names can't contain spaces, commas, semicolons, or backslashes
+		if strings.ContainsAny(cookie.Name, " ,;\\\t\r\n") {
+			return fmt.Errorf("cookie name '%s' contains invalid characters", cookie.Name)
+		}
+
+		// Replace environment variables in value
+		a.SetCookies[i].Value = goutils.ReplaceEnvVars(cookie.Value)
+
+		// Validate cookie value doesn't contain invalid characters (unless it's a removal)
+		if cookie.Value != "" && strings.ContainsAny(cookie.Value, "\r\n;,") {
+			return fmt.Errorf("cookie '%s' value contains invalid characters", cookie.Name)
+		}
+
+		// Validate SameSite
+		sameSite := strings.ToLower(cookie.Attrs.SameSite)
+		if !validSameSite[sameSite] {
+			return fmt.Errorf("cookie '%s' has invalid SameSite value: %s (must be Strict, Lax, None, or empty)",
+				cookie.Name, cookie.Attrs.SameSite)
+		}
+
+		// SameSite=None requires Secure flag
+		if sameSite == "none" && !cookie.Attrs.Secure {
+			return fmt.Errorf("cookie '%s' has SameSite=None but Secure flag is not set", cookie.Name)
+		}
+
+		// Validate MaxAge
+		if cookie.Attrs.MaxAge < -1 {
+			return fmt.Errorf("cookie '%s' has invalid MaxAge: %d (must be >= -1)", cookie.Name, cookie.Attrs.MaxAge)
+		}
+
+		// Validate Path format
+		if cookie.Attrs.Path != "" && !strings.HasPrefix(cookie.Attrs.Path, "/") {
+			return fmt.Errorf("cookie '%s' path must start with '/' or be empty", cookie.Name)
+		}
+
+		// Validate Domain format
+		if cookie.Attrs.Domain != "" {
+			if strings.Contains(cookie.Attrs.Domain, "://") || strings.Contains(cookie.Attrs.Domain, "/") {
+				return fmt.Errorf("cookie '%s' has invalid domain format: %s", cookie.Name, cookie.Attrs.Domain)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (a *ResponseHeader) validateCacheControl() error {
+	if a.CacheControl == "" {
+		return nil
+	}
+
+	// Validate that CacheControl has proper format
+	if strings.ContainsAny(a.CacheControl, "\r\n") {
+		return fmt.Errorf("cacheControl contains invalid characters")
+	}
+
+	// Replace environment variables
+	a.CacheControl = goutils.ReplaceEnvVars(a.CacheControl)
+
+	// Validate cache statuses
+	for _, status := range a.CacheStatuses {
+		if status < 100 || status > 599 {
+			return fmt.Errorf("invalid HTTP status code in cacheStatuses: %d", status)
+		}
 	}
 	return nil
 }

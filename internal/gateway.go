@@ -58,6 +58,7 @@ type Gateway struct {
 	// Debug enables or disables debug mode for the gateway.
 	Debug bool `yaml:"debug,omitempty"`
 	// ErrorInterceptor provides advanced error-handling configuration for intercepted backend errors.
+	// Deprecated, use errorInterceptor middleware type
 	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
 	// Cors defines the global Cross-Origin Resource Sharing (CORS) configuration for the gateway.
 	// Deprecated, use responseHeaders middleware type

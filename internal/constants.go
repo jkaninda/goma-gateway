@@ -93,3 +93,7 @@ const (
 	OperatorRegex       OperatorType = "regex"
 	OperatorIn          OperatorType = "in"
 )
+const (
+	constHTTPProtocol  = "http"
+	constHTTPSProtocol = "https"
+)
