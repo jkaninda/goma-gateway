@@ -85,11 +85,11 @@ func (cors *Cors) validate() error {
 		return err
 	}
 
-	//// Validate Headers
-	//if err := cors.validateHeaders(); err != nil {
-	//	return err
-	//}
-	//
+	// Validate Headers
+	if err := cors.validateHeaders(); err != nil {
+		return err
+	}
+
 	// Validate MaxAge
 	if err := cors.validateMaxAge(); err != nil {
 		return err
@@ -99,10 +99,6 @@ func (cors *Cors) validate() error {
 	if err := cors.validateCredentials(); err != nil {
 		return err
 	}
-
-	//// Set defaults if not specified
-	//cors.setDefaults()
-
 	return nil
 }
 

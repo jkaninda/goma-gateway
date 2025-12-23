@@ -545,7 +545,7 @@ func (a AccessPolicyRuleMiddleware) validate() error {
 }
 
 // resolveHeaderValue resolves template variables and environment variables in header values
-func (a *ResponseHeader) resolveHeaderValue(key, value string, route *Route) string {
+func (a *ResponseHeader) resolveHeaderValue(value string, route *Route) string {
 	if value == "" {
 		return value
 	}
@@ -629,9 +629,7 @@ func (a *ResponseHeader) validateHeaders(r *Route) error {
 		}
 
 		// Replace environment variables
-		//a.SetHeaders[key] = goutils.ReplaceEnvVars(value)
-		// Replace route placeholders
-		a.SetHeaders[key] = a.resolveHeaderValue(a.SetHeaders[key], value, r)
+		a.SetHeaders[key] = a.resolveHeaderValue(value, r)
 
 		if strings.ContainsAny(a.SetHeaders[key], "\r\n") {
 			return fmt.Errorf("header '%s' contains invalid characters (CRLF)", key)
