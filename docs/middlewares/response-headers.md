@@ -95,6 +95,31 @@ middlewares:
         Server: ""              # Removes the Server header
 ```
 
+### Setting Cookie
+
+```yaml
+middlewares:
+  - name: custom-headers
+    type: responseHeaders
+    rule:
+      setHeaders:
+        X-Powered-By: Goma Gateway
+        Server: ""              # Removes the Server header
+      setCookies:
+        - name: SecureCookie
+          value: "${COOKIE_NAME}" # Example of using environment variable
+          attributes:
+            Secure: true
+            HttpOnly: true
+            SameSite: Strict
+        - name: AnotherCookie
+          value: "SomeValue"
+          attributes:
+            Secure: true
+            HttpOnly: true
+            SameSite: Lax
+```
+
 ### Behavior
 
 * A non-empty value **adds or overrides** the header
@@ -154,4 +179,21 @@ routes:
       - endpoint: http://backend-service
     middlewares:
       - response-headers-advanced
+```
+
+### Route-Specific Metadata
+
+
+
+```yaml
+middlewares:
+  - name: route-metadata
+    type: responseHeaders
+    rule:
+      setHeaders:
+        X-API-Route: "{route.path}"
+        X-Backend-Service: "{route.target}"
+        X-Goma-Route: "{route.name}"
+        X-Goma-Route-PATH: "{route.path}"
+        X-Debug-Info: "Gateway {gateway.version} - ${INSTANCE_ID} | Route: {route.name}"
 ```

@@ -417,6 +417,30 @@ func (rec *responseRecorder) applyResponseHeaders() {
 			logger.Debug("Set/overridden header", "header", key, "value", value, "name", header.Name)
 		}
 
+		// Apply custom cookies
+		for _, cookie := range header.SetCookies {
+			isRemoval := cookie.Value == "" || cookie.Attrs.MaxAge == -1
+
+			var httpCookie *http.Cookie
+
+			if isRemoval {
+				// Remove cookie
+				httpCookie = &http.Cookie{
+					Name:    cookie.Name,
+					Value:   "",
+					Path:    getPathOrDefault(cookie.Attrs.Path),
+					Domain:  cookie.Attrs.Domain,
+					MaxAge:  -1,
+					Expires: time.Unix(0, 0),
+				}
+			} else {
+				// Set cookie
+				httpCookie = buildHTTPCookie(cookie)
+			}
+
+			http.SetCookie(rec, httpCookie)
+		}
+
 		// Dedicated CacheControl field
 		if header.CacheControl != "" {
 			shouldApplyCache := len(header.CacheStatuses) == 0

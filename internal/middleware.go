@@ -169,8 +169,8 @@ func applyResponseHeadersMiddleware(mid Middleware, r *Route) {
 		logger.Error("Error middleware not applied", "error", err)
 		return
 	}
-	if err := rule.validate(); err != nil {
-		logger.Error(fmt.Sprintf("Error: %v", err.Error()))
+	if err := rule.validate(r); err != nil {
+		logger.Error("Response headers middleware not applied", "middleware", mid.Name, "route", r.Name, " error", err)
 		return
 	}
 	rule.Name = mid.Name
@@ -229,7 +229,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 		rule.MaxTtl = 300
 	}
 	mLimit := int64(0)
-	m, err := util.ConvertToBytes(rule.MemoryLimit)
+	m, err := goutils.ConvertToBytes(rule.MemoryLimit)
 	if err != nil {
 		logger.Error("Error httpCaching memoryLimit", "error", err)
 	}
@@ -245,7 +245,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 	}
 	httpCacheM := middlewares.HttpCacheConfig{
 		Path:                     route.Path,
-		Name:                     util.Slug(route.Name),
+		Name:                     goutils.Slug(route.Name),
 		Paths:                    mid.Paths,
 		Cache:                    cache,
 		Origins:                  route.Cors.Origins,
@@ -294,7 +294,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 		rt := middlewares.RateLimit{
 			Unit:       rule.Unit,
 			Path:       route.Path,
-			Id:         util.Slug(route.Name),
+			Id:         goutils.Slug(route.Name),
 			Requests:   rule.RequestsPerUnit,
 			Origins:    route.Cors.Origins,
 			Hosts:      route.Hosts,

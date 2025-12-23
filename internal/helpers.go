@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // printRoute prints routes
@@ -85,10 +86,10 @@ func scheme(r *http.Request) string {
 	}
 	// Check if the request is using TLS
 	if r.TLS != nil {
-		return "https"
+		return constHTTPSProtocol
 	}
 	// Default to HTTP
-	return "http"
+	return constHTTPProtocol
 }
 
 // isWebSocketRequest checks if the request is a WebSocket request
@@ -204,4 +205,51 @@ func getBaseURL(fullURL string) (string, error) {
 		return "", err
 	}
 	return parsed.Scheme + "://" + parsed.Host, nil
+}
+func getPathOrDefault(path string) string {
+	if path != "" {
+		return path
+	}
+	return "/"
+}
+
+func buildHTTPCookie(cookie Cookie) *http.Cookie {
+	httpCookie := &http.Cookie{
+		Name:     cookie.Name,
+		Value:    cookie.Value,
+		Path:     cookie.Attrs.Path,
+		Domain:   cookie.Attrs.Domain,
+		MaxAge:   cookie.Attrs.MaxAge,
+		Secure:   cookie.Attrs.Secure,
+		HttpOnly: cookie.Attrs.HttpOnly,
+	}
+
+	if httpCookie.Path == "" {
+		httpCookie.Path = "/"
+	}
+
+	// Set Expires based on MaxAge for browser compatibility
+	if cookie.Attrs.MaxAge > 0 {
+		httpCookie.Expires = time.Now().Add(time.Duration(cookie.Attrs.MaxAge) * time.Second)
+	} else if cookie.Attrs.MaxAge < 0 {
+		httpCookie.Expires = time.Unix(0, 0)
+	}
+
+	// Parse SameSite attribute
+	httpCookie.SameSite = parseSameSite(cookie.Attrs.SameSite)
+
+	return httpCookie
+}
+
+func parseSameSite(sameSite string) http.SameSite {
+	switch strings.ToLower(sameSite) {
+	case "strict":
+		return http.SameSiteStrictMode
+	case "lax":
+		return http.SameSiteLaxMode
+	case "none":
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteLaxMode // Secure default
+	}
 }

@@ -19,10 +19,13 @@
 ![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/jkaninda/goma-gateway?style=flat-square)
 ![Docker Pulls](https://img.shields.io/docker/pulls/jkaninda/goma-gateway?style=flat-square)
 
-**Goma Gateway** is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly.
+**Goma Gateway** is a high-performance API Gateway built for modern cloud-native environments. Designed with security and developer experience at its core, Goma Gateway helps you route, secure, and scale API traffic with minimal configuration overhead. Built-in observability, flexible middleware, and Kubernetes-native operation make it the ideal choice for teams building resilient microservices architectures.
 
+---
 
-The project is named after Goma, a vibrant city located in the eastern region of the Democratic Republic of the Congo — known for its resilience, beauty, and energy.
+**Why "Goma"? 🇨🇩**
+
+The project takes its name from Goma, a resilient city in the eastern Democratic Republic of Congo that serves as a vital crossroads connecting diverse regions. Like its namesake, Goma Gateway acts as a strategic entry point managing, securing, and directing the flow of API traffic that connects your services.
 
 
 <p align="center">

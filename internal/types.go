@@ -307,7 +307,9 @@ type ResponseHeader struct {
 	//   X-Content-Type-Options: "nosniff"    # Add or override
 	//   X-Powered-By: ""                     # Remove backend header
 	//   Server: ""                           # Remove backend header
-	SetHeaders    map[string]string `yaml:"setHeaders,omitempty"`
-	CacheControl  string            `yaml:"cacheControl,omitempty"`
-	CacheStatuses []int             `yaml:"cacheStatuses,omitempty"`
+	SetHeaders map[string]string `yaml:"setHeaders,omitempty"`
+	// SetCookies contains cookies to set in the response
+	SetCookies    []Cookie `yaml:"setCookies,omitempty"`
+	CacheControl  string   `yaml:"cacheControl,omitempty"`
+	CacheStatuses []int    `yaml:"cacheStatuses,omitempty"`
 }
