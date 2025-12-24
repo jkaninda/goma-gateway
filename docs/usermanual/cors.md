@@ -17,6 +17,9 @@ In **Goma Gateway**, CORS can be configured at two levels:
 
 These settings help control which external domains can communicate with your backend and under what conditions.
 
+{: .warning }
+The CORS configuration method described here is deprecated since Goma Gateway `v0.6.0` and will be removed in future releases. It is recommended to use the `responseHeaders` middleware with CORS settings for new configurations.
+
 ---
 
 ### Configuration Fields

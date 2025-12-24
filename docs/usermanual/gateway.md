@@ -372,33 +372,6 @@ gateway:
       tlsHandshakeTimeout: 10
       responseHeaderTimeout: 10
 
-  errorInterceptor:
-    enabled: true
-    contentType: "application/json"
-    errors:
-      - status: 401
-        body: ""
-      - status: 500
-        body: "Internal server error"
-
-  cors:
-    origins:
-      - http://localhost:3000
-      - https://dev.example.com
-    allowedHeaders:
-      - Origin
-      - Authorization
-      - X-Client-Id
-      - Content-Type
-      - Accept
-    headers:
-      X-Session-Id: xxx-xxx-xx
-      Access-Control-Max-Age: 1728000
-    exposeHeaders: []
-    maxAge: 1728000
-    allowMethods: ["GET", "POST"]
-    allowCredentials: true
-
   extraConfig:
     directory: /etc/goma/extra
     watch: true
