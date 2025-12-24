@@ -31,7 +31,7 @@ gateway:
         healthyStatuses: [200, 404]  # HTTP status codes considered healthy
 ```
 
-> ✅ Use this to automatically detect and skip unhealthy backends when routing traffic.
+>  Use this to automatically detect and skip unhealthy backends when routing traffic.
 
 ---
 
