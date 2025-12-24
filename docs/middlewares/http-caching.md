@@ -69,9 +69,12 @@ middlewares:
       - /api/stores/(.*)/items/(.*)
     rule:
       maxTtl: 60
-      memoryLimit: 1Mi  # Supported units: Ki, Mi, Gi, Ti or K, M, G, T
-      disableCacheStatusHeader: false
-      excludedResponseCodes: ["404", "418", "500-599"]
+      memoryLimit: 500Mi  # Supported units: Ki, Mi, Gi, Ti or K, M, G, T
+      disableCacheStatusHeader: true
+      cacheableStatusCodes: [200, 203, 204, 300, 301, 302, 404]
+      excludedResponseCodes: [] # e.g., [500, 404]
+      includeQueryInKey: false # Whether to include query parameters in the cache key
+      queryParamsToCache: [] # List of specific query parameters to include in the cache key
 ```
 ---
 
@@ -84,3 +87,31 @@ For example:
    - `/store/categories/*` matches all paths under `/store/categories/`.
    - `/api/stores/(.*)/items/(.*)` matches dynamic paths under `/api/stores/`.
 
+###  Cache only specific query params
+
+- **Query Parameters**: You can choose to include or exclude query parameters in the cache key. Use `includeQueryInKey` to enable or disable this feature, and `queryParamsToCache` to specify which query parameters should be considered for caching.
+
+```yaml
+middlewares:
+  - name: httpCache
+    type: httpCache
+    paths:
+      - /v1/items
+    rule:
+      maxTtl: 300
+      memoryLimit: 500Mi  # Supported units: Ki, Mi, Gi, Ti or K, M, G, T
+      disableCacheStatusHeader: true
+      cacheableStatusCodes: [200]
+      excludedResponseCodes: [] # e.g., [500, 404]
+      includeQueryInKey: true # Whether to include query parameters in the cache key
+      queryParamsToCache:
+        - page
+        - limit
+        - category
+```
+
+In this example, the HTTP Cache Middleware is configured to cache responses for the `/v1/items` endpoint. The cache will consider only the `page`, `limit`, and `category` query parameters when determining the cache key. This allows for more granular caching based on these specific parameters, while ignoring any other query parameters that may be present in the request.
+
+- `/v1/items?page=1&utm_source=google` => cached as `/v1/items?page=1`
+- `/v1/items?page=2&session_id=xyz` => cached as `/v1/items?page=2`
+- `/v1/items?category=electronics&page=1` → cached as `/v1/items?category=electronics&page=1`

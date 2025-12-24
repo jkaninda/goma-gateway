@@ -263,8 +263,11 @@ type httpCacheRule struct {
 	MaxTtl                   int64    `yaml:"maxTtl"`
 	MaxStale                 int64    `yaml:"maxStale"`
 	DisableCacheStatusHeader bool     `yaml:"disableCacheStatusHeader,omitempty"`
-	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty"`
 	MemoryLimit              string   `yaml:"memoryLimit,omitempty"`
+	CacheableStatusCodes     []int    `yaml:"cacheableStatusCodes,omitempty"`
+	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty"`
+	IncludeQueryInKey        bool     `yaml:"includeQueryInKey,omitempty"`
+	QueryParamsToCache       []string `yaml:"queryParamsToCache,omitempty"`
 }
 type RedirectSchemeRuleMiddleware struct {
 	Scheme    string `yaml:"scheme"`

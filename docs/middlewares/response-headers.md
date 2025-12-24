@@ -1,5 +1,5 @@
 ---
-title: Response Headers Middleware
+title: Response Headers
 layout: default
 parent: Middlewares
 nav_order: 16

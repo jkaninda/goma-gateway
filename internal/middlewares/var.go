@@ -26,8 +26,10 @@ import (
 )
 
 const (
-	GomaAccessToken  = "goma_access_token"
-	GomaRefreshToken = "goma_refresh_token"
+	GomaAccessToken            = "goma_access_token"
+	GomaRefreshToken           = "goma_refresh_token"
+	constGomaCacheHeader       = "X-Goma-Cache"
+	constGomaCacheMaxAgeHeader = "X-Goma-Cache-Max-Age"
 )
 
 var (

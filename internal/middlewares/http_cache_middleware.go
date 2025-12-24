@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"sync"
@@ -43,6 +44,9 @@ type HttpCacheConfig struct {
 	RedisBased               bool
 	DisableCacheStatusHeader bool
 	ExcludedResponseCodes    []int
+	CacheableStatusCodes     []int
+	IncludeQueryInKey        bool
+	QueryParamsToCache       []string
 }
 
 // Cache is a wrapper around the Redis client.
@@ -263,13 +267,15 @@ func (c *Cache) Delete(ctx context.Context, key string) error {
 // Middleware returns the middleware function.
 func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cacheKey := fmt.Sprintf("%s-%s", h.Name, r.URL.Path)
 		ctx := r.Context()
 
 		if !isPathMatching(r.URL.Path, h.Path, h.Paths) {
 			next.ServeHTTP(w, r)
 			return
 		}
+
+		// Generate cache key
+		cacheKey := h.generateCacheKey(r)
 
 		if r.Method == http.MethodGet {
 			maxStale := parseMaxStale(r.Header.Get("Cache-Control"))
@@ -278,9 +284,11 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 				}
 				writeCachedResponse(w, contentType, contentEncoding, response, ttl, h.DisableCacheStatusHeader)
-				logger.Debug("Cache: served from cache", "path", r.URL.Path)
+				logger.Debug("Cache: served from cache", "key", cacheKey)
 				return
 			}
+			w.Header().Set(constGomaCacheHeader, "MISS")
+			w.Header().Set(constGomaCacheMaxAgeHeader, fmt.Sprintf("%d", int(h.TTL.Seconds())))
 			if !h.DisableCacheStatusHeader {
 				w.Header().Set("X-Cache-Status", "MISS")
 				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", h.TTL.Seconds()))
@@ -290,8 +298,8 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(rec, r)
 
-		if isExcludedResponseCode(rec.statusCode, h.ExcludedResponseCodes) {
-			logger.Debug("StatusCode code excluded from caching", "status", rec.statusCode)
+		if !h.shouldCacheStatus(rec.statusCode) {
+			logger.Debug("Status code excluded from caching", "status", rec.statusCode)
 			return
 		}
 
@@ -323,12 +331,11 @@ func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *ht
 // writeCachedResponse writes a cached response to the client.
 func writeCachedResponse(w http.ResponseWriter, contentType, contentEncoding string, response []byte, ttl time.Duration, disableCacheStatusHeader bool) {
 	w.Header().Set("Content-Type", contentType)
-
+	w.Header().Set(constGomaCacheHeader, "HIT")
+	w.Header().Set(constGomaCacheMaxAgeHeader, fmt.Sprintf("%d", int(ttl.Seconds())))
 	if contentEncoding != "" {
 		w.Header().Set("Content-Encoding", contentEncoding)
 	}
-
-	w.Header().Set("Proxied-By", "Goma Gateway")
 	if !disableCacheStatusHeader {
 		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(ttl.Seconds())))
 		w.Header().Set("X-Cache-Status", "HIT")
@@ -338,11 +345,6 @@ func writeCachedResponse(w http.ResponseWriter, contentType, contentEncoding str
 	if err != nil {
 		logger.Error("Failed to write cached response", "error", err)
 	}
-}
-
-// isExcludedResponseCode checks if a status code is in the excluded list.
-func isExcludedResponseCode(statusCode int, excludedCodes []int) bool {
-	return len(excludedCodes) > 0 && slices.Contains(excludedCodes, statusCode)
 }
 
 // parseMaxStale extracts the max-stale value from the Cache-Control header
@@ -358,4 +360,77 @@ func parseMaxStale(cacheControl string) time.Duration {
 	}
 
 	return time.Duration(maxStale) * time.Second
+}
+func (h HttpCacheConfig) shouldCacheStatus(statusCode int) bool {
+	if len(h.CacheableStatusCodes) > 0 {
+		return slices.Contains(h.CacheableStatusCodes, statusCode)
+	}
+
+	excludedCodes := h.getExcludedStatusCodes()
+	return !slices.Contains(excludedCodes, statusCode)
+}
+
+// generateCacheKey creates a cache key with optional query parameter filtering
+func (h HttpCacheConfig) generateCacheKey(r *http.Request) string {
+	baseKey := fmt.Sprintf("%s-%s", h.Name, r.URL.Path)
+
+	if !h.IncludeQueryInKey {
+		return baseKey
+	}
+
+	query := r.URL.Query()
+
+	if len(h.QueryParamsToCache) == 0 {
+		queryString := query.Encode()
+		if queryString == "" {
+			return baseKey
+		}
+		return fmt.Sprintf("%s?%s", baseKey, queryString)
+	}
+
+	filteredQuery := url.Values{}
+	for _, param := range h.QueryParamsToCache {
+		if values, exists := query[param]; exists {
+			filteredQuery[param] = values
+		}
+	}
+
+	if len(filteredQuery) == 0 {
+		return baseKey
+	}
+
+	queryString := filteredQuery.Encode()
+	return fmt.Sprintf("%s?%s", baseKey, queryString)
+}
+
+// getExcludedStatusCodes returns the list of status codes to exclude from caching
+func (h HttpCacheConfig) getExcludedStatusCodes() []int {
+	if len(h.ExcludedResponseCodes) > 0 {
+		return h.ExcludedResponseCodes
+	}
+
+	return []int{
+		// Client errors
+		http.StatusBadRequest,       // 400
+		http.StatusUnauthorized,     // 401
+		http.StatusPaymentRequired,  // 402
+		http.StatusForbidden,        // 403
+		http.StatusNotFound,         // 404
+		http.StatusMethodNotAllowed, // 405
+		http.StatusConflict,         // 409
+		http.StatusGone,             // 410
+		http.StatusTooManyRequests,  // 429
+
+		// Server errors
+		http.StatusInternalServerError, // 500
+		http.StatusNotImplemented,      // 501
+		http.StatusBadGateway,          // 502
+		http.StatusServiceUnavailable,  // 503
+		http.StatusGatewayTimeout,      // 504
+
+		http.StatusMovedPermanently,  // 301
+		http.StatusFound,             // 302
+		http.StatusTemporaryRedirect, // 307
+		http.StatusPermanentRedirect, // 308
+	}
 }

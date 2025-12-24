@@ -1,5 +1,5 @@
 ---
-title: Access Log Middleware
+title: Access Log
 layout: default
 parent: Middlewares
 nav_order: 18
