@@ -174,20 +174,6 @@ func isJson(s string) bool {
 	return err == nil
 }
 
-// Helper function to determine the scheme (http or https)
-func scheme(r *http.Request) string {
-	// Check if the request is behind a reverse proxy
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
-		return strings.ToLower(proto)
-	}
-	// Check if the request is using TLS
-	if r.TLS != nil {
-		return "https"
-	}
-	// Default to HTTP
-	return "http"
-}
-
 // checkRegexMatch checks if the given string matches any regex pattern from the list.
 func checkRegexMatch(input string, patterns []string) (bool, string, error) {
 	for _, pattern := range patterns {
