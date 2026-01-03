@@ -483,6 +483,26 @@ func (r RedirectSchemeRuleMiddleware) validate() error {
 	return nil
 }
 
+// validate validates RedirectSchemeRuleMiddleware
+func (r RedirectRuleMiddleware) validate() error {
+	if r.Url == "" {
+		return fmt.Errorf("error parsing yaml: empty Url in redirect middlewares")
+
+	}
+	return nil
+}
+
+func (r RedirectRegexRuleMiddleware) validate() error {
+	if r.Pattern == "" {
+		return fmt.Errorf("error parsing yaml: empty Pattern in redirectRegex middlewares")
+
+	}
+	if r.Replacement == "" {
+		return fmt.Errorf("error parsing yaml: empty Replacement in redirectRegex middlewares")
+	}
+	return nil
+}
+
 // validate validates BasicRuleMiddleware
 func (u UserAgentBlockRuleMiddleware) validate() error {
 	if len(u.UserAgents) == 0 {

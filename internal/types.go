@@ -274,6 +274,15 @@ type RedirectSchemeRuleMiddleware struct {
 	Port      int64  `yaml:"port"`
 	Permanent bool   `yaml:"permanent,omitempty"`
 }
+type RedirectRuleMiddleware struct {
+	Url       string `yaml:"url,omitempty"`
+	Permanent bool   `yaml:"permanent,omitempty"`
+}
+type RedirectRegexRuleMiddleware struct {
+	Pattern     string `yaml:"pattern"`
+	Replacement string `yaml:"replacement"`
+	Permanent   bool   `yaml:"permanent,omitempty"`
+}
 type BodyLimitRuleMiddleware struct {
 	Limit string `yaml:"limit"`
 }

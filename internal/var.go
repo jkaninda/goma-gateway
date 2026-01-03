@@ -61,6 +61,7 @@ var (
 		string(rewriteRegex),
 		string(forwardAuth),
 		string(httpCache),
+		string(redirect),
 		string(redirectScheme),
 		string(bodyLimit),
 		string(userAgentBlock),
