@@ -25,20 +25,20 @@ import (
 // Middleware defines the route middlewares configuration.
 type Middleware struct {
 	// Name specifies the unique name of the middleware.
-	Name string `yaml:"name"`
+	Name string `yaml:"name" json:"name"`
 
 	// Type indicates the type of middleware.
 	// Supported types: "basic", "jwt", "oauth", "rateLimit", "access", "accessPolicy.
-	Type MiddlewareType `yaml:"type"`
+	Type MiddlewareType `yaml:"type" json:"type"`
 
 	// Paths lists the routes or paths that this middleware will protect.
-	Paths []string `yaml:"paths,omitempty"`
+	Paths []string `yaml:"paths,omitempty" json:"paths,omitempty"`
 
 	// Rule represents the specific configuration or rules for the middleware.
 	// The structure of Rule depends on the middleware Type. For example:
 	// - "rateLimit" might use a struct defining rate limits.
 	// - "accessPolicy" could use a struct specifying accessPolicy control rules.
-	Rule interface{} `yaml:"rule,omitempty"`
+	Rule interface{} `yaml:"rule,omitempty" json:"rule,omitempty"`
 }
 
 type MiddlewareType string

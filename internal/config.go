@@ -91,7 +91,7 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 
 	}
 	logger.Info("Generating new configuration file...")
-	// check if config Directory does exist
+	// check if config Path does exist
 	if !util.FolderExists(ConfigDir) {
 		err := os.MkdirAll(ConfigDir, os.ModePerm)
 		if err != nil {

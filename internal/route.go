@@ -26,39 +26,39 @@ import (
 // Route defines a gateway route configuration.
 type Route struct {
 	// Name provides a descriptive name for the route.
-	Name string `yaml:"name"`
+	Name string `yaml:"name" json:"name"`
 	// Path specifies the route's path.
-	Path string `yaml:"path"`
+	Path string `yaml:"path" json:"path"`
 	// Rewrite rewrites the incoming request path to a desired path.
 	//
 	// For example, `/cart` to `/` rewrites `/cart` to `/`.
-	Rewrite string `yaml:"rewrite,omitempty"`
+	Rewrite string `yaml:"rewrite,omitempty" json:"rewrite,omitempty"`
 	// Priority, Determines route matching order
-	Priority int `yaml:"priority,omitempty"`
+	Priority int `yaml:"priority,omitempty" json:"priority,omitempty"`
 	// Disabled specifies whether the route is disabled.
 	// Deprecated, use Enabled
 	Disabled bool `yaml:"disabled,omitempty"`
 	// Enabled specifies whether the route is enabled.
-	Enabled bool `yaml:"enabled,omitempty" default:"true"`
+	Enabled bool `yaml:"enabled,omitempty" default:"true" json:"enabled,omitempty"`
 	// Hosts lists domains or hosts for request routing.
-	Hosts []string `yaml:"hosts"`
+	Hosts []string `yaml:"hosts" json:"hosts"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
 	// Deprecated, use responseHeaders middleware type
-	Cors Cors `yaml:"cors,omitempty"`
+	Cors Cors `yaml:"cors,omitempty" json:"cors,omitempty"`
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
-	Methods []string `yaml:"methods"`
+	Methods []string `yaml:"methods" json:"methods"`
 	// Destination defines the primary backend URL for this route.
 	// Deprecated, use Target
-	Destination string `yaml:"destination,omitempty"`
+	Destination string `yaml:"destination,omitempty" json:"destination,omitempty"`
 	// Target defines the primary backend URL for this route.
-	Target string `yaml:"target,omitempty"`
+	Target string `yaml:"target,omitempty" json:"target,omitempty"`
 	// Backends specifies a list of backend URLs for load balancing.
-	Backends Backends `yaml:"backends,omitempty"`
+	Backends Backends `yaml:"backends,omitempty" json:"backends,omitempty"`
 	// InsecureSkipVerify disables SSL/TLS verification for the backend.
 	// Deprecated, use security
-	InsecureSkipVerify bool `yaml:"insecureSkipVerify,omitempty"`
+	InsecureSkipVerify bool `yaml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify,omitempty"`
 	// HealthCheck contains configuration for monitoring the health of backends.
-	HealthCheck RouteHealthCheck `yaml:"healthCheck,omitempty"`
+	HealthCheck RouteHealthCheck `yaml:"healthCheck,omitempty" json:"healthCheck,omitempty"`
 	// DisableHostForwarding disables the forwarding of host-related headers.
 	//
 	// The headers affected are:
@@ -69,25 +69,25 @@ type Route struct {
 	//
 	// If disabled, the backend may not match routes correctly.
 	// Deprecated, use security.forwardHostHeaders
-	DisableHostForwarding bool `yaml:"disableHostForwarding,omitempty"`
+	DisableHostForwarding bool `yaml:"disableHostForwarding,omitempty" json:"disableHostForwarding,omitempty"`
 	// ErrorInterceptor provides configuration for handling backend errors.
 	// Deprecated, use errorInterceptor middleware
-	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
+	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty" json:"errorInterceptor,omitempty"`
 	// BlockCommonExploits
 	// Deprecated
-	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty"`
+	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty" json:"blockCommonExploits,omitempty"`
 	// Maintenance puts the route in maintenance mode.
 	// When enabled, requests to this route return the configured response
 	// instead of being forwarded to the backend.
-	Maintenance Maintenance `yaml:"maintenance,omitempty"`
+	Maintenance Maintenance `yaml:"maintenance,omitempty" json:"maintenance,omitempty"`
 
 	// TLS contains the TLS configuration for the route.
-	TLS      TLS      `yaml:"tls,omitempty"`
-	Security Security `yaml:"security,omitempty"`
+	TLS      TLS      `yaml:"tls,omitempty" json:"tls,omitempty"`
+	Security Security `yaml:"security,omitempty" json:"security,omitempty"`
 	// DisableMetrics disables metrics collection for this route.
-	DisableMetrics bool `yaml:"disableMetrics,omitempty"`
+	DisableMetrics bool `yaml:"disableMetrics,omitempty" json:"disableMetrics,omitempty"`
 	// Middlewares lists middleware names to apply to this route.
-	Middlewares      []string                           `yaml:"middlewares"`
+	Middlewares      []string                           `yaml:"middlewares" json:"middlewares"`
 	logRule          *LogEnrichRule                     `yaml:"-"`
 	responseHeaders  []ResponseHeader                   `yaml:"-"`
 	errorInterceptor *middlewares.RouteErrorInterceptor `yaml:"-"`
@@ -102,12 +102,12 @@ type ExtraMiddleware struct {
 	Middlewares []Middleware `yaml:"middlewares"`
 }
 type TLS struct {
-	Keys []TLSKey `yaml:"keys,omitempty"`
+	Keys []TLSKey `yaml:"keys,omitempty" json:"keys,omitempty"`
 }
 
 type TLSKey struct {
-	Cert string `yaml:"cert"`
-	Key  string `yaml:"key"`
+	Cert string `yaml:"cert" json:"cert"`
+	Key  string `yaml:"key" json:"key"`
 }
 
 // Backend defines backend server to route traffic to
@@ -115,25 +115,25 @@ type Backend struct {
 	// unavailable defines backend server availability
 	unavailable bool
 	// Endpoint defines the endpoint of the backend
-	Endpoint string `yaml:"endpoint,omitempty"`
+	Endpoint string `yaml:"endpoint,omitempty" json:"endpoint"`
 	// Weight defines Weight for weighted algorithm, it optional
-	Weight    int            `yaml:"weight,omitempty"`
-	Match     []BackendMatch `yaml:"match,omitempty"`
-	Exclusive bool           `yaml:"exclusive,omitempty"`
+	Weight    int            `yaml:"weight,omitempty" json:"weight,omitempty"`
+	Match     []BackendMatch `yaml:"match,omitempty" json:"match,omitempty"`
+	Exclusive bool           `yaml:"exclusive,omitempty" json:"exclusive"`
 }
 
 type Security struct {
-	ForwardHostHeaders      bool        `yaml:"forwardHostHeaders" default:"true"`
-	EnableExploitProtection bool        `yaml:"enableExploitProtection"`
-	TLS                     SecurityTLS `yaml:"tls"`
+	ForwardHostHeaders      bool        `yaml:"forwardHostHeaders" json:"forwardHostHeaders" default:"true"`
+	EnableExploitProtection bool        `yaml:"enableExploitProtection" json:"enableExploitProtection"`
+	TLS                     SecurityTLS `yaml:"tls" json:"tls"`
 }
 type SecurityTLS struct {
 	// Deprecated
 	SkipVerification   bool   `yaml:"SkipVerification,omitempty"`
-	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
-	RootCAs            string `yaml:"rootCAs,omitempty"`
-	ClientCert         string `yaml:"clientCert,omitempty"`
-	ClientKey          string `yaml:"clientKey,omitempty"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify,omitempty"`
+	RootCAs            string `yaml:"rootCAs,omitempty" json:"rootCAs,omitempty"`
+	ClientCert         string `yaml:"clientCert,omitempty" json:"clientCert,omitempty"`
+	ClientKey          string `yaml:"clientKey,omitempty" json:"clientKey,omitempty"`
 }
 
 // Backends defines List of backend servers to route traffic to
@@ -193,10 +193,10 @@ func (r *Route) initMTLS() (*tls.Certificate, *x509.CertPool, error) {
 }
 
 type BackendMatch struct {
-	Source   SourceType   `yaml:"source"`
-	Name     string       `yaml:"name"`
-	Operator OperatorType `yaml:"operator"`
-	Value    string       `yaml:"value"`
+	Source   SourceType   `yaml:"source" json:"source"`
+	Name     string       `yaml:"name" json:"name"`
+	Operator OperatorType `yaml:"operator" json:"operator"`
+	Value    string       `yaml:"value" json:"value"`
 }
 type SourceType string
 type OperatorType string

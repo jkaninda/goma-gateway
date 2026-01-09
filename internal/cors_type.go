@@ -26,33 +26,33 @@ import (
 // Cors defines the configuration structure for Cross-Origin Resource Sharing (CORS) settings
 type Cors struct {
 	// Enabled indicates whether CORS is enabled for the resource
-	Enabled bool `yaml:"enabled"`
+	Enabled bool `yaml:"enabled" json:"enabled"`
 	// Origins specify which origins are allowed to access the resource.
 	// Examples:
 	// - http://localhost:80
 	// - https://example.com
 	// - * (wildcard - allows all origins, cannot be used with AllowCredentials=true)
-	Origins []string `yaml:"origins"`
+	Origins []string `yaml:"origins" json:"origins"`
 
 	// AllowedHeaders defines which request headers are permitted in actual requests
-	AllowedHeaders []string `yaml:"allowedHeaders"`
+	AllowedHeaders []string `yaml:"allowedHeaders" json:"allowedHeaders"`
 
 	// Headers contains custom headers to be set in the response
 	// Deprecated, use responseHeaders middleware type
-	Headers map[string]string `yaml:"headers"`
+	Headers map[string]string `yaml:"headers" json:"headers"`
 
 	// ExposeHeaders indicates which response headers can be exposed to the client
-	ExposeHeaders []string `yaml:"exposeHeaders"`
+	ExposeHeaders []string `yaml:"exposeHeaders" json:"exposeHeaders"`
 
 	// MaxAge defines how long (in seconds) the results of a preflight request can be cached
 	// Default: 86400 (24 hours), Maximum: 86400 (some browsers enforce this)
-	MaxAge int `yaml:"maxAge"`
+	MaxAge int `yaml:"maxAge" json:"maxAge"`
 
 	// AllowMethods lists the HTTP methods permitted for cross-origin requests
-	AllowMethods []string `yaml:"allowMethods"`
+	AllowMethods []string `yaml:"allowMethods" json:"allowMethods"`
 
 	// AllowCredentials indicates whether the response can include credentials (cookies, HTTP auth)
-	AllowCredentials bool `yaml:"allowCredentials"`
+	AllowCredentials bool `yaml:"allowCredentials" json:"allowCredentials"`
 }
 
 func (cors *Cors) isZero() bool {

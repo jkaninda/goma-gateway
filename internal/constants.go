@@ -97,4 +97,9 @@ const (
 const (
 	constHTTPProtocol  = "http"
 	constHTTPSProtocol = "https"
+	constJsonExt       = ".json"
+	constYamlExt       = ".yaml"
+	constYmlExt        = ".yml"
+	constYaml          = "yaml"
+	constJson          = "json"
 )
