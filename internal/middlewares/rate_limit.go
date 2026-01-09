@@ -24,6 +24,7 @@ import (
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/gorilla/mux"
 	"github.com/redis/go-redis/v9"
+	"math"
 	"net"
 	"net/http"
 	"strings"
@@ -34,6 +35,7 @@ import (
 // RateLimiter defines requests limit properties.
 type RateLimiter struct {
 	requests    int
+	burst       int
 	unit        string
 	id          string
 	clientMap   map[string]*Client
@@ -71,6 +73,9 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 		window = time.Second
 	}
 
+	// Calculate refill rate (tokens per second)
+	refillRate := float64(rl.requests) / window.Seconds()
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			contentType := getContentType(r)
@@ -79,6 +84,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 				next.ServeHTTP(w, r)
 				return
 			}
+
 			// Get client identifier based on key strategy
 			clientIdentifier := rl.getClientIdentifier(r)
 			if clientIdentifier == "" {
@@ -87,6 +93,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 				return
 			}
 			logger.Debug("RateLimit:: Request path matched", "url", r.URL, "identifier", clientIdentifier)
+
 			// Check if the client is banned
 			if rl.banAfter > 0 && rl.banDuration > 0 {
 				if ok, banUntil := rl.isBanned(clientIdentifier); ok {
@@ -96,9 +103,9 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 				}
 			}
 
-			// Redis-based rate limiting
+			// Redis-based rate limiting with burst
 			if rl.redisBased && rl.redis != nil {
-				if err := rl.redisRateLimiter(clientIdentifier); err != nil {
+				if err := rl.redisRateLimiterWithBurst(clientIdentifier); err != nil {
 					rl.registerStrike(clientIdentifier)
 					logger.Debug("RateLimit:: Too many requests", "identifier", clientIdentifier, "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
 					logger.Warn("Too many requests", "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
@@ -106,25 +113,43 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 					return
 				}
 			} else {
+				// Memory-based rate limiting with token bucket algorithm
 				rl.mu.Lock()
 				client, exists := rl.clientMap[clientIdentifier]
 				now := time.Now()
 
-				if !exists || now.After(client.ExpiresAt) {
+				if !exists {
+					// New client: start with full burst capacity
+					burstCapacity := rl.requests + rl.burst
 					client = &Client{
-						RequestCount: 1,
+						RequestCount: 0,
 						ExpiresAt:    now.Add(window),
+						Tokens:       float64(burstCapacity),
+						LastRefill:   now,
 					}
 					rl.clientMap[clientIdentifier] = client
 				} else {
-					client.RequestCount++
-				}
-				count := client.RequestCount
-				rl.mu.Unlock()
+					// Refill tokens based on time elapsed
+					elapsed := now.Sub(client.LastRefill).Seconds()
+					tokensToAdd := elapsed * refillRate
 
-				if count > rl.requests {
+					// Cap tokens at burst capacity
+					burstCapacity := float64(rl.requests + rl.burst)
+					client.Tokens = math.Min(client.Tokens+tokensToAdd, burstCapacity)
+					client.LastRefill = now
+				}
+
+				// Try to consume one token
+				if client.Tokens >= 1.0 {
+					client.Tokens -= 1.0
+					client.RequestCount++
+					rl.mu.Unlock()
+
+					logger.Debug("RateLimit:: Request allowed", "identifier", clientIdentifier, "tokens_remaining", client.Tokens)
+				} else {
+					rl.mu.Unlock()
 					rl.registerStrike(clientIdentifier)
-					logger.Debug("RateLimit:: Too many requests", "identifier", clientIdentifier, "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
+					logger.Debug("RateLimit:: Too many requests", "identifier", clientIdentifier, "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent(), "tokens", client.Tokens)
 					logger.Warn("Too many requests", "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
 
 					if allowedOrigin(rl.origins, r.Header.Get("Origin")) {
@@ -243,23 +268,28 @@ func (rl *RateLimiter) registerStrike(identifier string) {
 	}
 }
 
-// redisRateLimiter handles rate limiting with Redis.
-func (rl *RateLimiter) redisRateLimiter(key string) error {
+// redisRateLimiterWithBurst handles rate limiting with Redis using burst.
+func (rl *RateLimiter) redisRateLimiterWithBurst(key string) error {
 	var limit redis_rate.Limit
+	burst := rl.burst
 	switch rl.unit {
 	case "hour":
 		limit = redis_rate.PerHour(rl.requests)
+		limit.Burst = rl.requests + burst
 	case "minute":
 		limit = redis_rate.PerMinute(rl.requests)
+		limit.Burst = rl.requests + burst
 	default:
 		limit = redis_rate.PerSecond(rl.requests)
+		limit.Burst = rl.requests + burst
 	}
 
-	res, err := limiter.Allow(rl.ctx, key, limit)
+	// AllowN with n=1 (consume 1 token)
+	res, err := limiter.AllowN(rl.ctx, key, limit, 1)
 	if err != nil {
 		return err
 	}
-	if res.Remaining == 0 {
+	if res.Allowed == 0 {
 		return errors.New("requests limit exceeded")
 	}
 	return nil

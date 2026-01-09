@@ -332,6 +332,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 			Path:       route.Path,
 			Id:         goutils.Slug(route.Name),
 			Requests:   rule.RequestsPerUnit,
+			Burst:      rule.Burst,
 			Origins:    route.Cors.Origins,
 			Hosts:      route.Hosts,
 			RedisBased: redisBased,
