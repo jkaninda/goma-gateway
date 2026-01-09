@@ -150,6 +150,7 @@ type OauthEndpoint struct {
 type RateLimitRuleMiddleware struct {
 	Unit            string                   `yaml:"unit"`
 	RequestsPerUnit int                      `yaml:"requestsPerUnit"`
+	Burst           int                      `yaml:"burst" json:"burst"`
 	BanAfter        int                      `yaml:"banAfter,omitempty"`    // Ban IP after this many failed requests
 	BanDuration     string                   `yaml:"banDuration,omitempty"` // Duration to ban IP
 	KeyStrategy     RateLimitRuleKeyStrategy `yaml:"keyStrategy,omitempty"`

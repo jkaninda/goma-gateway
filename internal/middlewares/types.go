@@ -30,12 +30,15 @@ import (
 type Client struct {
 	RequestCount int
 	ExpiresAt    time.Time
+	Tokens       float64
+	LastRefill   time.Time
 }
 type RateLimit struct {
 	Id          string
 	Unit        string
 	Path        string
 	Requests    int
+	Burst       int
 	Origins     []string
 	Hosts       []string
 	RedisBased  bool
@@ -52,6 +55,7 @@ func (rateLimit RateLimit) NewRateLimiterWindow() *RateLimiter {
 		id:          rateLimit.Id,
 		unit:        rateLimit.Unit,
 		requests:    rateLimit.Requests,
+		burst:       rateLimit.Burst,
 		clientMap:   make(map[string]*Client),
 		origins:     rateLimit.Origins,
 		redisBased:  rateLimit.RedisBased,

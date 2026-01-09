@@ -21,6 +21,7 @@ middlewares:
     rule:
       unit: minute
       requestsPerUnit: 60
+      burst: 100
 ```
 
 ### Parameters
