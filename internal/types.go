@@ -28,9 +28,9 @@ import (
 )
 
 type BasicRuleMiddleware struct {
-	Realm           string `yaml:"realm,omitempty"`
-	ForwardUsername bool   `yaml:"forwardUsername"`
-	Users           Users  `yaml:"users"`
+	Realm           string `yaml:"realm,omitempty" json:"realm"`
+	ForwardUsername bool   `yaml:"forwardUsername" json:"forwardUsername"`
+	Users           Users  `yaml:"users" json:"users"`
 }
 type Users []middlewares.User
 
@@ -64,99 +64,99 @@ func (u *Users) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 type LdapRuleMiddleware struct {
-	Realm           string `yaml:"realm,omitempty"`
-	ForwardUsername bool   `yaml:"forwardUsername"`
+	Realm           string `yaml:"realm,omitempty" json:"realm"`
+	ForwardUsername bool   `yaml:"forwardUsername" json:"forwardUsername"`
 	ConnPool        struct {
-		Size  int    `yaml:"size"`
-		Burst int    `yaml:"burst"`
-		TTL   string `yaml:"ttl"`
+		Size  int    `yaml:"size" json:"size"`
+		Burst int    `yaml:"burst" json:"burst"`
+		TTL   string `yaml:"ttl" json:"ttl"`
 	} `yaml:"connPool,omitempty"`
-	URL                string `yaml:"url"`
-	BaseDN             string `yaml:"baseDN"`
-	BindDN             string `yaml:"bindDN"`
-	BindPass           string `yaml:"bindPass"`
-	UserFilter         string `yaml:"userFilter"`
-	StartTLS           bool   `yaml:"startTLS"`
-	InsecureSkipVerify bool   `yaml:"insecureSkipVerify"`
+	URL                string `yaml:"url" json:"url"`
+	BaseDN             string `yaml:"baseDN" json:"baseDN"`
+	BindDN             string `yaml:"bindDN" json:"bindDN"`
+	BindPass           string `yaml:"bindPass" json:"bindPass"`
+	UserFilter         string `yaml:"userFilter" json:"userFilter"`
+	StartTLS           bool   `yaml:"startTLS" json:"startTLS"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify" json:"insecureSkipVerify"`
 }
 type ForwardAuthRuleMiddleware struct {
-	AuthURL    string `yaml:"authUrl"`
-	AuthSignIn string `yaml:"authSignIn,omitempty"`
+	AuthURL    string `yaml:"authUrl" json:"authUrl"`
+	AuthSignIn string `yaml:"authSignIn,omitempty" json:"authSignIn"`
 	// Deprecated: Use ForwardHostHeaders instead
 	EnableHostForwarding bool `yaml:"enableHostForwarding,omitempty"`
-	ForwardHostHeaders   bool `yaml:"forwardHostHeaders,omitempty"`
+	ForwardHostHeaders   bool `yaml:"forwardHostHeaders,omitempty" json:"forwardHostHeaders"`
 	// Deprecated: Use SkipInsecureVerify instead
 	SkipInsecureVerify          bool     `yaml:"skipInsecureVerify,omitempty"`
-	InsecureSkipVerify          bool     `yaml:"insecureSkipVerify,omitempty"`
-	AuthRequestHeaders          []string `yaml:"authRequestHeaders,omitempty"`
-	AddAuthCookiesToResponse    []string `yaml:"addAuthCookiesToResponse,omitempty"`
-	AuthResponseHeaders         []string `yaml:"authResponseHeaders,omitempty"`
-	AuthResponseHeadersAsParams []string `yaml:"authResponseHeadersAsParams,omitempty"`
+	InsecureSkipVerify          bool     `yaml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify"`
+	AuthRequestHeaders          []string `yaml:"authRequestHeaders,omitempty" json:"authRequestHeaders"`
+	AddAuthCookiesToResponse    []string `yaml:"addAuthCookiesToResponse,omitempty" json:"addAuthCookiesToResponse"`
+	AuthResponseHeaders         []string `yaml:"authResponseHeaders,omitempty" json:"authResponseHeaders"`
+	AuthResponseHeadersAsParams []string `yaml:"authResponseHeadersAsParams,omitempty" json:"authResponseHeadersAsParams"`
 }
 type AddPrefixRuleMiddleware struct {
-	Prefix string `yaml:"prefix"`
+	Prefix string `yaml:"prefix" json:"prefix"`
 }
 type RewriteRegexRuleMiddleware struct {
-	Pattern     string `yaml:"pattern"`
-	Replacement string `yaml:"replacement"`
+	Pattern     string `yaml:"pattern" json:"pattern"`
+	Replacement string `yaml:"replacement" json:"replacement"`
 }
 
 // JWTRuleMiddleware authentication using HTTP GET method
 //
 // JWTRuleMiddleware contains the authentication details
 type JWTRuleMiddleware struct {
-	Alg                  string            `yaml:"alg,omitempty"`
-	Secret               string            `yaml:"secret,omitempty"`
-	PublicKey            string            `yaml:"publicKey,omitempty"`
-	Issuer               string            `yaml:"issuer,omitempty"`
-	Audience             string            `yaml:"audience,omitempty"`
-	JwksUrl              string            `yaml:"jwksUrl,omitempty"`
-	JwksFile             string            `yaml:"jwksFile,omitempty"`
-	ForwardAuthorization bool              `yaml:"forwardAuthorization,omitempty"`
-	ClaimsExpression     string            `yaml:"claimsExpression,omitempty"`
-	ForwardHeaders       map[string]string `yaml:"forwardHeaders,omitempty"`
+	Alg                  string            `yaml:"alg,omitempty" json:"alg"`
+	Secret               string            `yaml:"secret,omitempty" json:"secret"`
+	PublicKey            string            `yaml:"publicKey,omitempty" json:"publicKey"`
+	Issuer               string            `yaml:"issuer,omitempty" json:"issuer"`
+	Audience             string            `yaml:"audience,omitempty" json:"audience"`
+	JwksUrl              string            `yaml:"jwksUrl,omitempty" json:"jwksUrl"`
+	JwksFile             string            `yaml:"jwksFile,omitempty" json:"jwksFile"`
+	ForwardAuthorization bool              `yaml:"forwardAuthorization,omitempty" json:"forwardAuthorization"`
+	ClaimsExpression     string            `yaml:"claimsExpression,omitempty" json:"claimsExpression"`
+	ForwardHeaders       map[string]string `yaml:"forwardHeaders,omitempty" json:"forwardHeaders"`
 }
 type OauthRulerMiddleware struct {
 	// ClientID is the application's ID.
-	ClientID string `yaml:"clientId"`
+	ClientID string `yaml:"clientId" json:"clientId"`
 
 	// ClientSecret is the application's secret.
-	ClientSecret string `yaml:"clientSecret"`
+	ClientSecret string `yaml:"clientSecret" json:"clientSecret"`
 	// oauth provider google, gitlab, github, amazon, facebook, custom
-	Provider string `yaml:"provider"`
+	Provider string `yaml:"provider" json:"provider"`
 	// Endpoint contains the resource server's token endpoint
-	Endpoint OauthEndpoint `yaml:"endpoint"`
+	Endpoint OauthEndpoint `yaml:"endpoint" json:"endpoint"`
 
 	// RedirectURL is the URL to redirect users going through
 	// the OAuth flow, after the resource owner's URLs.
-	RedirectURL string `yaml:"redirectUrl"`
+	RedirectURL string `yaml:"redirectUrl" json:"redirectUrl"`
 	// RedirectPath is the PATH to redirect users after authentication, e.g: /my-protected-path/dashboard
-	RedirectPath string `yaml:"redirectPath"`
+	RedirectPath string `yaml:"redirectPath" json:"redirectPath"`
 	// CookiePath e.g: /my-protected-path or / || by default is applied on a route path
-	CookiePath string `yaml:"cookiePath"`
+	CookiePath string `yaml:"cookiePath" json:"cookiePath"`
 
 	// Scope specifies optional requested permissions.
-	Scopes []string `yaml:"scopes"`
+	Scopes []string `yaml:"scopes" json:"scopes"`
 	// contains filtered or unexported fields
-	State string `yaml:"state"`
+	State string `yaml:"state" json:"state"`
 }
 type OauthEndpoint struct {
-	AuthURL     string `yaml:"authUrl"`
-	TokenURL    string `yaml:"tokenUrl"`
-	UserInfoURL string `yaml:"userInfoUrl"`
-	JwksURL     string `yaml:"jwksUrl"`
+	AuthURL     string `yaml:"authUrl" json:"authUrl"`
+	TokenURL    string `yaml:"tokenUrl" json:"tokenUrl"`
+	UserInfoURL string `yaml:"userInfoUrl" json:"userInfoUrl"`
+	JwksURL     string `yaml:"jwksUrl" json:"jwksUrl"`
 }
 
 type RateLimitRuleMiddleware struct {
-	Unit            string                   `yaml:"unit"`
-	RequestsPerUnit int                      `yaml:"requestsPerUnit"`
-	BanAfter        int                      `yaml:"banAfter,omitempty"`    // Ban IP after this many failed requests
-	BanDuration     string                   `yaml:"banDuration,omitempty"` // Duration to ban IP
-	KeyStrategy     RateLimitRuleKeyStrategy `yaml:"keyStrategy,omitempty"`
+	Unit            string                   `yaml:"unit" json:"unit"`
+	RequestsPerUnit int                      `yaml:"requestsPerUnit" json:"requestsPerUnit"`
+	BanAfter        int                      `yaml:"banAfter,omitempty" json:"banAfter"`       // Ban IP after this many failed requests
+	BanDuration     string                   `yaml:"banDuration,omitempty" json:"banDuration"` // Duration to ban IP
+	KeyStrategy     RateLimitRuleKeyStrategy `yaml:"keyStrategy,omitempty" json:"keyStrategy"`
 }
 type RateLimitRuleKeyStrategy struct {
-	Source string `yaml:"source"` // "ip", "header", "cookie"
-	Name   string `yaml:"name"`   // header name or cookie name
+	Source string `yaml:"source" json:"source"` // "ip", "header", "cookie"
+	Name   string `yaml:"name" json:"name"`     // header name or cookie name
 
 }
 
@@ -167,17 +167,17 @@ func (r *RateLimitRuleMiddleware) UnmarshalYAML(unmarshal func(interface{}) erro
 }
 
 type AccessRuleMiddleware struct {
-	StatusCode int `yaml:"statusCode,omitempty"` // HTTP Response code
+	StatusCode int `yaml:"statusCode,omitempty" json:"statusCode"` // HTTP Response code
 }
 
 type RouteHealthCheck struct {
-	Path            string `yaml:"path"`
-	Interval        string `yaml:"interval"`
-	Timeout         string `yaml:"timeout"`
-	HealthyStatuses []int  `yaml:"healthyStatuses"`
+	Path            string `yaml:"path" json:"path"`
+	Interval        string `yaml:"interval" json:"interval"`
+	Timeout         string `yaml:"timeout" json:"timeout"`
+	HealthyStatuses []int  `yaml:"healthyStatuses" json:"healthyStatuses"`
 }
 type GatewayConfig struct {
-	Version string `yaml:"version"`
+	Version string `yaml:"version" `
 	// Gateway holds Gateway config
 	Gateway Gateway `yaml:"gateway"`
 	// Middlewares holds proxy middlewares
@@ -241,11 +241,11 @@ type ExtraRouteConfig struct {
 
 // AccessPolicyRuleMiddleware access policy
 type AccessPolicyRuleMiddleware struct {
-	Action       string   `yaml:"action,omitempty"` // action, ALLOW or DENY
-	SourceRanges []string `yaml:"sourceRanges"`     //  list of Ips
+	Action       string   `yaml:"action,omitempty" json:"action"`   // action, ALLOW or DENY
+	SourceRanges []string `yaml:"sourceRanges" json:"sourceRanges"` //  list of Ips
 }
 type UserAgentBlockRuleMiddleware struct {
-	UserAgents []string `yaml:"userAgents"`
+	UserAgents []string `yaml:"userAgents" json:"userAgents"`
 }
 type ProxyMiddleware struct {
 	Name           string
@@ -260,41 +260,53 @@ type ProxyMiddleware struct {
 	headers        []ResponseHeader
 }
 type httpCacheRule struct {
-	MaxTtl                   int64    `yaml:"maxTtl"`
-	MaxStale                 int64    `yaml:"maxStale"`
-	DisableCacheStatusHeader bool     `yaml:"disableCacheStatusHeader,omitempty"`
-	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty"`
-	MemoryLimit              string   `yaml:"memoryLimit,omitempty"`
+	MaxTtl                   int64    `yaml:"maxTtl" json:"maxTtl"`
+	MaxStale                 int64    `yaml:"maxStale" json:"maxStale"`
+	DisableCacheStatusHeader bool     `yaml:"disableCacheStatusHeader,omitempty" json:"disableCacheStatusHeader"`
+	MemoryLimit              string   `yaml:"memoryLimit,omitempty" json:"memoryLimit"`
+	CacheableStatusCodes     []int    `yaml:"cacheableStatusCodes,omitempty" json:"cacheableStatusCodes"`
+	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty" json:"excludedResponseCodes"`
+	IncludeQueryInKey        bool     `yaml:"includeQueryInKey,omitempty" json:"includeQueryInKey"`
+	QueryParamsToCache       []string `yaml:"queryParamsToCache,omitempty" json:"queryParamsToCache"`
 }
 type RedirectSchemeRuleMiddleware struct {
-	Scheme    string `yaml:"scheme"`
-	Port      int64  `yaml:"port"`
-	Permanent bool   `yaml:"permanent,omitempty"`
+	Scheme    string `yaml:"scheme" json:"scheme"`
+	Port      int64  `yaml:"port" json:"port"`
+	Permanent bool   `yaml:"permanent,omitempty" json:"permanent"`
+}
+type RedirectRuleMiddleware struct {
+	Url       string `yaml:"url,omitempty" json:"url"`
+	Permanent bool   `yaml:"permanent,omitempty" json:"permanent"`
+}
+type RedirectRegexRuleMiddleware struct {
+	Pattern     string `yaml:"pattern" json:"pattern"`
+	Replacement string `yaml:"replacement" json:"replacement"`
+	Permanent   bool   `yaml:"permanent,omitempty" json:"permanent"`
 }
 type BodyLimitRuleMiddleware struct {
-	Limit string `yaml:"limit"`
+	Limit string `yaml:"limit" json:"limit"`
 }
 type contextKey string
 
 type LogEnrichRule struct {
-	Headers []string `yaml:"headers,omitempty"`
-	Query   []string `yaml:"query,omitempty"`
-	Cookies []string `yaml:"cookies,omitempty"`
+	Headers []string `yaml:"headers,omitempty" json:"headers"`
+	Query   []string `yaml:"query,omitempty" json:"query"`
+	Cookies []string `yaml:"cookies,omitempty" json:"cookies"`
 }
 
 // ResponseHeader defines the configuration structure for managing response headers
 // including CORS and custom security headers
 type ResponseHeader struct {
 	// Name specifies the unique name of the header policy (inherited from middleware)
-	Name string `yaml:"name,omitempty"`
+	Name string `yaml:"name,omitempty" json:"name"`
 
 	// MatchedPath stores the path pattern that matched this policy (used for sorting by specificity)
 	MatchedPath string   `yaml:"-"`
-	Paths       []string `yaml:"paths"`
+	Paths       []string `yaml:"paths" json:"paths"`
 
 	// Cors contains CORS (Cross-Origin Resource Sharing) configuration
 	// When enabled, CORS headers will be added/override backend CORS headers
-	Cors *Cors `yaml:"cors,omitempty"`
+	Cors *Cors `yaml:"cors,omitempty" json:"cors"`
 
 	// SetHeaders contains headers to set or override in the response
 	// Behavior:
@@ -307,9 +319,17 @@ type ResponseHeader struct {
 	//   X-Content-Type-Options: "nosniff"    # Add or override
 	//   X-Powered-By: ""                     # Remove backend header
 	//   Server: ""                           # Remove backend header
-	SetHeaders map[string]string `yaml:"setHeaders,omitempty"`
+	SetHeaders map[string]string `yaml:"setHeaders,omitempty" json:"setHeaders"`
 	// SetCookies contains cookies to set in the response
-	SetCookies    []Cookie `yaml:"setCookies,omitempty"`
-	CacheControl  string   `yaml:"cacheControl,omitempty"`
-	CacheStatuses []int    `yaml:"cacheStatuses,omitempty"`
+	SetCookies    []Cookie `yaml:"setCookies,omitempty" json:"setCookies"`
+	CacheControl  string   `yaml:"cacheControl,omitempty" json:"cacheControl"`
+	CacheStatuses []int    `yaml:"cacheStatuses,omitempty" json:"cacheStatuses"`
+}
+
+// RetryPolicy defines retry behavior for a route
+type RetryPolicy struct {
+	MaxAttempts int           `json:"maxAttempts" yaml:"maxAttempts"`
+	Delay       time.Duration `json:"delay" yaml:"delay"`
+	MaxDelay    time.Duration `json:"maxDelay,omitempty" yaml:"maxDelay,omitempty"`
+	Backoff     string        `json:"backoff,omitempty" yaml:"backoff,omitempty"`
 }

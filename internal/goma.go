@@ -45,6 +45,7 @@ type Goma struct {
 	dynamicMiddlewares []Middleware
 	dynamicRoutes      []Route
 	pluginConfig       PluginConfig
+	providerManager    *ProviderManager
 }
 
 // Initialize initializes the routes
@@ -83,6 +84,17 @@ func (g *Goma) Initialize() error {
 		if len(extraRoutes) > 0 {
 			g.dynamicRoutes = append(g.dynamicRoutes, extraRoutes...)
 			logger.Debug("Extra routes loaded", "count", len(extraRoutes))
+		}
+	}
+	// Check if the provider is set
+	if g.providerManager.isConfigured() {
+		logger.Debug("Loading configuration from provider", "provider", g.providerManager.activeProvider())
+		if g.providerManager.configBundle != nil {
+			logger.Debug("Using cached configuration from provider", "provider", g.providerManager.activeProvider())
+			g.dynamicRoutes = append(g.dynamicRoutes, g.providerManager.configBundle.Routes...)
+			g.dynamicMiddlewares = append(g.dynamicMiddlewares, g.providerManager.configBundle.Middlewares...)
+			logger.Debug("Configuration loaded from provider", "routes", len(g.providerManager.configBundle.Routes), "middlewares", len(g.providerManager.configBundle.Middlewares))
+
 		}
 	}
 	// Attach default configurations
@@ -124,14 +136,14 @@ func (g *Goma) Initialize() error {
 		prometheusMetrics.GatewayRoutesCount.Set(float64(len(g.dynamicRoutes)))
 		prometheusMetrics.GatewayMiddlewaresCount.Set(float64(len(g.dynamicMiddlewares)))
 	}
-	// Certificate Manager
+	// Certificate ProviderManager
 	if certManager == nil {
-		logger.Debug("Creating certificate manager...")
+		logger.Debug("Creating certificate providerManager...")
 		certManager, err = certmanager.NewCertManager(g.certManager)
 		if err != nil {
-			logger.Error("Failed to create certificate manager", "error", err)
+			logger.Error("Failed to create certificate providerManager", "error", err)
 		} else {
-			logger.Debug("Certificate manager created successfully")
+			logger.Debug("Certificate providerManager created successfully")
 		}
 	}
 	// TLS certificates
@@ -341,4 +353,115 @@ func (g *Goma) registerPlugins() {
 	}
 
 	logger.Debug("Plugins registration completed", "count", len(g.plugins))
+}
+func (g *Goma) configureProviderManager() error {
+	// Initialize Provider ProviderManager
+	logger.Debug("Initializing provider providerManager...")
+	g.providerManager = newManager()
+	// Initialize File Provider
+	if g.gateway.Providers.File != nil {
+		if g.gateway.Providers.File.Enabled {
+			if g.gateway.Providers.File.Directory == "" {
+				return fmt.Errorf("file provider directory is required")
+			}
+			provider, err := NewFileProvider(g.gateway.Providers.File, g.providerManager.stopCh)
+			if err != nil {
+				return fmt.Errorf("failed to initialize file provider: %w", err)
+			}
+			if err = g.providerManager.Register(provider); err != nil {
+				return fmt.Errorf("failed to register FileProviderType provider: %w", err)
+			}
+			logger.Debug("File provider initialized")
+			// Set active provider
+			if err = g.providerManager.SetActive(FileProviderType); err != nil {
+				return fmt.Errorf("failed to set active provider: %w", err)
+			}
+		}
+	}
+	// Initialize http provider
+	if g.gateway.Providers.HTTP != nil {
+		if g.gateway.Providers.HTTP.Enabled {
+			provider, err := NewHTTPProvider(g.gateway.Providers.HTTP)
+			if err != nil {
+				return fmt.Errorf("failed to initialize HTTP provider: %w", err)
+			}
+			if err = g.providerManager.Register(provider); err != nil {
+				return fmt.Errorf("failed to register HTTP provider: %w", err)
+			}
+			logger.Debug("HTTP provider initialized")
+			// Set active provider
+			if err = g.providerManager.SetActive(HttpProviderType); err != nil {
+				return fmt.Errorf("failed to set active provider: %w", err)
+			}
+		}
+	}
+	// Initialize git provider
+	if g.gateway.Providers.Git != nil {
+		if g.gateway.Providers.Git.Enabled {
+			provider, err := NewGitProvider(g.gateway.Providers.Git)
+			if err != nil {
+				return fmt.Errorf("failed to initialize git provider: %w", err)
+			}
+			if err = g.providerManager.Register(provider); err != nil {
+				return fmt.Errorf("failed to register GitProviderType provider: %w", err)
+			}
+			logger.Debug("Git provider initialized")
+			// Set active provider
+			if err = g.providerManager.SetActive(GitProviderType); err != nil {
+				return fmt.Errorf("failed to set active provider: %w", err)
+			}
+		}
+
+	}
+	if g.providerManager.hasActiveProvider() {
+		// Initial load
+		bundle, err := g.providerManager.Load(g.ctx)
+		if err != nil {
+			return err
+		}
+		g.providerManager.configBundle = bundle
+	}
+	return nil
+}
+func (g *Goma) watchProvider(r Router) {
+	if g.providerManager != nil && g.providerManager.hasActiveProvider() {
+		go func() {
+			logger.Debug("Starting provider watch", "provider", g.providerManager.activeProvider())
+			configCh, err := g.providerManager.Watch(g.ctx)
+			if err != nil {
+				logger.Error("Failed to watch provider", "error", err)
+				return
+			}
+			for {
+				select {
+				case <-g.providerManager.stopCh:
+					logger.Debug("Stopping provider watch", "provider", g.providerManager.activeProvider())
+					return
+				case bundle := <-configCh:
+					logger.Info("Configuration update received from provider", "provider", g.providerManager.activeProvider())
+					g.providerManager.configBundle = bundle
+					// Re-initialize routes
+					err = g.Initialize()
+					if err != nil {
+						logger.Error("Failed to re-initialize routes after provider update", "error", err)
+						continue
+					} else {
+						// Update the routes
+						logger.Debug("Updating routes")
+						r.UpdateHandler(g)
+					}
+				}
+			}
+		}()
+	}
+}
+func (g *Goma) stopProvider() error {
+	if g.providerManager != nil && g.providerManager.hasActiveProvider() {
+		// err := g.providerManager.active.Stop()
+		err := g.providerManager.StopAll()
+		if err != nil {
+			return fmt.Errorf("failed to stop providers: %w", err)
+		}
+	}
+	return nil
 }

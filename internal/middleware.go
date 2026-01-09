@@ -114,12 +114,16 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *mux.Router) {
 		applyAccessPolicyMiddleware(mid, *r, router)
 	case addPrefix:
 		applyAddPrefixMiddleware(mid, router)
-	case redirectRegex, rewriteRegex:
-		applyRewriteRegexMiddleware(mid, router)
-	case httpCache:
-		applyHttpCacheMiddleware(*r, mid, router)
+	case redirect:
+		applyRedirectMiddleware(mid, router)
 	case redirectScheme:
 		applyRedirectSchemeMiddleware(mid, router)
+	case rewriteRegex:
+		applyRewriteRegexMiddleware(mid, router)
+	case redirectRegex:
+		applyRedirectRegexMiddleware(mid, router)
+	case httpCache:
+		applyHttpCacheMiddleware(*r, mid, router)
 	case bodyLimit:
 		applyBodyLimitMiddleware(mid, router)
 	case userAgentBlock:
@@ -210,13 +214,45 @@ func applyRedirectSchemeMiddleware(mid Middleware, r *mux.Router) {
 		logger.Error("Invalid redirect scheme middleware configuration", "error", err)
 		return
 	}
-	redirect := &middlewares.RedirectScheme{
+	redirectSchemeM := &middlewares.RedirectScheme{
 		Scheme:    rule.Scheme,
 		Port:      rule.Port,
 		Permanent: rule.Permanent,
 	}
-
-	r.Use(redirect.Middleware)
+	r.Use(redirectSchemeM.Middleware)
+}
+func applyRedirectMiddleware(mid Middleware, r *mux.Router) {
+	var rule RedirectRuleMiddleware
+	if err := goutils.DeepCopy(&rule, mid.Rule); err != nil {
+		logger.Error("Failed to apply redirect scheme middleware: deep copy error", "error", err)
+		return
+	}
+	if err := rule.validate(); err != nil {
+		logger.Error("Invalid redirect scheme middleware configuration", "error", err)
+		return
+	}
+	redirectSchemeM := &middlewares.Redirect{
+		URL:       rule.Url,
+		Permanent: rule.Permanent,
+	}
+	r.Use(redirectSchemeM.Middleware)
+}
+func applyRedirectRegexMiddleware(mid Middleware, r *mux.Router) {
+	var rule RedirectRegexRuleMiddleware
+	if err := goutils.DeepCopy(&rule, mid.Rule); err != nil {
+		logger.Error("Failed to apply redirect scheme middleware: deep copy error", "error", err)
+		return
+	}
+	if err := rule.validate(); err != nil {
+		logger.Error("Invalid redirectRegex  middleware configuration", "error", err)
+		return
+	}
+	redirectSchemeM := &middlewares.RedirectRegex{
+		Pattern:     rule.Pattern,
+		Replacement: rule.Replacement,
+		Permanent:   rule.Permanent,
+	}
+	r.Use(redirectSchemeM.Middleware)
 }
 
 func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {

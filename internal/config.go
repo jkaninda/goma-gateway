@@ -91,7 +91,7 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 
 	}
 	logger.Info("Generating new configuration file...")
-	// check if config Directory does exist
+	// check if config Path does exist
 	if !util.FolderExists(ConfigDir) {
 		err := os.MkdirAll(ConfigDir, os.ModePerm)
 		if err != nil {
@@ -479,6 +479,26 @@ func (r RedirectSchemeRuleMiddleware) validate() error {
 	if r.Scheme == "" {
 		return fmt.Errorf("error parsing yaml: empty Scheme in redirectScheme middlewares")
 
+	}
+	return nil
+}
+
+// validate validates RedirectSchemeRuleMiddleware
+func (r RedirectRuleMiddleware) validate() error {
+	if r.Url == "" {
+		return fmt.Errorf("error parsing yaml: empty Url in redirect middlewares")
+
+	}
+	return nil
+}
+
+func (r RedirectRegexRuleMiddleware) validate() error {
+	if r.Pattern == "" {
+		return fmt.Errorf("error parsing yaml: empty Pattern in redirectRegex middlewares")
+
+	}
+	if r.Replacement == "" {
+		return fmt.Errorf("error parsing yaml: empty Replacement in redirectRegex middlewares")
 	}
 	return nil
 }

@@ -1,5 +1,5 @@
 ---
-title: Error Interceptor Middleware
+title: Error Interceptor
 layout: default
 parent: Middlewares
 nav_order: 17

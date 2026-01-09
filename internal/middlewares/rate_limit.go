@@ -74,30 +74,19 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			contentType := getContentType(r)
-
+			if len(rl.paths) > 0 && !isPathMatching(r.URL.Path, rl.path, rl.paths) {
+				logger.Debug("RateLimit:: Request path not subject to rate limiting", "url", r.URL)
+				next.ServeHTTP(w, r)
+				return
+			}
 			// Get client identifier based on key strategy
 			clientIdentifier := rl.getClientIdentifier(r)
 			if clientIdentifier == "" {
 				logger.Warn("RateLimit:: Unable to identify client", "url", r.URL)
-				RespondWithError(w, r, http.StatusBadRequest, "400 Bad Request: Unable to identify client", nil, contentType)
+				RespondWithError(w, r, http.StatusInternalServerError, "500 Bad Request: Unable to identify client", nil, contentType)
 				return
 			}
-
-			clientID := fmt.Sprintf("%s:%s", rl.id, clientIdentifier)
-
-			// Path-based rate limiting
-			if rl.pathBased && len(rl.paths) > 0 {
-				logger.Debug("RateLimit:: pathBased Processing request", "clientID", clientID, "url", r.URL, "path", rl.path, "paths", rl.paths, "request_path", r.URL.Path)
-				match, path := IsPathMatching(r.URL.Path, rl.path, rl.paths)
-				clientID = fmt.Sprintf("%s:%s:%s", path, rl.id, clientIdentifier)
-				logger.Debug("Path-based rate limiting", "path", path, "clientID", clientID)
-				// If the request path does not match any of the specified paths, skip rate limiting
-				if !match {
-					next.ServeHTTP(w, r)
-					return
-				}
-			}
-
+			logger.Debug("RateLimit:: Request path matched", "url", r.URL, "identifier", clientIdentifier)
 			// Check if the client is banned
 			if rl.banAfter > 0 && rl.banDuration > 0 {
 				if ok, banUntil := rl.isBanned(clientIdentifier); ok {
@@ -109,15 +98,16 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 
 			// Redis-based rate limiting
 			if rl.redisBased && rl.redis != nil {
-				if err := rl.redisRateLimiter(clientID); err != nil {
+				if err := rl.redisRateLimiter(clientIdentifier); err != nil {
 					rl.registerStrike(clientIdentifier)
-					logger.Warn("RateLimit:: Too many requests", "identifier", clientIdentifier, "url", r.URL, "user_agent", r.UserAgent())
+					logger.Debug("RateLimit:: Too many requests", "identifier", clientIdentifier, "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
+					logger.Warn("Too many requests", "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
 					RespondWithError(w, r, http.StatusTooManyRequests, "429 Too many requests. Try again later.", nil, contentType)
 					return
 				}
 			} else {
 				rl.mu.Lock()
-				client, exists := rl.clientMap[clientID]
+				client, exists := rl.clientMap[clientIdentifier]
 				now := time.Now()
 
 				if !exists || now.After(client.ExpiresAt) {
@@ -125,7 +115,7 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 						RequestCount: 1,
 						ExpiresAt:    now.Add(window),
 					}
-					rl.clientMap[clientID] = client
+					rl.clientMap[clientIdentifier] = client
 				} else {
 					client.RequestCount++
 				}
@@ -134,7 +124,8 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 
 				if count > rl.requests {
 					rl.registerStrike(clientIdentifier)
-					logger.Warn("RateLimit:: Too many requests", "identifier", clientIdentifier, "url", r.URL, "user_agent", r.UserAgent())
+					logger.Debug("RateLimit:: Too many requests", "identifier", clientIdentifier, "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
+					logger.Warn("Too many requests", "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
 
 					if allowedOrigin(rl.origins, r.Header.Get("Origin")) {
 						w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
@@ -149,46 +140,42 @@ func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
 	}
 }
 
-// getClientIdentifier extracts the client identifier based on the configured key strategy.
 func (rl *RateLimiter) getClientIdentifier(r *http.Request) string {
+	ip := rl.getIPAddress(r)
 	if rl.keyStrategy.Source == "" {
-		return rl.getIPAddress(r)
+		if len(rl.paths) > 0 {
+			logger.Debug("RateLimit:: Using route-based identifier", "route", rl.id)
+			return fmt.Sprintf("route:%s:ip:%s", rl.id, ip)
+		}
+		return fmt.Sprintf("global:ip:%s", ip)
 	}
-
 	switch strings.ToLower(rl.keyStrategy.Source) {
 	case "header":
 		if rl.keyStrategy.Name == "" {
 			logger.Warn("RateLimit:: Header name not specified, falling back to IP")
-
-			return rl.getIPAddress(r)
+			return fmt.Sprintf("ip:%s", ip)
 		}
-		logger.Debug("RateLimit:: Using header for rate limiting", "header", rl.keyStrategy.Name)
-		headerValue := r.Header.Get(rl.keyStrategy.Name)
-		if headerValue == "" {
-			logger.Debug("RateLimit:: Header not found, falling back to IP", "header", rl.keyStrategy.Name)
-			return rl.getIPAddress(r)
+		value := strings.TrimSpace(r.Header.Get(rl.keyStrategy.Name))
+		if value == "" {
+			return fmt.Sprintf("ip:%s", ip)
 		}
-		headerValue = strings.TrimSpace(headerValue)
-		return fmt.Sprintf("header:%s:%s", rl.keyStrategy.Name, headerValue)
+		return fmt.Sprintf("header:%s:value:%s", rl.keyStrategy.Name, value)
 
 	case "cookie":
 		if rl.keyStrategy.Name == "" {
 			logger.Warn("RateLimit:: Cookie name not specified, falling back to IP")
-			return rl.getIPAddress(r)
+			return fmt.Sprintf("ip:%s", ip)
 		}
-		logger.Debug("RateLimit:: Using cookie for rate limiting", "cookie", rl.keyStrategy.Name)
 		cookie, err := r.Cookie(rl.keyStrategy.Name)
 		if err != nil || cookie.Value == "" {
-			logger.Debug("RateLimit:: Cookie not found, falling back to IP", "cookie", rl.keyStrategy.Name)
-			return rl.getIPAddress(r)
+			return fmt.Sprintf("ip:%s", ip)
 		}
-		cookieValue := strings.TrimSpace(cookie.Value)
-		return fmt.Sprintf("cookie:%s:%s", rl.keyStrategy.Name, cookieValue)
+		return fmt.Sprintf("cookie:%s:value:%s", rl.keyStrategy.Name, strings.TrimSpace(cookie.Value))
 
 	case "ip":
 		fallthrough
 	default:
-		return rl.getIPAddress(r)
+		return fmt.Sprintf("ip:%s", ip)
 	}
 }
 
@@ -198,7 +185,7 @@ func (rl *RateLimiter) getIPAddress(r *http.Request) string {
 	if err != nil {
 		clientIP = RealIP(r)
 	}
-	return fmt.Sprintf("ip:%s", clientIP)
+	return clientIP
 }
 
 func (rl *RateLimiter) isBanned(identifier string) (bool, time.Time) {

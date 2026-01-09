@@ -89,6 +89,10 @@ security:
 
 The `cors` section allows you to control Cross-Origin Resource Sharing behavior for each route. This is essential for enabling secure cross-origin requests from web applications.
 
+{: .warning }
+The CORS configuration method described here is deprecated since Goma Gateway `v0.6.0` and will be removed in future releases. It is recommended to use the `responseHeaders` middleware with CORS settings for new configurations.
+
+
 Configure per-route CORS settings:
 
 ### Configuration Fields
@@ -248,14 +252,6 @@ gateway:
         interval: 30s
         timeout: 5s
         healthyStatuses: [200, 404]
-      errorInterceptor:
-        enabled: true
-        contentType: "application/json"
-        errors:
-          - statusCode: 401
-            body: ""
-          - statusCode: 500
-            body: "Internal server error"
       middlewares:
         - api-forbidden-paths
         - jwt-auth

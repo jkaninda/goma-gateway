@@ -73,6 +73,8 @@ Specify the log output format with `format`.
 }
 ```
 
+> If you want to add a custom field to the log output, consider using middleware like `accessLog` to include additional context.
+
 ---
 
 ## Setting the Log Level

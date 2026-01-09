@@ -12,7 +12,7 @@ Goma Gateway supports **Mutual TLS (mTLS)** authentication **when connecting to 
 In this mode, Goma Gateway acts as the **client**, authenticating itself to the backend server using a client certificate while also verifying the backend’s certificate for authenticity.
 
 > **Note:**
-> Goma Gateway does **not** support accepting inbound mTLS connections from external clients.
+> Goma Gateway does **not** support accepting inbound mTLS connections from external clients, we are working on this feature for a future release.
 > mTLS is only applied **between Goma Gateway and upstream backends**.
 
 ---

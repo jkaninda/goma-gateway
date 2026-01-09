@@ -10,6 +10,9 @@ nav_order: 5
 
 The **Error Interceptor** feature allows you to customize backend error responses by intercepting specific HTTP status codes and returning user-defined content. This is useful for presenting consistent and user-friendly error messages to clients.
 
+{: .warning }
+The Error Interceptor configuration method described here is deprecated since Goma Gateway `v0.6.0` and will be removed in future releases. It is recommended to use the `errorInteceptor` middleware with error interception settings for new configurations.
+
 ---
 
 ### Configuration Options

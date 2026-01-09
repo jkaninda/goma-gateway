@@ -42,6 +42,8 @@ type Gateway struct {
 	Timeouts Timeouts `yaml:"timeouts,omitempty"`
 	// EntryPoints of the server
 	EntryPoints EntryPoint `yaml:"entryPoints,omitempty"`
+	// Providers defines the configuration for various providers.
+	Providers Providers `yaml:"providers,omitempty"`
 
 	// Proxy defines how Goma Gateway behaves when running behind a reverse proxy or CDN (e.g., Cloudflare, Nginx, HAProxy, AWS ELB, Traefik, etc.)
 	Proxy config.ProxyConfig `yaml:"proxy,omitempty"`

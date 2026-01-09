@@ -50,11 +50,12 @@ const (
 	accessPolicy        MiddlewareType = "accessPolicy"
 	addPrefix           MiddlewareType = "addPrefix"
 	rateLimit           MiddlewareType = "rateLimit"
-	redirectRegex       MiddlewareType = "redirectRegex"
 	rewriteRegex        MiddlewareType = "rewriteRegex"
 	forwardAuth         MiddlewareType = "forwardAuth"
 	httpCache           MiddlewareType = "httpCache"
 	redirectScheme      MiddlewareType = "redirectScheme"
+	redirectRegex       MiddlewareType = "redirectRegex"
+	redirect            MiddlewareType = "redirect"
 	bodyLimit           MiddlewareType = "bodyLimit"
 	userAgentBlock      MiddlewareType = "userAgentBlock"
 	accessLog           MiddlewareType = "accessLog"
@@ -96,4 +97,9 @@ const (
 const (
 	constHTTPProtocol  = "http"
 	constHTTPSProtocol = "https"
+	constJsonExt       = ".json"
+	constYamlExt       = ".yaml"
+	constYmlExt        = ".yml"
+	constYaml          = "yaml"
+	constJson          = "json"
 )
