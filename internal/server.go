@@ -36,9 +36,13 @@ func (g *Goma) Start() error {
 	// Initialize redis if configured
 	g.initRedis()
 	defer g.closeRedis()
-
+	// Configure provider Manager
+	err := g.configureProviderManager()
+	if err != nil {
+		logger.Error("Failed to initialize provider Manager", "error", err)
+	}
 	logger.Info("Initializing routes...")
-	err := g.Initialize()
+	err = g.Initialize()
 	if err != nil {
 		logger.Fatal("Failed to initialize routes", "error", err)
 	}
@@ -86,12 +90,6 @@ func (g *Goma) Start() error {
 
 	// Start HTTP/HTTPS and proxy servers
 	g.startServers()
-
-	// Configure provider Manager
-	err = g.configureProviderManager()
-	if err != nil {
-		logger.Error("Failed to initialize provider Manager", "error", err)
-	}
 	// Handle graceful shutdown
 	return g.shutdown()
 }
