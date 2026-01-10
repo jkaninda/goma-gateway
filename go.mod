@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-acme/lego/v4 v4.30.1
+	github.com/go-acme/lego/v4 v4.31.0
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/go-ldap/ldap/v3 v3.4.12
 	github.com/go-redis/redis_rate/v10 v10.0.1
@@ -71,7 +71,7 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
-	google.golang.org/protobuf v1.36.10 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
