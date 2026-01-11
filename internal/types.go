@@ -27,6 +27,23 @@ import (
 	"time"
 )
 
+type TlsCertificates struct {
+	Certificates []TLS `yaml:"certificates,omitempty" json:"certificates,omitempty"`
+	// Keys
+	// Deprecated
+	Keys       []TLS         `yaml:"keys,omitempty" json:"keys,omitempty"`
+	ClientAuth TLSClientAuth `yaml:"clientAuth,omitempty" json:"clientAuth,omitempty"`
+	Default    TLS           `yaml:"default,omitempty" json:"default,omitempty"`
+}
+
+type TLS struct {
+	Cert string `yaml:"cert" json:"cert"`
+	Key  string `yaml:"key" json:"key"`
+}
+type TLSClientAuth struct {
+	ClientCA string `yaml:"clientCA" json:"clientCA"`
+	Required bool   `yaml:"required" json:"required"`
+}
 type BasicRuleMiddleware struct {
 	Realm           string `yaml:"realm,omitempty" json:"realm"`
 	ForwardUsername bool   `yaml:"forwardUsername" json:"forwardUsername"`

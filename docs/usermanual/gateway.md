@@ -322,7 +322,10 @@ gateway:
           -----BEGIN CERTIFICATE-----
           ...
         key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64
-
+    # Default cert
+    default:
+      cert: /etc/goma/default-cert.pem
+      key: /etc/goma/default-key.pem
   entryPoints:
     web:
       address: ":80"

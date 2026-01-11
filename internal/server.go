@@ -56,19 +56,11 @@ func (g *Goma) Start() error {
 	}
 
 	logger.Info("Initializing route completed", "routes_count", len(g.dynamicRoutes), "middlewares_count", len(g.dynamicMiddlewares))
-
-	// Configure TLS
-	tlsConfig := &tls.Config{
-		GetCertificate: certManager.GetCertificate,
-		NextProtos:     []string{"h2", "http/1.1", "acme-tls/1"},
-	}
-	// Generate default certificate
-	certificate, err := certManager.GenerateDefaultCertificate()
+	// Initialize tls config
+	err = g.initTlsConfig()
 	if err != nil {
 		return err
 	}
-	// Add default certificate
-	certManager.AddCertificate("default", *certificate)
 	printRoute(g.dynamicRoutes)
 	// Watch for changes
 	if g.gateway.ExtraConfig.Watch && len(g.gateway.ExtraConfig.Directory) > 0 {
@@ -83,7 +75,7 @@ func (g *Goma) Start() error {
 	// Validate entrypoint
 	g.gateway.EntryPoints.Validate()
 	g.webServer = g.createServer(webAddress, g.createHTTPHandler(newRouter), nil)
-	g.webSecureServer = g.createServer(webSecureAddress, newRouter, tlsConfig)
+	g.webSecureServer = g.createServer(webSecureAddress, newRouter, g.tlsConfig)
 
 	// Create pass through proxy instance
 	g.proxyServer = proxy.NewProxyServer(g.gateway.EntryPoints.PassThrough.Forwards, g.ctx, logger)

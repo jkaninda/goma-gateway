@@ -256,6 +256,9 @@ func (r *Route) handleDeprecations() {
 		r.TLS.Certificates = r.TLS.Keys
 		logger.Warn("Deprecation: Gateway: `tls.keys` is deprecated, please use `tls.certificates`")
 	}
+	if len(r.TLS.Certificates) > 0 {
+		logger.Warn("Deprecated: `route.tls` is deprecated, please use at the gateway config level `gateway.tls`")
+	}
 }
 
 func (g *Gateway) handleDeprecations() {

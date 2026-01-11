@@ -82,6 +82,7 @@ type Route struct {
 	Maintenance Maintenance `yaml:"maintenance,omitempty" json:"maintenance,omitempty"`
 
 	// TLS contains the TLS configuration for the route.
+	// Deprecated, use at gateway level
 	TLS      TlsCertificates `yaml:"tls,omitempty" json:"tls,omitempty"`
 	Security Security        `yaml:"security,omitempty" json:"security,omitempty"`
 	// DisableMetrics disables metrics collection for this route.
@@ -100,17 +101,6 @@ type ExtraRoute struct {
 type ExtraMiddleware struct {
 	// Routes holds proxy routes
 	Middlewares []Middleware `yaml:"middlewares"`
-}
-type TlsCertificates struct {
-	Certificates []TLS `yaml:"certificates,omitempty" json:"certificates,omitempty"`
-	// Keys
-	// Deprecated
-	Keys []TLS `yaml:"keys,omitempty" json:"keys,omitempty"`
-}
-
-type TLS struct {
-	Cert string `yaml:"cert" json:"cert"`
-	Key  string `yaml:"key" json:"key"`
 }
 
 // Backend defines backend server to route traffic to

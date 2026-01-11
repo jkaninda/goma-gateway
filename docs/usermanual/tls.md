@@ -46,6 +46,10 @@ gateway:
           -----BEGIN PRIVATE KEY-----
           <private-key content>
           -----END PRIVATE KEY-----
+    # Default cert
+    default:
+      cert: /etc/goma/default-cert.pem
+      key: /etc/goma/default-key.pem
   routes:
     - path: /
       name: secure-route
