@@ -36,9 +36,13 @@ func (g *Goma) Start() error {
 	// Initialize redis if configured
 	g.initRedis()
 	defer g.closeRedis()
-
+	// Configure provider Manager
+	err := g.configureProviderManager()
+	if err != nil {
+		logger.Error("Failed to initialize provider Manager", "error", err)
+	}
 	logger.Info("Initializing routes...")
-	err := g.Initialize()
+	err = g.Initialize()
 	if err != nil {
 		logger.Fatal("Failed to initialize routes", "error", err)
 	}
@@ -72,6 +76,8 @@ func (g *Goma) Start() error {
 		go g.watchExtraConfig(newRouter)
 
 	}
+	// Watch providers for changes
+	go g.watchProvider(newRouter)
 	// Start acme service
 	go startAutoCert(g.dynamicRoutes)
 	// Validate entrypoint
@@ -84,7 +90,6 @@ func (g *Goma) Start() error {
 
 	// Start HTTP/HTTPS and proxy servers
 	g.startServers()
-
 	// Handle graceful shutdown
 	return g.shutdown()
 }
@@ -149,6 +154,14 @@ func (g *Goma) shutdown() error {
 
 	shutdownCtx, cancel := context.WithTimeout(g.ctx, 10*time.Second)
 	defer cancel()
+	if g.providerManager != nil && g.providerManager.hasActiveProvider() {
+		// Stop providers
+		logger.Info("Stopping provider manager...")
+		if err := g.stopProvider(); err != nil {
+			logger.Error("Error shutting down providers", "error", err)
+		}
+	}
+	// shutdown HTTP/HTTPS servers
 	logger.Info("Shutting down HTTP/HTTPS servers")
 	if err := g.webServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Error shutting down HTTP server", "error", err)

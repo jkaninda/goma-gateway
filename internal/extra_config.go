@@ -56,3 +56,33 @@ func loadExtraFiles(path string) ([]string, error) {
 	}
 	return yamlFiles, nil
 }
+
+// loadExtraFiles loads route files in .yml, .yaml and .json format from the specified directory
+func loadAllFiles(path string) ([]string, error) {
+	var files []string
+
+	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Skip hidden directories
+		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+			return filepath.SkipDir
+		}
+
+		// Include .yaml, .yml or .json files
+		if !info.IsDir() && (filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml") || filepath.Ext(path) == ".json" {
+			files = append(files, path)
+		}
+
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
+			logger.Error("Error accessing directory", "path", path, "error", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error walking through directory %s: %w", path, err)
+	}
+	return files, nil
+}

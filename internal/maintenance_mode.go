@@ -23,9 +23,9 @@ import (
 )
 
 type Maintenance struct {
-	Enabled    bool   `yaml:"enabled"`
-	StatusCode int    `yaml:"statusCode,omitempty" default:"503"` // default HTTP 503
-	Message    string `yaml:"message,omitempty" default:"Service temporarily unavailable"`
+	Enabled    bool   `yaml:"enabled" json:"enabled"`
+	StatusCode int    `yaml:"statusCode,omitempty" json:"statusCode" default:"503"` // default HTTP 503
+	Message    string `yaml:"message,omitempty" json:"message" default:"Service temporarily unavailable"`
 }
 
 func (m *Maintenance) UnmarshalYAML(unmarshal func(interface{}) error) error {
