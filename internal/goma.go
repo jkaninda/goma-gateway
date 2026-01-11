@@ -19,6 +19,8 @@ package internal
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -32,20 +34,24 @@ import (
 )
 
 type Goma struct {
-	ctx                context.Context
-	webServer          *http.Server
-	webSecureServer    *http.Server
-	proxyServer        *proxy.PassThroughServer
-	certManager        *certmanager.Config
-	configFile         string
-	version            string
-	gateway            *Gateway
-	plugins            map[string]plugins.Middleware
-	middlewares        []Middleware
-	dynamicMiddlewares []Middleware
-	dynamicRoutes      []Route
-	pluginConfig       PluginConfig
-	providerManager    *ProviderManager
+	ctx                   context.Context
+	webServer             *http.Server
+	webSecureServer       *http.Server
+	proxyServer           *proxy.PassThroughServer
+	certManager           *certmanager.Config
+	configFile            string
+	version               string
+	gateway               *Gateway
+	plugins               map[string]plugins.Middleware
+	middlewares           []Middleware
+	dynamicMiddlewares    []Middleware
+	dynamicRoutes         []Route
+	pluginConfig          PluginConfig
+	providerManager       *ProviderManager
+	tlsCertPool           *x509.CertPool
+	tlsClientAuthRequired bool
+	tlsConfig             *tls.Config
+	defaultCertificate    *tls.Certificate
 }
 
 // Initialize initializes the routes
@@ -298,6 +304,32 @@ func (g *Goma) loadPlugins() error {
 		}
 		logger.Debug("Plugins loaded")
 	}
+	return nil
+}
+func (g *Goma) initTlsConfig() error {
+	// Configure TLS
+	g.tlsConfig = &tls.Config{
+		GetCertificate: certManager.GetCertificate,
+		NextProtos:     []string{"h2", "http/1.1", "acme-tls/1"},
+	}
+	if g.tlsCertPool != nil {
+		g.tlsConfig.ClientCAs = g.tlsCertPool
+		if g.tlsClientAuthRequired {
+			g.tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		} else {
+			g.tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
+		}
+	}
+	if g.defaultCertificate == nil {
+		// Generate default certificate
+		certificate, err := certManager.GenerateDefaultCertificate()
+		if err != nil {
+			return err
+		}
+		g.defaultCertificate = certificate
+	}
+	// Add default certificate
+	certManager.AddCertificate("default", g.defaultCertificate)
 	return nil
 }
 func (g *Goma) initTrustedProxyConfig() {

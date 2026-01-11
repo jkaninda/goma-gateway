@@ -31,13 +31,6 @@ flowchart LR
     C -->|Errors| E[Logs]
 ```
 
-Goma Gateway merges configurations in the following priority order (latest wins):
-
-```
-File < HTTP < Git
-```
-
----
 
 # File Provider
 

@@ -315,14 +315,17 @@ gateway:
     idle: 30
 
   tls:
-    keys:
+    certificates:
       - cert: /etc/goma/cert.pem
         key: /etc/goma/key.pem
       - cert: |
           -----BEGIN CERTIFICATE-----
           ...
         key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64
-
+    # Default cert
+    default:
+      cert: /etc/goma/default-cert.pem
+      key: /etc/goma/default-key.pem
   entryPoints:
     web:
       address: ":80"

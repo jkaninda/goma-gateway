@@ -32,10 +32,10 @@ middlewares:
 
 ### Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `action` | String | Yes | Defines the policy action. Must be either `ALLOW` or `DENY` |
-| `sourceRanges` | Array | Yes | List of IP addresses, IP ranges, or CIDR blocks to which the policy applies |
+| Parameter      | Type   | Required | Description                                                                 |
+|----------------|--------|----------|-----------------------------------------------------------------------------|
+| `action`       | String | Yes      | Defines the policy action. Must be either `ALLOW` or `DENY`                 |
+| `sourceRanges` | Array  | Yes      | List of IP addresses, IP ranges, or CIDR blocks to which the policy applies |
 
 ### Source Range Formats
 

@@ -712,8 +712,11 @@ func (cm *CertManager) removeOverlappingCertificates(newDomains []string) {
 }
 
 // AddCertificate adds a single certificate to the CertManager
-func (cm *CertManager) AddCertificate(domain string, cert tls.Certificate) {
-	certInfo, err := cm.createCertificateInfo(&cert)
+func (cm *CertManager) AddCertificate(domain string, cert *tls.Certificate) {
+	if cert == nil {
+		return
+	}
+	certInfo, err := cm.createCertificateInfo(cert)
 	if err != nil {
 		logger.Error("Error creating certificate info", "error", err)
 		return
@@ -744,7 +747,7 @@ func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
 		allDomains := append([]string{commonName}, sanNames...)
 		for _, domain := range allDomains {
 			if domain != "" {
-				cm.AddCertificate(domain, cert)
+				cm.AddCertificate(domain, &cert)
 			}
 		}
 	}
@@ -842,7 +845,7 @@ func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, err
 		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
 	}
 
-	cm.AddCertificate(domain, tlsCert)
+	cm.AddCertificate(domain, &tlsCert)
 	return &tlsCert, nil
 }
 

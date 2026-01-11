@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	goutils "github.com/jkaninda/go-utils"
 	"os"
 	"strings"
 	"sync"
@@ -33,26 +34,48 @@ func (g *Goma) initTLS() (bool, []tls.Certificate) {
 	if len(certs) > 0 {
 		return true, certs
 	}
+	// load client CA
+	if len(g.gateway.TLS.ClientAuth.ClientCA) > 0 {
+		// Load certificates
+		certPool, err := g.loadCertPool(g.gateway.TLS.ClientAuth.ClientCA)
+		if err != nil {
+			logger.Error("Failed to load client CA", "error", err)
+			return false, certs
+		}
+		g.tlsCertPool = certPool
+		g.tlsClientAuthRequired = g.gateway.TLS.ClientAuth.Required
+	}
 	return false, certs
 }
 
-// loadTLS initializes a TLS configuration by loading certificates from dynamic routes.
+// loadTLS initializes a TlsCertificates configuration by loading certificates from dynamic routes.
 func (g *Goma) loadTLS() []tls.Certificate {
 	var mu sync.Mutex
 	certs := []tls.Certificate{}
 
 	var wg sync.WaitGroup
 
-	loadCertificates := func(t TLS, context string) {
+	// load default Certificate
+	if len(g.gateway.TLS.Default.Cert) > 0 && len(g.gateway.TLS.Default.Key) > 0 {
+		certificate, err := loadCertAndKey(g.gateway.TLS.Default.Cert, g.gateway.TLS.Default.Key)
+		if err != nil {
+			logger.Error("Error loading default tls certificate", "error", err)
+		} else {
+			g.defaultCertificate = certificate
+		}
+	}
+
+	// loadCertificates
+	loadCertificates := func(t TlsCertificates, context string) {
 		defer wg.Done()
 		localCerts := []tls.Certificate{}
 
-		for _, key := range t.Keys {
+		for _, key := range t.Certificates {
 			if key.Key == "" && key.Cert == "" {
-				logger.Error(fmt.Sprintf("Error TLS: no certificate or key file provided for %s", context))
+				logger.Error(fmt.Sprintf("Error TlsCertificates: no certificate or key file provided for %s", context))
 				continue
 			}
-			certificate, err := loadCertAndKey(key.Cert, key.Key)
+			certificate, err := loadCertAndKey(goutils.ReplaceEnvVars(key.Cert), goutils.ReplaceEnvVars(key.Key))
 			if err != nil {
 				logger.Error(fmt.Sprintf("Error loading certificate for %s", context), "error", err)
 				continue
@@ -75,6 +98,18 @@ func (g *Goma) loadTLS() []tls.Certificate {
 
 	wg.Wait()
 	return certs
+}
+
+// loadCertPool loads certificate pool with better error handling
+func (g *Goma) loadCertPool(clientCa string) (*x509.CertPool, error) {
+	if len(clientCa) == 0 {
+		return nil, nil
+	}
+	certPool, err := loadCertPool(clientCa)
+	if err != nil {
+		return nil, err
+	}
+	return certPool, nil
 }
 
 // loadCertAndKey loads a certificate and private key from file paths or raw PEM content.

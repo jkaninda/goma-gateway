@@ -29,8 +29,9 @@ middlewares:
         - username: user1
           password: "{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc=" # SHA-1 hash       
         - username: user2
-          password: password # Plaintext password
-```
+          password: password # Plaintext password        
+        - username: ${USER_NAME}
+          password: ${PASSWORD # Environment variable
 
 
 
@@ -59,27 +60,5 @@ docker run --rm \
   httpd:2 -Bbn admin password
 ```
 
-## Advanced Kubernetes deployment
-
-To deploy the basic-auth middleware in a Kubernetes environment, use the following example:
-
-```yaml
-apiVersion: gomaproj.github.io/v1beta1
-kind: Middleware
-metadata:
-  name: basic-middleware-sample
-spec:
-    type: basic
-    paths:
-      - /admin  # Explicitly blocks /admin and all subpaths
-    rule:
-      realm: your-realm # Optional
-      forwardUsername: true          # Forward authenticated username to backend
-      # Old style users
-      users:
-        - user:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
-        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
-        - user2:admin # Plaintext password
-```
 
 By following these guidelines, you can effectively use basic-auth middleware to protect your application routes.
