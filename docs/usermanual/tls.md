@@ -27,7 +27,8 @@ Define global TLS certificates for your routes by specifying certificate and pri
 version: 2
 gateway:
   tls:
-    keys:
+    #keys: tls.keys is deprecated since v0.7.0, please use certificates
+    certificates:
       # File paths
       - cert: /path/to/certificate.crt
         key: /path/to/private.key
@@ -56,11 +57,6 @@ gateway:
       hosts: ["api.example.com"]
       backends:
         - endpoint: https://backend.example.com
-      # Apply on route level
-      tls:
-        keys:
-          - cert: /path/to/certificate.crt
-            key: /path/to/private.key
 ```
 
 ---

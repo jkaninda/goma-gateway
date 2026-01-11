@@ -26,7 +26,7 @@ import (
 // Gateway contains the configuration options for the Goma Gateway.
 type Gateway struct {
 	// TLS specifies a list of tls certificate, cert and key
-	TLS TLS `yaml:"tls,omitempty"`
+	TLS TlsCertificates `yaml:"tls,omitempty"`
 	// Redis contains the configuration details for the Redis database.
 	Redis middlewares.Redis `yaml:"redis,omitempty"`
 	// WriteTimeout defines the timeout (in seconds) for writing responses to clients.

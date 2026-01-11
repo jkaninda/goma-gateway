@@ -36,20 +36,20 @@ func (g *Goma) initTLS() (bool, []tls.Certificate) {
 	return false, certs
 }
 
-// loadTLS initializes a TLS configuration by loading certificates from dynamic routes.
+// loadTLS initializes a TlsCertificates configuration by loading certificates from dynamic routes.
 func (g *Goma) loadTLS() []tls.Certificate {
 	var mu sync.Mutex
 	certs := []tls.Certificate{}
 
 	var wg sync.WaitGroup
 
-	loadCertificates := func(t TLS, context string) {
+	loadCertificates := func(t TlsCertificates, context string) {
 		defer wg.Done()
 		localCerts := []tls.Certificate{}
 
-		for _, key := range t.Keys {
+		for _, key := range t.Certificates {
 			if key.Key == "" && key.Cert == "" {
-				logger.Error(fmt.Sprintf("Error TLS: no certificate or key file provided for %s", context))
+				logger.Error(fmt.Sprintf("Error TlsCertificates: no certificate or key file provided for %s", context))
 				continue
 			}
 			certificate, err := loadCertAndKey(key.Cert, key.Key)

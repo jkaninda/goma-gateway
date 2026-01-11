@@ -177,7 +177,7 @@ certManager:
 
 ```yaml
 services:
-  goma-gateway:
+  gateway:
     image: jkaninda/goma-gateway
     command: -c /etc/goma/config.yaml
     ports:

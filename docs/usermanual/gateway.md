@@ -315,7 +315,7 @@ gateway:
     idle: 30
 
   tls:
-    keys:
+    certificates:
       - cert: /etc/goma/cert.pem
         key: /etc/goma/key.pem
       - cert: |
