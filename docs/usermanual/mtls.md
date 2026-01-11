@@ -8,40 +8,85 @@ nav_order: 9
 
 # Mutual TLS (mTLS)
 
-Goma Gateway supports **Mutual TLS (mTLS)** authentication **when connecting to backend services**.
-In this mode, Goma Gateway acts as the **client**, authenticating itself to the backend server using a client certificate while also verifying the backend’s certificate for authenticity.
+Goma Gateway supports **Mutual TLS (mTLS)** for both **outbound connections to backend services** and **inbound connections from external clients**.
 
-> **Note:**
-> Goma Gateway does **not** support accepting inbound mTLS connections from external clients, we are working on this feature for a future release.
-> mTLS is only applied **between Goma Gateway and upstream backends**.
+mTLS enforces **two-way certificate verification**, ensuring that both parties are cryptographically authenticated before a connection is established.
 
 ---
 
-## How It Works
+## 1. Backend mTLS (Gateway as Client)
 
-In a typical TLS connection, Goma Gateway verifies the backend server’s certificate to ensure it’s trusted.
-With **Mutual TLS**, the backend server also verifies Goma Gateway’s client certificate, enabling **two-way trust**.
-This setup ensures that only authenticated gateways can communicate with your backend services.
+In this mode, Goma Gateway acts as a **TLS client** when forwarding requests to upstream services.
 
----
+The gateway:
 
-## Configuration
+* Validates the backend service certificate (server authentication).
+* Presents its own client certificate (client authentication).
 
-You can enable mTLS per route by defining the `security.tls` section under each backend configuration.
-
-| Field                | Required | Description                                                                                               |
-|----------------------|----------|-----------------------------------------------------------------------------------------------------------|
-| `rootCAs`            | Yes      | Path to the CA certificate file (or inline PEM/base64) used to verify the backend’s certificate.          |
-| `clientCert`         | Yes      | Path or content of the client certificate presented by Goma Gateway to the backend.                       |
-| `clientKey`          | Yes      | Path or content of the private key corresponding to the client certificate.                               |
-| `insecureSkipVerify` | No       | Set to `false` to enforce strict certificate verification. Set to `true` only for development or testing. |
-
-> **Note:**
-> All fields (`rootCAs`, `clientCert`, `clientKey`) support **file paths**, **raw PEM content**, or **base64-encoded strings**.
+This ensures only trusted gateways can reach protected backend services.
 
 ---
 
-## Example: Backend mTLS Configuration
+## 2. Client mTLS (Gateway as Server)
+
+Goma Gateway can also **accept inbound mTLS connections**, requiring external clients to present trusted certificates.
+
+Example:
+
+```yaml
+gateway:
+  tls:
+    certificates:
+      - cert: /etc/goma/certs/cert.pem
+        key: /etc/goma/certs/key.pem
+    clientAuth:
+      clientCA:  /etc/goma/certs/ca.pem
+      required: true
+```
+
+When `required` is set to `true`, the connection is rejected unless the client presents a certificate signed by the defined CA.
+
+---
+
+## How Mutual TLS Works
+
+Standard TLS provides **server-only authentication** — Goma Gateway verifies the backend certificate.
+
+With **Mutual TLS**, authentication becomes bidirectional:
+
+```
+Client → verifies → Server certificate
+Server → verifies → Client certificate
+```
+
+This provides:
+
+* Strong identity verification
+* Zero-trust friendly communication
+* Reduced risk of unauthorized service access
+
+---
+
+## Backend Configuration
+
+mTLS can be configured per-backend via the `security.tls` section on each route.
+
+| Field                | Required | Description                                                                                     |
+|----------------------|----------|-------------------------------------------------------------------------------------------------|
+| `rootCAs`            | Yes      | CA certificate used to validate backend certificates. Accepts file path, inline PEM, or base64. |
+| `clientCert`         | Yes      | Client certificate presented by the gateway. Supports path, PEM, or base64.                     |
+| `clientKey`          | Yes      | Private key for `clientCert`. Supports path, PEM, or base64.                                    |
+| `insecureSkipVerify` | No       | Disable certificate verification. Default: `false`. Use only for testing.                       |
+
+> **Note:** All certificate fields (`rootCAs`, `clientCert`, `clientKey`) support:
+>
+> * File path
+> * Raw PEM content
+> * Base64-encoded PEM
+
+---
+
+## Example: Backend mTLS Connection
 
 ```yaml
 routes:
@@ -67,5 +112,6 @@ routes:
       timeout: 10s
       healthyStatuses: [200]
 ```
+
 
 

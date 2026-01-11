@@ -123,28 +123,6 @@ cors:
 
 ---
 
-## Error Interceptor
-
-Handle specific backend response codes gracefully:
-
-```yaml
-errorInterceptor:
-  enabled: true
-  contentType: "application/json"
-  errors:
-    - statusCode: 401
-      body: ""
-    - statusCode: 500
-      body: "Internal server error"
-```
-
-* **`enabled`** (`boolean`): Enable error interception.
-* **`contentType`** (`string`): Content-Type header for the response (e.g., `application/json`).
-* **`errors`** (`[]ErrorResponse`): List of error overrides with status codes and custom response bodies.
-
-
----
-
 ## Route Priority
 
 * If no route has a `priority` defined, routes are matched by longest path.
@@ -183,8 +161,7 @@ gateway:
       enabled: false
       path: /store/cart
       target: http://cart-service:8080
-      methods: [PATCH, GET]
-      cors: {}
+      methods: [POST, GET]
       middlewares:
         - api-forbidden-paths
         - jwt-auth
@@ -208,7 +185,6 @@ gateway:
         interval: 30s
         timeout: 5s
         healthyStatuses: [200, 404]
-      cors: {}
 ```
 
 ---
@@ -221,30 +197,7 @@ gateway:
   routes:
     - name: Example
       path: /store/cart
-      rewrite: /cart
-      backends:
-        - endpoint: http://cart-service:8080
-      healthCheck:
-        path: "/health/live"
-        interval: 30s
-        timeout: 5s
-        healthyStatuses: [200, 404]
-      middlewares:
-        - api-forbidden-paths
-        - jwt-auth
-```
-
----
-
-## Example: Route with Error Interceptor
-
-```yaml
-version: 2
-gateway:
-  routes:
-    - name: Example
-      path: /store/cart
-      rewrite: /cart
+      rewrite: /
       backends:
         - endpoint: http://cart-service:8080
       healthCheck:
@@ -271,11 +224,6 @@ gateway:
         - example.com
         - example.localhost
       rewrite: /
-      healthCheck:
-        path: /
-        interval: 30s
-        timeout: 10s
-        healthyStatuses: [200, 404]
       backends:
         - endpoint: https://example.com
           weight: 1
@@ -283,5 +231,9 @@ gateway:
           weight: 3
         - endpoint: https://example2.com
           weight: 2
-      cors: {}
+      healthCheck:
+        path: /
+        interval: 30s
+        timeout: 10s
+        healthyStatuses: [200, 404]
 ```
