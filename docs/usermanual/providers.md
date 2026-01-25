@@ -214,4 +214,98 @@ gateway:
       cloneDir: ""
 ```
 
+## Discover Goma HTTP Provider
+
+The **Goma HTTP Provider** is a centralized configuration service designed for **Goma Gateway** deployments. It allows multiple gateway instances to dynamically fetch their configuration over HTTP, based on **authentication** and **request metadata**.
+
+By separating configuration delivery from gateway runtime, Goma HTTP Provider makes it easy to manage **environment-specific** configurations (production, staging, development, etc.) from a single control plane.
+
+### What It Does
+
+* Serves Goma Gateway configurations from multiple directories
+* Selects the correct configuration using request metadata (headers)
+* Supports secure access via multiple authentication mechanisms
+* Enables dynamic, environment-aware configuration delivery
+* Works seamlessly with containerized and cloud-native setups
+
+
+## Architecture Overview
+
+The diagram below illustrates how **Goma HTTP Provider** acts as a control plane, serving configurations to multiple **Goma Gateway** instances across different environments.
+
+```mermaid
+graph TB
+    subgraph "Control Plane"
+        GHP[Goma HTTP Provider]
+        subgraph "Configuration Directories"
+            PROD_DIR[./data/configs/production]
+            STAGE_DIR[./data/configs/staging]
+            DEV_DIR[./data/configs/development]
+        end
+        GHP --> PROD_DIR
+        GHP --> STAGE_DIR
+        GHP --> DEV_DIR
+    end
+
+    subgraph "Data Plane"
+        subgraph "Production Environment"
+            G1[Goma Gateway G1<br/>Prod<br/>region: eu-central-bg1<br/>ID: goma-prod-01]
+            G2[Goma Gateway G2<br/>Prod<br/>region: eu-central-fsn1<br/>ID: goma-prod-02]
+        end
+        
+        subgraph "Staging Environment"
+            G3[Goma Gateway G3<br/>Stage<br/>region: eu-central-fsn1<br/>ID: goma-stage-01]
+        end
+        
+        subgraph "Development Environment"
+            G4[Goma Gateway G4<br/>Dev<br/>region: eu-central-fsn1<br/>ID: goma-dev-01]
+        end
+    end
+
+    G1 -.->|Periodic Sync<br/>Basic Auth| GHP
+    G2 -.->|Periodic Sync<br/>Basic Auth| GHP
+    G3 -.->|Periodic Sync<br/>Basic Auth| GHP
+    G4 -.->|Periodic Sync<br/>API Key| GHP
+
+    GHP -.->|Routes & Middleware Config| G1
+    GHP -.->|Routes & Middleware Config| G2
+    GHP -.->|Routes & Middleware Config| G3
+    GHP -.->|Routes & Middleware Config| G4
+
+    PROD_DIR -.->|environment: production<br/>region-specific| G1
+    PROD_DIR -.->|environment: production<br/>region-specific| G2
+    STAGE_DIR -.->|environment: staging| G3
+    DEV_DIR -.->|environment: development<br/>No Auth Required| G4
+
+    style GHP fill:#e1f5ff
+    style G1 fill:#ffebee
+    style G2 fill:#ffebee
+    style G3 fill:#fff3e0
+    style G4 fill:#e8f5e9
+    style PROD_DIR fill:#ffcdd2
+    style STAGE_DIR fill:#ffe0b2
+    style DEV_DIR fill:#c8e6c9
+```
+
+
+
+## Supported Authentication Methods
+
+Goma HTTP Provider supports flexible access control using one or more of the following:
+
+* **API Key**
+* **Basic Authentication**
+* **Request metadata headers**
+
+Authentication and metadata checks can be combined to ensure that only authorized gateways can retrieve the correct configuration for their environment.
+
+
+## Useful Links
+
+* **Source Code**:
+  [https://github.com/jkaninda/goma-http-provider](https://github.com/jkaninda/goma-http-provider)
+
+* **Docker Image**:
+  [https://hub.docker.com/r/jkaninda/goma-http-provider](https://hub.docker.com/r/jkaninda/goma-http-provider)
+
 
