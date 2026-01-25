@@ -487,9 +487,9 @@ func (g *Goma) watchProvider(r Router) {
 		}()
 	}
 }
-func (g *Goma) stopProvider() error {
-	if g.providerManager != nil && g.providerManager.hasActiveProvider() {
-		// err := g.providerManager.active.Stop()
+
+func (g *Goma) stopProviders() error {
+	if g.providerManager != nil {
 		err := g.providerManager.StopAll()
 		if err != nil {
 			return fmt.Errorf("failed to stop providers: %w", err)

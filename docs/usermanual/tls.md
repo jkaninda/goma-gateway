@@ -62,7 +62,20 @@ gateway:
       backends:
         - endpoint: https://backend.example.com
 ```
+## Route
+You can also specify TLS certificates at the route level.
 
+```yaml
+routes:
+  - path: /
+    name: secure-route
+    hosts: ["example.com"]
+    backends:
+      - endpoint: https://backend.example.com
+    tls:
+      certificates:
+        - cert: /path/to/route-specific-cert.crt # Or raw/base64
+          key: /path/to/route-specific-key.key # Or raw/base64
 ---
 
 ## **Automatic Certificates with Let's Encrypt (ACME)**

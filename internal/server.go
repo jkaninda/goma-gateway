@@ -149,7 +149,7 @@ func (g *Goma) shutdown() error {
 	if g.providerManager != nil && g.providerManager.hasActiveProvider() {
 		// Stop providers
 		logger.Info("Stopping provider manager...")
-		if err := g.stopProvider(); err != nil {
+		if err := g.stopProviders(); err != nil {
 			logger.Error("Error shutting down providers", "error", err)
 		}
 	}

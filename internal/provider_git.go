@@ -516,8 +516,10 @@ func (p *gitProvider) Stop() error {
 		return nil
 	}
 
-	close(p.stopCh)
 	p.stopped = true
+	if p.stopCh != nil {
+		close(p.stopCh)
+	}
 
 	logger.Debug("git provider stopped")
 	return nil
