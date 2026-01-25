@@ -163,7 +163,7 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 
 // middlewareNames reruns middleware names
 func middlewareNames(middlewares []Middleware) []string {
-	names := []string{}
+	names := make([]string, 0, len(middlewares))
 	for _, mid := range middlewares {
 		names = append(names, mid.Name)
 

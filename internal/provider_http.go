@@ -50,10 +50,12 @@ type httpProvider struct {
 	config *HTTPProvider
 	client *http.Client
 
-	mu         sync.RWMutex
-	lastBundle *ConfigBundle
-	stopCh     chan struct{}
-	stopped    bool
+	mu           sync.RWMutex
+	lastBundle   *ConfigBundle
+	checksum     string
+	lastChecksum string
+	stopCh       chan struct{}
+	stopped      bool
 }
 
 func NewHTTPProvider(cfg *HTTPProvider) (Provider, error) {
@@ -104,7 +106,7 @@ func NewHTTPProvider(cfg *HTTPProvider) (Provider, error) {
 	return &httpProvider{
 		config: cfg,
 		client: client,
-		stopCh: stopChan,
+		stopCh: make(chan struct{}),
 	}, nil
 }
 
@@ -135,6 +137,11 @@ func (p *httpProvider) Load(ctx context.Context) (*ConfigBundle, error) {
 
 			p.mu.Lock()
 			p.lastBundle = bundle
+			if p.checksum != bundle.Checksum {
+				logger.Debug("configuration checksum changed",
+					"old_checksum", p.checksum,
+					"new_checksum", bundle.Checksum)
+			}
 			p.mu.Unlock()
 
 			logger.Debug("successfully loaded configuration from HTTP",
@@ -179,8 +186,8 @@ func (p *httpProvider) fetch(ctx context.Context) (*ConfigBundle, error) {
 
 	// Send last known version for conditional fetch
 	p.mu.RLock()
-	if p.lastBundle != nil {
-		req.Header.Set("If-None-Match", p.lastBundle.Version)
+	if p.lastBundle != nil && p.lastChecksum != "" {
+		req.Header.Set("If-None-Match", p.lastChecksum)
 	}
 	p.mu.RUnlock()
 
@@ -202,7 +209,7 @@ func (p *httpProvider) fetch(ctx context.Context) (*ConfigBundle, error) {
 
 		if p.lastBundle != nil {
 			logger.Debug("configuration not modified",
-				"version", p.lastBundle.Version)
+				"checksum", p.lastChecksum)
 			return p.lastBundle.Clone(), nil
 		}
 	}
@@ -239,17 +246,11 @@ func (p *httpProvider) fetch(ctx context.Context) (*ConfigBundle, error) {
 	default:
 		return nil, fmt.Errorf("unsupported format: %s (content-type: %s)", format, contentType)
 	}
-
-	// Verify checksum if provided
-	if bundle.Checksum != "" {
-		calculated := bundle.CalculateChecksum()
-		if calculated != bundle.Checksum {
-			return nil, fmt.Errorf("checksum mismatch: expected %s, got %s",
-				bundle.Checksum, calculated)
-		}
-	} else {
-		// Calculate and set checksum
-		bundle.Checksum = bundle.CalculateChecksum()
+	p.lastChecksum = bundle.Checksum
+	// Calculate and set checksum
+	bundle.Checksum = bundle.CalculateChecksum()
+	if p.checksum == "" {
+		p.checksum = bundle.Checksum
 	}
 
 	if bundle.Timestamp.IsZero() {
@@ -319,6 +320,10 @@ func (p *httpProvider) Watch(ctx context.Context, out chan<- *ConfigBundle) erro
 		p.mu.Unlock()
 		return fmt.Errorf("provider already stopped")
 	}
+	// Initialize stopCh if not already done
+	if p.stopCh == nil {
+		p.stopCh = make(chan struct{})
+	}
 	p.mu.Unlock()
 
 	// Initial load
@@ -367,14 +372,14 @@ func (p *httpProvider) poll(ctx context.Context, out chan<- *ConfigBundle) {
 
 			// Check if config changed
 			p.mu.RLock()
-			changed := p.lastBundle == nil ||
-				p.lastBundle.Version != bundle.Version ||
-				p.lastBundle.Checksum != bundle.Checksum
+			changed := p.lastBundle == nil || p.checksum != bundle.Checksum ||
+				p.lastBundle.Version != bundle.Version
+			p.checksum = bundle.Checksum
 			p.mu.RUnlock()
+			logger.Debug("polling result", "last_checksum", p.checksum, "current_checksum", bundle.Checksum, "changed", changed)
 
 			if !changed {
-				logger.Debug("no configuration changes detected",
-					"version", bundle.Version)
+				logger.Debug("no configuration changes detected, skipping update")
 				continue
 			}
 
@@ -402,10 +407,11 @@ func (p *httpProvider) Stop() error {
 		return nil
 	}
 
-	close(p.stopCh)
 	p.stopped = true
-
-	logger.Info("HTTP provider stopped")
+	if p.stopCh != nil {
+		close(p.stopCh)
+	}
+	logger.Debug("HTTP provider stopped")
 	return nil
 }
 

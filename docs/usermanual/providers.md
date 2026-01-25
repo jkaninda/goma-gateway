@@ -80,7 +80,6 @@ Supports retry logic, TLS settings, caching, and custom headers.
 | `timeout`            | duration | No       | 10s                         | Request timeout          |
 | `retryAttempts`      | int      | No       | 3                           | Max retry attempts       |
 | `retryDelay`         | duration | No       | 2s                          | Delay between retries    |
-| `cacheEnabled`       | bool     | No       | true                        | Enables local caching    |
 | `cacheDir`           | string   | No       | /tmp/goma/cache/config.json | Cache file path          |
 | `insecureSkipVerify` | bool     | No       | false                       | Skip TLS verification    |
 | `headers`            | map      | No       | —                           | Custom HTTP headers      |
@@ -97,14 +96,66 @@ gateway:
       timeout: 10s
       retryAttempts: 3
       retryDelay: 2s
-      cacheEnabled: true
-      cacheDir: "/tmp/goma/cache/config.json"
+      # Yaml or JSON caching
+      cacheDir: "" # Default /tmp/goma/cache/config.json # Yaml or JSON caching
       insecureSkipVerify: false
       headers:
-        X-Gateway-ID: "goma-prod-01"
+        X-Goma-Meta-Gateway-Id: "goma-prod-01"
+        X-Goma-Meta-Environment: "production"
         Authorization: "${GOMA_AUTHORIZATION}"
 ```
+### Response Example
 
+The remote endpoint should return the goma configuration in YAML or JSON format. Example response:
+
+```yaml
+version: "1" # Your config version
+timestamp: 2024-10-01T12:00:00Z # Optional timestamp
+checksum: "536ce8ecab0308f003fbabcb33ca87a9badd857b6bcba5c101a5131b0f65da2f" # Optional checksum for integrity
+metadata:
+  # Optional metadata about the config
+  gateway-id: goma-prod-01
+  environment: production
+routes:
+  - name: api-example
+    path: /
+    target: http://api-example:8080
+    middlewares: ["rate-limit","basic-auth"]
+  - name: host-example
+    path: /api
+    rewrite: /
+    hosts:
+      - api.example.com
+    backends:
+      - endpoint: https://api-1.example.com
+        weight: 20
+      - endpoint: https://api-2.example.com
+        weight: 80
+    healthCheck:
+      path: /
+      interval: 30s
+      timeout: 10s
+middlewares:
+  - name: rate-limit
+    type: rateLimit
+    rule:
+      unit: minute
+      requestsPerUnit: 20
+      banAfter: 5
+      banDuration: 5m
+  - name: basic-auth
+    type: basicAuth
+    paths: ["/admin","/docs","/openapi"]
+    rule:
+      realm: Restricted
+      forwardUsername: true
+      users:
+        - username: admin
+          password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin'
+        - username: user
+          password: password
+```
+      
 ---
 
 # Git Provider

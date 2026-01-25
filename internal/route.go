@@ -37,16 +37,16 @@ type Route struct {
 	Priority int `yaml:"priority,omitempty" json:"priority,omitempty"`
 	// Disabled specifies whether the route is disabled.
 	// Deprecated, use Enabled
-	Disabled bool `yaml:"disabled,omitempty"`
+	Disabled bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 	// Enabled specifies whether the route is enabled.
 	Enabled bool `yaml:"enabled,omitempty" default:"true" json:"enabled,omitempty"`
 	// Hosts lists domains or hosts for request routing.
-	Hosts []string `yaml:"hosts" json:"hosts"`
+	Hosts []string `yaml:"hosts,omitempty" json:"hosts,omitempty"`
 	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
 	// Deprecated, use responseHeaders middleware type
 	Cors Cors `yaml:"cors,omitempty" json:"cors,omitempty"`
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
-	Methods []string `yaml:"methods" json:"methods"`
+	Methods []string `yaml:"methods,omitempty" json:"methods,omitempty"`
 	// Destination defines the primary backend URL for this route.
 	// Deprecated, use Target
 	Destination string `yaml:"destination,omitempty" json:"destination,omitempty"`
@@ -80,9 +80,7 @@ type Route struct {
 	// When enabled, requests to this route return the configured response
 	// instead of being forwarded to the backend.
 	Maintenance Maintenance `yaml:"maintenance,omitempty" json:"maintenance,omitempty"`
-
 	// TLS contains the TLS configuration for the route.
-	// Deprecated, use at gateway level
 	TLS      TlsCertificates `yaml:"tls,omitempty" json:"tls,omitempty"`
 	Security Security        `yaml:"security,omitempty" json:"security,omitempty"`
 	// DisableMetrics disables metrics collection for this route.
