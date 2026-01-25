@@ -10,28 +10,58 @@ nav_order: 9
 
 Goma Gateway supports **Mutual TLS (mTLS)** for both **outbound connections to backend services** and **inbound connections from external clients**.
 
-mTLS enforces **two-way certificate verification**, ensuring that both parties are cryptographically authenticated before a connection is established.
+mTLS enforces **two-way certificate validation**, ensuring both parties cryptographically authenticate each other before exchanging application data.
 
 ---
 
 ## 1. Backend mTLS (Gateway as Client)
 
-In this mode, Goma Gateway acts as a **TLS client** when forwarding requests to upstream services.
+When forwarding requests to upstream services, Goma Gateway can operate as a **TLS client** establishing an mTLS connection to backend servers.
 
-The gateway:
+### TLS Handshake Overview
 
-* Validates the backend service certificate (server authentication).
-* Presents its own client certificate (client authentication).
+```mermaid
+sequenceDiagram
+    participant Client as Goma Gateway
+    participant Server as Backend Service
 
-This ensures only trusted gateways can reach protected backend services.
+    Client->>Server: TLS ClientHello + Client Certificate
+    Server->>Client: TLS Certificate + CertificateVerify
+    Client->>Server: Verify server certificate
+    Server->>Client: Verify client certificate
+    Client->>Server: Application Request
+    Server->>Client: Response
+```
+
+During this exchange, the gateway:
+
+* Validates the backend’s certificate (**server authentication**)
+* Presents its own client certificate (**client authentication**)
+
+This ensures only trusted gateways can communicate with secured backend services.
 
 ---
 
 ## 2. Client mTLS (Gateway as Server)
 
-Goma Gateway can also **accept inbound mTLS connections**, requiring external clients to present trusted certificates.
+Goma Gateway can also accept inbound connections from external clients over mTLS, requiring them to present trusted certificates.
 
-Example:
+### TLS Handshake Overview
+
+```mermaid
+sequenceDiagram
+    participant Client as External Client
+    participant Gateway as Goma Gateway
+
+    Client->>Gateway: TLS ClientHello + Client Certificate
+    Gateway->>Client: TLS Certificate
+    Gateway->>Client: Verify client certificate (using clientCA)
+    Client->>Gateway: Verify server certificate
+    Client->>Gateway: Application Request
+    Gateway->>Client: Response
+```
+
+### Configuration Example
 
 ```yaml
 gateway:
@@ -44,49 +74,79 @@ gateway:
       required: true
 ```
 
-When `required` is set to `true`, the connection is rejected unless the client presents a certificate signed by the defined CA.
+When `required: true` is set, the gateway will reject connections unless the client certificate is signed by a trusted CA.
+
+### Flow Summary
+
+1. Client authenticates the gateway
+2. Gateway authenticates the client
+3. Traffic proceeds only if both validations succeed
 
 ---
 
-## How Mutual TLS Works
+## Architecture Overview
 
-Standard TLS provides **server-only authentication** — Goma Gateway verifies the backend certificate.
+```mermaid
+flowchart LR
+    subgraph External
+        C1[External Client]
+    end
 
-With **Mutual TLS**, authentication becomes bidirectional:
+    subgraph Gateway[Goma Gateway]
+        direction TB
+        S1[mTLS Server Mode]
+        S2[mTLS Client Mode]
+    end
+
+    subgraph Backend
+        B1[Protected Service]
+    end
+
+    C1 -- mTLS --> S1
+    S2 -- mTLS --> B1
+```
+
+---
+
+## How Mutual TLS Works?
+
+Standard TLS provides **server-side authentication only** — Goma Gateway verifies the backend certificate.
+
+With **Mutual TLS**, authentication becomes **bidirectional**:
 
 ```
 Client → verifies → Server certificate
 Server → verifies → Client certificate
 ```
 
-This provides:
+Benefits include:
 
-* Strong identity verification
-* Zero-trust friendly communication
-* Reduced risk of unauthorized service access
+* Strong identity enforcement
+* Zero-trust compatible service communication
+* Reduced surface for unauthorized access
 
 ---
 
 ## Backend Configuration
 
-mTLS can be configured per-backend via the `security.tls` section on each route.
+mTLS can be enabled per-backend through the `security.tls` section of each route.
 
-| Field                | Required | Description                                                                                     |
-|----------------------|----------|-------------------------------------------------------------------------------------------------|
-| `rootCAs`            | Yes      | CA certificate used to validate backend certificates. Accepts file path, inline PEM, or base64. |
-| `clientCert`         | Yes      | Client certificate presented by the gateway. Supports path, PEM, or base64.                     |
-| `clientKey`          | Yes      | Private key for `clientCert`. Supports path, PEM, or base64.                                    |
-| `insecureSkipVerify` | No       | Disable certificate verification. Default: `false`. Use only for testing.                       |
+| Field                | Required | Description                                                                            |
+|----------------------|----------|----------------------------------------------------------------------------------------|
+| `rootCAs`            | Yes      | CA certificate used to validate backend certificates. Supports path, PEM, or base64.   |
+| `clientCert`         | Yes      | Client certificate presented by the gateway. Supports path, PEM, or base64.            |
+| `clientKey`          | Yes      | Private key corresponding to `clientCert`. Supports path, PEM, or base64.              |
+| `insecureSkipVerify` | No       | Disables certificate verification. Default: `false`. Use only for development/testing. |
 
-> **Note:** All certificate fields (`rootCAs`, `clientCert`, `clientKey`) support:
+> **Note:** All certificate fields (`rootCAs`, `clientCert`, `clientKey`) accept:
 >
-> * File path
+> * File paths
 > * Raw PEM content
 > * Base64-encoded PEM
 
 ---
 
-## Example: Backend mTLS Connection
+## Example: Backend mTLS Routing
 
 ```yaml
 routes:
@@ -112,6 +172,8 @@ routes:
       timeout: 10s
       healthyStatuses: [200]
 ```
+
+
 
 
 

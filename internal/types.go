@@ -37,12 +37,12 @@ type TlsCertificates struct {
 }
 
 type TLS struct {
-	Cert string `yaml:"cert" json:"cert"`
-	Key  string `yaml:"key" json:"key"`
+	Cert string `yaml:"cert,omitempty" json:"cert,omitempty"`
+	Key  string `yaml:"key,omitempty" json:"key,omitempty"`
 }
 type TLSClientAuth struct {
-	ClientCA string `yaml:"clientCA" json:"clientCA"`
-	Required bool   `yaml:"required" json:"required"`
+	ClientCA string `yaml:"clientCA,omitempty" json:"clientCA,omitempty"`
+	Required bool   `yaml:"required,omitempty" json:"required,omitempty"`
 }
 type BasicRuleMiddleware struct {
 	Realm           string `yaml:"realm,omitempty" json:"realm"`
