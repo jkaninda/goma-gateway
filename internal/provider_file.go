@@ -38,7 +38,7 @@ type fileProvider struct {
 	stopped bool
 }
 
-func NewFileProvider(cfg *FileProvider, stopCh chan struct{}) (Provider, error) {
+func NewFileProvider(cfg *FileProvider) (Provider, error) {
 	if !cfg.Enabled {
 		return nil, fmt.Errorf("file provider is not enabled")
 	}
@@ -54,7 +54,7 @@ func NewFileProvider(cfg *FileProvider, stopCh chan struct{}) (Provider, error) 
 
 	return &fileProvider{
 		config: cfg,
-		stopCh: stopCh,
+		stopCh: make(chan struct{}),
 	}, nil
 }
 

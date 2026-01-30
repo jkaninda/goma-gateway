@@ -37,10 +37,15 @@ Architecture:
 <img src="https://raw.githubusercontent.com/jkaninda/goma-gateway/main/goma-gateway.png" width="912" alt="Goma architecture">
 
 
-## Links:
 
-- [Docker Hub](https://hub.docker.com/r/jkaninda/goma-gateway)
-- [Github](https://github.com/jkaninda/goma-gateway)
+## Links
+
+- **Documentation**: [Documentation](https://jkaninda.github.io/goma-gateway)
+- **Source Code**: [Goma Gateway on GitHub](https://github.com/jkaninda/goma-gateway)
+- **Docker Image**: [jkaninda/goma-gateway](https://hub.docker.com/r/goma-gateway)
+- **HTTP Provider**: [Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)
+- **Docker Provider**: [Goma Docker Provider](https://github.com/jkaninda/goma-docker-provider)
+
 
 ### [Documentation](https://jkaninda.github.io/goma-gateway)
 
@@ -359,7 +364,28 @@ For production deployments, use the example from the link below:
 kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-gateway/main/examples/k8s-basic-deployment.yaml
 ```
 
+### 10. Docker / Swarm Provider
 
+The **Goma Gateway Docker Provider** automatically generates **Goma Gateway configurations** from container labels in **Docker** and **Docker Swarm** environments.
+
+By simply adding labels to your containers, routes and middleware are discovered and configured dynamically no manual YAML configuration required.
+
+If you’ve used **Traefik** before, this will feel familiar: the provider follows a label-driven approach to define routing rules, services, and middleware behavior directly at the container level.
+
+👉 For configuration examples and advanced usage, see the
+[Goma Docker Provider repository](https://github.com/jkaninda/goma-docker-provider)
+
+
+### 11. HTTP Provider
+
+The **Goma Gateway HTTP Provider** lets you dynamically manage **Goma Gateway configurations** through a RESTful HTTP API.
+
+It enables programmatic creation, updates, and reloads of routes, middleware, and other gateway settings without editing YAML files or restarting the gateway. This makes it ideal for automation, control planes, and dynamic environments.
+
+👉 For configuration examples and advanced usage, see the
+[Goma HTTP Provider repository](https://github.com/jkaninda/goma-http-provider)
+
+---
 ## Supported Systems
 
 - [x] Linux

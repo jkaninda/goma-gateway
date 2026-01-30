@@ -62,8 +62,9 @@ func (g *Goma) Start() error {
 		return err
 	}
 	printRoute(g.dynamicRoutes)
+
 	// Watch for changes
-	if g.gateway.ExtraConfig.Watch && len(g.gateway.ExtraConfig.Directory) > 0 {
+	if g.extraRouteConfig.Watch && len(g.extraRouteConfig.Directory) > 0 {
 		logger.Debug("Dynamic configuration watch enabled")
 		go g.watchExtraConfig(newRouter)
 
