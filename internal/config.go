@@ -286,11 +286,6 @@ func initConfig(configFile string) error {
 	conf := &GatewayConfig{
 		Version: version.ConfigVersion,
 		Gateway: Gateway{
-			Timeouts: Timeouts{
-				Read:  30,
-				Write: 30,
-				Idle:  30,
-			},
 			Log: Log{
 				Level:    "info",
 				FilePath: "",
@@ -340,29 +335,6 @@ func initConfig(configFile string) error {
 						Interval:        "30s",
 						Timeout:         "10s",
 						HealthyStatuses: []int{200, 404},
-					},
-					ErrorInterceptor: middlewares.RouteErrorInterceptor{
-						Enabled: true,
-						Errors: []middlewares.RouteError{
-							{
-								StatusCode: 403,
-								Body:       "403 Forbidden",
-							},
-							{
-								StatusCode: 404,
-								Body:       "{\"error\": \"404 Not Found\"}",
-							},
-							{
-								StatusCode: 500,
-							},
-						},
-					},
-					Cors: Cors{
-						Origins:          []string{"https://dev.example.com", "https://example.com"},
-						Headers:          map[string]string{},
-						MaxAge:           1728000,
-						AllowCredentials: true,
-						AllowedHeaders:   []string{"Origin", "Authorization"},
 					},
 					Middlewares: []string{"basic-auth", "block-access", "block-admin-access"},
 				},

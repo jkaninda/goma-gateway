@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
@@ -52,6 +53,7 @@ type Goma struct {
 	tlsClientAuthRequired bool
 	tlsConfig             *tls.Config
 	defaultCertificate    *tls.Certificate
+	extraRouteConfig      ExtraRouteConfig
 }
 
 // Initialize initializes the routes
@@ -66,11 +68,13 @@ func (g *Goma) Initialize() error {
 	g.dynamicRoutes = gateway.Routes
 	g.dynamicMiddlewares = g.middlewares
 
+	g.extraRouteConfig.Directory = goutils.Env("GOMA_CONFIG_DIR", gateway.ExtraConfig.Directory)
+	g.extraRouteConfig.Watch = goutils.EnvBool("GOMA_AUTO_RELOAD", g.gateway.ExtraConfig.Watch)
 	// Load Extra Configurations
-	if len(gateway.ExtraConfig.Directory) > 0 {
+	if len(g.extraRouteConfig.Directory) > 0 {
 		// Load Extra Middlewares
-		logger.Debug("Loading extra middlewares", "directory", gateway.ExtraConfig.Directory)
-		extraMiddlewares, err := loadExtraMiddlewares(gateway.ExtraConfig.Directory)
+		logger.Debug("Loading extra middlewares", "directory", g.extraRouteConfig.Directory)
+		extraMiddlewares, err := loadExtraMiddlewares(g.extraRouteConfig.Directory)
 		if err != nil {
 			logger.Error("Failed to load extra middlewares", "error", err)
 			return err
@@ -81,8 +85,8 @@ func (g *Goma) Initialize() error {
 		}
 
 		// Load Extra Routes
-		logger.Debug("Loading extra routes", "directory", gateway.ExtraConfig.Directory)
-		extraRoutes, err := loadExtraRoutes(gateway.ExtraConfig.Directory)
+		logger.Debug("Loading extra routes", "directory", g.extraRouteConfig.Directory)
+		extraRoutes, err := loadExtraRoutes(g.extraRouteConfig.Directory)
 		if err != nil {
 			logger.Error("Failed to load extra routes", "error", err)
 			return err
@@ -396,7 +400,7 @@ func (g *Goma) configureProviderManager() error {
 			if g.gateway.Providers.File.Directory == "" {
 				return fmt.Errorf("file provider directory is required")
 			}
-			provider, err := NewFileProvider(g.gateway.Providers.File, g.providerManager.stopCh)
+			provider, err := NewFileProvider(g.gateway.Providers.File)
 			if err != nil {
 				return fmt.Errorf("failed to initialize file provider: %w", err)
 			}

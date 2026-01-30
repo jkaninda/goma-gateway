@@ -36,11 +36,9 @@ func (g *Goma) watchExtraConfig(r Router) {
 		}
 	}(watcher)
 	// Specify the directory to watch
-	directory := g.gateway.ExtraConfig.Directory
-	// Add the directory to the watcher
-	err = watcher.Add(directory)
+	err = watcher.Add(g.extraRouteConfig.Directory)
 	if err != nil {
-		logger.Error("Failed to watch directory", "error", err)
+		logger.Error("Failed to watch directory", "directory", g.extraRouteConfig.Directory, "error", err)
 		err = watcher.Close()
 		if err != nil {
 			logger.Error("Failed to close watcher", "error", err)
