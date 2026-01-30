@@ -68,8 +68,9 @@ func (g *Goma) Initialize() error {
 	g.dynamicRoutes = gateway.Routes
 	g.dynamicMiddlewares = g.middlewares
 
-	g.extraRouteConfig.Directory = goutils.Env("GOMA_CONFIG_DIR", gateway.ExtraConfig.Directory)
-	g.extraRouteConfig.Watch = goutils.EnvBool("GOMA_AUTO_RELOAD", g.gateway.ExtraConfig.Watch)
+	g.extraRouteConfig.Directory = goutils.Env("GOMA_EXTRA_CONFIG_DIR", gateway.ExtraConfig.Directory)
+	g.extraRouteConfig.Watch = goutils.EnvBool("GOMA_EXTRA_CONFIG_WATCH", g.gateway.ExtraConfig.Watch)
+	g.gateway.Monitoring.EnableMetrics = goutils.EnvBool("GOMA_ENABLE_METRICS", g.gateway.Monitoring.EnableMetrics)
 	// Load Extra Configurations
 	if len(g.extraRouteConfig.Directory) > 0 {
 		// Load Extra Middlewares
@@ -235,7 +236,7 @@ func (g *Goma) addGlobalHandler(mux *mux.Router) {
 	if g.gateway.Monitoring.EnableReadiness {
 		mux.HandleFunc("/readyz", health.HealthReadyHandler).Methods(http.MethodGet)
 	}
-	if g.gateway.Monitoring.EnableLiveness {
+	if goutils.EnvBool("GOMA_ENABLE_LIVENESS", g.gateway.Monitoring.EnableLiveness) {
 		mux.HandleFunc("/healthz", health.HealthReadyHandler).Methods(http.MethodGet)
 	}
 	logger.Debug("Added global handler")

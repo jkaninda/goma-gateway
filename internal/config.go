@@ -137,7 +137,7 @@ func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
 
 // InitLogger sets environment variables and initialize the logger
 func (g *Goma) InitLogger() {
-	level := strings.ToLower(g.gateway.Log.Level)
+	level := goutils.Env("GOMA_LOG_LEVEL", strings.ToLower(g.gateway.Log.Level))
 	util.SetEnv("GOMA_LOG_LEVEL", level)
 	util.SetEnv("GOMA_LOG_FILE", g.gateway.Log.FilePath)
 	util.SetEnv("GOMA_LOG_FORMAT", g.gateway.Log.Format)

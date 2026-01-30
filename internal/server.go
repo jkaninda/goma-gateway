@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"net/http"
 	"net/http/httputil"
@@ -90,9 +91,9 @@ func (g *Goma) Start() error {
 func (g *Goma) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
 	return &http.Server{
 		Addr:         addr,
-		WriteTimeout: time.Second * time.Duration(g.gateway.Timeouts.Write),
-		ReadTimeout:  time.Second * time.Duration(g.gateway.Timeouts.Read),
-		IdleTimeout:  time.Second * time.Duration(g.gateway.Timeouts.Idle),
+		WriteTimeout: time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_WRITE", g.gateway.Timeouts.Write)),
+		ReadTimeout:  time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_READ", g.gateway.Timeouts.Read)),
+		IdleTimeout:  time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_IDLE", g.gateway.Timeouts.Idle)),
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
 	}
