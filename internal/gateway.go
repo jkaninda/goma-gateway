@@ -18,6 +18,7 @@
 package internal
 
 import (
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/config"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
@@ -83,17 +84,18 @@ type EntryPointAddress struct {
 }
 
 func (p EntryPoint) Validate() {
+	webAddr := goutils.Env("GOMA_ENTRYPOINT_WEB_ADDRESS", p.Web.Address)
 	// Validate web entry point
-	if addr := p.Web.Address; addr != "" {
+	if addr := webAddr; addr != "" {
 		if validateEntrypoint(addr) {
 			webAddress = addr
 		} else {
 			logger.Fatal("Error, invalid web address", "address", addr)
 		}
 	}
-
+	webSecureAddr := goutils.Env("GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS", p.WebSecure.Address)
 	// Validate webSecure entry point
-	if addr := p.WebSecure.Address; addr != "" {
+	if addr := webSecureAddr; addr != "" {
 		if validateEntrypoint(addr) {
 			webSecureAddress = addr
 		} else {
