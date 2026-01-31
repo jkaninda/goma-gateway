@@ -5,70 +5,23 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./config:/etc/goma
+      - ./:/etc/goma
     environment:
-      - GOMA_LOG_LEVEL=info                   # Optional, default info
-      - GOMA_ENABLE_METRICS=true              # Optional, default true
-      - GOMA_ENABLE_LIVENESS=true             # Optional, default true
-      - GOMA_TIMEOUT_READ=30                  # Optional
-      - GOMA_TIMEOUT_WRITE=30                # Optional
-      - GOMA_TIMEOUT_IDLE=60                # Optional
-      - GOMA_EXTRA_CONFIG_DIR=/etc/goma/extra  # Optional, default /etc/goma/extra
-      - GOMA_EXTRA_CONFIG_WATCH=false        # Optional, default false
-      - GOMA_ENTRYPOINT_WEB_ADDRESS=[::]:80        # Optional, default [::]:8080
-      - GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS=[::]:443  # Optional, default [::]:8443
+      -  GOMA_LOG_LEVEL=info
+      -  GOMA_EXTRA_CONFIG_DIR=/etc/goma/providers
+      -  GOMA_EXTRA_CONFIG_WATCH=true
+      -  GOMA_ENTRYPOINT_WEB_ADDRESS=[::]:80
+      -  GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS=[::]:443
     networks:
       - goma-net
 
-  goma-docker-provider:
+  goma-provider:
     image: jkaninda/goma-docker-provider
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro # Required
-      - ./config/extra:/etc/goma/routes.d
-    environment:
-      - GOMA_OUTPUT_DIR=/etc/goma/routes.d # Optional, default /etc/goma/routes.d
-      - GOMA_POLL_INTERVAL=10s # Optional, default 10s
-      - GOMA_ENABLE_SWARM=false # Enable Swarm mode, default false
+      - ./providers:/etc/goma/providers
     networks:
       - goma-net
-
-  # API Service - Full Configuration
-  api-service:
-    image: jkaninda/okapi-example
-    labels:
-      # Basic Configuration
-      - "goma.enable=true"
-      - "goma.name=api-example"
-      - "goma.path=/"
-      - "goma.port=8080"
-      - "goma.rewrite=/"
-      - "goma.priority=100"
-
-      # Hosts
-      - "goma.hosts=api.example.com"
-
-      # Methods
-      - "goma.methods=GET,POST,PUT,DELETE,PATCH"
-
-      # Health Check
-      - "goma.healthCheck.path=/"
-      - "goma.healthCheck.interval=30s"
-      - "goma.healthCheck.timeout=5s"
-      - "goma.healthCheck.healthy_statuses=200,204"
-
-      # Security
-      - "goma.security.forward_host_headers=true"
-      - "goma.security.enable_exploit_protection=true"
-      - "goma.security.tls.insecure_skip_serify=false"
-
-      # Middlewares
-      - "goma.middlewares=basic-auth,rate-limit,cors"
-
-      # Metrics
-      - "goma.disableMetrics=false"
-    networks:
-      - goma-net
-
   # Web Service - Minimal Configuration
   web-service:
     image: jkaninda/okapi-example
