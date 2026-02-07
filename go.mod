@@ -8,7 +8,7 @@ require (
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/go-ldap/ldap/v3 v3.4.12
 	github.com/go-redis/redis_rate/v10 v10.0.1
-	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jkaninda/go-utils v0.1.4
