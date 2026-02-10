@@ -28,7 +28,8 @@ import (
 )
 
 type TlsCertificates struct {
-	Certificates []TLS `yaml:"certificates,omitempty" json:"certificates,omitempty"`
+	CertDir      string `yaml:"certDir"`
+	Certificates []TLS  `yaml:"certificates,omitempty" json:"certificates,omitempty"`
 	// Keys
 	// Deprecated
 	Keys       []TLS         `yaml:"keys,omitempty" json:"keys,omitempty"`
