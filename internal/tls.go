@@ -25,6 +25,7 @@ import (
 	"fmt"
 	goutils "github.com/jkaninda/go-utils"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -89,15 +90,121 @@ func (g *Goma) loadTLS() []tls.Certificate {
 	}
 
 	wg.Add(1)
+	// Load gateway
 	go loadCertificates(g.gateway.TLS, "the gateway")
 
+	// Route certs
 	for _, route := range g.dynamicRoutes {
 		wg.Add(1)
 		go loadCertificates(route.TLS, fmt.Sprintf("route: %s", route.Name))
 	}
+	// Directory certs
+	// Load cert
+	certificateTls, err := g.loadCertificatesFromDirectory()
+	if err == nil && len(certificateTls.Certificates) > 0 {
+		wg.Add(1)
+		go loadCertificates(certificateTls, "CertificatesFromDirectory")
+	}
 
 	wg.Wait()
+	logger.Debug("Certificates loaded", "count", len(certs))
 	return certs
+}
+
+// loadCertificatesFromDirectory scans a directory and loads all certificate pairs
+// It expects files in pairs: <name>.crt and <name>.key
+func (g *Goma) loadCertificatesFromDirectory() (TlsCertificates, error) {
+	var certDir = CertsPath
+	if len(g.gateway.TLS.CertDir) != 0 {
+		certDir = g.gateway.TLS.CertDir
+	}
+	logger.Debug("Loading certificates from ", "certDir", certDir)
+	// Check if the directory exists
+	info, err := os.Stat(certDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if certDir == CertsPath {
+				return TlsCertificates{}, nil
+			}
+			logger.Error("Failed to find certificate directory", "error", err)
+			return TlsCertificates{}, fmt.Errorf("certificate directory does not exist: %s", certDir)
+		}
+		return TlsCertificates{}, fmt.Errorf("failed to access certificate directory: %w", err)
+	}
+
+	if !info.IsDir() {
+		logger.Error("Certificate directory is not a directory", "directory", certDir)
+		return TlsCertificates{}, fmt.Errorf("certDir is not a directory: %s", certDir)
+	}
+
+	// Find all certificate files
+	certFiles := make(map[string]string) // basename -> cert path
+	keyFiles := make(map[string]string)  // basename -> key path
+
+	entries, err := os.ReadDir(certDir)
+	if err != nil {
+		logger.Error("Failed to read certificate directory", "error", err)
+		return TlsCertificates{}, fmt.Errorf("failed to read certificate directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		filename := entry.Name()
+		fullPath := filepath.Join(certDir, filename)
+
+		// Extract basename and extension
+		ext := filepath.Ext(filename)
+		basename := strings.TrimSuffix(filename, ext)
+
+		switch ext {
+		case ".crt", ".cert", ".pem":
+			certFiles[basename] = fullPath
+		case ".key":
+			keyFiles[basename] = fullPath
+		}
+	}
+
+	// Match certificate and key pairs
+	var certificates []TLS
+	matched := make(map[string]bool)
+
+	for basename, certPath := range certFiles {
+		keyPath, hasKey := keyFiles[basename]
+		if !hasKey {
+			// Try common variations
+			for keyBasename, kp := range keyFiles {
+				if strings.HasPrefix(keyBasename, basename) || strings.HasPrefix(basename, keyBasename) {
+					keyPath = kp
+					hasKey = true
+					matched[keyBasename] = true
+					break
+				}
+			}
+		} else {
+			matched[basename] = true
+		}
+
+		if hasKey {
+			certificates = append(certificates, TLS{
+				Cert: certPath,
+				Key:  keyPath,
+			})
+		}
+	}
+
+	// Warn about unmatched keys
+	for basename := range keyFiles {
+		if !matched[basename] {
+			logger.Warn(fmt.Sprintf("Warning: found key file without matching certificate: %s.key", basename))
+		}
+	}
+
+	return TlsCertificates{
+		Certificates: certificates,
+	}, nil
 }
 
 // loadCertPool loads certificate pool with better error handling
