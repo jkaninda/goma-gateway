@@ -6,6 +6,7 @@ services:
       - "443:443"
     volumes:
       - ./config:/etc/goma
+      - providers:/etc/goma/providers
     environment:
       - GOMA_LOG_LEVEL=info                   # Optional, default info
       - GOMA_ENABLE_METRICS=true              # Optional, default true
@@ -13,8 +14,8 @@ services:
       - GOMA_TIMEOUT_READ=30                  # Optional
       - GOMA_TIMEOUT_WRITE=30                # Optional
       - GOMA_TIMEOUT_IDLE=60                # Optional
-      - GOMA_EXTRA_CONFIG_DIR=/etc/goma/extra  # Optional, default /etc/goma/extra
-      - GOMA_EXTRA_CONFIG_WATCH=false        # Optional, default false
+      - GOMA_EXTRA_CONFIG_DIR=/etc/goma/providers  # Optional, default /etc/goma/extra
+      - GOMA_EXTRA_CONFIG_WATCH=true        # Optional, default false
       - GOMA_ENTRYPOINT_WEB_ADDRESS=[::]:80        # Optional, default [::]:8080
       - GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS=[::]:443  # Optional, default [::]:8443
     networks:
@@ -24,9 +25,9 @@ services:
     image: jkaninda/goma-docker-provider
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro # Required
-      - ./config/extra:/etc/goma/routes.d
+      - providers:/etc/goma/providers
     environment:
-      - GOMA_OUTPUT_DIR=/etc/goma/routes.d # Optional, default /etc/goma/routes.d
+      - GOMA_OUTPUT_DIR=/etc/goma/providers # Optional, default /etc/goma/providers
       - GOMA_POLL_INTERVAL=10s # Optional, default 10s
       - GOMA_ENABLE_SWARM=false # Enable Swarm mode, default false
     networks:
@@ -79,6 +80,8 @@ services:
       - "goma.hosts=example.com, www.example.com"
     networks:
       - goma-net
+volumes:
+  providers: {}
 networks:
   goma-net:
     driver: bridge

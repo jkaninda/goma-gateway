@@ -335,7 +335,89 @@ services:
 
 Visit http://localhost/docs to see the documentation
 
-### 7. Grafana Dashboard
+---
+
+### 8. Docker / Swarm Provider (External)
+
+Goma Gateway does not include a built-in Docker provider to remain lightweight and modular.
+If you deploy services using **Docker Compose** or **Docker Swarm**, the **Goma Docker Provider** automatically generates gateway configuration from container labels.
+
+This approach will feel familiar if you’ve used **Traefik**: routing rules, services, and middleware are declared directly on containers.
+
+A simple `docker-compose` setup:
+
+```yaml
+services:
+  goma-gateway:
+    image: jkaninda/goma-gateway:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/etc/goma
+      - providers:/etc/goma/providers
+    environment:
+      -  GOMA_LOG_LEVEL=info
+      -  GOMA_EXTRA_CONFIG_DIR=/etc/goma/providers
+      -  GOMA_EXTRA_CONFIG_WATCH=true
+      -  GOMA_ENTRYPOINT_WEB_ADDRESS=[::]:80
+      -  GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS=[::]:443
+    networks:
+      - goma-net
+
+  goma-provider:
+    image: jkaninda/goma-docker-provider
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Required
+      - providers:/etc/goma/providers
+    environment:
+      - GOMA_OUTPUT_DIR=/etc/goma/providers # Optional, default /etc/goma/providers
+      - GOMA_ENABLE_SWARM=false # Enable Swarm mode, default false
+    networks:
+      - goma-net
+  # Web Service - Minimal Configuration
+  web-service:
+    image: jkaninda/okapi-example
+    labels:
+      - "goma.enable=true" # Required to expose the service
+      - "goma.port=8080"
+      - "goma.hosts=example.com, www.example.com" # Optional
+    networks:
+      - goma-net
+volumes:
+  providers: {}
+networks:
+  goma-net:
+    driver: bridge
+```
+
+👉 See:
+[Goma Docker Provider](https://github.com/jkaninda/goma-docker-provider)
+
+---
+### 9. Kubernetes deployment
+
+#### Basic Deployment
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-gateway/main/examples/k8s-basic-deployment.yaml
+```
+
+
+### 10. HTTP API Provider (External)
+
+The **Goma HTTP Provider** exposes a REST API for managing routes, middleware, and gateway configuration dynamically.
+
+It’s ideal for:
+
+* Control planes
+* Automation workflows
+* Internal platform tools
+
+👉 See:
+[Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)
+
+### 11. Grafana Dashboard
 
 Goma Gateway offers built-in monitoring capabilities to help you track the **health**, **performance**, and **behavior** of your gateway and its routes. Metrics are exposed in a **Prometheus-compatible** format and can be visualized using tools like **Prometheus** and **Grafana**.
 
@@ -349,41 +431,12 @@ You can import it using dashboard ID: [23799](https://grafana.com/grafana/dashbo
 ![Goma Gateway Grafana Dashboard](https://raw.githubusercontent.com/jkaninda/goma-gateway/main/docs/images/goma_gateway_observability_dashboard-23799.png)
 
 
-### 8. Production Deployment Guide
+### 12. Production Deployment Guide
 
 For production deployments, use the example from the link below:
 
 [production-deployment](https://github.com/jkaninda/goma-gateway-production-deployment).
 
-
-### 9. Kubernetes deployment
-
-#### Basic Deployment
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-gateway/main/examples/k8s-basic-deployment.yaml
-```
-
-### 10. Docker / Swarm Provider
-
-The **Goma Gateway Docker Provider** automatically generates **Goma Gateway configurations** from container labels in **Docker** and **Docker Swarm** environments.
-
-By simply adding labels to your containers, routes and middleware are discovered and configured dynamically no manual YAML configuration required.
-
-If you’ve used **Traefik** before, this will feel familiar: the provider follows a label-driven approach to define routing rules, services, and middleware behavior directly at the container level.
-
-👉 For configuration examples and advanced usage, see the
-[Goma Docker Provider repository](https://github.com/jkaninda/goma-docker-provider)
-
-
-### 11. HTTP Provider
-
-The **Goma Gateway HTTP Provider** lets you dynamically manage **Goma Gateway configurations** through a RESTful HTTP API.
-
-It enables programmatic creation, updates, and reloads of routes, middleware, and other gateway settings without editing YAML files or restarting the gateway. This makes it ideal for automation, control planes, and dynamic environments.
-
-👉 For configuration examples and advanced usage, see the
-[Goma HTTP Provider repository](https://github.com/jkaninda/goma-http-provider)
 
 ---
 ## Supported Systems
