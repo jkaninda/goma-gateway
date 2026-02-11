@@ -6,6 +6,7 @@ services:
       - "443:443"
     volumes:
       - ./:/etc/goma
+      - providers:/etc/goma/providers
     environment:
       -  GOMA_LOG_LEVEL=info
       -  GOMA_EXTRA_CONFIG_DIR=/etc/goma/providers
@@ -19,7 +20,10 @@ services:
     image: jkaninda/goma-docker-provider
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro # Required
-      - ./providers:/etc/goma/providers
+      - providers:/etc/goma/providers
+    environment:
+      - GOMA_OUTPUT_DIR=/etc/goma/providers # Optional, default /etc/goma/providers
+      - GOMA_ENABLE_SWARM=false # Enable Swarm mode, default false
     networks:
       - goma-net
   # Web Service - Minimal Configuration
@@ -31,6 +35,8 @@ services:
       - "goma.hosts=example.com, www.example.com"
     networks:
       - goma-net
+volumes:
+  providers: {}
 networks:
   goma-net:
     driver: bridge
