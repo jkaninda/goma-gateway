@@ -106,7 +106,7 @@ Load multiple certificates from a single directory. Goma matches certificate and
 version: 2
 gateway:
   tls:
-    certDir: /etc/goma/certs
+    certsDir: /etc/goma/certs
 ```
 
 ### Example Directory Structure

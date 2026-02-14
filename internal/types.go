@@ -28,10 +28,11 @@ import (
 )
 
 type TlsCertificates struct {
-	CertDir      string `yaml:"certDir"`
+	// CertsDir loads multiple certificates from a single directory
+	CertsDir     string `yaml:"certsDir" json:"certsDir,omitempty"`
 	Certificates []TLS  `yaml:"certificates,omitempty" json:"certificates,omitempty"`
 	// Keys
-	// Deprecated
+	// Deprecated: use Certificates or CertsDir instead
 	Keys       []TLS         `yaml:"keys,omitempty" json:"keys,omitempty"`
 	ClientAuth TLSClientAuth `yaml:"clientAuth,omitempty" json:"clientAuth,omitempty"`
 	Default    TLS           `yaml:"default,omitempty" json:"default,omitempty"`

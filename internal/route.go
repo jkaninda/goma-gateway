@@ -20,6 +20,7 @@ package internal
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
@@ -136,6 +137,16 @@ func (r *Route) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	r.Cors.Enabled = true
 	type tmp Route
 	return unmarshal((*tmp)(r))
+}
+
+func (r *Route) UnmarshalJSON(data []byte) error {
+	// Set defaults
+	r.Enabled = true
+	r.Security.ForwardHostHeaders = true
+	r.Cors.Enabled = true
+
+	type tmp Route
+	return json.Unmarshal(data, (*tmp)(r))
 }
 
 // loadCertPool loads certificate pool with better error handling
