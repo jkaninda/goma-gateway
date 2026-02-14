@@ -114,34 +114,34 @@ func (g *Goma) loadTLS() []tls.Certificate {
 // loadCertificatesFromDirectory scans a directory and loads all certificate pairs
 // It expects files in pairs: <name>.crt and <name>.key
 func (g *Goma) loadCertificatesFromDirectory() (TlsCertificates, error) {
-	var certDir = CertsPath
-	if len(g.gateway.TLS.CertDir) != 0 {
-		certDir = g.gateway.TLS.CertDir
+	var certsDir = CertsPath
+	if len(g.gateway.TLS.CertsDir) != 0 {
+		certsDir = g.gateway.TLS.CertsDir
 	}
-	logger.Debug("Loading certificates from ", "certDir", certDir)
+	logger.Debug("Loading certificates from ", "certsDir", certsDir)
 	// Check if the directory exists
-	info, err := os.Stat(certDir)
+	info, err := os.Stat(certsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			if certDir == CertsPath {
+			if certsDir == CertsPath {
 				return TlsCertificates{}, nil
 			}
 			logger.Error("Failed to find certificate directory", "error", err)
-			return TlsCertificates{}, fmt.Errorf("certificate directory does not exist: %s", certDir)
+			return TlsCertificates{}, fmt.Errorf("certificate directory does not exist: %s", certsDir)
 		}
 		return TlsCertificates{}, fmt.Errorf("failed to access certificate directory: %w", err)
 	}
 
 	if !info.IsDir() {
-		logger.Error("Certificate directory is not a directory", "directory", certDir)
-		return TlsCertificates{}, fmt.Errorf("certDir is not a directory: %s", certDir)
+		logger.Error("Certificate directory is not a directory", "directory", certsDir)
+		return TlsCertificates{}, fmt.Errorf("certsDir is not a directory: %s", certsDir)
 	}
 
 	// Find all certificate files
 	certFiles := make(map[string]string) // basename -> cert path
 	keyFiles := make(map[string]string)  // basename -> key path
 
-	entries, err := os.ReadDir(certDir)
+	entries, err := os.ReadDir(certsDir)
 	if err != nil {
 		logger.Error("Failed to read certificate directory", "error", err)
 		return TlsCertificates{}, fmt.Errorf("failed to read certificate directory: %w", err)
@@ -153,7 +153,7 @@ func (g *Goma) loadCertificatesFromDirectory() (TlsCertificates, error) {
 		}
 
 		filename := entry.Name()
-		fullPath := filepath.Join(certDir, filename)
+		fullPath := filepath.Join(certsDir, filename)
 
 		// Extract basename and extension
 		ext := filepath.Ext(filename)
