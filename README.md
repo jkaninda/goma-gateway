@@ -360,8 +360,8 @@ services:
       -  GOMA_LOG_LEVEL=info
       -  GOMA_EXTRA_CONFIG_DIR=/etc/goma/providers
       -  GOMA_EXTRA_CONFIG_WATCH=true
-      -  GOMA_ENTRYPOINT_WEB_ADDRESS=[::]:80
-      -  GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS=[::]:443
+      -  GOMA_ENTRYPOINT_WEB_ADDRESS=:80
+      -  GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS=:443
     networks:
       - goma-net
 
