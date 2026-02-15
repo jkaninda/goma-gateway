@@ -1,0 +1,81 @@
+# ================================
+# Routes Configuration
+# ================================
+# Routes define how inbound HTTP requests are matched and forwarded to backend services.
+#
+# Documentation:
+#   https://jkaninda.github.io/goma-gateway/usermanual/route.html
+#
+# Notes:
+# - Routes can be split across multiple files.
+# - All route files must be located under the directory configured in `extraConfig.directory`.
+routes:
+
+  # Example route: proxied Golang service
+  - name: okapi-example
+    methods: []                     # Empty = all HTTP methods allowed
+    hosts:
+      - okapi.example.com
+    path: /
+    rewrite: /                      # Rewrites incoming path before forwarding
+    target: http://okapi-example:8080
+
+    # Middlewares are processed in the order defined below
+    middlewares:
+      - enforceHttps                # Redirect HTTP → HTTPS
+      - response-headers            # Inject/add custom response headers
+      - rate-limit                  # Apply rate limiting
+      - http-cache                  # Enable response caching
+
+  # WordPress service example
+  - name: wordpress
+    methods: []
+    hosts:
+      - wordpress.example.com
+    path: /
+    target: http://wordpress:80
+    middlewares:
+      - enforceHttps
+
+  # Grafana UI
+  - name: grafana
+    hosts:
+      - grafana.example.com
+    path: /
+    target: http://grafana:3000
+    # disableMetrics: true          # Disable metrics scraping for this route
+    middlewares:
+      - enforceHttps
+
+  # Backend mTLS example
+  # Demonstrates Gateway acting as a TLS client and authenticating upstream
+  - name: api-mtls-example
+    hosts:
+      - api.example.com
+    path: /v2
+    rewrite: /
+
+    # Weighted load balancing across multiple upstream backends
+    backends:
+      - endpoint: https://api-example:8443
+        weight: 80
+      - endpoint: https://api-example-beta:8443
+        weight: 20
+
+    # TLS client configuration (mTLS)
+    security:
+      tls:
+        insecureSkipVerify: false          # Enforce certificate verification
+        rootCAs: /etc/goma/certs/ca.pem    # Trusted CA for backend verification
+        clientCert: /etc/goma/certs/cert.pem
+        clientKey: /etc/goma/certs/key.pem
+
+    # Active health checking of upstream backends
+    healthCheck:
+      path: /
+      interval: 15s
+      timeout: 10s
+      healthyStatuses: [200]
+
+    middlewares:
+      - enforceHttps
