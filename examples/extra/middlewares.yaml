@@ -1,0 +1,97 @@
+# ================================
+# Middlewares Configuration
+# ================================
+# Middlewares apply processing steps to requests before they are forwarded
+# to backend services, and/or modify responses afterwards.
+#
+# GitOps & Extra Config:
+# - When `extraConfig` is enabled and `watch` is true in goma.yml,
+#   you can split routes and middlewares across multiple files.
+# - All files must be placed under the directory defined in goma.yml.
+# - Any change triggers automatic hot-reload (no restart required),
+#   making Goma Gateway friendly for GitOps workflows:
+#       → commit, push, deploy, and changes take effect automatically.
+#
+# Notes:
+# - Middleware execution order is defined in each route.
+# - Multiple middleware types can be chained for flexible behavior.
+#
+# Documentation:
+# → https://jkaninda.github.io/goma-gateway/middlewares/
+# ================================
+
+middlewares:
+
+  # Enforce HTTPS — redirects all HTTP requests to HTTPS
+  - name: enforceHttps
+    type: redirectScheme
+    rule:
+      scheme: https
+
+  # Rate Limiting middleware
+  # Uses in-memory by default; Redis is recommended for
+  # distributed setups or persistence across instances.
+  - name: rate-limit
+    type: rateLimit
+    rule:
+      unit: minute
+      requestsPerUnit: 60
+      burst: 100                 # Allow short bursts beyond steady rate
+      # banAfter: 5              # (Optional) Ban client after N violations
+      # banDuration: 2m          # (Optional) Duration of the temporary ban
+
+  # Access restriction middleware — block sensitive paths
+  - name: api-forbidden-paths
+    type: access
+    paths:
+      - /api-docs/.*
+      - /internal/.*
+      - /docs/.*
+
+  # IP Address Access Policy (Allow or Deny logic)
+  # Supports single IPs, ranges, IPv4/IPv6 CIDRs
+  - name: deny-access
+    type: accessPolicy
+    rule:
+      action: DENY                # DENY or ALLOW
+      sourceRanges:
+        - 10.25.5.30               # Single IPv4
+        - 10.25.10.30-10.25.10.100 # IPv4 range
+        - 2001:db8::/64            # IPv6 CIDR
+        - 10.25.10.0/16            # IPv4 CIDR
+
+  # HTTP Cache middleware
+  # - In-memory backend for dev/testing
+  # - Redis recommended for production or cross-instance caching
+  - name: http-cache
+    type: httpCache
+    paths:
+      - ^/books/(.*)$
+    rule:
+      maxTtl: 300                     # Max lifetime (seconds)
+      maxStale: 0                     # Allows stale serving if client requests via Cache-Control:max-stale
+      memoryLimit: 100Mi              # Limit for in-memory cache (supports Ki/Mi/Gi/Ti)
+      disableCacheStatusHeader: false # Hide or expose cache debug headers
+      excludedResponseCodes:
+        - "400"
+        - "404"
+        - "500-599"                  # Range of status codes excluded from caching
+
+  # Response header manipulation (CORS + custom headers)
+  - name: response-headers
+    type: responseHeaders
+    paths: ["/.*"]
+    rule:
+      cors:
+        enabled: true
+        origins:
+          - https://www.example.com
+          - https://example.com
+        allowMethods: []                # Empty = allow all methods
+        allowCredentials: true
+      setHeaders:
+        X-Powered-By: ""                # Override/remove server signature
+        X-Gateway-Id: gateway-prod-1
+        X-Gateway-Instance: ${GATEWAY_INSTACE}   # From environment
+        X-Goma-Route: "{route.name}"    # Inject route name into response
+      cacheControl: "private, no-cache, no-store, must-revalidate"

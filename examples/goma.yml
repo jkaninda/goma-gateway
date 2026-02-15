@@ -1,122 +1,265 @@
-version: 2
+# ======================================================
+# Goma Gateway — Main (Static) Configuration
+# ======================================================
+# IMPORTANT:
+# Changes in this main configuration file require a full
+# Goma Gateway restart to take effect.
+#
+# If you need to add or modify routes and middlewares
+# without restarting or causing downtime, use:
+#   - extraConfig (dynamic file loading)
+#   - A dynamic provider (File, Git, HTTP)
+#
+# To enable hot-reloading, `watch` must be enabled
+# either in:
+#   - providers.file
+#   - extraConfig
+#
+# Dynamic configuration allows Goma Gateway to reload
+# routes and middleware automatically without restart.
+# ======================================================
+
 gateway:
+  # --------------------------------------------------
+  # Global timeout settings (seconds)
+  # --------------------------------------------------
   timeouts:
-    write: 30
-    read: 30
-    idle: 30
+    write: 60
+    read: 60
+    idle: 60
 
-  tls:
-    certificates:
-      - cert: /etc/goma/cert.pem
-        key: /etc/goma/key.pem
-      - cert: |
-          -----BEGIN CERTIFICATE-----
-          ...
-        key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS...  # Base64
-
+  # --------------------------------------------------
+  # Entry points (listening ports)
+  # --------------------------------------------------
   entryPoints:
     web:
-      address: ":80"
+      address: "[::]:80"        # HTTP
     webSecure:
-      address: ":443"
+      address: "[::]:443"       # HTTPS
+    # ----------------------------------------------
+    # Layer 4 Pass-Through (TCP/UDP Forwarding)
+    # ----------------------------------------------
+    # Enables direct protocol forwarding without
+    # HTTP routing or middleware processing.
+    #
+    # Supported protocols:
+    #   - tcp
+    #   - udp
+    #   - tcp/udp
+    #
+    # Use cases:
+    #   - SSH forwarding
+    #   - DNS proxying
+    #   - Custom TCP services
+    #   - Internal service exposure
+    #
     passThrough:
       forwards:
         - protocol: tcp
           port: 2222
           target: srv1.example.com:62557
+
         - protocol: tcp/udp
           port: 53
           target: 10.25.10.15:53
+
         - protocol: tcp
           port: 5050
           target: 10.25.10.181:4040
+
         - protocol: udp
           port: 55
           target: 10.25.10.20:53
 
-  log:
-    level: info
-    filePath: ''
-    format: json
+  # --------------------------------------------------
+  # TLS Configuration
+  # --------------------------------------------------
+  # Used when NOT using ACME (certManager below).
+  # You may either:
+  #   - Load certificates from a directory (certsDir)
+  #   - Define explicit certificate/key pairs
+  # --------------------------------------------------
+  tls:
 
+    # Load multiple certificates from a single directory.
+    # Certificate and key files MUST share the same base name.
+    #
+    # Supported certificate extensions:
+    #   .crt, .cert, .pem
+    # Supported key extension:
+    #   .key
+    #
+    # Example directory structure:
+    #
+    #   /etc/goma/certs/
+    #   ├── example.com.crt
+    #   ├── example.com.key
+    #   ├── api.example.com.crt
+    #   ├── api.example.com.key
+    #   ├── wildcard.crt
+    #   └── wildcard.key
+    #
+    certsDir: /etc/goma/certs
+
+    # Explicit certificate/key pairs (optional alternative)
+    certificates: []
+    #  - cert: /etc/goma/certs/cert.pem
+    #    key: /etc/goma/certs/key.pem
+
+    # Default certificate (used when no SNI match is found)
+    default: {}
+    #   cert: /etc/goma/default-cert.pem
+    #   key: /etc/goma/default-key.pem
+
+    # Mutual TLS (mTLS) configuration for inbound connections.
+    # Enables client certificate validation.
+    clientAuth: {}
+    #   clientCA: /etc/goma/certs/ca.pem
+    #   required: true
+
+  # --------------------------------------------------
+  # Dynamic Configuration Providers
+  # --------------------------------------------------
+  # Providers allow loading routes and middlewares
+  # dynamically without restarting the gateway.
+  #
+  # Enable `watch: true` where applicable to allow
+  # automatic reload on changes.
+  # --------------------------------------------------
+  providers:
+
+    # ----------------------------------------------
+    # File Provider
+    # ----------------------------------------------
+    # Loads YAML/JSON route & middleware definitions
+    # from a local directory.
+    file: {}
+    #   enabled: true
+    #   directory: /etc/goma/providers
+    #   watch: true   # REQUIRED for hot-reload
+
+    # ----------------------------------------------
+    # HTTP Provider
+    # ----------------------------------------------
+    # Fetches dynamic configuration from a remote API.
+    # Useful for centralized control planes.
+    #
+    # https://github.com/jkaninda/goma-http-provider
+    http: {}
+    #   enabled: false
+    #   endpoint: "https://config.example.com/api/gateway/config"
+    #   interval: 60s
+    #   timeout: 10s
+    #   retryAttempts: 3
+    #   retryDelay: 2s
+    #   cacheDir: "/tmp/goma/cache/config.json"
+    #   insecureSkipVerify: false
+    #   headers:
+    #     X-Gateway-ID: "goma-prod-01"
+    #     Authorization: "${GOMA_AUTHORIZATION}"
+
+    # ----------------------------------------------
+    # Git Provider (GitOps-friendly)
+    # ----------------------------------------------
+    # Pulls configuration from a Git repository.
+    # Ideal for GitOps workflows.
+    git:
+      enabled: true
+      url: "https://github.com/jkaninda/goma-gateway-production-deployment.git"
+      branch: "main"
+      path: /examples
+      interval: 60s
+      auth: {}
+      #   type: token | basic | ssh
+      #   token: ${GIT_TOKEN}
+      #   username: ${GIT_USER_NAME}
+      #   password: ${GIT_PASSWORD}
+      #   sshKeyPath: /etc/goma/ssh/key
+      #   sshKeyData: ${GIT_SSH_KEY_DATA}
+      cloneDir: ""
+
+  # --------------------------------------------------
+  # Proxy Configuration
+  # --------------------------------------------------
+  # Enable when running behind:
+  #   - Load balancer
+  #   - Reverse proxy
+  #   - CDN (Cloudflare, HAProxy, Nginx, etc.)
+  #
+  # Ensures correct client IP detection.
+  # --------------------------------------------------
+  proxy:
+    enabled: false
+    trustedProxies:
+      - "127.0.0.1"
+      - "10.0.0.0/8"
+      - "192.168.0.0/16"
+      - "::1"
+      - "fc00::/7"
+    ipHeaders:
+      - "CF-Connecting-IP"
+      - "X-Forwarded-For"
+      - "X-Real-IP"
+      - "True-Client-IP"
+      - "Forwarded"
+
+  # --------------------------------------------------
+  # Redis Integration (Optional)
+  # --------------------------------------------------
+  # Used by middlewares such as:
+  #   - Rate limiting
+  #   - Caching
+  #   - Distributed state
+  # --------------------------------------------------
+  redis:
+    addr: "${REDIS_ADDR}"
+    password: ${REDIS_PASSWORD}
+    db: 0
+    flushOnStartup: false
+
+  # --------------------------------------------------
+  # Monitoring & Health Endpoints
+  # --------------------------------------------------
   monitoring:
-    host: ''
+    host: ''                # Must match a route hostname if exposed externally
     enableMetrics: true
     metricsPath: /metrics
-    enableReadiness: true
-    enableLiveness: true
-    enableRouteHealthCheck: true
-    includeRouteHealthErrors: true
+    enableReadiness: false  # Enables /readyz
+    enableLiveness: true    # Enables /healthz
     middleware:
       metrics:
-        - ldap
-      routeHealthCheck:
-        - ldap
+        - metrics-auth      # Middleware applied to metrics endpoint
 
-## Optional
-  networking:
-    transport:
-      ## Apply Globally
-      insecureSkipVerify: false
-      disableCompression: false
-      maxIdleConns: 100
-      maxIdleConnsPerHost: 150
-      idleConnTimeout: 90
-      forceAttemptHTTP2: true
+  # --------------------------------------------------
+  # Logging Configuration
+  # --------------------------------------------------
+  log:
+    level: info             # debug | info | warn | error | off
+    # filePath: /var/goma/logs/goma.log
+    # format: text | json
+    # maxAgeDays: 10
+    # maxBackups: 3
+    # maxSizeMB: 500
 
-  errorInterceptor:
-    enabled: true
-    contentType: "application/json"
-    errors:
-      - status: 401
-        body: ""
-      - status: 500
-        body: "Internal server error"
-
-  cors:
-    origins:
-      - http://localhost:3000
-      - https://dev.example.com
-    allowedHeaders:
-      - Origin
-      - Authorization
-      - X-Client-Id
-      - Content-Type
-      - Accept
-    headers:
-      X-Session-Id: xxx-xxx-xx
-      Access-Control-Max-Age: 1728000
-    exposeHeaders: []
-    maxAge: 1728000
-    allowMethods: ["GET", "POST"]
-    allowCredentials: true
-
+  # --------------------------------------------------
+  # Extra Dynamic Configuration
+  # --------------------------------------------------
+  # Loads additional route & middleware configuration
+  # from the specified directory.
+  #
+  # When watch: true is enabled, Goma Gateway will
+  # automatically reload changes WITHOUT restart.
+  # --------------------------------------------------
   extraConfig:
     directory: /etc/goma/extra
     watch: true
-  routes:
-    - path: /api/v1
-      name: api-v1
-      methods: [ GET, PUT, POST ]
-      target: http://v1-backend:8080
-      security:
-        forwardHostHeaders: true
-        enableExploitProtection: false
-        tls:
-          insecureSkipVerify: false
-          rootCAs: ''
-    - path: /api/v2
-      name: api-v2
-      methods: [ GET, PUT, POST ]
-      target: http://v2-backend:8080
-  middlewares:
-    - name: api-forbidden-paths
-      type: access
-      paths:
-        - /internal/*
-        - /actuator/*
-  certManager:
-    acme:
-      ## Uncomment email to enable Let's Encrypt
-      #email: admin@example.com # Email for ACME registration
-      storageFile: /etc/letsencrypt/acme.json
+
+# ======================================================
+# Certificate Manager (ACME / Let's Encrypt)
+# ======================================================
+certManager:
+  acme:
+    # Enable by providing your contact email
+    # email: admin@example.com
+    storageFile: /etc/letsencrypt/acme.json
+    # Stores ACME account, certificates and private keys securely

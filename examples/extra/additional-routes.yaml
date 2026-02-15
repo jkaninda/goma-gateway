@@ -1,0 +1,90 @@
+# ================================
+# Routes Configuration
+# ================================
+# Routes define how incoming requests are matched and proxied to backend services.
+#
+# Each route can specify:
+#   - name: Unique identifier for the route.
+#   - path: Request path prefix to match.
+#   - hosts: List of allowed hostnames (optional).
+#   - methods: Allowed HTTP methods (default: all).
+#   - rewrite: Rewrite rule for the request path before forwarding.
+#   - target/backends: Destination service(s) to proxy traffic to.
+#   - enabled: Toggle to activate or deactivate the route.
+#   - middlewares: List of middlewares to apply (e.g., HTTPS, auth, caching).
+#   - healthCheck: (Optional) Backend health-check configuration.
+# Documentation: https://jkaninda.github.io/goma-gateway/usermanual/route.html
+# ----------------
+# Example: Simple path-based route
+routes:
+  - name: okapi-v2
+    path: /api/v2
+    enabled: false # Disabled routes will not be proxied
+    methods: ["GET"] # Restrict to GET requests only
+    hosts:
+      - okapi.example.com
+    rewrite: / # Rewrites /api/v2/* to /*
+    target: http://okapi-example:8080
+    middlewares:
+      - enforceHttps # Redirects all traffic to HTTPS
+
+  # ----------------
+  # Example: Path-based route with health-check
+  # The backend will be checked periodically, and only healthy instances will receive traffic.
+  - name: okapi-v1
+    path: /api/v1
+    enabled: false
+    rewrite: /
+    target: http://okapi-example:8080
+    healthCheck:
+      path: "/"          # Path to check for health status
+      interval: 30s                 # Interval between health checks
+      timeout: 10s                  # Timeout for each check
+      healthyStatuses: [200, 404]   # Acceptable HTTP response codes
+  # ----------------
+  # Example: Load balanced + weighted route
+  # Traffic is distributed across multiple backends based on weight.
+  # Here, 80% of traffic goes to the primary backend, 20% to the secondary backend.
+  - name: api-example
+    path: /
+    enabled: false
+    hosts:
+      - api.example.com
+    backends:
+      - endpoint: http://okapi-example:8080
+        weight: 80
+      - endpoint: http://okapi-example-beta:8080
+        weight: 20
+    middlewares:
+      - enforceHttps # Redirects all traffic to HTTPS
+
+  # ----------------
+  # Example: Canary deployment with conditional matching
+  # Canary traffic can be routed based on headers, query params, or cookies.
+  # In this example, only certain users see the canary backend.
+  - name: api-canary-example
+    path: /
+    enabled: false
+    hosts:
+      - api.v1.example.com
+    backends:
+      - endpoint: http://okapi-example:8080
+        weight: 80
+      - endpoint: http://okapi-example-beta:8080
+        weight: 20
+        exclusive: true # Only used when match conditions are met
+        match:
+          - source: header   # Match requests with a specific header
+            name: X-Canary-User
+            operator: equals
+            value: true
+          - source: query    # Match query parameter
+            name: version
+            operator: equals
+            value: beta
+          - source: cookie   # Match cookie value (comma-separated list)
+            name: beta_user
+            operator: in
+            value: admin,tester,developer
+    middlewares:
+      - enforceHttps # Redirects all traffic to HTTPS

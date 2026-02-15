@@ -1,0 +1,24 @@
+# ================================
+# Middlewares Configuration
+# ================================
+middlewares:
+  - name: basic_auth
+    type: basicAuth
+    paths:
+      - /.*
+    rule:
+      realm: restricted
+      forwardUsername: true
+      users:
+        - username: admin
+          password: password # Change this to your password
+  - name: metrics-auth
+    type: basicAuth
+    paths:
+      - /.*
+    rule:
+      realm: restricted
+      forwardUsername: false
+      users:
+        - username: premetheus
+          password: password # Change this to your password
