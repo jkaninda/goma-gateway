@@ -23,6 +23,9 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/http"
+	"sort"
+
 	"github.com/gorilla/mux"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -30,8 +33,6 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
-	"sort"
 )
 
 type Goma struct {
@@ -233,7 +234,7 @@ func (g *Goma) addGlobalHandler(mux *mux.Router) {
 	g.registerRouteHealthHandler(mux, health)
 
 	// Gateway health endpoints
-	if g.gateway.Monitoring.EnableReadiness {
+	if goutils.EnvBool("GOMA_ENABLE_READINESS", g.gateway.Monitoring.EnableReadiness) {
 		mux.HandleFunc("/readyz", health.HealthReadyHandler).Methods(http.MethodGet)
 	}
 	if goutils.EnvBool("GOMA_ENABLE_LIVENESS", g.gateway.Monitoring.EnableLiveness) {
@@ -409,10 +410,6 @@ func (g *Goma) configureProviderManager() error {
 				return fmt.Errorf("failed to register FileProviderType provider: %w", err)
 			}
 			logger.Debug("File provider initialized")
-			// Set active provider
-			if err = g.providerManager.SetActive(FileProviderType); err != nil {
-				return fmt.Errorf("failed to set active provider: %w", err)
-			}
 		}
 	}
 	// Initialize http provider
@@ -426,10 +423,6 @@ func (g *Goma) configureProviderManager() error {
 				return fmt.Errorf("failed to register HTTP provider: %w", err)
 			}
 			logger.Debug("HTTP provider initialized")
-			// Set active provider
-			if err = g.providerManager.SetActive(HttpProviderType); err != nil {
-				return fmt.Errorf("failed to set active provider: %w", err)
-			}
 		}
 	}
 	// Initialize git provider
@@ -443,10 +436,6 @@ func (g *Goma) configureProviderManager() error {
 				return fmt.Errorf("failed to register GitProviderType provider: %w", err)
 			}
 			logger.Debug("Git provider initialized")
-			// Set active provider
-			if err = g.providerManager.SetActive(GitProviderType); err != nil {
-				return fmt.Errorf("failed to set active provider: %w", err)
-			}
 		}
 
 	}

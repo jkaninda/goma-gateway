@@ -20,23 +20,26 @@ package internal
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 )
 
 type ProviderManager struct {
-	providers    []Provider
-	active       Provider
-	mu           sync.RWMutex
-	stopCh       chan struct{}
-	configCh     chan *ConfigBundle
-	configBundle *ConfigBundle
+	providers       []Provider
+	mu              sync.RWMutex
+	stopCh          chan struct{}
+	configCh        chan *ConfigBundle
+	configBundle    *ConfigBundle
+	providerBundles map[ProviderType]*ConfigBundle
 }
 
 func newManager() *ProviderManager {
 	return &ProviderManager{
-		providers: []Provider{},
-		stopCh:    make(chan struct{}),
-		configCh:  make(chan *ConfigBundle, 10),
+		providers:       []Provider{},
+		stopCh:          make(chan struct{}),
+		configCh:        make(chan *ConfigBundle, 10),
+		providerBundles: make(map[ProviderType]*ConfigBundle),
 	}
 }
 
@@ -50,44 +53,118 @@ func (m *ProviderManager) Register(provider Provider) error {
 	return nil
 }
 
-func (m *ProviderManager) SetActive(name ProviderType) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for _, p := range m.providers {
-		if p.Name() == name {
-			m.active = p
-			logger.Debug("active provider set", "name", name)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("provider not found: %s", name)
-}
-
 func (m *ProviderManager) Load(ctx context.Context) (*ConfigBundle, error) {
 	m.mu.RLock()
-	provider := m.active
+	providers := make([]Provider, len(m.providers))
+	copy(providers, m.providers)
 	m.mu.RUnlock()
 
-	if provider == nil {
-		return nil, fmt.Errorf("no active provider")
+	if len(providers) == 0 {
+		return nil, fmt.Errorf("no providers configured")
 	}
 
-	return provider.Load(ctx)
+	for _, p := range providers {
+		bundle, err := p.Load(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load from %s provider: %w", p.Name(), err)
+		}
+		m.mu.Lock()
+		m.providerBundles[p.Name()] = bundle
+		m.mu.Unlock()
+	}
+
+	m.mu.RLock()
+	merged := m.mergeBundles()
+	m.mu.RUnlock()
+
+	return merged, nil
+}
+
+// mergeBundles combines all provider bundles into a single ConfigBundle.
+func (m *ProviderManager) mergeBundles() *ConfigBundle {
+	merged := &ConfigBundle{
+		Routes:      []Route{},
+		Middlewares: []Middleware{},
+		Metadata:    make(map[string]string),
+		Timestamp:   time.Now(),
+	}
+
+	var versions []string
+	providerOrder := []ProviderType{FileProviderType, HttpProviderType, GitProviderType}
+	for _, pt := range providerOrder {
+		bundle, ok := m.providerBundles[pt]
+		if !ok || bundle == nil {
+			continue
+		}
+		merged.Routes = append(merged.Routes, bundle.Routes...)
+		merged.Middlewares = append(merged.Middlewares, bundle.Middlewares...)
+		for k, v := range bundle.Metadata {
+			merged.Metadata[k] = v
+		}
+		versions = append(versions, fmt.Sprintf("%s:%s", pt, bundle.Version))
+	}
+
+	if len(versions) > 0 {
+		merged.Version = strings.Join(versions, ",")
+	} else {
+		merged.Version = fmt.Sprintf("merged-%d", time.Now().Unix())
+	}
+	merged.Checksum = merged.CalculateChecksum()
+
+	return merged
 }
 
 func (m *ProviderManager) Watch(ctx context.Context) (<-chan *ConfigBundle, error) {
 	m.mu.RLock()
-	provider := m.active
+	providers := make([]Provider, len(m.providers))
+	copy(providers, m.providers)
 	m.mu.RUnlock()
 
-	if provider == nil {
-		return nil, fmt.Errorf("no active provider")
+	if len(providers) == 0 {
+		return nil, fmt.Errorf("no providers configured")
 	}
 
-	if err := provider.Watch(ctx, m.configCh); err != nil {
-		return nil, err
+	watchCount := 0
+	for _, p := range providers {
+		providerCh := make(chan *ConfigBundle, 5)
+
+		if err := p.Watch(ctx, providerCh); err != nil {
+			logger.Warn("provider does not support watching, skipping", "provider", p.Name(), "error", err)
+			continue
+		}
+		watchCount++
+
+		go func(provider Provider, ch <-chan *ConfigBundle) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-m.stopCh:
+					return
+				case bundle, ok := <-ch:
+					if !ok {
+						return
+					}
+					m.mu.Lock()
+					m.providerBundles[provider.Name()] = bundle
+					merged := m.mergeBundles()
+					m.mu.Unlock()
+
+					select {
+					case m.configCh <- merged:
+						logger.Debug("merged configuration update sent", "source", provider.Name())
+					case <-ctx.Done():
+						return
+					case <-m.stopCh:
+						return
+					}
+				}
+			}
+		}(p, providerCh)
+	}
+
+	if watchCount == 0 {
+		return nil, fmt.Errorf("no providers support watching")
 	}
 
 	return m.configCh, nil
@@ -107,23 +184,26 @@ func (m *ProviderManager) StopAll() error {
 	logger.Debug("All providers stopped")
 	return nil
 }
+
 func (m *ProviderManager) hasActiveProvider() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.providers) > 0
+}
+
+func (m *ProviderManager) activeProvider() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if len(m.providers) == 0 {
-		logger.Debug("no active providers")
-		return false
+		return ""
 	}
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.active != nil
-}
-func (m *ProviderManager) activeProvider() ProviderType {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.active != nil {
-		return m.active.Name()
+	names := make([]string, 0, len(m.providers))
+	for _, p := range m.providers {
+		names = append(names, string(p.Name()))
 	}
-	return ""
+	return strings.Join(names, ", ")
 }
+
 func (m *ProviderManager) isConfigured() bool {
 	return m != nil && m.hasActiveProvider() && m.configBundle != nil
 }

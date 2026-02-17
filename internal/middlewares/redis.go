@@ -59,12 +59,11 @@ func (r *Redis) InitRedis() error {
 		}
 		logger.Debug("Redis TLS configuration applied")
 	}
-
 	// Create Redis client
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr:      goutils.ReplaceEnvVars(r.Addr),
-		Password:  goutils.ReplaceEnvVars(r.Password),
-		DB:        r.DB,
+		Addr:      goutils.Env("GOMA_REDIS_ADDR", goutils.ReplaceEnvVars(r.Addr)),
+		Password:  goutils.Env("GOMA_REDIS_PASSWORD", goutils.ReplaceEnvVars(r.Password)),
+		DB:        goutils.EnvInt("GOMA_REDIS_DB", r.DB),
 		TLSConfig: tlsConfig,
 	})
 
