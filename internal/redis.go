@@ -18,14 +18,14 @@
 package internal
 
 import (
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
 func (g *Goma) initRedis() {
-	if g.gateway.Redis.Addr == "" {
+	if goutils.Env("GOMA_REDIS_ADDR", g.gateway.Redis.Addr) == "" {
 		return
 	}
-
 	logger.Info("Initializing Redis...")
 
 	if err := g.gateway.Redis.InitRedis(); err != nil {
