@@ -43,6 +43,7 @@ Architecture:
 - **Documentation**: [Documentation](https://jkaninda.github.io/goma-gateway)
 - **Source Code**: [Goma Gateway on GitHub](https://github.com/jkaninda/goma-gateway)
 - **Docker Image**: [jkaninda/goma-gateway](https://hub.docker.com/r/jkaninda/goma-gateway)
+- **Goma Admin(Control Plane)**: [Goma Admin](https://github.com/jkaninda/goma-admin)
 - **HTTP Provider**: [Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)
 - **Docker Provider**: [Goma Docker Provider](https://github.com/jkaninda/goma-docker-provider)
 
