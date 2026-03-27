@@ -101,15 +101,23 @@ func (g *Goma) createServer(addr string, handler http.Handler, tlsConfig *tls.Co
 
 // Create HTTP handler
 func (g *Goma) createHTTPHandler(handler http.Handler) http.Handler {
-	// Create the ACME reverse proxy once
-	acmeProxy := httputil.NewSingleHostReverseProxy(&url.URL{
+	acmeURL := &url.URL{
 		Scheme: "http",
 		Host:   acmeServerURL,
-	})
-	acmeProxy.Director = func(req *http.Request) {
-		req.URL.Scheme = "http"
-		req.URL.Host = acmeServerURL
 	}
+	// Create the ACME reverse proxy
+	acmeProxy := &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			// Set target URL
+			pr.SetURL(acmeURL)
+
+			pr.Out.URL.Path = pr.In.URL.Path
+			pr.Out.URL.RawQuery = pr.In.URL.RawQuery
+
+			pr.Out.Host = pr.In.Host
+		},
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/") {
 			logger.Debug("Handling ACME challenge", "path", r.URL.Path, "host", r.Host)

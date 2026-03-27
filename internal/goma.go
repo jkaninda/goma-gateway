@@ -396,6 +396,20 @@ func (g *Goma) configureProviderManager() error {
 	// Initialize Provider ProviderManager
 	logger.Debug("Initializing provider providerManager...")
 	g.providerManager = newManager()
+	// Check File Provider, if nil, check environment variables for file provider configuration
+	if g.gateway.Providers.File == nil {
+		if goutils.EnvBool("GOMA_FILE_PROVIDER_ENABLED", false) {
+			directory := goutils.Env("GOMA_FILE_PROVIDER_DIRECTORY", "")
+			if directory != "" {
+				g.gateway.Providers.File = &FileProvider{
+					Enabled:   true,
+					Directory: directory,
+					Watch:     goutils.EnvBool("GOMA_FILE_PROVIDER_WATCH", true),
+				}
+				logger.Debug("File provider initialized from environment variables")
+			}
+		}
+	}
 	// Initialize File Provider
 	if g.gateway.Providers.File != nil {
 		if g.gateway.Providers.File.Enabled {

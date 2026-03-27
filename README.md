@@ -335,19 +335,90 @@ services:
 
 Visit http://localhost/docs to see the documentation
 
+
 ---
 
-### 8. Docker / Swarm Provider (External)
+### 8. Goma Admin and Docker Provider
 
-Goma Gateway does not include a built-in Docker provider to remain lightweight and modular.
-If you deploy services using **Docker Compose** or **Docker Swarm**, the **Goma Docker Provider** automatically generates gateway configuration from container labels.
+Goma Gateway intentionally does not include a built-in Docker provider or user interface in order to remain lightweight, modular, and focused on its role as a data plane.
 
-This approach will feel familiar if you’ve used **Traefik**: routing rules, services, and middleware are declared directly on containers.
+These capabilities are provided by **Goma Admin**, which acts as the control plane and includes native support for a Docker provider. This allows automatic generation of gateway configuration from container labels.
 
-A simple `docker-compose` setup:
+---
+
+### Goma Admin
+
+**Goma Admin** is a web-based control plane for managing Goma Gateway configurations.
+
+It provides a structured and user-friendly interface to define routes, middleware, and TLS settings without requiring manual editing of YAML configuration files.
+
+#### Features
+
+* **Multi-instance management**
+  Manage multiple gateway instances with isolated configurations per instance.
+
+* **File provider**
+  Generates YAML configuration files that are watched and hot-reloaded by the gateway.
+
+* **HTTP provider**
+  Enables gateways to pull configuration dynamically from the Admin API.
+
+* **Docker provider**
+  Automatically discovers services using `goma.*` container labels and generates corresponding configuration.
+
+* **Import / Export**
+  Supports loading and exporting Goma-compatible YAML configurations.
+
+* **Provider API**
+  Instance-aware API endpoints for dynamic configuration retrieval.
+
+* **API key management**
+  Create and manage authentication keys for secure gateway-to-admin communication.
+
+* **Metrics integration**
+  Collects Prometheus metrics from gateway instances for observability.
+
+* **Health monitoring**
+  Continuously checks the health of gateway instances via background polling.
+
+* **OAuth support**
+  Integrates with OAuth2 providers such as Keycloak, Authentik and Gitea.
+
+* **Audit log**
+  Tracks configuration changes with full before-and-after snapshots.
+
+* **Git synchronization**
+  Provides bidirectional synchronization between gateway configurations and Git repositories.
+
+---
+
+### Screenshots
+
+#### Dashboard
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard.png" alt="Dashboard" width="900"/>
+</p>
+
+#### Dashboard (Dark Mode)
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-dark.png" alt="Dashboard (Dark)" width="900"/>
+</p>
+
+---
+
+### Goma Docker Provider
+
+When deploying services with Docker Compose or Docker Swarm, the **Goma Docker Provider** automatically generates gateway configuration from container labels.
+
+This model is similar to Traefik, where routing rules, services, and middleware are defined directly on containers through labels.
+
+#### Example: docker-compose
 
 ```yaml
 services:
+  # Goma Gateway - Data Plane
   goma-gateway:
     image: jkaninda/goma-gateway:latest
     ports:
@@ -357,42 +428,76 @@ services:
       - ./:/etc/goma
       - providers:/etc/goma/providers
     environment:
-      -  GOMA_LOG_LEVEL=info
-      -  GOMA_EXTRA_CONFIG_DIR=/etc/goma/providers
-      -  GOMA_EXTRA_CONFIG_WATCH=true
-      -  GOMA_ENTRYPOINT_WEB_ADDRESS=:80
-      -  GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS=:443
+      GOMA_LOG_LEVEL: info
+      GOMA_EXTRA_CONFIG_DIR: /etc/goma/providers/default
+      GOMA_EXTRA_CONFIG_WATCH: true
+      GOMA_ENTRYPOINT_WEB_ADDRESS: :80
+      GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS: :443
     networks:
       - goma-net
 
-  goma-provider:
-    image: jkaninda/goma-docker-provider
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro # Required
-      - providers:/etc/goma/providers
+  # Goma Admin - Control Plane
+  goma-admin:
+    image: jkaninda/goma-admin:latest
+    labels:
+      - "goma.enable=false"
+      - "goma.port=9000"
+      - "goma.hosts=goma-admin.example.com"
+    ports:
+      - "9000:9000"
     environment:
-      - GOMA_OUTPUT_DIR=/etc/goma/providers # Optional, default /etc/goma/providers
-      - GOMA_ENABLE_SWARM=false # Enable Swarm mode, default false
-    networks:
-      - goma-net
-  # Web Service - Minimal Configuration
+      GOMA_DB_URL: postgresql://goma:goma@goma-postgres:5432/goma?sslmode=disable
+      GOMA_ENVIRONMENT: development
+      GOMA_PROVIDERS_DIR: /etc/goma/providers
+      GOMA_DOCKER_ENABLED: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - providers:/etc/goma/providers
+    depends_on:
+      goma-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  goma-postgres:
+    image: postgres:17-alpine
+    container_name: goma-admin-postgres
+    environment:
+      POSTGRES_USER: goma
+      POSTGRES_PASSWORD: goma
+      POSTGRES_DB: goma
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goma"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Example service exposed via Goma
   web-service:
     image: jkaninda/okapi-example
     labels:
-      - "goma.enable=true" # Required to expose the service
+      - "goma.enable=true"
       - "goma.port=8080"
-      - "goma.hosts=example.com, www.example.com" # Optional
+      - "goma.hosts=example.com,www.example.com"
     networks:
       - goma-net
+
 volumes:
   providers: {}
+  postgres_data: {}
+
 networks:
   goma-net:
     driver: bridge
 ```
 
-👉 See:
-[Goma Docker Provider](https://github.com/jkaninda/goma-docker-provider)
+---
+
+### References
+
+* Goma Admin: [https://github.com/jkaninda/goma-admin](https://github.com/jkaninda/goma-admin)
+* Goma Docker Provider: [https://github.com/jkaninda/goma-docker-provider](https://github.com/jkaninda/goma-docker-provider)
 
 ---
 ### 9. Kubernetes deployment
