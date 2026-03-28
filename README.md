@@ -353,44 +353,18 @@ These capabilities are provided by **Goma Admin**, which acts as the control pla
 
 It provides a structured and user-friendly interface to define routes, middleware, and TLS settings without requiring manual editing of YAML configuration files.
 
-#### Features
 
-* **Multi-instance management**
-  Manage multiple gateway instances with isolated configurations per instance.
+### Key Features
 
-* **File provider**
-  Generates YAML configuration files that are watched and hot-reloaded by the gateway.
-
-* **HTTP provider**
-  Enables gateways to pull configuration dynamically from the Admin API.
-
-* **Docker provider**
-  Automatically discovers services using `goma.*` container labels and generates corresponding configuration.
-
-* **Import / Export**
-  Supports loading and exporting Goma-compatible YAML configurations.
-
-* **Provider API**
-  Instance-aware API endpoints for dynamic configuration retrieval.
-
-* **API key management**
-  Create and manage authentication keys for secure gateway-to-admin communication.
-
-* **Metrics integration**
-  Collects Prometheus metrics from gateway instances for observability.
-
-* **Health monitoring**
-  Continuously checks the health of gateway instances via background polling.
-
-* **OAuth support**
-  Integrates with OAuth2 providers such as Keycloak, Authentik and Gitea.
-
-* **Audit log**
-  Tracks configuration changes with full before-and-after snapshots.
-
-* **Git synchronization**
-  Provides bidirectional synchronization between gateway configurations and Git repositories.
-
+* Multi-instance management
+* File & HTTP provider integration
+* Docker-based service discovery
+* Import / Export of configurations
+* API key management
+* Metrics & monitoring (Prometheus)
+* OAuth2 integration (Keycloak, Authentik, Gitea)
+* Audit logs (configuration history)
+* Git synchronization (bi-directional)
 ---
 
 ### Screenshots
@@ -430,10 +404,11 @@ services:
       - providers:/etc/goma/providers
     environment:
       GOMA_LOG_LEVEL: info
-      GOMA_EXTRA_CONFIG_DIR: /etc/goma/providers/default
-      GOMA_EXTRA_CONFIG_WATCH: true
       GOMA_ENTRYPOINT_WEB_ADDRESS: :80
       GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS: :443
+      GOMA_FILE_PROVIDER_ENABLED: true
+      GOMA_FILE_PROVIDER_WATCH: true
+      GOMA_FILE_PROVIDER_DIRECTORY: /etc/goma/providers/default # Default instance
     networks:
       - goma-net
 
