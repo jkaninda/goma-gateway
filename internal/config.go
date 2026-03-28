@@ -303,14 +303,8 @@ func initConfig(configFile string) error {
 				{
 					Name:    "example",
 					Path:    "/",
-					Methods: []string{"GET", "PATCH", "OPTIONS"},
+					Methods: []string{"GET", "OPTIONS"},
 					Target:  "https://example.com",
-					HealthCheck: RouteHealthCheck{
-						Path:            "/",
-						Interval:        "30s",
-						Timeout:         "10s",
-						HealthyStatuses: []int{200, 404},
-					},
 					Security: Security{
 						TLS: SecurityTLS{
 							InsecureSkipVerify: true,
@@ -329,12 +323,6 @@ func initConfig(configFile string) error {
 						&Backend{Endpoint: "https://api-1.example.com", Weight: 50},
 						&Backend{Endpoint: "https://api-2.example.com", Weight: 20},
 						&Backend{Endpoint: "https://api-3.example.com", Weight: 30},
-					},
-					HealthCheck: RouteHealthCheck{
-						Path:            "/",
-						Interval:        "30s",
-						Timeout:         "10s",
-						HealthyStatuses: []int{200, 404},
 					},
 					Middlewares: []string{"basic-auth", "block-access", "block-admin-access"},
 				},
