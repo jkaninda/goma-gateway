@@ -1,0 +1,73 @@
+# Goma Gateway - Data Plane
+goma-gateway:
+  image: jkaninda/goma-gateway:latest
+  ports:
+    - "80:80"
+    - "443:443"
+  volumes:
+    - ./:/etc/goma
+    - providers:/etc/goma/providers
+  environment:
+    GOMA_LOG_LEVEL: info
+    GOMA_ENTRYPOINT_WEB_ADDRESS: :80
+    GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS: :443
+    GOMA_FILE_PROVIDER_ENABLED: true
+    GOMA_FILE_PROVIDER_WATCH: true
+    GOMA_FILE_PROVIDER_DIRECTORY: /etc/goma/providers/default # Default instance
+  networks:
+    - goma-net
+
+# Goma Admin - Control Plane
+goma-admin:
+  image: jkaninda/goma-admin:latest
+  labels:
+    - "goma.enable=false"
+    - "goma.port=9000"
+    - "goma.hosts=goma-admin.example.com"
+  ports:
+    - "9000:9000"
+  environment:
+    GOMA_DB_URL: postgresql://goma:goma@goma-postgres:5432/goma?sslmode=disable
+    GOMA_ENVIRONMENT: development
+    GOMA_PROVIDERS_DIR: /etc/goma/providers
+    GOMA_DOCKER_ENABLED: true
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - providers:/etc/goma/providers
+  depends_on:
+    goma-postgres:
+      condition: service_healthy
+  restart: unless-stopped
+
+goma-postgres:
+  image: postgres:17-alpine
+  container_name: goma-admin-postgres
+  environment:
+    POSTGRES_USER: goma
+    POSTGRES_PASSWORD: goma
+    POSTGRES_DB: goma
+  volumes:
+    - postgres_data:/var/lib/postgresql/data
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U goma"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
+# Example service exposed via Goma
+web-service:
+  image: jkaninda/okapi-example
+  labels:
+    - "goma.enable=true"
+    - "goma.port=8080"
+    - "goma.hosts=example.com,www.example.com"
+  networks:
+    - goma-net
+
+volumes:
+  providers: {}
+  postgres_data: {}
+
+networks:
+  goma-net:
+    driver: bridge

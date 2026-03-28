@@ -7,63 +7,82 @@ nav_order: 12
 
 # Providers
 
-Providers in **Goma Gateway** enable dynamic configuration management by automatically discovering and loading routes and middlewares from various sources. This eliminates manual configuration updates and enables modern deployment patterns like GitOps, container orchestration, and centralized configuration management.
+Providers in **Goma Gateway** enable **dynamic configuration management** by automatically discovering and loading routes and middleware from external sources.
+
+Instead of manual editing configuration files, providers allow you to adopt modern patterns such as **GitOps**, **service discovery**, and **centralized configuration management**.
+
+---
 
 ## Why Use Providers?
 
-- **Dynamic Discovery**: Automatically detect and configure services without manual intervention
-- **GitOps Integration**: Manage gateway configuration as code in version control
-- **Centralized Management**: Control multiple gateways from a single source
-- **Zero Downtime Updates**: Apply configuration changes without restarts
+Providers unlock a more scalable and automated way to manage your gateway:
+
+- **Dynamic Discovery**  
+  Automatically detect and configure services without manual updates
+
+- **GitOps Integration**  
+  Store and version gateway configuration in Git repositories
+
+- **Centralized Management**  
+  Control multiple gateway instances from a single source
+
+- **Zero-Downtime Updates**  
+  Apply configuration changes without restarting the gateway
+
+---
 
 ## Available Providers
 
-Goma Gateway supports both **built-in** and **external** providers:
+Goma Gateway supports both **built-in** and **external** providers.
 
-**Built-in Providers:**
-- **File** - Load from local filesystem with hot-reload
-- **HTTP** - Fetch from remote API endpoints
-- **Git** - Pull from Git repositories (GitOps)
+### Built-in Providers
 
-**External Providers:**
-- **Docker/Swarm** - Auto-configure from container labels
-- **Kubernetes** - Generate config from CRDs and annotations
-- **HTTP API** - RESTful configuration management
+- **File** — Load configuration from the local filesystem (with hot reload)
+- **HTTP** — Fetch configuration from remote APIs
+- **Git** — Pull configuration from Git repositories (GitOps)
 
+### External Providers
 
+- **Docker / Swarm** — Generate configuration from container labels
+- **Kubernetes** — Integrate with CRDs and annotations
+- **HTTP API** — Manage configuration via REST APIs
+
+---
 
 ## How Providers Work
 
-Providers follow a continuous sync cycle:
+All providers follow a continuous synchronization cycle:
 
 ```mermaid
 flowchart LR
-    A[Provider Source] -->|Poll/Watch| B[Fetch Config]
+    A[Provider Source] -->|Poll / Watch| B[Fetch Config]
     B -->|Parse| C[Validate]
     C -->|Valid| D[Apply Routes & Middleware]
-    C -->|Invalid| E[Log Error & Use Cache]
+    C -->|Invalid| E[Log Error & Keep Previous Config]
     D -->|Live| F[Active Gateway]
     E -->|Fallback| F
-```
+````
 
-**Key behaviors:**
-- Validation failures don't crash the gateway, previous valid config remains active
-- HTTP/Git providers cache the last successful config for resilience
-- File provider supports live reload via filesystem watching
+### Key Behaviors
 
+* **Safe updates** — Invalid configurations never break the gateway
+* **Fallback mechanism** — Last valid configuration remains active
+* **Caching** — HTTP and Git providers cache successful configurations
+* **Live reload** — File provider watches for filesystem changes
 
+---
 
 # File Provider
 
-Loads configuration from a local directory with optional filesystem watch.
+The **File Provider** loads configuration from a local directory and optionally watches for changes.
 
-### Configuration Reference
+### Configuration
 
 | Field       | Type   | Required | Description                              |
 |-------------|--------|----------|------------------------------------------|
-| `enabled`   | bool   | Yes      | Enables the provider                     |
+| `enabled`   | bool   | Yes      | Enable the provider                      |
 | `directory` | string | Yes      | Directory containing configuration files |
-| `watch`     | bool   | No       | Enables automatic reload on file change  |
+| `watch`     | bool   | No       | Enable automatic reload on file changes  |
 
 ### Example
 
@@ -80,9 +99,15 @@ gateway:
 
 # HTTP Provider
 
-Fetches configuration from an HTTP endpoint. Useful for centralized config services.
+The **HTTP Provider** fetches configuration from a remote endpoint.
+It is ideal for **centralized configuration services** or control planes.
 
-Supports retry logic, TLS settings, caching, and custom headers.
+### Features
+
+* Retry mechanism
+* TLS configuration
+* Response caching
+* Custom headers support
 
 ### Supported Content Types
 
@@ -91,11 +116,11 @@ Supports retry logic, TLS settings, caching, and custom headers.
 * `application/x-yaml`
 * `text/yaml`
 
-### Configuration Reference
+### Configuration
 
 | Field                | Type     | Required | Default                     | Description              |
 |----------------------|----------|----------|-----------------------------|--------------------------|
-| `enabled`            | bool     | Yes      | —                           | Enables the provider     |
+| `enabled`            | bool     | Yes      | —                           | Enable the provider      |
 | `endpoint`           | string   | Yes      | —                           | Remote configuration URL |
 | `interval`           | duration | No       | 60s                         | Polling interval         |
 | `timeout`            | duration | No       | 10s                         | Request timeout          |
@@ -117,73 +142,44 @@ gateway:
       timeout: 10s
       retryAttempts: 3
       retryDelay: 2s
-      # Yaml or JSON caching
-      cacheDir: "" # Default /tmp/goma/cache/config.json # Yaml or JSON caching
+      cacheDir: ""
       insecureSkipVerify: false
       headers:
-        X-Goma-Meta-Gateway-Id: "goma-prod-01"
-        X-Goma-Meta-Environment: "production"
+        X-Goma-Gateway-Id: "goma-prod-01"
+        X-Goma-Environment: "production"
         Authorization: "${GOMA_AUTHORIZATION}"
 ```
-### Response Example
 
-The remote endpoint should return the goma configuration in YAML or JSON format. Example response:
+### Response Format
+
+The endpoint must return a valid Goma configuration in **YAML or JSON**.
 
 ```yaml
-version: "1" # Your config version
-timestamp: 2024-10-01T12:00:00Z # Optional timestamp
-checksum: "536ce8ecab0308f003fbabcb33ca87a9badd857b6bcba5c101a5131b0f65da2f" # Optional checksum for integrity
+version: "1"
+timestamp: 2024-10-01T12:00:00Z
+checksum: "..."
 metadata:
-  # Optional metadata about the config
   gateway-id: goma-prod-01
   environment: production
+
 routes:
   - name: api-example
+    enabled: true
     path: /
     target: http://api-example:8080
-    middlewares: ["rate-limit","basic-auth"]
-  - name: host-example
-    path: /api
-    rewrite: /
-    hosts:
-      - api.example.com
-    backends:
-      - endpoint: https://api-1.example.com
-        weight: 20
-      - endpoint: https://api-2.example.com
-        weight: 80
-    healthCheck:
-      path: /
-      interval: 30s
-      timeout: 10s
+
 middlewares:
   - name: rate-limit
     type: rateLimit
-    rule:
-      unit: minute
-      requestsPerUnit: 20
-      banAfter: 5
-      banDuration: 5m
-  - name: basic-auth
-    type: basicAuth
-    paths: ["/admin","/docs","/openapi"]
-    rule:
-      realm: Restricted
-      forwardUsername: true
-      users:
-        - username: admin
-          password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin'
-        - username: user
-          password: password
 ```
-      
+
 ---
 
 # Git Provider
 
-Fetches configuration from a Git repo. Ideal for GitOps setups.
+The **Git Provider** retrieves configuration from a Git repository, enabling **GitOps workflows**.
 
-### Supports Authentication Types
+### Supported Authentication
 
 | Type  | Credentials         |
 |-------|---------------------|
@@ -191,28 +187,17 @@ Fetches configuration from a Git repo. Ideal for GitOps setups.
 | basic | username + password |
 | ssh   | private SSH key     |
 
-### Configuration Reference
+### Configuration
 
-| Field      | Type     | Required | Default | Description                        |
-|------------|----------|----------|---------|------------------------------------|
-| `enabled`  | bool     | Yes      | —       | Enables the provider               |
-| `url`      | string   | Yes      | —       | Git repository URL                 |
-| `branch`   | string   | No       | main    | Git branch to pull                 |
-| `path`     | string   | No       | /       | Subpath containing gateway configs |
-| `interval` | duration | No       | 60s     | Poll interval                      |
-| `cloneDir` | string   | No       | temp    | Local clone directory              |
-| `auth`     | object   | No       | —       | Auth configuration                 |
-
-### Auth Sub-Fields
-
-| Field        | Type   | Required  | Used For | Description                |
-|--------------|--------|-----------|----------|----------------------------|
-| `type`       | string | Yes       | all      | `token`, `basic`, `ssh`    |
-| `token`      | string | for token | token    | Git token auth             |
-| `username`   | string | for basic | basic    | Username for basic auth    |
-| `password`   | string | for basic | basic    | Password for basic auth    |
-| `sshKeyPath` | string | for ssh   | ssh      | Path to SSH private key    |
-| `sshKeyData` | string | for ssh   | ssh      | Base64 encoded private key |
+| Field      | Type     | Required | Default | Description                  |
+|------------|----------|----------|---------|------------------------------|
+| `enabled`  | bool     | Yes      | —       | Enable the provider          |
+| `url`      | string   | Yes      | —       | Git repository URL           |
+| `branch`   | string   | No       | main    | Branch to pull               |
+| `path`     | string   | No       | /       | Path to configuration        |
+| `interval` | duration | No       | 60s     | Sync interval                |
+| `cloneDir` | string   | No       | temp    | Local clone directory        |
+| `auth`     | object   | No       | —       | Authentication configuration |
 
 ### Example
 
@@ -222,43 +207,109 @@ gateway:
     git:
       enabled: true
       url: "https://github.com/jkaninda/goma-gateway-production-deployment.git"
-      branch: "main"
-      path: /gateway/extra
+      branch: main
+      path: /gateway
       interval: 60s
       auth:
-        type: token # token | basic | ssh
+        type: token
         token: ${GIT_TOKEN}
-        username: ${GIT_USER_NAME}
-        password: ${GIT_PASSWORD}
-        sshKeyPath: /etc/goma/ssh/key
-        sshKeyData: ${GIT_SSH_KEY_DATA}
       cloneDir: ""
 ```
+
+---
+
+# Control Plane vs Data Plane
+
+Goma follows a **modern architecture**:
+
+* **Goma Gateway** → Data plane (fast, lightweight, execution)
+* **Goma Admin** → Control plane (management, UI, orchestration)
+
+The gateway intentionally avoids embedding heavy integrations (like Docker or UI) to remain **lightweight, modular, and high-performance**.
+
+---
+
+## Goma Admin (Control Plane)
+
+**Goma Admin** provides a centralized interface to manage gateway configurations.
+
+### Key Features
+
+* Multi-instance management
+* File & HTTP provider integration
+* Docker-based service discovery
+* Import / Export of configurations
+* API key management
+* Metrics & monitoring (Prometheus)
+* OAuth2 integration (Keycloak, Authentik, Gitea)
+* Audit logs (configuration history)
+* Git synchronization (bi-directional)
+
+---
+
+## Docker Provider (via Goma Admin)
+
+The **Goma Docker Provider** automatically generates configuration from container labels.
+
+This approach is similar to Traefik:
+
+* Routing rules defined via labels
+* Automatic service discovery
+* No manual configuration required
+
+### Example (Docker Compose)
+
+```yaml
+services:
+  web-service:
+    image: jkaninda/okapi-example
+    labels:
+      - "goma.enable=true"
+      - "goma.port=8080"
+      - "goma.hosts=example.com,www.example.com"
+```
+
+
+👉 [Goma Admin](https://github.com/jkaninda/goma-admin)
+
 ---
 
 ## External Providers
 
-### Docker / Swarm Provider
+### Docker / Swarm
 
-Goma Gateway does not include a built-in Docker provider to remain lightweight and modular.
-If you deploy services using **Docker Compose** or **Docker Swarm**, the **Goma Docker Provider** automatically generates gateway configuration from container labels.
+Use the external Docker provider for container-based environments.
 
-This approach will feel familiar if you’ve used **Traefik**: routing rules, services, and middleware are declared directly on containers.
-
-👉 See:
-[Goma Docker Provider](https://github.com/jkaninda/goma-docker-provider)
+👉 [Goma Docker Provider](https://github.com/jkaninda/goma-docker-provider)
 
 ---
 
-### HTTP API Provider (External)
+### HTTP API Provider
 
-The **Goma HTTP Provider** exposes a REST API for managing routes, middleware, and gateway configuration dynamically.
+Expose a REST API for dynamic configuration management.
 
-It’s ideal for:
+Ideal for:
 
-* Control planes
+* Internal platforms
 * Automation workflows
-* Internal platform tools
+* Custom control planes
 
-👉 See:
-[Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)
+👉 [Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)
+
+---
+
+## Summary
+
+Providers are a core building block of Goma Gateway:
+
+* They enable **automation**
+* They support **modern deployment models**
+* They decouple **configuration from runtime**
+
+For advanced setups, combine:
+
+* **Git Provider** → GitOps
+* **HTTP Provider** → centralized control
+* **Goma Admin** → full control plane experience
+
+```
