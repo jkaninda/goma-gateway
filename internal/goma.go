@@ -37,6 +37,7 @@ import (
 
 type Goma struct {
 	ctx                   context.Context
+	ctxCancel             context.CancelFunc
 	webServer             *http.Server
 	webSecureServer       *http.Server
 	proxyServer           *proxy.PassThroughServer

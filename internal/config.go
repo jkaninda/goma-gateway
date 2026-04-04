@@ -20,6 +20,10 @@ package internal
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/version"
@@ -35,9 +39,6 @@ import (
 	"golang.org/x/oauth2/gitlab"
 	"golang.org/x/oauth2/google"
 	"gopkg.in/yaml.v3"
-	"os"
-	"strconv"
-	"strings"
 )
 
 // Config reads config file and returns Gateway
@@ -53,8 +54,10 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", configFile, err)
 		}
+		cancelCtx, cancel := context.WithCancel(ctx)
 		return &Goma{
-			ctx:          ctx,
+			ctx:          cancelCtx,
+			ctxCancel:    cancel,
 			configFile:   configFile,
 			certManager:  c.GetCertManagerConfig(),
 			version:      c.Version,
@@ -79,8 +82,10 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parsing the configuration file %q: %w", ConfigFile, err)
 		}
+		cancelCtx, cancel := context.WithCancel(ctx)
 		return &Goma{
-			ctx:          ctx,
+			ctx:          cancelCtx,
+			ctxCancel:    cancel,
 			certManager:  c.GetCertManagerConfig(),
 			configFile:   ConfigFile,
 			gateway:      &c.Gateway,
@@ -114,8 +119,10 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 		return nil, fmt.Errorf("in file %q: %w", ConfigFile, err)
 	}
 	logger.Info("Generating new configuration file...done")
+	cancelCtx, cancel := context.WithCancel(ctx)
 	return &Goma{
-		ctx:          ctx,
+		ctx:          cancelCtx,
+		ctxCancel:    cancel,
 		configFile:   ConfigFile,
 		gateway:      &c.Gateway,
 		certManager:  c.GetCertManagerConfig(),
