@@ -21,8 +21,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/proxy"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -30,6 +29,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-gateway/internal/proxy"
 )
 
 // Start / Start starts the server
@@ -96,6 +98,9 @@ func (g *Goma) createServer(addr string, handler http.Handler, tlsConfig *tls.Co
 		IdleTimeout:  time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_IDLE", g.gateway.Timeouts.Idle)),
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
+		BaseContext: func(_ net.Listener) context.Context {
+			return g.ctx
+		},
 	}
 }
 
@@ -154,7 +159,10 @@ func (g *Goma) shutdown() error {
 	<-shutdownChan
 	logger.Info("Shutting down Goma Gateway...")
 
-	shutdownCtx, cancel := context.WithTimeout(g.ctx, 10*time.Second)
+	// Cancel the base context to signal all active requests to stop.
+	g.ctxCancel()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if g.providerManager != nil && g.providerManager.hasActiveProvider() {
 		// Stop providers
@@ -174,6 +182,6 @@ func (g *Goma) shutdown() error {
 	}
 	// stop TCP/UDP server
 	g.proxyServer.Stop()
-	logger.Info("Goma Gateway stopped")
+	logger.Info("Goma Gateway gracefully stopped")
 	return nil
 }
