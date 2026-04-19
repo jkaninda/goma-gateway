@@ -20,8 +20,6 @@ package internal
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/util"
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
@@ -32,6 +30,9 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/util"
 )
 
 // ProxyHandler is the main handler for proxying incoming HTTP requests.
@@ -252,14 +253,16 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 	}
 
 	backend := pr.backends.SelectCanaryBackend(r)
+	selectionType := "canary-exclusive"
 	if backend == nil {
-		backend = pr.backends.SelectStableBackend()
-		if backend == nil {
-			logger.Error("No available stable backends", "route", pr.name)
-			middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
-				"503 service unavailable", pr.cors.Origins, contentType)
-			return nil, fmt.Errorf("no available stable backends for route=%s", pr.name)
-		}
+		backend = pr.backends.selectFromNonExclusivePool(r)
+		selectionType = "canary-pooled"
+	}
+	if backend == nil {
+		logger.Error("No available stable backends", "route", pr.name)
+		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
+			"503 service unavailable", pr.cors.Origins, contentType)
+		return nil, fmt.Errorf("no available stable backends for route=%s", pr.name)
 	}
 	// Parse the backend URL and update the request
 	backendURL, err := url.Parse(backend.Endpoint)
@@ -279,7 +282,7 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 
 	logger.Debug("Backend Selected",
 		"route", pr.name,
-		"type", "canary",
+		"type", selectionType,
 		"backend", backendURL.String())
 	return httputil.NewSingleHostReverseProxy(backendURL), nil
 }
@@ -493,58 +496,55 @@ func (b Backends) getNextAvailableBackend(availableCount int) *Backend {
 	return nil
 }
 
-// SelectCanaryBackend selects a backend based on canary deployment rules.
+// SelectCanaryBackend returns a matching exclusive canary backend, if any.
 func (b Backends) SelectCanaryBackend(r *http.Request) *Backend {
-	// Update availability status for all backends
 	b.updateAvailability()
-	// check for exclusive canary backends that match the request
+
+	var winner *Backend
 	for _, backend := range b {
-		if backend.unavailable {
+		if backend.unavailable || len(backend.Match) == 0 || !backend.Exclusive {
 			continue
 		}
+		if !b.matchesRequest(backend, r) {
+			continue
+		}
+		logger.Debug("Exclusive canary matched",
+			"endpoint", backend.Endpoint,
+			"priority", backend.Priority)
 
-		// Check if this is a canary backend with matching rules
-		if len(backend.Match) > 0 {
-			if b.matchesRequest(backend, r) {
-				logger.Debug("Canary backend matched",
-					"endpoint", backend.Endpoint,
-					"exclusive", backend.Exclusive)
-
-				// If it's an exclusive canary and matches, use it
-				if backend.Exclusive {
-					return backend
-				}
-
-				// TODO: Improve logic for non-exclusive canary
-				return backend
-			}
+		if winner == nil || backend.Priority > winner.Priority {
+			winner = backend
 		}
 	}
-
-	return nil
+	return winner
 }
 
-// SelectStableBackend selects a stable (non-canary) backend using weighted selection.
-func (b Backends) SelectStableBackend() *Backend {
-	var stableBackends []*Backend
+// selectFromNonExclusivePool merges matching non-exclusive canary backends
+// with the stable (non-canary) backends and picks one via weighted selection.
+func (b Backends) selectFromNonExclusivePool(r *http.Request) *Backend {
+	b.updateAvailability()
 
-	// Collect all stable (non-canary) backends
+	pool := make(Backends, 0, len(b))
 	for _, backend := range b {
 		if backend.unavailable {
 			continue
 		}
-
 		if len(backend.Match) == 0 {
-			stableBackends = append(stableBackends, backend)
+			pool = append(pool, backend)
+			continue
+		}
+		if !backend.Exclusive && b.matchesRequest(backend, r) {
+			logger.Debug("Non-exclusive canary eligible",
+				"endpoint", backend.Endpoint,
+				"weight", backend.Weight)
+			pool = append(pool, backend)
 		}
 	}
 
-	if len(stableBackends) == 0 {
+	if len(pool) == 0 {
 		return nil
 	}
-
-	// Use weighted selection for stable backends
-	return Backends(stableBackends).SelectBackend()
+	return pool.SelectBackend()
 }
 
 // matchesRequest checks if a backend's match rules are satisfied by the request.

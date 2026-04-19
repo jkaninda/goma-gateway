@@ -113,6 +113,8 @@ type Backend struct {
 	Weight    int            `yaml:"weight,omitempty" json:"weight,omitempty"`
 	Match     []BackendMatch `yaml:"match,omitempty" json:"match,omitempty"`
 	Exclusive bool           `yaml:"exclusive,omitempty" json:"exclusive"`
+	// Priority resolves overlapping exclusive canary matches deterministically.
+	Priority int `yaml:"priority,omitempty" json:"priority,omitempty"`
 }
 
 type Security struct {
