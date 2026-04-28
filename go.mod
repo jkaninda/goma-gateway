@@ -25,7 +25,7 @@ require (
 )
 
 require (
-	github.com/jedib0t/go-pretty/v6 v6.7.9
+	github.com/jedib0t/go-pretty/v6 v6.7.10
 	github.com/mattn/go-runewidth v0.0.22 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 )
