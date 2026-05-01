@@ -20,10 +20,27 @@ This strategy is useful for:
 ## Configuration Fields
 
 * **`weight`** (`int`, required)
-  Percentage of traffic to route to this backend.
+  Relative weight used when the backend competes for traffic with others in the
+  same pool. Goma uses weighted-random selection — a backend's probability is
+  `weight / sum(weights in the pool)`.
 
 * **`exclusive`** (`boolean`, optional, default: `false`)
-  When `true`, this backend only receives traffic if the specified **match** conditions are met.
+  Controls how a matching canary participates in routing:
+
+    * **`true`** — If the request matches, this backend receives **100%** of
+      the matching traffic (no split with stable backends). Use this for
+      hard-pinned audiences such as internal staff or opted-in beta users.
+    * **`false`** — If the request matches, this backend joins the stable
+      backends in a **weighted pool** and competes for the request via its
+      `weight`. Use this to send a fraction of a targeted audience to the
+      canary while the rest continues to stable. Non-matching requests never
+      see this backend.
+
+* **`priority`** (`int`, optional, default: `0`)
+  Resolves overlaps between **exclusive** canaries when more than one matches
+  the same request. The highest `priority` wins; ties fall back to
+  configuration order (the first matching backend in the list). Ignored for
+  non-exclusive canaries, which always pool together.
 
 * **`match`** (`[]object`, optional)
   A list of conditions used to determine whether traffic should be routed to this backend. Each condition supports the following fields:
@@ -91,8 +108,76 @@ routes:
             value: "admin,tester,developer"
 ```
 
-In this configuration:
+In this configuration the beta backend is **exclusive**, so any request that
+satisfies one of the match rules is routed to the beta backend in full; all
+other traffic goes to the stable backend.
 
-* **80% of traffic** goes to the stable backend (`api-stable-example`).
-* **20% of traffic** goes to the beta backend (`api-beta-example`), but **only if** requests match at least one of the defined conditions (e.g., a header, query parameter, or cookie indicating canary usage).
+---
+
+## Example: Non-Exclusive Canary (Partial Split)
+
+Use a non-exclusive canary when you want a *fraction* of a targeted audience
+to hit the canary while the rest continues to stable. The canary joins the
+stable backends in a weighted pool for matching requests.
+
+```yaml
+routes:
+  - path: /
+    name: canary
+    enabled: true
+    hosts:
+      - api.example.com
+    backends:
+      - endpoint: "https://api-stable-example"
+        weight: 90
+      - endpoint: "https://api-beta-example"
+        weight: 10
+        exclusive: false
+        match:
+          - source: "header"
+            name: "X-Beta-Audience"
+            operator: "equals"
+            value: "true"
+```
+
+For requests **without** `X-Beta-Audience: true`, the canary is excluded —
+100% of traffic goes to stable. For requests **with** the header, the pool is
+`{stable(90), beta(10)}`, so roughly **10%** of those users are routed to the
+canary and the remaining **90%** still hit stable. This gives you a gradual
+ramp within a targeted segment.
+
+---
+
+## Example: Overlapping Exclusive Canaries with Priority
+
+When several exclusive canaries could match the same request, use `priority`
+to decide which one wins deterministically.
+
+```yaml
+backends:
+  - endpoint: "https://api-stable-example"
+    weight: 100
+  - endpoint: "https://api-beta-example"
+    weight: 20
+    exclusive: true
+    priority: 1
+    match:
+      - source: "header"
+        name: "X-Beta-Audience"
+        operator: "equals"
+        value: "true"
+  - endpoint: "https://api-staff-example"
+    weight: 20
+    exclusive: true
+    priority: 10
+    match:
+      - source: "cookie"
+        name: "group"
+        operator: "equals"
+        value: "staff"
+```
+
+A staff member who also has `X-Beta-Audience: true` matches both canaries; the
+staff backend wins because its `priority` is higher. Equal priorities fall
+back to the order the backends appear in the configuration.
 
