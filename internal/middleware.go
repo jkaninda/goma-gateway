@@ -21,16 +21,17 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/util"
-	"gopkg.in/yaml.v3"
 	"net/http"
 	"os"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
+	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/util"
+	"gopkg.in/yaml.v3"
 )
 
 func getMiddleware(rules []string, middlewares []Middleware) (Middleware, error) {
@@ -132,6 +133,8 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *mux.Router) {
 		applyAccessLogMiddleware(mid, r)
 	case responseHeaders:
 		applyResponseHeadersMiddleware(mid, r)
+	case requestHeaders:
+		applyRequestHeadersMiddleware(mid, *r, router)
 	case errorInterceptor:
 		applyErrorInterceptorMiddleware(mid, r)
 	}
@@ -166,6 +169,27 @@ func applyAccessLogMiddleware(mid Middleware, r *Route) {
 	}
 	r.logRule = rule
 }
+func applyRequestHeadersMiddleware(mid Middleware, route Route, router *mux.Router) {
+	logger.Debug("Applying request headers middleware", "middleware", mid.Name, "route", route.Name)
+	rule := &RequestHeader{}
+	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
+		logger.Error("Request headers middleware not applied", "middleware", mid.Name, "error", err)
+		return
+	}
+	if len(rule.SetHeaders) == 0 && len(rule.RemoveHeaders) == 0 {
+		logger.Debug("Request headers middleware has no setHeaders or removeHeaders, skipping",
+			"middleware", mid.Name, "route", route.Name)
+		return
+	}
+	rh := &middlewares.RequestHeaders{
+		Path:          route.Path,
+		Paths:         mid.Paths,
+		SetHeaders:    rule.SetHeaders,
+		RemoveHeaders: rule.RemoveHeaders,
+	}
+	router.Use(rh.Middleware)
+}
+
 func applyResponseHeadersMiddleware(mid Middleware, r *Route) {
 	logger.Debug("Applying response headers middleware", "middleware", mid.Name, "route", r.Name)
 	rule := &ResponseHeader{}

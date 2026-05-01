@@ -196,14 +196,3 @@ docker pull ghcr.io/jkaninda/goma-gateway
 ```
 
 Documentation references Docker Hub, but all examples will work using ghcr.io just as well.
-
-
-## References
-
-We decided to publish this image as a simpler and more lightweight because of the following requirements:
-
-- The original image is based on `Alpine`, making it heavy.
-- This image is written in Go.
-- `arm64` and `arm/v7` architectures are supported.
-- Docker in Swarm mode is supported.
-- Kubernetes is supported.
