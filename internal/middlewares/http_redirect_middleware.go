@@ -25,6 +25,11 @@ import (
 	"strings"
 )
 
+const (
+	schemeHTTP  = "http"
+	schemeHTTPS = "https"
+)
+
 // RedirectScheme middleware configuration for scheme-based redirects (HTTP to HTTPS)
 type RedirectScheme struct {
 	Scheme    string
@@ -126,7 +131,7 @@ func (rs *RedirectScheme) buildRedirectURL(r *http.Request) string {
 
 // isDefaultPort checks if the port is the default for the scheme
 func (rs *RedirectScheme) isDefaultPort(scheme string, port int64) bool {
-	return (scheme == "http" && port == 80) || (scheme == "https" && port == 443)
+	return (scheme == schemeHTTP && port == 80) || (scheme == schemeHTTPS && port == 443)
 }
 
 // Middleware performs URL-based redirects
@@ -295,7 +300,7 @@ func scheme(r *http.Request) string {
 
 	// Check if TLS is used
 	if r.TLS != nil {
-		return "https"
+		return schemeHTTPS
 	}
 
 	// Default to the URL scheme
@@ -303,5 +308,5 @@ func scheme(r *http.Request) string {
 		return strings.ToLower(r.URL.Scheme)
 	}
 
-	return "http"
+	return schemeHTTP
 }

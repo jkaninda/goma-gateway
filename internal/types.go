@@ -350,6 +350,25 @@ type ResponseHeader struct {
 	CacheStatuses []int    `yaml:"cacheStatuses,omitempty" json:"cacheStatuses"`
 }
 
+// RequestHeader defines the configuration for managing HTTP request headers
+// before they are forwarded to the upstream backend.
+type RequestHeader struct {
+	// SetHeaders contains headers to set or override on the outgoing request.
+	// Behavior:
+	// - If the client sends a header with the same key, it will be overridden.
+	// - If the client doesn't send the header, it will be added.
+	// - Set value to empty string "" to remove a client header.
+	//
+	// Examples:
+	//   X-Forwarded-Proto: "https"      # Add or override
+	//   Authorization: ""               # Remove client header
+	SetHeaders map[string]string `yaml:"setHeaders,omitempty" json:"setHeaders"`
+
+	// RemoveHeaders lists header names to delete before forwarding.
+	// Applied before SetHeaders so SetHeaders may re-introduce a header.
+	RemoveHeaders []string `yaml:"removeHeaders,omitempty" json:"removeHeaders"`
+}
+
 // RetryPolicy defines retry behavior for a route
 type RetryPolicy struct {
 	MaxAttempts int           `json:"maxAttempts" yaml:"maxAttempts"`
