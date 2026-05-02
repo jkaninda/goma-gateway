@@ -19,11 +19,11 @@ The `spec.rule` field is a free-form object whose shape depends on `spec.type`. 
 
 | Type | Purpose |
 | --- | --- |
-| `basic` | HTTP basic authentication. |
-| `jwt` / `jwtAuth` | JWT validation against a JWKS endpoint. |
+| `basicAuth` | HTTP basic authentication. |
+| `jwtAuth` | JWT validation against a JWKS endpoint. |
 | `oauth` | OAuth 2.0 authentication flow. |
 | `forwardAuth` | Delegate authn/authz to an external HTTP service. |
-| `ldap` | LDAP authentication. |
+| `ldapAuth` | LDAP authentication. |
 | `rateLimit` | Per-IP / per-route rate limiting. |
 | `access` | Allow / deny rules by IP, header, etc. |
 | `accessPolicy` | Fine-grained access policies. |
@@ -51,7 +51,7 @@ kind: Middleware
 metadata:
   name: admin-basic-auth
 spec:
-  type: basic
+  type: basicAuth
   paths:
     - /admin
   rule:
