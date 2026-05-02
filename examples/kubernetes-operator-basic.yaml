@@ -1,0 +1,68 @@
+# ==========================================================================
+# Goma Gateway — Minimal Kubernetes deployment via the Goma Gateway Operator
+# ==========================================================================
+#
+# Requires the Goma Gateway Operator and its CRDs:
+#
+#   kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-operator/main/dist/install.yaml
+#
+# This is the smallest useful operator-managed stack:
+#   - A ClusterIP Gateway with one replica.
+#   - A basic-auth Middleware protecting /admin.
+#   - One host-based Route attached to the Gateway and using the middleware.
+#
+# For a richer setup (LoadBalancer, ACME, autoscaling, JWT, multiple
+# backends), see kubernetes-advanced.yaml.
+# ==========================================================================
+
+---
+## Gateway
+apiVersion: gateway.jkaninda.dev/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: default
+spec:
+  image: jkaninda/goma-gateway:latest
+  replicas: 1
+  server:
+    logLevel: info
+
+---
+## Middleware: basic auth on /admin
+# Generate a bcrypt hash with: htpasswd -nbB admin 's3cret'
+apiVersion: gateway.jkaninda.dev/v1alpha1
+kind: Middleware
+metadata:
+  name: admin-basic-auth
+  namespace: default
+spec:
+  type: basic
+  paths:
+    - /admin
+  rule:
+    realm: admin
+    users:
+      - "admin:$2a$12$EXAMPLEHASHREPLACEME.................."
+
+---
+## Route: api.example.com -> api-service
+apiVersion: gateway.jkaninda.dev/v1alpha1
+kind: Route
+metadata:
+  name: api
+  namespace: default
+spec:
+  gateways:
+    - gateway
+  path: /
+  hosts:
+    - api.example.com
+  target: http://api-service.default.svc.cluster.local:8080
+  methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+  middlewares:
+    - admin-basic-auth

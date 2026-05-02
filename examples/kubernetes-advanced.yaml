@@ -1,118 +1,164 @@
-# -----------------------------
-# Deprecation Notice: This example is deprecated
-# -----------------------------
-## Example of Advanced Kubernetes Deployment
-
-### Requirements
-#- **Custom Resource Definitions (CRDs)** and the **Goma Gateway Operator**.
-#    - Kubernetes Operator: [Goma Operator](https://github.com/jkaninda/goma-operator)
-#    - CRD doc: https://doc.crds.dev/github.com/jkaninda/goma-operator
+# ==========================================================================
+# Goma Gateway — Advanced Kubernetes deployment via the Goma Gateway Operator
+# ==========================================================================
+#
+# Requires the Goma Gateway Operator and its CRDs:
+#
+#   kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-operator/main/dist/install.yaml
+#
+# Operator project:    https://github.com/jkaninda/goma-operator
+# Operator examples:   https://github.com/jkaninda/goma-operator/tree/main/examples
+# CRD reference:       gateway.jkaninda.dev/v1alpha1 (Gateway, Route, Middleware)
+#
+# This file demonstrates a complete production-style stack:
+#   - A LoadBalancer Gateway on standard 80/443 with HPA, metrics, and ACME.
+#   - A JWT middleware and a per-IP rate-limit middleware.
+#   - A public route (rate-limited) and an authenticated API route.
+# ==========================================================================
 
 ---
-
-### Middleware Configuration
-apiVersion: gomaproj.github.io/v1beta1
-kind: Middleware
-metadata:
-  name: basic-middleware-sample
-spec:
-  type: basic
-  paths:
-    - /admin # Blocks only /admin
-    - /admin/*  # Explicitly blocks /admin and all subpaths
-  rule:
-    realm: your-realm # Optional
-    users:
-      - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc= # SHA-1 hash
-      - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali # bcrypt hash
-      - admin:admin # Plaintext password
----
-## Gateway
-apiVersion: gomaproj.github.io/v1beta1
+## Gateway: platform-level configuration
+apiVersion: gateway.jkaninda.dev/v1alpha1
 kind: Gateway
 metadata:
-  name: gateway-sample
+  name: gateway
+  namespace: default
 spec:
-  # Goma Gateway image
-  imageName: jkaninda/goma-gateway:latest # https://github.com/jkaninda/goma-gateway/releases
-  ## Server Configuration
-  server:
-    tls: # Optional
-      keys:
-        - tlsSecretName: tls-secret
-    redis:
-      addr: '' # Optional: Redis host (e.g., redis:6379)
-      password: '' # Optional: Redis password
-    writeTimeout: 10 # Request write timeout in seconds
-    readTimeout: 15  # Request read timeout in seconds
-    idleTimeout: 30  # Idle timeout in seconds
-    logLevel: info   # Logging level (e.g., info, debug, warn, error)
-    disableHealthCheckStatus: false # Enable or disable health check status
-    disableKeepAlive: false         # Enable or disable KeepAlive connections
-    enableMetrics: true             # Enable Prometheus metrics for monitoring
+  # Container image. See https://github.com/jkaninda/goma-gateway/releases.
+  image: jkaninda/goma-gateway:latest
+  replicas: 2
 
-  ## Scaling and Resource Management
-  replicaCount: 1 # Number of initial replicas
   resources:
-    limits:
-      cpu: 200m    # Maximum CPU allocation
-      memory: 512Mi # Maximum memory allocation
     requests:
-      cpu: 100m    # Minimum CPU allocation
-      memory: 128Mi # Minimum memory allocation
-  autoScaling:
-    enabled: true # Enable Horizontal Pod Autoscaler
-    minReplicas: 2 # Minimum number of replicas
-    maxReplicas: 5 # Maximum number of replicas
-    targetCPUUtilizationPercentage: 80 # Target CPU utilization
-    targetMemoryUtilizationPercentage: 80 # Target memory utilization
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
-  ## Node Affinity
-  affinity: {}
+  # Expose the gateway as a LoadBalancer on standard 80/443.
+  service:
+    type: LoadBalancer
+    httpPort: 80
+    httpsPort: 443
+    externalTrafficPolicy: Local       # preserve client source IPs
+
+  # Horizontal Pod Autoscaler. Requires metrics-server.
+  autoScaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  server:
+    logLevel: info
+    timeouts:
+      read: 30
+      write: 60
+      idle: 90
+
+    # Optional: shared state across replicas (rate-limit counters, ACME store).
+    # redis:
+    #   addr: redis.default.svc.cluster.local:6379
+    #   password: ""
+
+    # Prometheus metrics on /metrics. /healthz and /readyz are always on.
+    monitoring:
+      enableMetrics: true
+      metricsPath: /metrics
+
+  # Built-in ACME / Let's Encrypt certificate manager (HTTP-01).
+  # The gateway must be publicly reachable on :80 for the challenge.
+  certManager:
+    provider: acme
+    acme:
+      email: ops@example.com
+      termsAccepted: true
+      challengeType: http-01
+      # For testing, switch to staging to avoid rate limits:
+      # directoryUrl: https://acme-staging-v02.api.letsencrypt.org/directory
+
 ---
-## Route
-apiVersion: gomaproj.github.io/v1beta1
+## Middleware: JWT validation
+apiVersion: gateway.jkaninda.dev/v1alpha1
+kind: Middleware
+metadata:
+  name: api-jwt
+  namespace: default
+spec:
+  type: jwtAuth
+  rule:
+    jwksUrl: https://auth.example.com/.well-known/jwks.json
+    issuer: https://auth.example.com/
+    audience: api.example.com
+    algorithms:
+      - RS256
+    forwardHeaders:
+      X-User-Id: sub
+      X-User-Email: email
+
+---
+## Middleware: per-IP rate limiter
+apiVersion: gateway.jkaninda.dev/v1alpha1
+kind: Middleware
+metadata:
+  name: api-rate-limit
+  namespace: default
+spec:
+  type: rateLimit
+  rule:
+    requestsPerUnit: 300
+    unit: minute
+    burst: 50
+
+---
+## Route: public marketing site (rate-limited only)
+apiVersion: gateway.jkaninda.dev/v1alpha1
 kind: Route
 metadata:
-  name: route-sample
+  name: www
+  namespace: default
 spec:
-  # Name of the associated gateway
-  gateway: gateway-sample
-  disabled: false                # Disabled specifies whether the route is disabled, the route will not be proxied.
-  # Route Configuration
-  path: / # URL path for the route
-  hosts: [] # Optional: Hostnames/domains for routing
-  rewrite: / # Rewrite the path (e.g., /store -> /)
-  methods:
-    - GET
-    - POST
-    - PUT
-
-  # Backend Configuration
-  backends: #  backends for load balancing
-    - endpoint: https://backend1.example.com
-      weight: 2 # Optional
-    - endpoint: https://backend2.example.com
-      weight: 1 # Optional
-  insecureSkipVerify: false # Skip TLS verification (not recommended)
-
-  # Health Check Settings
-  healthCheck:
-    path: / # Health check endpoint
-    interval: 10s # Check interval
-    timeout: 10s # Timeout for health check
-    healthyStatuses:
-      - 200 # HTTP status codes indicating healthy responses
-      - 404
-
-  # Cross-Origin Resource Sharing (CORS) Configuration
-  cors:
-    origins: [] # Allowed origins
-    headers: {} # custom headers
-
-  # Security and Middleware
-  disableHostForwarding: true # Disable forwarding of Host headers
-  blockCommonExploits: false  # Enable or disable blocking of common exploits
-  # List of middleware names
+  gateways:
+    - gateway
+  path: /
+  hosts:
+    - www.example.com
+    - example.com
+  target: http://www.default.svc.cluster.local:80
   middlewares:
-    - basic-middleware-sample
+    - api-rate-limit
+
+---
+## Route: authenticated API behind JWT + rate limit, with health checks
+apiVersion: gateway.jkaninda.dev/v1alpha1
+kind: Route
+metadata:
+  name: api
+  namespace: default
+spec:
+  gateways:
+    - gateway
+  path: /
+  hosts:
+    - api.example.com
+  backends:
+    # 80/20 weighted split between two API versions.
+    - endpoint: http://api-v1.default.svc.cluster.local:8080
+      weight: 80
+    - endpoint: http://api-v2.default.svc.cluster.local:8080
+      weight: 20
+  healthCheck:
+    path: /healthz
+    interval: 15s
+    timeout: 3s
+    healthyStatuses:
+      - 200
+      - 204
+  security:
+    forwardHostHeaders: true
+    enableExploitProtection: true
+  middlewares:
+    - api-jwt
+    - api-rate-limit
