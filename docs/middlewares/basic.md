@@ -17,7 +17,7 @@ The following example demonstrates how to configure basic-auth middleware:
 ```yaml
 middlewares:
   - name: basic-auth
-    type: basic
+    type: basicAuth
     paths:
       - /admin  # Explicitly blocks /admin and all subpaths
     rule:

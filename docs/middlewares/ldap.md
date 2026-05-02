@@ -35,7 +35,7 @@ The LDAP middleware for Goma Gateway provides secure authentication using LDAP (
 ```yaml
 middlewares:
   - name: ldap-auth
-    type: ldap
+    type: ldapAuth
     paths:
       - /*
     rule:
@@ -174,7 +174,7 @@ Use environment variables for sensitive configuration:
 ```yaml
 middlewares:
   - name: ldap-auth
-    type: ldap
+    type: ldapAuth
     rule:
       url: ${LDAP_URL}
       bindDN: ${LDAP_BIND_DN}
