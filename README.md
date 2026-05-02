@@ -38,7 +38,7 @@ Architecture:
 
 
 
-## Links
+## Quick Links
 
 - **Documentation**: [Documentation](https://jkaninda.github.io/goma-gateway)
 - **Source Code**: [Goma Gateway on GitHub](https://github.com/jkaninda/goma-gateway)
@@ -46,7 +46,9 @@ Architecture:
 - **Goma Admin(Control Plane)**: [Goma Admin](https://github.com/jkaninda/goma-admin)
 - **HTTP Provider**: [Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)
 - **Docker Provider**: [Goma Docker Provider](https://github.com/jkaninda/goma-docker-provider)
+- **Kubernetes Provider**: [Kubernetes Provider](https://github.com/jkaninda/goma-k8s-provider)
 
+- **Kubernetes Operator**: [Kubernetes Operator](https://github.com/jkaninda/goma-operator)
 
 ### [Documentation](https://jkaninda.github.io/goma-gateway)
 
@@ -483,7 +485,63 @@ networks:
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-gateway/main/examples/k8s-basic-deployment.yaml
 ```
+#### Advanced Deployment using CRDs
 
+For declarative, GitOps-friendly deployments, use the [Goma Gateway Operator](https://github.com/jkaninda/goma-operator), which manages `Gateway`, `Route`, and `Middleware` custom resources.
+
+**1. Install the operator and its CRDs:**
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-operator/main/dist/install.yaml
+```
+
+**2. Apply a minimal stack (Gateway + Middleware + Route):**
+
+```yaml
+---
+apiVersion: gateway.jkaninda.dev/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  image: jkaninda/goma-gateway:latest
+  replicas: 1
+  server:
+    logLevel: info
+---
+apiVersion: gateway.jkaninda.dev/v1alpha1
+kind: Middleware
+metadata:
+  name: api-rate-limit
+spec:
+  type: rateLimit
+  rule:
+    requestsPerUnit: 100
+    unit: minute
+    burst: 20
+---
+apiVersion: gateway.jkaninda.dev/v1alpha1
+kind: Route
+metadata:
+  name: api
+spec:
+  gateways:
+    - gateway
+  path: /
+  hosts:
+    - api.example.com
+  target: http://api-service.default.svc.cluster.local:8080
+  middlewares:
+    - api-rate-limit
+```
+
+Or apply a ready-made example directly:
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-gateway/main/examples/kubernetes-operator-basic.yaml
+```
+
+For a production-style stack (LoadBalancer, ACME, HPA, JWT, weighted backends), see [kubernetes-advanced.yaml](https://github.com/jkaninda/goma-gateway/blob/main/examples/kubernetes-advanced.yaml) and the [Operator Manual](https://goma.jkaninda.dev/operator-manual/).
 
 ### 10. HTTP API Provider (External)
 
