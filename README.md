@@ -383,6 +383,12 @@ It provides a structured and user-friendly interface to define routes, middlewar
   <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-dark.png" alt="Dashboard (Dark)" width="900"/>
 </p>
 
+### Dashboard Route Details
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-route-details.png" alt="Dashboard Route Details" width="900"/>
+</p>
+
 ---
 
 ### Goma Docker Provider
