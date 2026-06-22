@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 ########################
 # Final Stage
 ########################
-FROM alpine:3.23.4
+FROM alpine:3.24.1
 
 ENV TZ=UTC
 
