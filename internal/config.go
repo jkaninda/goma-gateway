@@ -186,6 +186,20 @@ func validateRoutes(gateway Gateway, routes []Route) []Route {
 	return routes
 }
 
+func validateRouteTLSProviders(routes []Route, cm *certmanager.CertManager) {
+	if cm == nil {
+		return
+	}
+	for _, route := range routes {
+		if route.TLS.Provider == "" || strings.EqualFold(route.TLS.Provider, certmanager.NoneProvider) {
+			continue
+		}
+		if !cm.HasProvider(route.TLS.Provider) {
+			logger.Fatal("Unknown tls.provider on route", "route", route.Name, "tls.provider", route.TLS.Provider, "configured", cm.ProviderNames())
+		}
+	}
+}
+
 func (r *Route) validateRoute() {
 	if len(r.Name) == 0 {
 		logger.Fatal("Route name is required")

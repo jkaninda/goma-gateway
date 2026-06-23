@@ -17,11 +17,44 @@
 
 package certmanager
 
+import "strings"
+
+// LegacyProviderName is the synthetic provider name created by Normalize when
+// migrating a legacy single-provider Config (top-level Provider/Acme/Vault) into
+// the Providers map. Existing storage files keep working under this name.
+const LegacyProviderName = "default"
+
+// NoneProvider opts a Route out of automatic certificate management.
+const NoneProvider = "none"
+
+// Config describes the certificate manager. It supports two shapes:
+//
+//  1. Legacy single-provider (Provider/Acme/Vault at the top level).
+//  2. Multi-provider via the Providers map plus DefaultProvider.
+//
+// Normalize() migrates legacy configs into the Providers map at load time so
+// downstream code only has to deal with the multi-provider shape.
 type Config struct {
+	// DefaultProvider names the provider used when a Route's tlsProvider is empty.
+	DefaultProvider string `yaml:"defaultProvider,omitempty"`
+	// Providers is the map of named providers keyed by user-chosen name.
+	Providers map[string]ProviderConfig `yaml:"providers,omitempty"`
+
+	// Provider is the legacy single-provider type. Deprecated: use Providers.
 	Provider CertProvider `yaml:"provider,omitempty"`
-	Acme     Acme         `yaml:"acme,omitempty"`
-	Vault    Vault        `yaml:"vault,omitempty"`
+	// Acme is the legacy ACME config. Deprecated: use Providers.
+	Acme Acme `yaml:"acme,omitempty"`
+	// Vault is the legacy Vault config. Deprecated: use Providers.
+	Vault Vault `yaml:"vault,omitempty"`
 }
+
+// ProviderConfig describes a single named cert provider.
+type ProviderConfig struct {
+	Type  CertProvider `yaml:"type"`
+	Acme  Acme         `yaml:"acme,omitempty"`
+	Vault Vault        `yaml:"vault,omitempty"`
+}
+
 type Acme struct {
 	Email         string        `yaml:"email"`
 	DirectoryURL  string        `yaml:"directoryUrl,omitempty"`
@@ -51,4 +84,64 @@ type Vault struct {
 type StorageConfig struct {
 	CacheDir    string
 	StorageFile string
+}
+
+// Normalize migrates a legacy single-provider Config into the Providers map and
+// fills DefaultProvider when unambiguous. Idempotent.
+func (c *Config) Normalize() {
+	if c == nil {
+		return
+	}
+	if len(c.Providers) == 0 && c.hasLegacyConfig() {
+		provider := c.Provider
+		if provider == "" {
+			provider = CertAcmeProvider
+		}
+		c.Providers = map[string]ProviderConfig{
+			LegacyProviderName: {Type: provider, Acme: c.Acme, Vault: c.Vault},
+		}
+		if c.DefaultProvider == "" {
+			c.DefaultProvider = LegacyProviderName
+		}
+	}
+	if c.DefaultProvider == "" && len(c.Providers) == 1 {
+		for name := range c.Providers {
+			c.DefaultProvider = name
+		}
+	}
+}
+
+func (c *Config) hasLegacyConfig() bool {
+	return c.Provider != "" ||
+		c.Acme.Email != "" ||
+		c.Acme.ChallengeType != "" ||
+		c.Acme.DirectoryURL != "" ||
+		c.Vault.Address != ""
+}
+
+// HasProvider reports whether name exists in the Providers map.
+func (c *Config) HasProvider(name string) bool {
+	if c == nil {
+		return false
+	}
+	_, ok := c.Providers[name]
+	return ok
+}
+
+// ResolveProvider maps a Route's tlsProvider value to the provider name that
+// should issue certificates for that route. Returns:
+//   - "" if the route opted out ("none") or no provider is configured.
+//   - The named provider when set on the route.
+//   - DefaultProvider when the route leaves tlsProvider empty.
+func (c *Config) ResolveProvider(routeProvider string) string {
+	if c == nil {
+		return ""
+	}
+	if strings.EqualFold(routeProvider, NoneProvider) {
+		return ""
+	}
+	if routeProvider != "" {
+		return routeProvider
+	}
+	return c.DefaultProvider
 }

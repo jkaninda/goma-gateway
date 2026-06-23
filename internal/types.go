@@ -39,7 +39,8 @@ type TlsCertificates struct {
 	Default    TLS           `yaml:"default,omitempty" json:"default,omitempty"`
 }
 type TlsCertificate struct {
-	Certificate TLS `yaml:"certificate,omitempty" json:"certificate,omitempty"`
+	Provider    string `yaml:"provider,omitempty" json:"provider,omitempty"`
+	Certificate TLS    `yaml:"certificate,omitempty" json:"certificate,omitempty"`
 }
 
 type TLS struct {

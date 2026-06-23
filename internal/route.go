@@ -82,7 +82,8 @@ type Route struct {
 	// When enabled, requests to this route return the configured response
 	// instead of being forwarded to the backend.
 	Maintenance Maintenance `yaml:"maintenance,omitempty" json:"maintenance,omitempty"`
-	// TLS contains the TLS Certificate configuration for the route.
+	// TLS contains the TLS configuration for the route — both the optional
+	// custom serving certificate and the automatic-cert provider selection.
 	TLS      TlsCertificate `yaml:"tls,omitempty" json:"tls,omitempty"`
 	Security Security       `yaml:"security,omitempty" json:"security,omitempty"`
 	// DisableMetrics disables metrics collection for this route.

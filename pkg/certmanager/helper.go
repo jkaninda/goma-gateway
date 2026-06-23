@@ -25,13 +25,28 @@ import (
 )
 
 func initializeStorageConfig(storageFile string) (*StorageConfig, error) {
+	return resolveStorageConfig(storageFile, acmeFile)
+}
+
+// initializeProviderStorageConfig is like initializeStorageConfig but derives a
+// provider-specific default file name when no explicit storageFile is given.
+// The legacy provider keeps the historical "acme.json" filename for back-compat.
+func initializeProviderStorageConfig(providerName, storageFile string) (*StorageConfig, error) {
+	defaultFile := acmeFile
+	if providerName != "" && providerName != LegacyProviderName {
+		defaultFile = "acme-" + providerName + ".json"
+	}
+	return resolveStorageConfig(storageFile, defaultFile)
+}
+
+func resolveStorageConfig(storageFile, defaultFile string) (*StorageConfig, error) {
 	if storageFile == "" {
-		return &StorageConfig{CacheDir: cacheDir, StorageFile: filepath.Join(cacheDir, acmeFile)}, nil
+		return &StorageConfig{CacheDir: cacheDir, StorageFile: filepath.Join(cacheDir, defaultFile)}, nil
 	}
 
 	file := filepath.Base(storageFile)
 	if file == "" {
-		file = acmeFile
+		file = defaultFile
 	}
 	// Check if storage file already exists
 	if _, err := os.Stat(storageFile); err == nil {

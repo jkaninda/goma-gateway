@@ -19,15 +19,16 @@ package internal
 
 import (
 	"fmt"
-	"github.com/jedib0t/go-pretty/v6/table"
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 )
 
 // printRoute prints routes
@@ -183,21 +184,48 @@ func allowedOrigin(allowedOrigins []string, origin string) bool {
 func hostNames(routes []Route) []certmanager.Domain {
 	hosts := extractHostsFromRoutes(routes)
 	if len(hosts) == 0 {
-		_ = []certmanager.Domain{}
 		return nil
 	}
 	return hosts
 }
 
-// extractHostsFromRoutes collects all hosts from routes that have hosts defined
+// extractHostsFromRoutes collects all hosts from routes that have hosts defined.
+// Routes with tls.provider set to "none" are excluded so CertManager does not
+// attempt to issue certificates for them.
 func extractHostsFromRoutes(routes []Route) []certmanager.Domain {
 	var hosts []certmanager.Domain
 	for _, route := range routes {
-		if len(route.Hosts) > 0 && route.Enabled {
+		if len(route.Hosts) > 0 && route.Enabled && !strings.EqualFold(route.TLS.Provider, certmanager.NoneProvider) {
 			hosts = append(hosts, certmanager.Domain{Name: route.Name, Hosts: route.Hosts})
 		}
 	}
 	return hosts
+}
+
+// extractHostsByProvider partitions routes into a map keyed by the cert
+// provider that should issue their certificates. Routes with
+// tls.provider: "none" are excluded entirely. An empty tls.provider falls
+// back to defaultProvider; if no default is configured, those routes are
+// also excluded.
+func extractHostsByProvider(routes []Route, defaultProvider string) map[string][]certmanager.Domain {
+	out := map[string][]certmanager.Domain{}
+	for _, route := range routes {
+		if !route.Enabled || len(route.Hosts) == 0 {
+			continue
+		}
+		if strings.EqualFold(route.TLS.Provider, certmanager.NoneProvider) {
+			continue
+		}
+		name := route.TLS.Provider
+		if name == "" {
+			name = defaultProvider
+		}
+		if name == "" {
+			continue
+		}
+		out[name] = append(out[name], certmanager.Domain{Name: route.Name, Hosts: route.Hosts})
+	}
+	return out
 }
 func getBaseURL(fullURL string) (string, error) {
 	parsed, err := url.Parse(fullURL)

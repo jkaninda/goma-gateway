@@ -159,6 +159,9 @@ func (g *Goma) Initialize() error {
 			logger.Debug("Certificate providerManager created successfully")
 		}
 	}
+	if certManager != nil {
+		validateRouteTLSProviders(g.dynamicRoutes, certManager)
+	}
 	// TLS certificates
 	logger.Debug("Loading TLS certificates...")
 	if ok, certs := g.initTLS(); ok {
@@ -166,11 +169,11 @@ func (g *Goma) Initialize() error {
 		logger.Debug("TLS certificates loaded", "count", len(certs))
 	}
 
-	// Domain update for certManager
+	// Domain update for certManager (per-provider partitioning)
 	if certManager != nil && certManager.AcmeInitialized() {
-		domains := hostNames(g.dynamicRoutes)
-		certManager.UpdateDomains(domains)
-		logger.Debug("Updated ACME domains", "count", len(domains))
+		byProvider := extractHostsByProvider(g.dynamicRoutes, certManager.DefaultProvider())
+		certManager.UpdateDomainsByProvider(byProvider)
+		logger.Debug("Updated ACME domains", "providers", len(byProvider))
 	}
 	debugMode = gateway.Debug
 	if len(g.dynamicRoutes) == 0 {
