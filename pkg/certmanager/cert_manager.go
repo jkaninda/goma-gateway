@@ -15,7 +15,8 @@
  *
  */
 
-// Package certmanager provides functionality for managing TLS certificates, including ACME certificates.
+// Package certmanager provides functionality for managing TLS certificates,
+// including ACME certificates from one or more named providers.
 package certmanager
 
 import (
@@ -33,8 +34,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/jkaninda/logger"
-	"github.com/robfig/cron/v3"
 	"math/big"
 	"net/http"
 	"os"
@@ -50,17 +49,17 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	"github.com/go-acme/lego/v4/registration"
+	"github.com/jkaninda/logger"
+	"github.com/robfig/cron/v3"
 )
 
-// Domain represents a domain configuration
+// Domain represents a domain configuration owned by a route.
 type Domain struct {
 	Name  string
 	Hosts []string
 }
 
-// Credentials holds authentication credentials for providers
-
-// AcmeConfig holds ACME-specific configuration
+// AcmeConfig holds ACME-specific configuration. Retained for JSON storage compatibility.
 type AcmeConfig struct {
 	Email         string      `json:"email"`
 	DirectoryURL  string      `json:"directory_url"`
@@ -100,7 +99,7 @@ type (
 	}
 )
 
-// CertificateInfo contains certificate information
+// CertificateInfo contains certificate information.
 type CertificateInfo struct {
 	Certificate *tls.Certificate
 	Domains     []string
@@ -109,7 +108,7 @@ type CertificateInfo struct {
 	Resource    *certificate.Resource
 }
 
-// LegoUser implements the lego User interface
+// LegoUser implements the lego User interface.
 type LegoUser struct {
 	Email        string
 	Registration *registration.Resource
@@ -120,34 +119,71 @@ func (u *LegoUser) GetEmail() string                        { return u.Email }
 func (u *LegoUser) GetRegistration() *registration.Resource { return u.Registration }
 func (u *LegoUser) GetPrivateKey() crypto.PrivateKey        { return u.key }
 
-// CertManager manages TLS certificates including ACME certificates
+// CertManager orchestrates one or more named cert providers and serves the
+// gateway's TLS GetCertificate callback. Per-provider ACME state lives in the
+// private *provider type; route-level / file-loaded certs and the default
+// self-signed cert are shared across providers.
 type CertManager struct {
+	mu              sync.RWMutex
+	providers       map[string]*provider
+	defaultProvider string
+	customCerts     map[string]*CertificateInfo
+	defaultCert     *tls.Certificate
+	config          *Config
+}
+
+// provider holds per-provider ACME state. One *provider per entry in
+// Config.Providers; each gets its own Lego client and storage file.
+type provider struct {
 	mu                 sync.RWMutex
-	certs              map[string]*CertificateInfo
-	customCerts        map[string]*CertificateInfo
-	defaultCert        *tls.Certificate
+	name               string
+	cfg                ProviderConfig
 	legoClient         *lego.Client
 	user               *LegoUser
-	config             *Config
 	storageFile        string
 	cacheDir           string
+	certs              map[string]*CertificateInfo
 	allowedHosts       []Domain
 	inProgressRequests map[string]bool
 	acmeInitialized    bool
 	cronJob            *cron.Cron
 }
 
-// NewCertManager creates a new CertManager instance
+// NewCertManager creates a CertManager from a (possibly legacy) Config. The
+// config is normalized in place — top-level Provider/Acme/Vault fields are
+// migrated into Providers["default"] for backward compatibility.
 func NewCertManager(config *Config) (*CertManager, error) {
-	storageConfig, err := initializeStorageConfig(config.Acme.StorageFile)
+	if config == nil {
+		config = &Config{}
+	}
+	config.Normalize()
+
+	cm := &CertManager{
+		providers:       make(map[string]*provider),
+		defaultProvider: config.DefaultProvider,
+		customCerts:     make(map[string]*CertificateInfo),
+		config:          config,
+	}
+
+	for name, pcfg := range config.Providers {
+		p, err := newProvider(name, pcfg)
+		if err != nil {
+			return nil, fmt.Errorf("provider %q: %w", name, err)
+		}
+		cm.providers[name] = p
+	}
+	return cm, nil
+}
+
+func newProvider(name string, cfg ProviderConfig) (*provider, error) {
+	storageConfig, err := initializeProviderStorageConfig(name, cfg.Acme.StorageFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage configuration: %w", err)
 	}
-
-	return &CertManager{
+	return &provider{
+		name:               name,
+		cfg:                cfg,
 		certs:              make(map[string]*CertificateInfo),
-		customCerts:        make(map[string]*CertificateInfo),
-		config:             config,
 		storageFile:        storageConfig.StorageFile,
 		cacheDir:           storageConfig.CacheDir,
 		inProgressRequests: make(map[string]bool),
@@ -155,95 +191,106 @@ func NewCertManager(config *Config) (*CertManager, error) {
 	}, nil
 }
 
-// Initialize sets up the certificate manager
+// Initialize sets up every configured provider. Errors from individual
+// providers are logged; if at least one is missing required config (e.g. no
+// email), that error is propagated so the operator sees it. ACME providers
+// that fail mid-setup leave the CertManager partially initialized — other
+// providers continue to function.
 func (cm *CertManager) Initialize() error {
-	if cm.acmeInitialized {
-		logger.Debug("Already initialized")
-		return nil // Already initialized
+	if len(cm.providers) == 0 {
+		logger.Debug("No certmanager providers configured")
+		return nil
 	}
-	if err := cm.validateConfig(); err != nil {
-		if errors.Is(err, ErrorNoEmail) {
-			return err
+	var firstErr error
+	for _, p := range cm.providers {
+		if err := p.initialize(); err != nil {
+			if errors.Is(err, ErrorNoEmail) && firstErr == nil {
+				firstErr = err
+			}
+			logger.Error("Failed to initialize provider", "provider", p.name, "error", err)
 		}
-		logger.Error("Failed to validate Acme config", "error", err)
+	}
+	return firstErr
+}
+
+func (p *provider) initialize() error {
+	if p.acmeInitialized {
+		logger.Debug("Provider already initialized", "provider", p.name)
+		return nil
+	}
+	if err := p.validateConfig(); err != nil {
 		return err
 	}
 
-	if err := cm.loadFromStorage(); err != nil {
-		if err := cm.createNewUser(); err != nil {
+	if err := p.loadFromStorage(); err != nil {
+		if err := p.createNewUser(); err != nil {
 			return fmt.Errorf("failed to create new user: %w", err)
 		}
 	}
 
-	if err := cm.setupLegoClient(); err != nil {
+	if err := p.setupLegoClient(); err != nil {
 		return fmt.Errorf("failed to setup lego client: %w", err)
 	}
 
-	if err := cm.registerUser(); err != nil {
+	if err := p.registerUser(); err != nil {
 		return fmt.Errorf("failed to register user: %w", err)
 	}
 
-	if err := cm.setupChallenges(); err != nil {
+	if err := p.setupChallenges(); err != nil {
 		return fmt.Errorf("failed to setup challenges: %w", err)
 	}
-	cm.acmeInitialized = true
+	p.acmeInitialized = true
 	return nil
 }
 
-// validateConfig validates the configuration
-func (cm *CertManager) validateConfig() error {
-	if cm.config == nil || cm.config.Acme.Email == "" {
+func (p *provider) validateConfig() error {
+	if p.cfg.Acme.Email == "" {
 		return ErrorNoEmail
 	}
-	if cm.config.Provider == CertVaultProvider {
+	if p.cfg.Type == CertVaultProvider {
 		return errors.New("vault provider not yet implemented")
 	}
-	if cm.config.Acme.ChallengeType == DNS01 {
-		if cm.config.Acme.DnsProvider == "" && cm.config.Acme.Credentials.ApiToken == "" {
+	if p.cfg.Acme.ChallengeType == DNS01 {
+		if p.cfg.Acme.DnsProvider == "" && p.cfg.Acme.Credentials.ApiToken == "" {
 			return errors.New("no DNS provider or API token configured for DNS01 challenge")
 		}
 	}
 	return nil
 }
 
-// User Management
-func (cm *CertManager) createNewUser() error {
+func (p *provider) createNewUser() error {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return fmt.Errorf("failed to generate private key: %w", err)
 	}
-
-	cm.user = &LegoUser{
-		Email: cm.config.Acme.Email,
+	p.user = &LegoUser{
+		Email: p.cfg.Acme.Email,
 		key:   privateKey,
 	}
 	return nil
 }
 
-func (cm *CertManager) registerUser() error {
-	if cm.user.Registration != nil {
+func (p *provider) registerUser() error {
+	if p.user.Registration != nil {
 		return nil
 	}
-
-	reg, err := cm.legoClient.Registration.Register(registration.RegisterOptions{
+	reg, err := p.legoClient.Registration.Register(registration.RegisterOptions{
 		TermsOfServiceAgreed: true,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to register user: %w", err)
 	}
-
-	cm.user.Registration = reg
-	return cm.saveToStorage()
+	p.user.Registration = reg
+	return p.saveToStorage()
 }
 
-// setupLegoClient sets up the ACME client using the lego library
-func (cm *CertManager) setupLegoClient() error {
-	config := lego.NewConfig(cm.user)
+func (p *provider) setupLegoClient() error {
+	config := lego.NewConfig(p.user)
 	config.Certificate.KeyType = certcrypto.RSA2048
 
-	if cm.config.Acme.DirectoryURL != "" {
-		config.CADirURL = cm.config.Acme.DirectoryURL
-		cm.configureInsecureClientIfNeeded(config)
+	if p.cfg.Acme.DirectoryURL != "" {
+		config.CADirURL = p.cfg.Acme.DirectoryURL
+		p.configureInsecureClientIfNeeded(config)
 	}
 
 	client, err := lego.NewClient(config)
@@ -251,11 +298,11 @@ func (cm *CertManager) setupLegoClient() error {
 		return fmt.Errorf("failed to create ACME client: %w", err)
 	}
 
-	cm.legoClient = client
+	p.legoClient = client
 	return nil
 }
 
-func (cm *CertManager) configureInsecureClientIfNeeded(config *lego.Config) {
+func (p *provider) configureInsecureClientIfNeeded(config *lego.Config) {
 	env := os.Getenv(gomaEnv)
 	if env == development || env == local {
 		config.HTTPClient = &http.Client{
@@ -268,84 +315,115 @@ func (cm *CertManager) configureInsecureClientIfNeeded(config *lego.Config) {
 	}
 }
 
-// Challenge Setup
-func (cm *CertManager) setupChallenges() error {
-	if cm.config.Acme.ChallengeType == DNS01 {
-		provider, err := cm.createDNSProvider()
+func (p *provider) setupChallenges() error {
+	if p.cfg.Acme.ChallengeType == DNS01 {
+		dns, err := p.createDNSProvider()
 		if err != nil {
 			return fmt.Errorf("failed to create DNS provider: %w", err)
 		}
-		return cm.legoClient.Challenge.SetDNS01Provider(provider)
+		return p.legoClient.Challenge.SetDNS01Provider(dns)
 	}
-
-	// Default to HTTP01
-	return cm.legoClient.Challenge.SetHTTP01Provider(
+	return p.legoClient.Challenge.SetHTTP01Provider(
 		http01.NewProviderServer("", httpChallengePort),
 	)
 }
 
-func (cm *CertManager) createDNSProvider() (challenge.Provider, error) {
-	switch cm.config.Acme.DnsProvider {
+func (p *provider) createDNSProvider() (challenge.Provider, error) {
+	switch p.cfg.Acme.DnsProvider {
 	case cloudflareProvider:
-		if cm.config.Acme.Credentials.ApiToken == "" {
+		if p.cfg.Acme.Credentials.ApiToken == "" {
 			return nil, errors.New("cloudflare API token is required")
 		}
 		cfg := cloudflare.NewDefaultConfig()
-		cfg.AuthToken = cm.config.Acme.Credentials.ApiToken
+		cfg.AuthToken = p.cfg.Acme.Credentials.ApiToken
 		return cloudflare.NewDNSProviderConfig(cfg)
 	case route53Provider:
 		return nil, errors.New("route53 provider not yet implemented")
 	default:
-		return nil, fmt.Errorf("unsupported DNS provider: %s", cm.config.Acme.DnsProvider)
+		return nil, fmt.Errorf("unsupported DNS provider: %s", p.cfg.Acme.DnsProvider)
 	}
 }
 
-// AutoCert starts the automatic certificate management process
+// AutoCert starts automatic certificate management for the legacy single-provider
+// case. All domains are routed to the default provider.
 func (cm *CertManager) AutoCert(domains []Domain) {
-	cm.mu.Lock()
-	cm.allowedHosts = domains
-	cm.mu.Unlock()
-
-	cm.startRenewalService()
-	if err := cm.processCertificates(); err != nil {
-		logger.Error("Error processing certificates", "error", err)
-	}
-	logger.Debug("AutoCert process started", "domains", len(domains))
-}
-func (cm *CertManager) UpdateDomains(domains []Domain) {
-	if !cm.acmeInitialized {
-		logger.Debug("ACME client not initialized, skipping domain update")
+	if cm.defaultProvider == "" {
+		logger.Debug("No default provider configured, AutoCert skipped")
 		return
 	}
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	cm.allowedHosts = domains
-	logger.Debug("Updated allowed hosts", "count", len(cm.allowedHosts))
-	logger.Debug("Resetting in-progress requests due to domain update")
-
-	// Start processing certificates immediately
-	go func() {
-		if err := cm.processCertificates(); err != nil {
-			logger.Error("Error processing certificates after domain update", "error", err)
-		}
-	}()
-
+	cm.AutoCertByProvider(map[string][]Domain{cm.defaultProvider: domains})
 }
 
-func (cm *CertManager) processCertificates() error {
+// AutoCertByProvider starts automatic certificate management for one or more
+// providers, partitioning domains by provider name.
+func (cm *CertManager) AutoCertByProvider(byProvider map[string][]Domain) {
+	for name, domains := range byProvider {
+		p, ok := cm.providers[name]
+		if !ok {
+			logger.Warn("Skipping AutoCert for unknown provider", "provider", name)
+			continue
+		}
+		p.mu.Lock()
+		p.allowedHosts = domains
+		p.mu.Unlock()
+
+		p.startRenewalService()
+		if err := p.processCertificates(); err != nil {
+			logger.Error("Error processing certificates", "provider", name, "error", err)
+		}
+		logger.Debug("AutoCert started", "provider", name, "domains", len(domains))
+	}
+}
+
+// UpdateDomains is the legacy single-provider domain update. All domains go to
+// the default provider.
+func (cm *CertManager) UpdateDomains(domains []Domain) {
+	if cm.defaultProvider == "" {
+		return
+	}
+	cm.UpdateDomainsByProvider(map[string][]Domain{cm.defaultProvider: domains})
+}
+
+// UpdateDomainsByProvider distributes domains to their owning providers and
+// kicks off background certificate processing. Providers not present in the
+// map have their allowedHosts cleared so stale routes stop being renewed.
+func (cm *CertManager) UpdateDomainsByProvider(byProvider map[string][]Domain) {
+	for name, p := range cm.providers {
+		domains := byProvider[name]
+		if !p.acmeInitialized {
+			logger.Debug("Provider not initialized, skipping domain update", "provider", name)
+			continue
+		}
+		p.mu.Lock()
+		p.allowedHosts = domains
+		p.mu.Unlock()
+		logger.Debug("Updated allowed hosts", "provider", name, "count", len(domains))
+
+		go func(p *provider) {
+			if err := p.processCertificates(); err != nil {
+				logger.Error("Error processing certificates after domain update", "provider", p.name, "error", err)
+			}
+		}(p)
+	}
+}
+
+func (p *provider) processCertificates() error {
 	stats := &ProcessingStats{}
 	var wg sync.WaitGroup
 
-	for _, domain := range cm.allowedHosts {
-		if cm.shouldSkipDomain(domain, stats, false) {
+	p.mu.RLock()
+	domains := append([]Domain(nil), p.allowedHosts...)
+	p.mu.RUnlock()
+
+	for _, domain := range domains {
+		if p.shouldSkipDomain(domain, stats, false) {
 			continue
 		}
 
 		wg.Add(1)
 		go func(d Domain) {
 			defer wg.Done()
-			if err := cm.processDomain(d, stats, false); err != nil {
+			if err := p.processDomain(d, stats, false); err != nil {
 				time.Sleep(errorDelay)
 				return
 			}
@@ -354,116 +432,105 @@ func (cm *CertManager) processCertificates() error {
 	}
 
 	wg.Wait()
-	logger.Debug("Processing complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
-	return cm.validateProcessingResults(stats)
+	logger.Debug("Processing complete", "provider", p.name, "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
+	return p.validateProcessingResults(stats)
 }
 
-func (cm *CertManager) requestNewCertificate(host string, stats *ProcessingStats, renewal bool) error {
+func (p *provider) requestNewCertificate(host string, stats *ProcessingStats, renewal bool) error {
 	if stats == nil {
 		stats = &ProcessingStats{}
 	}
 
-	logger.Debug("=== requestNewCertificate called ===", "host", host)
-	cm.mu.RLock()
-	logger.Debug("Current allowed hosts", "count", len(cm.allowedHosts))
-	logger.Debug("Requesting new certificate", "domain", host, "hosts_count", len(cm.allowedHosts))
-	cm.mu.RUnlock()
-
-	allowed, domain := cm.isHostAllowed(host)
-	logger.Debug("isHostAllowed", "allowed", allowed, "host", host, "domain", domain)
+	logger.Debug("=== requestNewCertificate ===", "provider", p.name, "host", host)
+	allowed, domain := p.isHostAllowed(host)
 	if !allowed {
 		stats.Skipped++
-		logger.Debug("Skipping certificate request, domain not recognized", "host", host)
+		logger.Debug("Skipping certificate request, domain not recognized", "provider", p.name, "host", host)
 		return nil
 	}
-	if cm.shouldSkipDomain(domain, stats, renewal) {
+	if p.shouldSkipDomain(domain, stats, renewal) {
 		stats.Skipped++
 		return nil
 	}
-	key := cm.getRequestKey(domain.Hosts)
-	inProgress := cm.isRequestInProgress(domain.Hosts)
-	logger.Debug("Request state", "inProgress", inProgress, "requestKey", key)
 
-	if err := cm.processDomain(domain, stats, renewal); err != nil {
+	if err := p.processDomain(domain, stats, renewal); err != nil {
 		if !errors.Is(err, ErrAlreadyInProgress) {
-			logger.Error("Failed to process domain", "domain", domain.Hosts[0], "error", err)
+			logger.Error("Failed to process domain", "provider", p.name, "domain", domain.Hosts[0], "error", err)
 			time.Sleep(errorDelay)
 			return err
 		}
-		logger.Debug("Certificate request already in progress", "host", host, "route", domain.Name, "hosts", domain.Hosts)
+		logger.Debug("Certificate request already in progress", "provider", p.name, "host", host, "route", domain.Name, "hosts", domain.Hosts)
 		return nil
-
 	}
 	stats.Success++
 	time.Sleep(requestDelay)
 	return nil
 }
 
-func (cm *CertManager) shouldSkipDomain(domain Domain, stats *ProcessingStats, renewal bool) bool {
+func (p *provider) shouldSkipDomain(domain Domain, stats *ProcessingStats, renewal bool) bool {
 	if len(domain.Hosts) == 0 {
 		stats.Skipped++
 		return true
 	}
-	if cm.getExistingValidCertificate(domain.Hosts[0], renewal) != nil {
+	if p.getExistingValidCertificate(domain.Hosts[0], renewal) != nil {
 		stats.Skipped++
 		return true
 	}
-	if cm.isRequestInProgress(domain.Hosts) {
+	if p.isRequestInProgress(domain.Hosts) {
 		stats.Skipped++
 		return true
 	}
 	return false
 }
 
-func (cm *CertManager) processDomain(domain Domain, stats *ProcessingStats, renewal bool) error {
-	logger.Debug("Processing domain", "domain", domain.Name, "hosts", domain.Hosts)
-	cert, err := cm.requestCertificateSync(domain, renewal)
+func (p *provider) processDomain(domain Domain, stats *ProcessingStats, renewal bool) error {
+	logger.Debug("Processing domain", "provider", p.name, "domain", domain.Name, "hosts", domain.Hosts)
+	cert, err := p.requestCertificateSync(domain, renewal)
 	if err != nil {
-		logger.Error("Failed to process domain", "domain", domain.Name, "error", err)
+		logger.Error("Failed to process domain", "provider", p.name, "domain", domain.Name, "error", err)
 		stats.Errors++
 		return err
 	}
 	if cert != nil {
-		logger.Debug("Certificate obtained for domain", "route", domain.Name, "hosts", domain.Hosts)
+		logger.Debug("Certificate obtained", "provider", p.name, "route", domain.Name, "hosts", domain.Hosts)
 		stats.Success++
 	}
 	return nil
 }
 
-func (cm *CertManager) validateProcessingResults(stats *ProcessingStats) error {
+func (p *provider) validateProcessingResults(stats *ProcessingStats) error {
 	if stats.Errors > 0 && stats.Success == 0 {
 		return fmt.Errorf("all certificate requests failed (%d errors)", stats.Errors)
 	}
 	return nil
 }
 
-func (cm *CertManager) renewCertificates() {
-	logger.Debug("********************* Renewing certificates *********************")
-	certsToRenew := cm.getCertificatesToRenew()
+func (p *provider) renewCertificates() {
+	logger.Debug("********************* Renewing certificates *********************", "provider", p.name)
+	certsToRenew := p.getCertificatesToRenew()
 	if len(certsToRenew) == 0 {
-		logger.Info("CertManager: No certificates due for renewal")
+		logger.Info("CertManager: No certificates due for renewal", "provider", p.name)
 		return
 	}
 	stats := &ProcessingStats{}
 
-	logger.Info("CertManager: Renewing certificates", "count", len(certsToRenew))
+	logger.Info("CertManager: Renewing certificates", "provider", p.name, "count", len(certsToRenew))
 	for _, host := range certsToRenew {
-		err := cm.requestNewCertificate(host, stats, true)
-		if err != nil {
-			logger.Error("Error renewing certificate", "host", host, "error", err)
+		if err := p.requestNewCertificate(host, stats, true); err != nil {
+			logger.Error("Error renewing certificate", "provider", p.name, "host", host, "error", err)
 			continue
 		}
 		time.Sleep(requestDelay)
 	}
-	logger.Info("CertManager: Certificate renewal complete", "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
+	logger.Info("CertManager: Certificate renewal complete", "provider", p.name, "success", stats.Success, "errors", stats.Errors, "skipped", stats.Skipped)
 }
-func (cm *CertManager) getCertificatesToRenew() []string {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
+
+func (p *provider) getCertificatesToRenew() []string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
 	var certsToRenew []string
-	for domain, certInfo := range cm.certs {
-		logger.Debug("Checking certificate for renewal", "domain", domain, " IssuedAt", certInfo.IssuedAt, "expires", certInfo.Expires, "time_left", time.Until(certInfo.Expires))
+	for domain, certInfo := range p.certs {
 		if time.Until(certInfo.Expires) <= renewalBufferTime {
 			certsToRenew = append(certsToRenew, domain)
 		}
@@ -471,30 +538,29 @@ func (cm *CertManager) getCertificatesToRenew() []string {
 	return certsToRenew
 }
 
-// Certificate Request
-func (cm *CertManager) requestCertificateSync(domain Domain, renewal bool) (*tls.Certificate, error) {
-	if !cm.acmeInitialized {
+func (p *provider) requestCertificateSync(domain Domain, renewal bool) (*tls.Certificate, error) {
+	if !p.acmeInitialized {
 		return nil, errors.New("ACME client not initialized")
 	}
 
-	if cert := cm.checkExistingValidCertificate(domain, renewal); cert != nil {
+	if cert := p.checkExistingValidCertificate(domain, renewal); cert != nil {
 		return cert, nil
 	}
 
-	if cm.isRequestInProgress(domain.Hosts) {
+	if p.isRequestInProgress(domain.Hosts) {
 		return nil, fmt.Errorf("certificate request already in progress for domains: %v", domain.Hosts)
 	}
 
-	return cm.performCertificateRequest(domain)
+	return p.performCertificateRequest(domain)
 }
 
-func (cm *CertManager) performCertificateRequest(domain Domain) (*tls.Certificate, error) {
+func (p *provider) performCertificateRequest(domain Domain) (*tls.Certificate, error) {
 	httpChallengeMu.Lock()
 	defer httpChallengeMu.Unlock()
 
-	cm.markRequestInProgress(domain.Hosts, true)
-	defer cm.markRequestInProgress(domain.Hosts, false)
-	certificates, err := cm.legoClient.Certificate.Obtain(certificate.ObtainRequest{
+	p.markRequestInProgress(domain.Hosts, true)
+	defer p.markRequestInProgress(domain.Hosts, false)
+	certificates, err := p.legoClient.Certificate.Obtain(certificate.ObtainRequest{
 		Domains: domain.Hosts,
 		Bundle:  true,
 	})
@@ -507,129 +573,136 @@ func (cm *CertManager) performCertificateRequest(domain Domain) (*tls.Certificat
 		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
 	}
 
-	certInfo := cm.createCertificateInfoFromACME(&cert, domain.Hosts, certificates)
-	cm.storeCertificateInfo(domain.Hosts, certInfo)
+	certInfo := createCertificateInfoFromACME(&cert, domain.Hosts, certificates)
+	p.storeCertificateInfo(domain.Hosts, certInfo)
 
-	if err = cm.saveToStorage(); err != nil {
-		logger.Error("Failed to save certificate to storage", "error", err)
+	if err = p.saveToStorage(); err != nil {
+		logger.Error("Failed to save certificate to storage", "provider", p.name, "error", err)
 	}
 	return &cert, nil
 }
 
+// GetCertificate is the TLS GetCertificate callback. It walks shared customCerts,
+// then each provider's certs, and finally falls back to the default cert.
+// If no provider claims the SNI, no ACME request is made.
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	serverName := hello.ServerName
-
-	if len(cm.certs) == 0 && cm.customCerts == nil || len(serverName) == 0 {
-		logger.Debug("No certificates available, returning default certificate")
+	if serverName == "" {
 		return cm.getDefaultCertificate()
 	}
 
-	if cert := cm.getExistingValidCertificate(serverName, false); cert != nil {
-		return cert, nil
+	if certInfo := cm.findCustomCert(serverName); certInfo != nil && isCertificateValid(certInfo, false) {
+		return certInfo.Certificate, nil
 	}
-	logger.Debug("Certificate not found or invalid", "server_name", serverName)
-	go func() {
-		if err := cm.requestNewCertificate(serverName, nil, false); err != nil {
-			logger.Error("Background certificate processing failed", "error", err)
+
+	for _, p := range cm.providers {
+		if certInfo := p.findCertificateInfo(serverName); certInfo != nil && isCertificateValid(certInfo, false) {
+			return certInfo.Certificate, nil
 		}
-	}()
-	logger.Debug("Returning default certificate for server name", "server_name", serverName)
+	}
+
+	if owner := cm.providerForSNI(serverName); owner != nil {
+		go func() {
+			if err := owner.requestNewCertificate(serverName, nil, false); err != nil {
+				logger.Error("Background certificate processing failed", "provider", owner.name, "error", err)
+			}
+		}()
+	} else {
+		logger.Debug("No provider claims SNI, returning default certificate", "server_name", serverName)
+	}
+
 	return cm.getDefaultCertificate()
 }
 
-func (cm *CertManager) getExistingValidCertificate(serverName string, renewal bool) *tls.Certificate {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	certInfo := cm.findCertificateInfo(serverName)
-	if certInfo != nil && cm.isCertificateValid(certInfo, renewal) {
-		logger.Debug("Certificate found for server", "server_name", serverName)
-		return certInfo.Certificate
+// providerForSNI returns the provider whose allowedHosts claims serverName, or
+// nil if no provider claims it (which means no ACME request should be made).
+func (cm *CertManager) providerForSNI(serverName string) *provider {
+	for _, p := range cm.providers {
+		if ok, _ := p.isHostAllowed(serverName); ok {
+			return p
+		}
 	}
-
-	logger.Debug("Certificate not found or invalid", "server_name", serverName)
 	return nil
 }
 
-func (cm *CertManager) isCertificateValid(certInfo *CertificateInfo, renewal bool) bool {
+func (p *provider) getExistingValidCertificate(serverName string, renewal bool) *tls.Certificate {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	certInfo := p.findCertificateInfo(serverName)
+	if certInfo != nil && isCertificateValid(certInfo, renewal) {
+		return certInfo.Certificate
+	}
+	return nil
+}
+
+func isCertificateValid(certInfo *CertificateInfo, renewal bool) bool {
 	if certInfo == nil || certInfo.Expires.IsZero() {
 		return false
 	}
 	if renewal {
 		return time.Until(certInfo.Expires) > renewalBufferTime
 	}
-	// Standard validity: not expired
 	return time.Now().Before(certInfo.Expires)
 }
 
 func (cm *CertManager) getDefaultCertificate() (*tls.Certificate, error) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
 	if cm.defaultCert != nil {
 		return cm.defaultCert, nil
 	}
 	return nil, os.ErrNotExist
 }
 
-// Certificate Management Helpers
-func (cm *CertManager) checkExistingValidCertificate(domain Domain, renewal bool) *tls.Certificate {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
+func (p *provider) checkExistingValidCertificate(domain Domain, renewal bool) *tls.Certificate {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	for _, host := range domain.Hosts {
-		if certInfo, exists := cm.certs[host]; exists && cm.isCertificateValid(certInfo, renewal) {
+		if certInfo, exists := p.certs[host]; exists && isCertificateValid(certInfo, renewal) {
 			return certInfo.Certificate
 		}
 	}
 	return nil
 }
 
-func (cm *CertManager) findCertificateInfo(domain string) *CertificateInfo {
-	// Check exact matches first
-	if certInfo := cm.findExactMatch(domain); certInfo != nil {
+// findCertificateInfo searches a provider's own cert map for a match (exact,
+// SAN list, then wildcard / parent domain).
+func (p *provider) findCertificateInfo(domain string) *CertificateInfo {
+	if certInfo, exists := p.certs[domain]; exists {
 		return certInfo
 	}
-
-	// Check domain matches in certificate SAN lists
-	if certInfo := cm.findDomainMatch(domain); certInfo != nil {
-		return certInfo
-	}
-
-	// Check wildcard and parent domain matches
-	return cm.findWildcardMatch(domain)
-}
-
-func (cm *CertManager) findExactMatch(domain string) *CertificateInfo {
-	if certInfo, exists := cm.certs[domain]; exists {
-		return certInfo
-	}
-	if certInfo, exists := cm.customCerts[domain]; exists {
-		return certInfo
-	}
-	return nil
-}
-
-func (cm *CertManager) findDomainMatch(domain string) *CertificateInfo {
-	for _, certInfo := range cm.certs {
-		if cm.domainMatchesCertificate(domain, certInfo) {
+	for _, certInfo := range p.certs {
+		if domainMatchesCertificate(domain, certInfo) {
 			return certInfo
 		}
 	}
-	for _, certInfo := range cm.customCerts {
-		if cm.domainMatchesCertificate(domain, certInfo) {
-			return certInfo
-		}
-	}
-	return nil
-}
-
-func (cm *CertManager) findWildcardMatch(domain string) *CertificateInfo {
-	wildcardDomains := []string{getWildcardDomain(domain), getParentDomain(domain)}
-
-	for _, d := range wildcardDomains {
+	for _, d := range []string{getWildcardDomain(domain), getParentDomain(domain)} {
 		if d == "" {
 			continue
 		}
-		if certInfo, exists := cm.certs[d]; exists {
+		if certInfo, exists := p.certs[d]; exists {
 			return certInfo
+		}
+	}
+	return nil
+}
+
+// findCustomCert searches the shared customCerts map (route-level / file-loaded
+// certificates that are not provider-bound).
+func (cm *CertManager) findCustomCert(domain string) *CertificateInfo {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	if certInfo, exists := cm.customCerts[domain]; exists {
+		return certInfo
+	}
+	for _, certInfo := range cm.customCerts {
+		if domainMatchesCertificate(domain, certInfo) {
+			return certInfo
+		}
+	}
+	for _, d := range []string{getWildcardDomain(domain), getParentDomain(domain)} {
+		if d == "" {
+			continue
 		}
 		if certInfo, exists := cm.customCerts[d]; exists {
 			return certInfo
@@ -638,50 +711,46 @@ func (cm *CertManager) findWildcardMatch(domain string) *CertificateInfo {
 	return nil
 }
 
-func (cm *CertManager) domainMatchesCertificate(requestedDomain string, certInfo *CertificateInfo) bool {
+func domainMatchesCertificate(requestedDomain string, certInfo *CertificateInfo) bool {
 	for _, certDomain := range certInfo.Domains {
-		if cm.matchesDomain(requestedDomain, certDomain) {
+		if matchesDomain(requestedDomain, certDomain) {
 			return true
 		}
 	}
 	return false
 }
 
-func (cm *CertManager) matchesDomain(requested, cert string) bool {
+func matchesDomain(requested, cert string) bool {
 	if requested == cert {
 		return true
 	}
-
 	if strings.HasPrefix(cert, "*.") {
 		wildcardBase := cert[2:]
 		return strings.HasSuffix(requested, "."+wildcardBase) || requested == wildcardBase
 	}
-
 	return false
 }
 
-// Request Progress Tracking
-func (cm *CertManager) isRequestInProgress(domains []string) bool {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	return cm.inProgressRequests[cm.getRequestKey(domains)]
+func (p *provider) isRequestInProgress(domains []string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.inProgressRequests[getRequestKey(domains)]
 }
 
-func (cm *CertManager) markRequestInProgress(domains []string, inProgress bool) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.inProgressRequests[cm.getRequestKey(domains)] = inProgress
+func (p *provider) markRequestInProgress(domains []string, inProgress bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.inProgressRequests[getRequestKey(domains)] = inProgress
 }
 
-func (cm *CertManager) getRequestKey(domains []string) string {
+func getRequestKey(domains []string) string {
 	sorted := make([]string, len(domains))
 	copy(sorted, domains)
 	sort.Strings(sorted)
 	return strings.Join(sorted, ",")
 }
 
-// Certificate Storage and Info Management
-func (cm *CertManager) createCertificateInfoFromACME(cert *tls.Certificate, domains []string, resource *certificate.Resource) *CertificateInfo {
+func createCertificateInfoFromACME(cert *tls.Certificate, domains []string, resource *certificate.Resource) *CertificateInfo {
 	parsedCert, _ := x509.ParseCertificate(cert.Certificate[0])
 	return &CertificateInfo{
 		Certificate: cert,
@@ -692,31 +761,31 @@ func (cm *CertManager) createCertificateInfoFromACME(cert *tls.Certificate, doma
 	}
 }
 
-func (cm *CertManager) storeCertificateInfo(domains []string, certInfo *CertificateInfo) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
+func (p *provider) storeCertificateInfo(domains []string, certInfo *CertificateInfo) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	cm.removeOverlappingCertificates(domains)
-
+	p.removeOverlappingCertificates(domains)
 	for _, domain := range domains {
-		cm.certs[domain] = certInfo
+		p.certs[domain] = certInfo
 	}
 }
 
-func (cm *CertManager) removeOverlappingCertificates(newDomains []string) {
-	for domain := range cm.certs {
-		if containsAny(newDomains, cm.certs[domain].Domains) {
-			delete(cm.certs, domain)
+func (p *provider) removeOverlappingCertificates(newDomains []string) {
+	for domain := range p.certs {
+		if containsAny(newDomains, p.certs[domain].Domains) {
+			delete(p.certs, domain)
 		}
 	}
 }
 
-// AddCertificate adds a single certificate to the CertManager
+// AddCertificate adds a single certificate to the shared custom-cert pool. The
+// special domain "default" sets the gateway-wide self-signed fallback.
 func (cm *CertManager) AddCertificate(domain string, cert *tls.Certificate) {
 	if cert == nil {
 		return
 	}
-	certInfo, err := cm.createCertificateInfo(cert)
+	certInfo, err := createCertificateInfo(cert)
 	if err != nil {
 		logger.Error("Error creating certificate info", "error", err)
 		return
@@ -735,7 +804,7 @@ func (cm *CertManager) addCertificateInfo(domain string, certInfo *CertificateIn
 	}
 }
 
-// AddCertificates adds multiple certificates to the CertManager
+// AddCertificates adds multiple certificates to the shared custom-cert pool.
 func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
 	logger.Debug("Adding certificates to cert-manager", "certs", len(certs))
 	for _, cert := range certs {
@@ -743,7 +812,6 @@ func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
 		if err != nil {
 			continue
 		}
-
 		allDomains := append([]string{commonName}, sanNames...)
 		for _, domain := range allDomains {
 			if domain != "" {
@@ -754,24 +822,26 @@ func (cm *CertManager) AddCertificates(certs []tls.Certificate) {
 	logger.Debug("Certificates added to cert-manager", "count", len(certs))
 }
 
-// Certificates returns all certificates managed by the CertManager
+// Certificates returns a merged map of every certificate known to the manager
+// (per-provider ACME certs + shared custom certs). For inspection / metrics.
 func (cm *CertManager) Certificates() map[string]*CertificateInfo {
+	all := make(map[string]*CertificateInfo)
+	for _, p := range cm.providers {
+		p.mu.RLock()
+		for domain, certInfo := range p.certs {
+			all[domain] = certInfo
+		}
+		p.mu.RUnlock()
+	}
 	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	allCerts := make(map[string]*CertificateInfo)
-
-	for domain, certInfo := range cm.certs {
-		allCerts[domain] = certInfo
-	}
 	for domain, certInfo := range cm.customCerts {
-		allCerts[domain] = certInfo
+		all[domain] = certInfo
 	}
-
-	return allCerts
+	cm.mu.RUnlock()
+	return all
 }
 
-func (cm *CertManager) createCertificateInfo(cert *tls.Certificate) (*CertificateInfo, error) {
+func createCertificateInfo(cert *tls.Certificate) (*CertificateInfo, error) {
 	commonName, sanNames, err := getCertificateDetails(cert)
 	if err != nil {
 		return nil, err
@@ -789,27 +859,24 @@ func (cm *CertManager) createCertificateInfo(cert *tls.Certificate) (*Certificat
 	}, nil
 }
 
-// Renewal Service
-func (cm *CertManager) startRenewalService() {
-	logger.Info("Starting CertManager renewal service")
-	if cm.cronJob != nil {
-		cm.cronJob.Stop()
+func (p *provider) startRenewalService() {
+	logger.Info("Starting CertManager renewal service", "provider", p.name)
+	if p.cronJob != nil {
+		p.cronJob.Stop()
 	}
-	// Schedule the renewal job to run every 6 hours
-	_, err := cm.cronJob.AddFunc(cronExpression, func() {
-		logger.Debug("Renewing certificates...")
-		cm.renewCertificates()
-
+	_, err := p.cronJob.AddFunc(cronExpression, func() {
+		logger.Debug("Renewing certificates...", "provider", p.name)
+		p.renewCertificates()
 	})
 	if err != nil {
-		logger.Error("Error starting renewal service", "error", err)
+		logger.Error("Error starting renewal service", "provider", p.name, "error", err)
 		return
 	}
-	// Start the cron scheduler
-	cm.cronJob.Start()
+	p.cronJob.Start()
 }
 
 // GenerateCertificate generates a self-signed certificate for the given domain
+// and stores it in the shared custom-cert pool.
 func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, error) {
 	key, err := rsa.GenerateKey(rand.Reader, rsaKeySize)
 	if err != nil {
@@ -853,17 +920,46 @@ func (cm *CertManager) GenerateDefaultCertificate() (*tls.Certificate, error) {
 	return cm.GenerateCertificate("GOMA DEFAULT CERT")
 }
 
+// AcmeInitialized returns true if at least one provider initialized successfully.
 func (cm *CertManager) AcmeInitialized() bool {
-	return cm.acmeInitialized
+	for _, p := range cm.providers {
+		if p.acmeInitialized {
+			return true
+		}
+	}
+	return false
 }
-func (cm *CertManager) isHostAllowed(host string) (bool, Domain) {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	if len(cm.allowedHosts) == 0 {
-		logger.Debug("No allowed hosts configured, returning false for host", "host", host)
+
+// HasProvider reports whether a provider with the given name is configured.
+func (cm *CertManager) HasProvider(name string) bool {
+	if cm == nil {
+		return false
+	}
+	_, ok := cm.providers[name]
+	return ok
+}
+
+// ProviderNames returns the configured provider names (unsorted).
+func (cm *CertManager) ProviderNames() []string {
+	names := make([]string, 0, len(cm.providers))
+	for n := range cm.providers {
+		names = append(names, n)
+	}
+	return names
+}
+
+// DefaultProvider returns the configured default provider name.
+func (cm *CertManager) DefaultProvider() string {
+	return cm.defaultProvider
+}
+
+func (p *provider) isHostAllowed(host string) (bool, Domain) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if len(p.allowedHosts) == 0 {
 		return false, Domain{}
 	}
-	for _, route := range cm.allowedHosts {
+	for _, route := range p.allowedHosts {
 		for _, pattern := range route.Hosts {
 			if strings.EqualFold(host, pattern) {
 				return true, route
@@ -879,18 +975,20 @@ func (cm *CertManager) isHostAllowed(host string) (bool, Domain) {
 	return false, Domain{}
 }
 
+// Close stops renewal jobs and persists final state for every provider.
 func (cm *CertManager) Close() {
-	if cm.cronJob != nil {
-		cm.cronJob.Stop()
-	}
-	if err := cm.saveToStorage(); err != nil {
-		logger.Error("Error saving final state", "error", err)
+	for _, p := range cm.providers {
+		if p.cronJob != nil {
+			p.cronJob.Stop()
+		}
+		if err := p.saveToStorage(); err != nil {
+			logger.Error("Error saving final state", "provider", p.name, "error", err)
+		}
 	}
 }
 
-// Storage Operations - these would need to be implemented based on your storage requirements
-func (cm *CertManager) loadFromStorage() error {
-	data, err := os.ReadFile(cm.storageFile)
+func (p *provider) loadFromStorage() error {
+	data, err := os.ReadFile(p.storageFile)
 	if err != nil {
 		return err
 	}
@@ -901,33 +999,30 @@ func (cm *CertManager) loadFromStorage() error {
 	}
 
 	if storage.UserAccount != nil {
-		user, err := cm.loadUserFromStorage(storage.UserAccount)
+		user, err := loadUserFromStorage(storage.UserAccount)
 		if err != nil {
 			return fmt.Errorf("failed to load user account: %w", err)
 		}
-		cm.user = user
+		p.user = user
 	}
 
 	for _, storedCert := range storage.Certificates {
-		certInfo, err := cm.loadCertificateFromStorage(storedCert)
+		certInfo, err := loadCertificateFromStorage(storedCert)
 		if err != nil {
 			logger.Error("Failed to load certificate from storage",
-				"domain", storedCert.Domain, "error", err)
+				"provider", p.name, "domain", storedCert.Domain, "error", err)
 			continue
 		}
-
-		cm.certs[storedCert.Domain] = certInfo
-
+		p.certs[storedCert.Domain] = certInfo
 	}
 
-	logger.Debug("Loaded data from storage", "certificates", len(storage.Certificates))
+	logger.Debug("Loaded data from storage", "provider", p.name, "certificates", len(storage.Certificates))
 	return nil
-
 }
 
-func (cm *CertManager) saveToStorage() error {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
+func (p *provider) saveToStorage() error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
 	storage := CertificateStorage{
 		Version:   configVersion,
@@ -935,32 +1030,31 @@ func (cm *CertManager) saveToStorage() error {
 	}
 
 	var err error
-	if cm.user != nil {
-		storage.UserAccount, err = cm.saveUserToStorage(cm.user)
+	if p.user != nil {
+		storage.UserAccount, err = saveUserToStorage(p.user)
 		if err != nil {
 			return fmt.Errorf("failed to save user account: %w", err)
 		}
 	}
 
-	// Save certificate
-	cm.saveCertificatesToStorage(&storage)
+	saveCertificatesToStorage(&storage, p.certs)
 
 	data, err := json.MarshalIndent(storage, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal storage: %w", err)
 	}
 
-	if err = os.WriteFile(cm.storageFile, data, 0600); err != nil {
+	if err = os.WriteFile(p.storageFile, data, 0600); err != nil {
 		return fmt.Errorf("failed to write storage file: %w", err)
 	}
 
-	logger.Debug("Saved data to storage", "certificates", len(storage.Certificates))
+	logger.Debug("Saved data to storage", "provider", p.name, "certificates", len(storage.Certificates))
 	return nil
 }
 
-func (cm *CertManager) saveCertificatesToStorage(storage *CertificateStorage) {
+func saveCertificatesToStorage(storage *CertificateStorage, certs map[string]*CertificateInfo) {
 	savedDomains := make(map[string]bool)
-	for domain, certInfo := range cm.certs {
+	for domain, certInfo := range certs {
 		alreadySaved := false
 		for _, d := range certInfo.Domains {
 			if savedDomains[d] {
@@ -972,23 +1066,20 @@ func (cm *CertManager) saveCertificatesToStorage(storage *CertificateStorage) {
 			continue
 		}
 
-		storedCert, err := cm.saveCertificateToStorage(domain, certInfo)
+		storedCert, err := saveCertificateToStorage(domain, certInfo)
 		if err != nil {
-			logger.Error("Failed to save certificate to storage",
-				"domain", domain, "error", err)
+			logger.Error("Failed to save certificate to storage", "domain", domain, "error", err)
 			continue
 		}
 		storage.Certificates = append(storage.Certificates, storedCert)
 
-		// Mark all domains in this cert as saved
 		for _, d := range certInfo.Domains {
 			savedDomains[d] = true
 		}
 	}
-
 }
 
-func (cm *CertManager) saveUserToStorage(user *LegoUser) (*StoredUserAccount, error) {
+func saveUserToStorage(user *LegoUser) (*StoredUserAccount, error) {
 	keyBytes, keyType, err := marshalPrivateKey(user.key)
 	if err != nil {
 		return nil, err
@@ -1005,13 +1096,14 @@ func (cm *CertManager) saveUserToStorage(user *LegoUser) (*StoredUserAccount, er
 	}
 
 	if user.Registration != nil {
-		if err := cm.saveRegistration(user, stored); err != nil {
+		if err := saveRegistration(user, stored); err != nil {
 			logger.Error("Failed to marshal registration", "error", err)
 		}
 	}
 
 	return stored, nil
 }
+
 func marshalPrivateKey(key crypto.PrivateKey) ([]byte, string, error) {
 	var keyBytes []byte
 	var keyType string
@@ -1032,7 +1124,7 @@ func marshalPrivateKey(key crypto.PrivateKey) ([]byte, string, error) {
 	return keyBytes, keyType, err
 }
 
-func (cm *CertManager) saveRegistration(user *LegoUser, stored *StoredUserAccount) error {
+func saveRegistration(user *LegoUser, stored *StoredUserAccount) error {
 	regData, err := json.Marshal(user.Registration)
 	if err != nil {
 		return err
@@ -1041,7 +1133,7 @@ func (cm *CertManager) saveRegistration(user *LegoUser, stored *StoredUserAccoun
 	return nil
 }
 
-func (cm *CertManager) saveCertificateToStorage(domain string, certInfo *CertificateInfo) (*StoredCertificate, error) {
+func saveCertificateToStorage(domain string, certInfo *CertificateInfo) (*StoredCertificate, error) {
 	if certInfo.Certificate == nil {
 		return nil, fmt.Errorf("certificate is nil")
 	}
@@ -1097,7 +1189,8 @@ func marshalCertificatePrivateKey(privateKey crypto.PrivateKey) ([]byte, error) 
 		}), nil
 	}
 }
-func (cm *CertManager) loadUserFromStorage(stored *StoredUserAccount) (*LegoUser, error) {
+
+func loadUserFromStorage(stored *StoredUserAccount) (*LegoUser, error) {
 	keyData, err := base64.StdEncoding.DecodeString(stored.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode private key: %w", err)
@@ -1119,13 +1212,14 @@ func (cm *CertManager) loadUserFromStorage(stored *StoredUserAccount) (*LegoUser
 	}
 
 	if stored.Registration != "" {
-		if err := cm.loadRegistration(stored, user); err != nil {
+		if err := loadRegistration(stored, user); err != nil {
 			logger.Error("Failed to load registration", "error", err)
 		}
 	}
 
 	return user, nil
 }
+
 func parsePrivateKey(block *pem.Block) (crypto.PrivateKey, error) {
 	switch block.Type {
 	case "EC PRIVATE KEY":
@@ -1139,7 +1233,7 @@ func parsePrivateKey(block *pem.Block) (crypto.PrivateKey, error) {
 	}
 }
 
-func (cm *CertManager) loadRegistration(stored *StoredUserAccount, user *LegoUser) error {
+func loadRegistration(stored *StoredUserAccount, user *LegoUser) error {
 	regData, err := base64.StdEncoding.DecodeString(stored.Registration)
 	if err != nil {
 		return fmt.Errorf("failed to decode registration: %w", err)
@@ -1154,7 +1248,7 @@ func (cm *CertManager) loadRegistration(stored *StoredUserAccount, user *LegoUse
 	return nil
 }
 
-func (cm *CertManager) loadCertificateFromStorage(stored *StoredCertificate) (*CertificateInfo, error) {
+func loadCertificateFromStorage(stored *StoredCertificate) (*CertificateInfo, error) {
 	certData, err := base64.StdEncoding.DecodeString(stored.Certificate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode certificate: %w", err)
@@ -1206,6 +1300,7 @@ func getCertificateDetails(cert *tls.Certificate) (string, []string, error) {
 
 	return parsedCert.Subject.CommonName, parsedCert.DNSNames, nil
 }
+
 func containsAny(sliceA, sliceB []string) bool {
 	for _, a := range sliceA {
 		for _, b := range sliceB {

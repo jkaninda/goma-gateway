@@ -212,6 +212,134 @@ certManager:
 
 ---
 
+## Per-Route Provider Selection
+
+The `tls.provider` field on a Route controls which automatic certificate provider issues its certs.
+
+| Value             | Meaning                                                                                              |
+|-------------------|------------------------------------------------------------------------------------------------------|
+| _unset_ / `""`    | Use `certManager.defaultProvider`.                                                                   |
+| `none`            | Opt out — CertManager never requests a cert for this route. Falls back to custom or default cert.    |
+| `<provider-name>` | Use the named provider from `certManager.providers`. Unknown names cause a config-load error.        |
+
+### Excluding a Route (`tls.provider: none`)
+
+Some routes shouldn't be issued certs by CertManager — TLS is terminated upstream (Cloudflare, a load balancer), the host isn't publicly resolvable, or you've already provided a route-level certificate. Hitting Let's Encrypt for those hosts wastes ACME quota and can get your account temporarily banned for repeated failed challenges.
+
+```yaml
+version: 2
+gateway:
+  routes:
+    - path: /
+      name: behind-cloudflare
+      hosts: ["app.example.com"]
+      tls:
+        provider: none       # CertManager will not request a cert for this route
+      backends:
+        - endpoint: http://localhost:8080
+
+certManager:
+  provider: acme
+  acme:
+    email: "admin@example.com"
+```
+
+When `tls.provider: none` is set, the route's hosts are never registered with CertManager. Incoming TLS connections are served, in order:
+
+1. The route's own `tls.certificates` (if configured)
+2. A matching certificate from `gateway.tls.certificates` or `gateway.tls.certsDir`
+3. The gateway's default (self-signed) certificate
+
+---
+
+## Multiple Providers
+
+You can configure several named providers under `certManager.providers` and let each Route pick one via `tls.provider`. Common reasons:
+
+- Some routes need DNS-01 (wildcards, no inbound port 80) while others use HTTP-01.
+- Different routes belong to different ACME accounts (separate Let's Encrypt rate-limit pools).
+- One environment uses Let's Encrypt staging while another uses production.
+
+```yaml
+version: 2
+gateway:
+  routes:
+    - path: /
+      name: api
+      hosts: ["api.example.com"]
+      tls:
+        provider: cloudflare-dns         # uses DNS-01 with Cloudflare
+      backends:
+        - endpoint: http://localhost:8080
+
+    - path: /
+      name: marketing
+      hosts: ["marketing.example.com"]   # tls.provider unset → defaultProvider
+      backends:
+        - endpoint: http://localhost:8081
+
+    - path: /
+      name: staging-app
+      hosts: ["staging.example.com"]
+      tls:
+        provider: letsencrypt-staging    # uses LE staging directory
+      backends:
+        - endpoint: http://localhost:8082
+
+certManager:
+  defaultProvider: letsencrypt
+  providers:
+    letsencrypt:
+      type: acme
+      acme:
+        email: "ops@example.com"
+        challengeType: http-01
+
+    letsencrypt-staging:
+      type: acme
+      acme:
+        email: "ops@example.com"
+        directoryUrl: "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+    cloudflare-dns:
+      type: acme
+      acme:
+        email: "ops@example.com"
+        challengeType: dns-01
+        dnsProvider: cloudflare
+        credentials:
+          apiToken: "your-cloudflare-api-token"
+```
+
+### Storage layout
+
+Each provider keeps its own ACME account and certificate cache. By default they live under `/etc/letsencrypt/`:
+
+- The legacy / single-provider config still uses `acme.json`.
+- Named providers default to `acme-<provider-name>.json` (e.g. `acme-letsencrypt.json`, `acme-cloudflare-dns.json`).
+- Override per provider via `acme.storageFile` if you need a custom path.
+
+> **Important:** in containerized deployments, mount `/etc/letsencrypt/` (or your custom path) as a persistent volume. Sharing one storage file between providers will corrupt ACME account state.
+
+### Validation
+
+If a Route's `tls.provider` doesn't match any name in `certManager.providers` (and isn't `""` or `none`), the gateway refuses to start. This is intentional — silent fallback to the default provider is what causes Let's Encrypt rate-limit bans when a route is misconfigured.
+
+### Backward compatibility
+
+The legacy single-provider shape still works without modification:
+
+```yaml
+certManager:
+  provider: acme
+  acme:
+    email: "admin@example.com"
+```
+
+At load time this is migrated into `providers.default` (the synthetic `LegacyProviderName`) with `defaultProvider: default`. Existing `acme.json` storage continues to work.
+
+---
+
 ## Troubleshooting
 
 ### Certificate Not Found

@@ -315,7 +315,8 @@ func startAutoCert(routes []Route) {
 	}
 	logger.Debug("Starting AutoCert service")
 	if certManager != nil && certManager.AcmeInitialized() {
-		certManager.AutoCert(hostNames(routes))
+		byProvider := extractHostsByProvider(routes, certManager.DefaultProvider())
+		certManager.AutoCertByProvider(byProvider)
 	}
 
 }
