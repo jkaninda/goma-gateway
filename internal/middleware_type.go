@@ -19,6 +19,8 @@ package internal
 
 import (
 	"fmt"
+
+	"github.com/jkaninda/encryptor"
 	"gopkg.in/yaml.v3"
 )
 
@@ -60,6 +62,15 @@ func (m *Middleware) UnmarshalYAML(value *yaml.Node) error {
 	m.Type = temp.Type
 	m.Paths = temp.Paths
 
+	// When the rule is an encrypted (PGP-armored) scalar, defer decoding to the
+	// decryption pass at load/reload, which decrypts it and decodes it into the
+	// type-specific rule structure.
+	var encrypted string
+	if temp.Rule.Decode(&encrypted) == nil && encryptor.IsEncrypted(encrypted) {
+		m.Rule = encrypted
+		return nil
+	}
+
 	switch m.Type {
 	case BasicAuth, BasicAuthMiddleware:
 		var rule BasicRuleMiddleware
@@ -75,4 +86,23 @@ func (m *Middleware) UnmarshalYAML(value *yaml.Node) error {
 		m.Rule = rule
 	}
 	return nil
+}
+
+// decodeRuleBytes decodes a decrypted rule payload (YAML or JSON) into the
+// type-specific rule structure, mirroring the type switch used at unmarshal time.
+func decodeRuleBytes(mType MiddlewareType, data []byte) (interface{}, error) {
+	switch mType {
+	case BasicAuth, BasicAuthMiddleware:
+		var rule BasicRuleMiddleware
+		if err := yaml.Unmarshal(data, &rule); err != nil {
+			return nil, fmt.Errorf("failed to decode basic auth rule: %w", err)
+		}
+		return rule, nil
+	default:
+		var rule interface{}
+		if err := yaml.Unmarshal(data, &rule); err != nil {
+			return nil, fmt.Errorf("failed to decode rule for type %s: %w", mType, err)
+		}
+		return rule, nil
+	}
 }

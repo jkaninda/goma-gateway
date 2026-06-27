@@ -18,13 +18,18 @@
 package internal
 
 import (
+	"os"
+	"sync"
+	"time"
+
 	"github.com/jkaninda/goma-gateway/internal/metrics"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/dns"
 	logger2 "github.com/jkaninda/logger"
-	"os"
-	"time"
 )
+
+// defaultDNSCacheTTL is the fallback DNS cache entry lifetime when none is configured.
+const defaultDNSCacheTTL = 5 * time.Minute
 
 var (
 	// counter is used for the round-robin load balancer.
@@ -39,7 +44,8 @@ var (
 	webSecureAddress   = "[::]:8443"
 	logger             = logger2.Default()
 	certManager        *certmanager.CertManager
-	cachedDialer       = dns.NewCachedDialer(5 * time.Minute)
+	cachedDialer       = dns.NewCachedDialer(defaultDNSCacheTTL)
+	dnsCacheOnce       sync.Once
 	shutdownChan       = make(chan os.Signal, 1)
 	processStartTime   = time.Now()
 	prometheusMetrics  = metrics.NewPrometheusMetrics(processStartTime, shutdownChan)
