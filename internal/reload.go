@@ -45,18 +45,18 @@ func (g *Goma) registerReloadHandler(router *mux.Router, r Router) {
 	path := cfg.reloadPath()
 	handler := func(w http.ResponseWriter, req *http.Request) {
 		if !validReloadToken(req, token) {
-			writeReloadJSON(w, http.StatusUnauthorized, map[string]any{"status": "error", "error": "unauthorized"})
+			writeReloadError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 		start := time.Now()
 		if err := g.reload(r); err != nil {
 			logger.Error("On-demand reload failed", "error", err, "remote", req.RemoteAddr)
-			writeReloadJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": err.Error()})
+			writeReloadError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		ms := time.Since(start).Milliseconds()
 		logger.Info("Configuration reloaded on demand", "routes", len(g.dynamicRoutes), "remote", req.RemoteAddr, "durationMs", ms)
-		writeReloadJSON(w, http.StatusOK, map[string]any{"status": "ok", "routes": len(g.dynamicRoutes), "durationMs": ms})
+		writeReloadStatus(w, http.StatusOK, "ok", map[string]any{"routes": len(g.dynamicRoutes), "durationMs": ms})
 	}
 
 	route := router.HandleFunc(path, handler).Methods(http.MethodPost)
@@ -78,8 +78,19 @@ func validReloadToken(req *http.Request, token string) bool {
 	return subtle.ConstantTimeCompare([]byte(got), []byte(token)) == 1
 }
 
-func writeReloadJSON(w http.ResponseWriter, status int, body map[string]any) {
+// writeReloadStatus writes a JSON response carrying a "status" field plus any
+// extra body fields.
+func writeReloadStatus(w http.ResponseWriter, httpStatus int, status string, body map[string]any) {
+	if body == nil {
+		body = map[string]any{}
+	}
+	body["status"] = status
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
+	w.WriteHeader(httpStatus)
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+// writeReloadError writes a JSON error response with the given message.
+func writeReloadError(w http.ResponseWriter, httpStatus int, msg string) {
+	writeReloadStatus(w, httpStatus, "error", map[string]any{"error": msg})
 }

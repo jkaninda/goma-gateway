@@ -25,6 +25,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const testReloadToken = "secret"
+
 // fakeRouter is a no-op Router used to exercise the reload handler without
 // booting the full gateway.
 type fakeRouter struct{ updated int }
@@ -47,7 +49,7 @@ func newReloadMux(t *testing.T, cfg ReloadConfig) *mux.Router {
 }
 
 func TestReloadHandlerRejectsMissingAndBadToken(t *testing.T) {
-	m := newReloadMux(t, ReloadConfig{Enabled: true, Token: "secret"})
+	m := newReloadMux(t, ReloadConfig{Enabled: true, Token: testReloadToken})
 
 	for _, tc := range []struct {
 		name, auth string
@@ -69,7 +71,7 @@ func TestReloadHandlerRejectsMissingAndBadToken(t *testing.T) {
 }
 
 func TestReloadHandlerRejectsNonPost(t *testing.T) {
-	m := newReloadMux(t, ReloadConfig{Enabled: true, Token: "secret"})
+	m := newReloadMux(t, ReloadConfig{Enabled: true, Token: testReloadToken})
 	req := httptest.NewRequest(http.MethodGet, "/gateway/reload", nil)
 	req.Header.Set("Authorization", "Bearer secret")
 	rec := httptest.NewRecorder()
@@ -81,7 +83,7 @@ func TestReloadHandlerRejectsNonPost(t *testing.T) {
 
 func TestReloadHandlerNotRegisteredWhenDisabled(t *testing.T) {
 	for _, cfg := range []ReloadConfig{
-		{Enabled: false, Token: "secret"},
+		{Enabled: false, Token: testReloadToken},
 		{Enabled: true, Token: ""},
 	} {
 		m := newReloadMux(t, cfg)
@@ -96,7 +98,7 @@ func TestReloadHandlerNotRegisteredWhenDisabled(t *testing.T) {
 }
 
 func TestReloadHandlerCustomPath(t *testing.T) {
-	m := newReloadMux(t, ReloadConfig{Enabled: true, Token: "secret", Path: "/-/reload"})
+	m := newReloadMux(t, ReloadConfig{Enabled: true, Token: testReloadToken, Path: "/-/reload"})
 	req := httptest.NewRequest(http.MethodPost, "/-/reload", nil)
 	// No auth → still routed (401), proving the custom path is registered.
 	rec := httptest.NewRecorder()
@@ -114,17 +116,17 @@ func TestValidReloadToken(t *testing.T) {
 		}
 		return r
 	}
-	if !validReloadToken(mk("Bearer secret"), "secret") {
+	if !validReloadToken(mk("Bearer "+testReloadToken), testReloadToken) {
 		t.Fatal("expected valid")
 	}
-	if validReloadToken(mk("Bearer secret "), "secret") == false {
+	if validReloadToken(mk("Bearer "+testReloadToken+" "), testReloadToken) == false {
 		// trailing space is trimmed, still valid
 		t.Fatal("expected trimmed token to be valid")
 	}
-	if validReloadToken(mk(""), "secret") {
+	if validReloadToken(mk(""), testReloadToken) {
 		t.Fatal("expected missing header invalid")
 	}
-	if validReloadToken(mk("Bearer other"), "secret") {
+	if validReloadToken(mk("Bearer other"), testReloadToken) {
 		t.Fatal("expected wrong token invalid")
 	}
 }
