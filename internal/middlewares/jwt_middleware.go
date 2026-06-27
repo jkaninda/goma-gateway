@@ -18,9 +18,10 @@ package middlewares
 
 import (
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
@@ -52,12 +53,8 @@ func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if jwtAuth.Algo != "" {
-			jwtAlgo = []string{jwtAuth.Algo}
-		}
-
 		token, err := jwt.Parse(tokenStr, keyFunc,
-			jwt.WithValidMethods(jwtAlgo),
+			jwt.WithValidMethods(jwtAuth.allowedAlgorithms()),
 			jwt.WithAudience(jwtAuth.Audience),
 			jwt.WithIssuer(jwtAuth.Issuer),
 		)
@@ -96,6 +93,43 @@ func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// hmacAlgorithms are the symmetric signing algorithms accepted for a shared
+// Secret. asymmetricAlgorithms are the algorithms accepted for an RSA/EC public
+// key (JWKS or RSA key); HMAC is deliberately excluded from this set so an
+// attacker cannot forge a token by signing HS256 with the public key as the HMAC
+// secret (the RS/HS algorithm-confusion attack).
+var (
+	hmacAlgorithms       = []string{"HS256", "HS384", "HS512"}
+	asymmetricAlgorithms = []string{"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512"}
+)
+
+// allowedAlgorithms returns the JWT signing algorithms accepted for this
+// middleware, derived per-request (never a shared mutable global) and scoped to
+// the configured key type. The key-source precedence mirrors resolveKeyFunc so
+// the accepted algorithms always match the key actually used for verification.
+// An explicit Algorithms list (or the deprecated single Algo) overrides the
+// defaults.
+func (jwtAuth *JwtAuth) allowedAlgorithms() []string {
+	if len(jwtAuth.Algorithms) != 0 {
+		return jwtAuth.Algorithms
+	}
+	if jwtAuth.Algo != "" { // Deprecated: superseded by Algorithms.
+		return []string{jwtAuth.Algo}
+	}
+	switch {
+	case jwtAuth.JwksUrl != "":
+		return asymmetricAlgorithms
+	case jwtAuth.Secret != "":
+		return hmacAlgorithms
+	case jwtAuth.JwksFile != nil && len(jwtAuth.JwksFile.Keys) != 0:
+		return asymmetricAlgorithms
+	case jwtAuth.RsaKey != nil:
+		return asymmetricAlgorithms
+	default:
+		return asymmetricAlgorithms
+	}
 }
 
 // validateHeaders checks if the required headers are present in the request

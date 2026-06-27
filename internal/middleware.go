@@ -551,6 +551,7 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 		ForwardAuthorization: rule.ForwardAuthorization,
 		RsaKey:               key,
 		Algo:                 rule.Alg,
+		Algorithms:           rule.Algorithms,
 		JwksFile:             jwksFile,
 		Secret:               rule.Secret,
 		JwksUrl:              rule.JwksUrl,

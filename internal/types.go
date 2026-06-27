@@ -129,7 +129,13 @@ type RewriteRegexRuleMiddleware struct {
 //
 // JWTRuleMiddleware contains the authentication details
 type JWTRuleMiddleware struct {
-	Alg                  string            `yaml:"alg,omitempty" json:"alg"`
+	// Alg restricts the accepted JWT signing algorithm.
+	// Deprecated: use Algorithms instead.
+	Alg string `yaml:"alg,omitempty" json:"alg"`
+	// Algorithms is the list of accepted JWT signing algorithms (e.g.
+	// ["RS256", "ES256"]). When empty, a safe set scoped to the configured key
+	// type is used (HMAC for a shared secret, asymmetric for JWKS/RSA keys).
+	Algorithms           []string          `yaml:"algorithms,omitempty" json:"algorithms,omitempty"`
 	Secret               string            `yaml:"secret,omitempty" json:"secret"`
 	PublicKey            string            `yaml:"publicKey,omitempty" json:"publicKey"`
 	Issuer               string            `yaml:"issuer,omitempty" json:"issuer"`

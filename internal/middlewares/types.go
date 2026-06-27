@@ -21,9 +21,10 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
-	"golang.org/x/time/rate"
 	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // Client stores request count and window expiration for each client.
@@ -81,10 +82,15 @@ type ProxyResponseError struct {
 
 // JwtAuth  stores JWT configuration
 type JwtAuth struct {
-	Path                 string
-	Paths                []string
-	Origins              []string
-	Algo                 string
+	Path    string
+	Paths   []string
+	Origins []string
+	// Algo restricts the accepted JWT signing algorithm.
+	// Deprecated: use Algorithms instead.
+	Algo string
+	// Algorithms is the list of accepted JWT signing algorithms. When empty, a
+	// safe set scoped to the configured key type is used.
+	Algorithms           []string
 	Issuer               string
 	Audience             string
 	Secret               string
