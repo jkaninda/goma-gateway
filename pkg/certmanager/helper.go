@@ -19,14 +19,11 @@ package certmanager
 
 import (
 	"fmt"
-	"github.com/jkaninda/logger"
 	"os"
 	"path/filepath"
-)
 
-func initializeStorageConfig(storageFile string) (*StorageConfig, error) {
-	return resolveStorageConfig(storageFile, acmeFile)
-}
+	"github.com/jkaninda/logger"
+)
 
 // initializeProviderStorageConfig is like initializeStorageConfig but derives a
 // provider-specific default file name when no explicit storageFile is given.

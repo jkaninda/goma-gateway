@@ -190,12 +190,24 @@ func validateRouteTLSProviders(routes []Route, cm *certmanager.CertManager) {
 	if cm == nil {
 		return
 	}
-	for _, route := range routes {
+	for i := range routes {
+		route := &routes[i]
 		if route.TLS.Provider == "" || strings.EqualFold(route.TLS.Provider, certmanager.NoneProvider) {
 			continue
 		}
-		if !cm.HasProvider(route.TLS.Provider) {
-			logger.Fatal("Unknown tls.provider on route", "route", route.Name, "tls.provider", route.TLS.Provider, "configured", cm.ProviderNames())
+		if cm.HasProvider(route.TLS.Provider) {
+			continue
+		}
+
+		fallback := cm.DefaultProvider()
+		if fallback != "" && cm.HasProvider(fallback) {
+			logger.Warn("Unknown tls.provider on route, falling back to default provider",
+				"route", route.Name, "tls.provider", route.TLS.Provider, "fallback", fallback, "configured", cm.ProviderNames())
+			route.TLS.Provider = fallback
+		} else {
+			logger.Error("Unknown tls.provider on route, disabling certificate provisioning for this route",
+				"route", route.Name, "tls.provider", route.TLS.Provider, "configured", cm.ProviderNames())
+			route.TLS.Provider = certmanager.NoneProvider
 		}
 	}
 }

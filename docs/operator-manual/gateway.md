@@ -270,10 +270,18 @@ spec:
 | `monitoring.metricsPath` | string | `/metrics` | Path of the metrics endpoint. |
 | `monitoring.host` | string | — | Restrict metrics endpoints to this Host header. |
 | `monitoring.middleware.metrics` | []string | — | Middleware CR names applied to `/metrics`. |
-| `networking.dnsCache.ttl` | int | — | DNS cache TTL in seconds. |
+| `networking.dnsCache.ttl` | int | `300` | DNS cache TTL in seconds. |
+| `networking.dnsCache.clearOnReload` | bool | `false` | Flush the local DNS cache after the routes are reloaded (auto-reload / config changes). |
+| `networking.dnsCache.resolver` | []string | — | Custom DNS server addresses (e.g. `1.1.1.1`, `8.8.8.8:53`). Empty uses the system resolver. Applied at startup. |
 | `networking.transport.maxIdleConns` | int | `512` | Max idle connections. |
 | `networking.transport.maxIdleConnsPerHost` | int | `256` | Max idle connections per host. |
 | `networking.transport.maxConnsPerHost` | int | `256` | Max total connections per host. |
+| `reload.enabled` | bool | `false` | Expose the token-protected on-demand config reload endpoint. |
+| `reload.path` | string | `/gateway/reload` | Path of the reload endpoint. |
+| `reload.token` | string | — | Bearer token required (`Authorization: Bearer <token>`). Prefer the `GOMA_RELOAD_TOKEN` env var. |
+| `reload.host` | string | — | Restrict the reload endpoint to this Host header. |
+
+> **On-demand reload.** `POST <reload.path>` with `Authorization: Bearer <token>` makes the gateway pull its configuration from the active providers and apply it immediately (instead of waiting for the provider poll interval). Returns `200` with `{status, routes, durationMs}` on success, `401` on a bad/missing token, `500` if the reload fails (the gateway keeps serving its current config). Only registered when `reload.enabled` is true and a token is set.
 
 ### `spec.service`
 

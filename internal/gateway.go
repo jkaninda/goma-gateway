@@ -70,9 +70,43 @@ type Gateway struct {
 	ExtraConfig ExtraRouteConfig `yaml:"extraConfig,omitempty"`
 	// Defaults holds default configurations applied to routes
 	Defaults DefaultConfig `yaml:"defaults,omitempty"`
+	// Reload configures the on-demand configuration reload endpoint, which lets an
+	// external controller (e.g. Miabi) tell the gateway to pull and apply its
+	// configuration immediately instead of waiting for the provider poll interval.
+	Reload ReloadConfig `yaml:"reload,omitempty"`
 	// Routes defines the list of proxy routes.
 	Routes []Route `yaml:"routes"`
 }
+
+// ReloadConfig configures the token-protected on-demand reload endpoint.
+type ReloadConfig struct {
+	// Enabled exposes the reload endpoint (default: false). The endpoint is only
+	// registered when Enabled is true and a token is configured.
+	Enabled bool `yaml:"enabled,omitempty"`
+	// Path is the endpoint path (default: /gateway/reload).
+	Path string `yaml:"path,omitempty"`
+	// Token is the bearer token required in the Authorization header
+	// ("Authorization: Bearer <token>"). Prefer setting it via the
+	// GOMA_RELOAD_TOKEN environment variable rather than in the config file.
+	Token string `yaml:"token,omitempty"`
+	// Host optionally restricts the endpoint to requests with this Host header.
+	Host string `yaml:"host,omitempty"`
+}
+
+// reloadToken returns the configured reload token, with the GOMA_RELOAD_TOKEN
+// environment variable taking precedence over the config file value.
+func (r ReloadConfig) reloadToken() string {
+	return goutils.Env("GOMA_RELOAD_TOKEN", r.Token)
+}
+
+// reloadPath returns the configured endpoint path, defaulting to /gateway/reload.
+func (r ReloadConfig) reloadPath() string {
+	if r.Path != "" {
+		return r.Path
+	}
+	return "/gateway/reload"
+}
+
 type EntryPoint struct {
 	Web         EntryPointAddress `yaml:"web,omitempty"`
 	WebSecure   EntryPointAddress `yaml:"webSecure,omitempty"`
@@ -175,10 +209,13 @@ type Networking struct {
 	Transport TransportConfig `yaml:"transport,omitempty"`
 }
 type DNSCacheConfig struct {
-	// TTL in seconds
-	TTL           int  `yaml:"ttl,omitempty"`
+	// TTL is the DNS cache entry lifetime in seconds (default: 300).
+	TTL int `yaml:"ttl,omitempty"`
+	// ClearOnReload, when enabled, flushes the local DNS cache after the routes
+	// are reloaded (auto-reload or on configuration changes). Default: false.
 	ClearOnReload bool `yaml:"clearOnReload,omitempty"`
-	// Resolver
+	// Resolver optionally sets custom DNS server addresses (e.g. "1.1.1.1",
+	// "8.8.8.8:53"). When empty, the system default resolver is used.
 	Resolver []string `yaml:"resolver,omitempty"`
 }
 type TransportConfig struct {
