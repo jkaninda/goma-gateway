@@ -18,7 +18,7 @@ middlewares:
     paths: ["/*"]
     rule:
       secret: "your-secret-key-here"
-      algo: "HS256"
+      algorithms: ["HS256"]
 ```
 
 ## Authentication Methods
@@ -31,7 +31,7 @@ Use a shared secret key for HMAC algorithms like HS256, HS384, or HS512.
 ```yaml
 rule:
   secret: "MgsEUFgn9xiMym9Lo9rcRUa3wJbQBo..."
-  algo: "HS256"
+  algorithms: ["HS256"]
 ```
 
 ###  Public Key (RSA/ECDSA)
@@ -43,7 +43,7 @@ rule:
     -----BEGIN PUBLIC KEY-----
     MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
     -----END PUBLIC KEY-----
-  algo: "RS256"
+  algorithms: ["RS256"]
 ```
 
 You can also provide:
@@ -56,7 +56,7 @@ Dynamically fetch public keys from a JSON Web Key Set endpoint.
 ```yaml
 rule:
   jwksUrl: "https://your-auth-provider.com/.well-known/jwks.json"
-  algo: "RS256"
+  algorithms: ["RS256"]
 ```
 
 ### JWKS File
@@ -73,15 +73,23 @@ rule:
 
 ### Core Settings
 
-| Option      | Type   | Required | Description                                    |
-|-------------|--------|----------|------------------------------------------------|
-| `secret`    | string | *        | Shared secret for HMAC algorithms              |
-| `publicKey` | string | *        | PEM public key (content, file path, or base64) |
-| `jwksUrl`   | string | *        | URL to fetch JWKS dynamically                  |
-| `jwksFile`  | string | *        | JWKS file path or content                      |
-| `algo`      | string | No       | Expected JWT algorithm (highly recommended)    |
+| Option       | Type     | Required | Description                                                    |
+|--------------|----------|----------|---------------------------------------------------------------|
+| `secret`     | string   | *        | Shared secret for HMAC algorithms                             |
+| `publicKey`  | string   | *        | PEM public key (content, file path, or base64)                |
+| `jwksUrl`    | string   | *        | URL to fetch JWKS dynamically                                 |
+| `jwksFile`   | string   | *        | JWKS file path or content                                     |
+| `algorithms` | []string | No       | Accepted JWT signing algorithms, e.g. `["RS256", "ES256"]`    |
+| `algo`       | string   | No       | **Deprecated** — use `algorithms`. Single accepted algorithm. |
 
 **\* One of these four options is required**
+
+> **Algorithm selection.** When `algorithms` (and the deprecated `algo`) are
+> omitted, the gateway accepts a safe set scoped to the configured key type: the
+> HMAC family (`HS256/384/512`) for a shared `secret`, and asymmetric algorithms
+> (`RS*`, `ES*`, `PS*`) for `publicKey` / `jwksUrl` / `jwksFile`. An HMAC token is
+> never accepted against an asymmetric key, preventing algorithm-confusion
+> attacks. Set `algorithms` to pin an explicit list.
 
 ### Token Validation
 
@@ -159,7 +167,7 @@ middlewares:
     paths: ["/api/*"]
     rule:
       secret: "your-256-bit-secret"
-      algo: "HS256"
+      algorithms: ["HS256"]
       issuer: "https://your-auth-service.com"
 ```
 
@@ -174,7 +182,7 @@ middlewares:
       jwksUrl: "https://auth.company.com/.well-known/jwks.json"
       issuer: "https://auth.company.com"
       audience: "api.company.com"
-      algo: "RS256"
+      algorithms: ["RS256"]
       forwardAuthorization: false
       claimsExpression: >
         Equals('email_verified', true) &&
@@ -197,7 +205,7 @@ middlewares:
     paths: ["/tenant/*/api/*"]
     rule:
       publicKey: "/etc/ssl/jwt-public.pem"
-      algo: "RS256"
+      algorithms: ["RS256"]
       claimsExpression: >
         Equals('email_verified', true) &&
         Contains('scopes', 'api:read') &&

@@ -226,20 +226,30 @@ func IsPathMatching(urlPath, prefix string, paths []string) (bool, string) {
 	return false, ""
 }
 
-// Helper function to determine if the request path is blocked
+// Helper function to determine if the request path is blocked.
+//
+// Matching is case-insensitive: many upstream servers and frameworks treat URL
+// paths case-insensitively, so a case-sensitive comparison here would let a
+// request like "/Admin" slip past an auth/block rule for "/admin" while still
+// reaching the protected resource. Comparing case-insensitively fails safe.
 func isMatchingPath(requestPath, blockedPath string) bool {
 	// Handle exact match
-	if requestPath == blockedPath {
+	if strings.EqualFold(requestPath, blockedPath) {
 		return true
 	}
 	// Handle wildcard match (e.g., /admin/* should block /admin and any subpath)
 	if strings.HasSuffix(blockedPath, "/*") {
 		basePath := strings.TrimSuffix(blockedPath, "/*")
-		if strings.HasPrefix(requestPath, basePath) {
+		if hasPrefixFold(requestPath, basePath) {
 			return true
 		}
 	}
 	return false
+}
+
+// hasPrefixFold reports whether s starts with prefix, ignoring case.
+func hasPrefixFold(s, prefix string) bool {
+	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
 }
 func serveHTMLFile(w http.ResponseWriter, statusCode int, filePath string) {
 	htmlCacheMu.RLock()

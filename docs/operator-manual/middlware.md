@@ -108,7 +108,8 @@ spec:
     jwksUrl: https://auth.example.com/.well-known/jwks.json
     issuer: https://auth.example.com/
     audience: api.example.com
-    algo: RS256
+    algorithms:
+      - RS256
     claimsExpression: >
       Equals('email_verified', true) && !Equals('account_disabled', true)
     forwardHeaders:
