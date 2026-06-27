@@ -145,3 +145,47 @@ func keysOf(m map[string][]certmanager.Domain) []string {
 	}
 	return out
 }
+
+func TestAllowedOrigin(t *testing.T) {
+	const (
+		appOrigin = "https://app.example.com"
+		wildcard  = "https://*.example.com"
+		apex      = "https://example.com"
+	)
+	cases := []struct {
+		name    string
+		allowed []string
+		origin  string
+		want    bool
+	}{
+		// Exact matches
+		{"exact match", []string{appOrigin}, appOrigin, true},
+		{"exact case-insensitive scheme/host", []string{"https://App.Example.com"}, appOrigin, true},
+		{"exact mismatch", []string{appOrigin}, "https://other.example.com", false},
+		{"empty origin", []string{appOrigin}, "", false},
+		{"global wildcard", []string{"*"}, "https://anything.test", true},
+
+		// Wildcard subdomain (canonical scheme-qualified form)
+		{"wildcard subdomain match", []string{wildcard}, appOrigin, true},
+		{"wildcard deep subdomain match", []string{wildcard}, "https://a.b.example.com", true},
+
+		// Bypass attempts that must be rejected
+		{"registrable look-alike suffix", []string{wildcard}, "https://notexample.com", false},
+		{"hyphen look-alike", []string{wildcard}, "https://evil-example.com", false},
+		{"attacker prefixed", []string{wildcard}, "https://attacker-example.com", false},
+		{"apex not matched by wildcard", []string{wildcard}, apex, false},
+		{"suffix in another tld", []string{wildcard}, "https://app.example.com.evil.com", false},
+		{"scheme downgrade rejected", []string{wildcard}, "http://app.example.com", false},
+
+		// Bare wildcard (non-canonical) still anchors on a label boundary
+		{"bare wildcard match", []string{"*.example.com"}, appOrigin, true},
+		{"bare wildcard look-alike rejected", []string{"*.example.com"}, "https://notexample.com", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := allowedOrigin(tc.allowed, tc.origin); got != tc.want {
+				t.Fatalf("allowedOrigin(%v, %q) = %v, want %v", tc.allowed, tc.origin, got, tc.want)
+			}
+		})
+	}
+}

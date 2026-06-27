@@ -161,24 +161,66 @@ func allowedOrigin(allowedOrigins []string, origin string) bool {
 	if origin == "" {
 		return false
 	}
+	originScheme, originHost := parseOrigin(origin)
+	if originHost == "" {
+		return false
+	}
 
 	for _, allowed := range allowedOrigins {
 		if allowed == "*" {
 			return true
 		}
-		if allowed == origin {
+		if strings.EqualFold(allowed, origin) {
 			return true
 		}
-		// Try wildcard subdomain match
-		if strings.HasPrefix(allowed, "*.") {
-			domain := strings.TrimPrefix(allowed, "*.")
-			if strings.HasSuffix(origin, domain) {
-				return true
-			}
+		if matchesWildcardOrigin(allowed, originScheme, originHost) {
+			return true
 		}
 	}
 
 	return false
+}
+
+// parseOrigin splits an Origin value into its lowercased scheme and host
+// (hostname without any port). It returns empty strings when origin is not a
+// valid scheme://host value.
+func parseOrigin(origin string) (scheme, hostname string) {
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" {
+		return "", ""
+	}
+	return strings.ToLower(u.Scheme), strings.ToLower(u.Hostname())
+}
+
+// matchesWildcardOrigin reports whether a subdomain-wildcard entry
+// ("*.example.com", optionally scheme-qualified as "https://*.example.com")
+// matches the request origin. The match is anchored on a leading "." so only
+// true subdomains qualify, and the entry's scheme (when present) must match.
+func matchesWildcardOrigin(allowed, originScheme, originHostname string) bool {
+	pattern := allowed
+	var allowedScheme string
+	if i := strings.Index(allowed, "://"); i != -1 {
+		allowedScheme = strings.ToLower(allowed[:i])
+		pattern = allowed[i+len("://"):]
+	}
+	if !strings.HasPrefix(pattern, "*.") {
+		return false
+	}
+
+	if allowedScheme != "" && allowedScheme != originScheme {
+		return false
+	}
+	// Strip any port from the wildcard domain so the suffix check is host-only.
+	domain := strings.ToLower(strings.TrimPrefix(pattern, "*."))
+	if host, _, err := net.SplitHostPort(domain); err == nil {
+		domain = host
+	}
+	if domain == "" {
+		return false
+	}
+	// The leading "." enforces a label boundary: "app.example.com" matches but
+	// "notexample.com" and the apex "example.com" do not.
+	return strings.HasSuffix(originHostname, "."+domain)
 }
 
 // extractHostsFromRoutes collects all hosts from routes that have hosts defined.
