@@ -25,12 +25,15 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
+	"github.com/jkaninda/goma-gateway/pkg/dns"
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -56,13 +59,34 @@ type Goma struct {
 	tlsConfig             *tls.Config
 	defaultCertificate    *tls.Certificate
 	extraRouteConfig      ExtraRouteConfig
+	// reloadMu serializes configuration reloads so the provider watcher and the
+	// on-demand reload endpoint can never run a reload concurrently.
+	reloadMu sync.Mutex
 }
 
 // Initialize initializes the routes
+// configureDNSCache builds the shared cached dialer from the DNS cache
+// configuration. It runs once at startup; the dialer is captured by the proxy
+// transports, so TTL and resolver changes take effect on restart. Subsequent
+// reloads only clear the cache (see ClearOnReload handling in UpdateHandler).
+func configureDNSCache(cfg DNSCacheConfig) {
+	dnsCacheOnce.Do(func() {
+		ttl := defaultDNSCacheTTL
+		if cfg.TTL > 0 {
+			ttl = time.Duration(cfg.TTL) * time.Second
+		}
+		cachedDialer = dns.NewCachedDialerWithResolver(ttl, cfg.Resolver)
+		logger.Debug("DNS cache configured", "ttl", ttl, "resolvers", len(cfg.Resolver), "clearOnReload", cfg.ClearOnReload)
+	})
+}
+
 func (g *Goma) Initialize() error {
 	gateway := g.gateway
 	// Handle deprecations
 	gateway.handleDeprecations()
+
+	// Configure the shared DNS cache (build once)
+	configureDNSCache(gateway.Networking.DNSCache)
 
 	// Initialize trusted proxies
 	g.initTrustedProxyConfig()
@@ -110,6 +134,12 @@ func (g *Goma) Initialize() error {
 
 		}
 	}
+	// Decrypt encrypted configuration fields (middleware rules and TLS material)
+	if err := g.decryptConfig(); err != nil {
+		logger.Error("Failed to decrypt configuration", "error", err)
+		return err
+	}
+
 	// Attach default configurations
 	g.attachDefaultConfigurations()
 
@@ -219,13 +249,13 @@ func (g *Goma) NewRouter() Router {
 		dynamicMiddlewares: g.dynamicMiddlewares,
 	}
 
-	g.addGlobalHandler(rt.mux)
+	g.addGlobalHandler(rt.mux, rt)
 
 	return rt
 }
 
 // addGlobalHandler configures global handlers with better error handling
-func (g *Goma) addGlobalHandler(mux *mux.Router) {
+func (g *Goma) addGlobalHandler(mux *mux.Router, r Router) {
 	logger.Debug("Adding global handler")
 
 	health := HealthCheckRoute{
@@ -236,6 +266,8 @@ func (g *Goma) addGlobalHandler(mux *mux.Router) {
 	// Register global observability endpoints
 	g.registerMetricsHandler(mux)
 	g.registerRouteHealthHandler(mux, health)
+	// Register the on-demand reload endpoint
+	g.registerReloadHandler(mux, r)
 
 	// Gateway health endpoints
 	if goutils.EnvBool("GOMA_ENABLE_READINESS", g.gateway.Monitoring.EnableReadiness) {
@@ -484,20 +516,49 @@ func (g *Goma) watchProvider(r Router) {
 				case bundle := <-configCh:
 					logger.Info("Configuration update received from provider", "provider", g.providerManager.activeProvider())
 					g.providerManager.configBundle = bundle
-					// Re-initialize routes
-					err = g.Initialize()
-					if err != nil {
+					// Re-initialize routes and swap the handler.
+					if err = g.applyConfig(r); err != nil {
 						logger.Error("Failed to re-initialize routes after provider update", "error", err)
 						continue
-					} else {
-						// Update the routes
-						logger.Debug("Updating routes")
-						r.UpdateHandler(g)
 					}
+					logger.Debug("Routes updated")
 				}
 			}
 		}()
 	}
+}
+
+// applyConfig re-initializes routes from the current configuration (already
+// merged from all sources) and swaps the router handler. Serialized via reloadMu
+// so it never races the on-demand reload endpoint.
+func (g *Goma) applyConfig(r Router) error {
+	g.reloadMu.Lock()
+	defer g.reloadMu.Unlock()
+	if err := g.Initialize(); err != nil {
+		return err
+	}
+	r.UpdateHandler(g)
+	return nil
+}
+
+// reload pulls a fresh configuration bundle from the active providers and applies
+// it. It is the entry point for the on-demand reload endpoint; the gateway keeps
+// serving its current configuration if the pull or re-initialization fails.
+func (g *Goma) reload(r Router) error {
+	g.reloadMu.Lock()
+	defer g.reloadMu.Unlock()
+	if g.providerManager != nil && g.providerManager.hasActiveProvider() {
+		bundle, err := g.providerManager.Load(g.ctx)
+		if err != nil {
+			return fmt.Errorf("failed to load configuration from provider: %w", err)
+		}
+		g.providerManager.configBundle = bundle
+	}
+	if err := g.Initialize(); err != nil {
+		return fmt.Errorf("failed to re-initialize routes: %w", err)
+	}
+	r.UpdateHandler(g)
+	return nil
 }
 
 func (g *Goma) stopProviders() error {

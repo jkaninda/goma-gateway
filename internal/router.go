@@ -21,12 +21,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/goma-gateway/pkg/plugins"
 )
 
 type Router interface {
@@ -104,7 +105,7 @@ func (r *router) UpdateHandler(g *Goma) {
 	reloaded = true
 	logger.Debug("Updating router with new routes")
 	r.mux = mux.NewRouter().StrictSlash(r.strictSlash)
-	g.addGlobalHandler(r.mux)
+	g.addGlobalHandler(r.mux, r)
 
 	err := r.AddRoutes()
 	if err != nil {
@@ -112,6 +113,12 @@ func (r *router) UpdateHandler(g *Goma) {
 		return
 	}
 	r.startHealthCheck()
+	// Flush the local DNS cache after a successful reload when enabled, so that
+	// updated routes resolve their backends afresh.
+	if g.gateway.Networking.DNSCache.ClearOnReload {
+		cachedDialer.ClearCache()
+		logger.Debug("DNS cache cleared after reload")
+	}
 	logger.Info("Configuration successfully reloaded", "routes", len(r.dynamicRoutes))
 }
 

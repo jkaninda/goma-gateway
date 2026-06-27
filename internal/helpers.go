@@ -181,14 +181,6 @@ func allowedOrigin(allowedOrigins []string, origin string) bool {
 	return false
 }
 
-func hostNames(routes []Route) []certmanager.Domain {
-	hosts := extractHostsFromRoutes(routes)
-	if len(hosts) == 0 {
-		return nil
-	}
-	return hosts
-}
-
 // extractHostsFromRoutes collects all hosts from routes that have hosts defined.
 // Routes with tls.provider set to "none" are excluded so CertManager does not
 // attempt to issue certificates for them.
