@@ -255,11 +255,49 @@ gateway:
     watch: true
 
 # ======================================================
-# Certificate Manager (ACME / Let's Encrypt)
+# Certificate Manager (multi-provider)
 # ======================================================
+# Define one or more named certificate providers. Each provider is either an
+# ACME (Let's Encrypt) issuer or a HashiCorp Vault issuer.
+#
+# A route selects a provider with `tls.provider: <name>`; routes that leave it
+# empty use `defaultProvider`, and `tls.provider: none` opts a route out.
+# --------------------------------------------------
 certManager:
-  acme:
-    # Enable by providing your contact email
-    # email: admin@example.com
-    storageFile: /etc/letsencrypt/acme.json
-    # Stores ACME account, certificates and private keys securely
+  # Provider used for routes that don't set tls.provider
+  defaultProvider: letsencrypt
+
+  providers:
+    # --- ACME with HTTP-01 challenge (default) ---
+    letsencrypt:
+      type: acme
+      acme:
+        # Enable by providing your contact email
+        # email: admin@example.com
+        challengeType: http-01
+        storageFile: /etc/letsencrypt/acme.json
+        # Use the staging directory while testing to avoid rate limits:
+        # directoryUrl: https://acme-staging-v02.api.letsencrypt.org/directory
+
+    # --- ACME with DNS-01 challenge (supports wildcard certs) ---
+    cloudflare:
+      type: acme
+      acme:
+        # email: admin@example.com
+        challengeType: dns-01
+        dnsProvider: cloudflare        # cloudflare | route53
+        credentials:
+          # Prefer the GOMA_CREDENTIALS_API_TOKEN env var over inlining the token
+          apiToken: ""
+        storageFile: /etc/letsencrypt/cloudflare-acme.json
+
+    # --- HashiCorp Vault issuer (PKI secrets engine) ---
+    vault:
+      type: vault
+      vault:
+        address: https://vault.example.com   # or set VAULT_ADDR
+        token: ""                             # prefer the VAULT_TOKEN env var over inlining
+        role: goma-gateway                    # PKI role used to issue certificates
+        mount: pki                            # Optional, PKI mount path (default: pki)
+        # ttl: 72h                            # Optional, requested cert lifetime (default: role's TTL)
+        # namespace: ""                       # Optional, Vault Enterprise namespace (or VAULT_NAMESPACE)

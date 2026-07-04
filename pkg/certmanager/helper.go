@@ -27,11 +27,16 @@ import (
 
 // initializeProviderStorageConfig is like initializeStorageConfig but derives a
 // provider-specific default file name when no explicit storageFile is given.
-// The legacy provider keeps the historical "acme.json" filename for back-compat.
-func initializeProviderStorageConfig(providerName, storageFile string) (*StorageConfig, error) {
+// The legacy provider keeps the historical "acme.json" filename for back-compat;
+// named providers use an "<acme|vault>-<name>.json" file based on their type.
+func initializeProviderStorageConfig(providerName string, providerType CertProvider, storageFile string) (*StorageConfig, error) {
 	defaultFile := acmeFile
 	if providerName != "" && providerName != LegacyProviderName {
-		defaultFile = "acme-" + providerName + ".json"
+		prefix := "acme"
+		if providerType == CertVaultProvider {
+			prefix = "vault"
+		}
+		defaultFile = prefix + "-" + providerName + ".json"
 	}
 	return resolveStorageConfig(storageFile, defaultFile)
 }
