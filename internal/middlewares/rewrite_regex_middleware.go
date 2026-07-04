@@ -19,13 +19,14 @@ package middlewares
 
 import (
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 )
 
-// headerTokenRegex matches {{goma.headers.<HeaderName>}} placeholders in a
-// rewrite replacement, capturing the header name.
-var headerTokenRegex = regexp.MustCompile(`\{\{\s*goma\.headers\.([A-Za-z0-9-]+)\s*\}\}`)
+// tokenRegex matches {{goma.<source>.<name>}} placeholders in a rewrite
+// replacement, capturing the source ("headers" or "query") and the name.
+var tokenRegex = regexp.MustCompile(`\{\{\s*goma\.(headers|query)\.([A-Za-z0-9_-]+)\s*\}\}`)
 
 type RewriteRegex struct {
 	Pattern     string
@@ -42,10 +43,10 @@ func (regex *RewriteRegex) RewriteRegexMiddleware(next http.Handler) http.Handle
 		// Rewrite the path (resolves regex group refs like $1)
 		rewrittenURL := re.ReplaceAllString(originalURL, regex.Replacement)
 
-		// Expand {{goma.headers.<Name>}} placeholders from incoming request
-		// headers (done after the regex replace so a header value containing $1
-		// is not treated as a group reference).
-		rewrittenURL = injectHeaderTokens(rewrittenURL, r.Header)
+		// Expand {{goma.headers.<Name>}} and {{goma.query.<Name>}} placeholders
+		// from the incoming request (done after the regex replace so a value
+		// containing $1 is not treated as a group reference).
+		rewrittenURL = injectTokens(rewrittenURL, r.Header, r.URL.Query())
 
 		r.URL.Path = rewrittenURL
 
@@ -57,15 +58,26 @@ func (regex *RewriteRegex) RewriteRegexMiddleware(next http.Handler) http.Handle
 	})
 }
 
-// injectHeaderTokens replaces {{goma.headers.<Name>}} placeholders with the
-// matching incoming request header value (empty string when the header is
-// absent).
-func injectHeaderTokens(s string, headers http.Header) string {
+// injectTokens replaces {{goma.headers.<Name>}} and {{goma.query.<Name>}}
+// placeholders with the matching incoming request header or query value (empty
+// string when absent). Values are path-escaped so an attacker-controlled header
+// or query value expands to a single path segment and cannot inject additional
+// path structure (e.g. "../" traversal or extra "/" separators).
+func injectTokens(s string, headers http.Header, query url.Values) string {
 	if !strings.Contains(s, "{{") {
 		return s
 	}
-	return headerTokenRegex.ReplaceAllStringFunc(s, func(match string) string {
-		name := headerTokenRegex.FindStringSubmatch(match)[1]
-		return headers.Get(name)
+	return tokenRegex.ReplaceAllStringFunc(s, func(match string) string {
+		m := tokenRegex.FindStringSubmatch(match)
+		source, name := m[1], m[2]
+
+		var value string
+		switch source {
+		case "headers":
+			value = headers.Get(name)
+		case "query":
+			value = query.Get(name)
+		}
+		return url.PathEscape(value)
 	})
 }

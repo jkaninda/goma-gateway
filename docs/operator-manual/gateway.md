@@ -281,7 +281,7 @@ spec:
 | `reload.token` | string | — | Bearer token required (`Authorization: Bearer <token>`). Prefer the `GOMA_RELOAD_TOKEN` env var. |
 | `reload.host` | string | — | Restrict the reload endpoint to this Host header. |
 
-> **On-demand reload.** `POST <reload.path>` with `Authorization: Bearer <token>` makes the gateway pull its configuration from the active providers and apply it immediately (instead of waiting for the provider poll interval). Returns `200` with `{status, routes, durationMs}` on success, `401` on a bad/missing token, `500` if the reload fails (the gateway keeps serving its current config). Only registered when `reload.enabled` is true and a token is set.
+> **On-demand reload.** These fields expose a token-protected endpoint that reloads the gateway configuration immediately. See [On-Demand Reload](../usermanual/gateway.md#on-demand-reload) in the User Manual for the endpoint path, request format, and response codes.
 
 ### `spec.service`
 
