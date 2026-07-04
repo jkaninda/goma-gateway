@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-func TestRewriteRegexInjectsHeaderToken(t *testing.T) {
+func TestRewriteRegexInjectsToken(t *testing.T) {
 	cases := []struct {
 		name        string
 		pattern     string
@@ -60,6 +60,50 @@ func TestRewriteRegexInjectsHeaderToken(t *testing.T) {
 			path:        "/v2/acme/x",
 			header:      map[string]string{"X-Workspace-Id": "ws_42"},
 			want:        "/v2/ws_42/x",
+		},
+		{
+			name:        "query param replaced by query value",
+			pattern:     `^/v2/[^/]+/(.*)`,
+			replacement: `/v2/{{goma.query.workspace}}/$1`,
+			path:        "/v2/acme/frontend?workspace=ws_9",
+			want:        "/v2/ws_9/frontend",
+		},
+		{
+			name:        "query param with underscore in name",
+			pattern:     `^/v2/[^/]+/(.*)`,
+			replacement: `/v2/{{goma.query.workspace_id}}/$1`,
+			path:        "/v2/acme/x?workspace_id=ws_7",
+			want:        "/v2/ws_7/x",
+		},
+		{
+			name:        "missing query param resolves to empty",
+			pattern:     `^/v2/[^/]+/(.*)`,
+			replacement: `/v2/{{goma.query.workspace}}/$1`,
+			path:        "/v2/acme/x",
+			want:        "/v2//x",
+		},
+		{
+			name:        "header and query tokens combined",
+			pattern:     `^/v2/[^/]+/(.*)`,
+			replacement: `/v2/{{goma.headers.X-Workspace-Id}}/{{goma.query.env}}/$1`,
+			path:        "/v2/acme/x?env=prod",
+			header:      map[string]string{"X-Workspace-Id": "ws_1"},
+			want:        "/v2/ws_1/prod/x",
+		},
+		{
+			name:        "header value with path separators is escaped to a single segment",
+			pattern:     `^/v2/[^/]+/(.*)`,
+			replacement: `/v2/{{goma.headers.X-Workspace-Id}}/$1`,
+			path:        "/v2/acme/x",
+			header:      map[string]string{"X-Workspace-Id": "../../admin"},
+			want:        "/v2/..%2F..%2Fadmin/x",
+		},
+		{
+			name:        "query value with path separators is escaped to a single segment",
+			pattern:     `^/v2/[^/]+/(.*)`,
+			replacement: `/v2/{{goma.query.workspace}}/$1`,
+			path:        "/v2/acme/x?workspace=%2E%2E%2Fadmin",
+			want:        "/v2/..%2Fadmin/x",
 		},
 	}
 

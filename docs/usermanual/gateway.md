@@ -23,6 +23,7 @@ You can configure the gateway using the following options:
 * **`entryPoints`**: Network addresses and ports for incoming HTTP/HTTPS and TCP/UDP traffic.
 * **`networking`**: Proxy networking options (e.g., connection pooling).
 * **`monitoring`**: Metrics and health check configuration.
+* **`reload`**: Token-protected on-demand configuration reload endpoint.
 * **`enableStrictSlash`** (`boolean`): Whether the router should normalize paths with/without trailing slashes.
 
 ---
@@ -271,6 +272,51 @@ Load additional route and middleware configurations:
 
 * **`directory`** (`string`): Directory containing config files.
 * **`watch`** (`boolean`): Watch for changes and reload dynamically.
+
+---
+
+## On-Demand Reload
+
+The `reload` section exposes a token-protected endpoint that lets an external controller tell the gateway to pull its configuration from the active providers and apply it **immediately**, instead of waiting for the provider poll interval.
+
+### Available Options
+
+| Key       | Type     | Default           | Description                                                                                             |
+|-----------|----------|-------------------|---------------------------------------------------------------------------------------------------------|
+| `enabled` | `bool`   | `false`           | Exposes the reload endpoint. Only registered when `enabled` is `true` **and** a token is set.           |
+| `path`    | `string` | `/gateway/reload` | Path of the reload endpoint.                                                                             |
+| `token`   | `string` | `""`              | Bearer token required in the `Authorization: Bearer <token>` header. Prefer the `GOMA_RELOAD_TOKEN` env var over storing it in the config file. |
+| `host`    | `string` | `""`              | Restrict the endpoint to requests with this `Host` header. Empty allows any host.                       |
+
+### Endpoint Behavior
+
+Send `POST <path>` with the `Authorization: Bearer <token>` header:
+
+| Status | Meaning                                                                                     |
+|--------|---------------------------------------------------------------------------------------------|
+| `200`  | Reload succeeded. Body: `{status, routes, durationMs}`.                                      |
+| `401`  | Missing or invalid token.                                                                   |
+| `500`  | Reload failed — the gateway keeps serving its current configuration.                        |
+
+> 🔒 **Security**: Always set a strong `token` (ideally via `GOMA_RELOAD_TOKEN`). The endpoint is not registered unless both `enabled: true` and a token are present.
+
+### Example Configuration
+
+```yaml
+gateway:
+  reload:
+    enabled: true
+    path: /gateway/reload          # Optional, defaults to /gateway/reload
+    token: ""                      # Prefer setting GOMA_RELOAD_TOKEN instead
+    host: ""                       # Optional, restrict to a specific Host header
+```
+
+Trigger a reload:
+
+```bash
+curl -X POST https://gateway.example.com/gateway/reload \
+  -H "Authorization: Bearer $GOMA_RELOAD_TOKEN"
+```
 
 ---
 
