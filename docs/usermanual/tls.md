@@ -11,7 +11,7 @@ Goma Gateway supports TLS encryption for securing traffic between clients and th
 
 - **Manual configuration** — Provide your own certificate and key files
 - **Directory-based loading** — Load multiple certificates from a directory
-- **Automatic management** — Use Let's Encrypt (ACME) for automatic issuance and renewal
+- **Automatic management** — Use Let's Encrypt (ACME) or HashiCorp Vault (PKI) for automatic issuance and renewal
 
 ---
 
@@ -212,6 +212,64 @@ certManager:
 
 ---
 
+## Automatic Certificates with HashiCorp Vault (PKI)
+
+Goma Gateway can issue and renew certificates directly from a [HashiCorp Vault PKI secrets engine](https://developer.hashicorp.com/vault/docs/secrets/pki) instead of ACME. This is useful for internal services and private PKI where certificates are signed by your own CA rather than a public authority — no ACME challenge, no inbound port 80, and no public DNS required.
+
+### Prerequisites
+
+- A reachable Vault server with the PKI secrets engine enabled (default mount `pki`).
+- A PKI **role** that permits the domains you intend to issue for.
+- A Vault **token** with permission to call `pki/issue/<role>`.
+
+### Basic Configuration
+
+```yaml
+version: 2
+gateway:
+  entryPoints:
+    webSecure:
+      address: ":443"
+  routes:
+    - path: /
+      name: internal-app
+      hosts: ["app.internal"]
+      backends:
+        - endpoint: http://localhost:8080
+
+certManager:
+  defaultProvider: vault
+  providers:
+    vault:
+      type: vault
+      vault:
+        address: https://vault.example.com   # or set VAULT_ADDR
+        token: ""                             # prefer the VAULT_TOKEN env var
+        role: goma-gateway
+```
+
+> **Credentials:** Prefer the standard `VAULT_ADDR` and `VAULT_TOKEN` environment variables over inlining them in the config file. When set, they take precedence over the `address` / `token` fields.
+
+### Configuration Options
+
+| Key         | Type   | Description                                                                                     |
+|-------------|--------|-------------------------------------------------------------------------------------------------|
+| `address`   | string | **Required.** Vault base URL (e.g. `https://vault.example.com`). Falls back to `VAULT_ADDR`.    |
+| `token`     | string | **Required.** Vault token. Falls back to `VAULT_TOKEN`. Prefer the env var over the config file. |
+| `role`      | string | **Required.** PKI role used to issue certificates (`pki/issue/<role>`).                          |
+| `mount`     | string | PKI secrets engine mount path. Default: `pki`.                                                   |
+| `namespace` | string | Vault Enterprise namespace. Falls back to `VAULT_NAMESPACE`.                                     |
+| `ttl`       | string | Requested certificate lifetime (e.g. `72h`). Default: the PKI role's TTL.                        |
+| `storageFile` | string | File to persist issued certificates. Default: `vault-<provider-name>.json`.                    |
+
+### How It Works
+
+For each route host, Goma calls `POST <address>/v1/<mount>/issue/<role>` with the host as the common name (additional hosts become SANs) and serves the returned leaf certificate together with its issuing CA chain. Certificates are cached to disk and renewed on the same schedule as ACME certificates.
+
+> **Short-lived certificates:** Vault PKI certificates often have short TTLs. Goma renews any certificate within 30 days of expiry, so a certificate with a TTL under 30 days is reissued on each renewal cycle (every 6 hours). This is expected.
+
+---
+
 ## Per-Route Provider Selection
 
 The `tls.provider` field on a Route controls which automatic certificate provider issues its certs.
@@ -254,8 +312,9 @@ When `tls.provider: none` is set, the route's hosts are never registered with Ce
 
 ## Multiple Providers
 
-You can configure several named providers under `certManager.providers` and let each Route pick one via `tls.provider`. Common reasons:
+You can configure several named providers under `certManager.providers` and let each Route pick one via `tls.provider`. Providers can be any mix of `type: acme` and `type: vault`. Common reasons:
 
+- Public routes use ACME (Let's Encrypt) while internal routes use Vault (private PKI).
 - Some routes need DNS-01 (wildcards, no inbound port 80) while others use HTTP-01.
 - Different routes belong to different ACME accounts (separate Let's Encrypt rate-limit pools).
 - One environment uses Let's Encrypt staging while another uses production.
@@ -286,6 +345,14 @@ gateway:
       backends:
         - endpoint: http://localhost:8082
 
+    - path: /
+      name: internal-admin
+      hosts: ["admin.internal"]
+      tls:
+        provider: vault                  # private PKI, signed by your own CA
+      backends:
+        - endpoint: http://localhost:8083
+
 certManager:
   defaultProvider: letsencrypt
   providers:
@@ -309,15 +376,23 @@ certManager:
         dnsProvider: cloudflare
         credentials:
           apiToken: "your-cloudflare-api-token"
+
+    vault:
+      type: vault
+      vault:
+        address: https://vault.example.com   # or set VAULT_ADDR
+        token: ""                             # prefer the VAULT_TOKEN env var
+        role: goma-gateway
 ```
 
 ### Storage layout
 
-Each provider keeps its own ACME account and certificate cache. By default they live under `/etc/letsencrypt/`:
+Each provider keeps its own certificate cache (and, for ACME, its own account). By default they live under `/etc/letsencrypt/`:
 
 - The legacy / single-provider config still uses `acme.json`.
-- Named providers default to `acme-<provider-name>.json` (e.g. `acme-letsencrypt.json`, `acme-cloudflare-dns.json`).
-- Override per provider via `acme.storageFile` if you need a custom path.
+- Named ACME providers default to `acme-<provider-name>.json` (e.g. `acme-letsencrypt.json`, `acme-cloudflare-dns.json`).
+- Named Vault providers default to `vault-<provider-name>.json`.
+- Override per provider via `acme.storageFile` (or `vault.storageFile`) if you need a custom path.
 
 > **Important:** in containerized deployments, mount `/etc/letsencrypt/` (or your custom path) as a persistent volume. Sharing one storage file between providers will corrupt ACME account state.
 

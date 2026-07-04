@@ -146,6 +146,7 @@ type provider struct {
 	allowedHosts       []Domain
 	inProgressRequests map[string]bool
 	acmeInitialized    bool
+	vaultClient        *vaultPKIClient
 	cronJob            *cron.Cron
 }
 
@@ -176,7 +177,11 @@ func NewCertManager(config *Config) (*CertManager, error) {
 }
 
 func newProvider(name string, cfg ProviderConfig) (*provider, error) {
-	storageConfig, err := initializeProviderStorageConfig(name, cfg.Acme.StorageFile)
+	storageFile := cfg.Acme.StorageFile
+	if cfg.Type == CertVaultProvider {
+		storageFile = cfg.Vault.StorageFile
+	}
+	storageConfig, err := initializeProviderStorageConfig(name, cfg.Type, storageFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage configuration: %w", err)
 	}
@@ -222,6 +227,10 @@ func (p *provider) initialize() error {
 		return err
 	}
 
+	if p.cfg.Type == CertVaultProvider {
+		return p.initializeVault()
+	}
+
 	if err := p.loadFromStorage(); err != nil {
 		if err := p.createNewUser(); err != nil {
 			return fmt.Errorf("failed to create new user: %w", err)
@@ -244,11 +253,13 @@ func (p *provider) initialize() error {
 }
 
 func (p *provider) validateConfig() error {
+	if p.cfg.Type == CertVaultProvider {
+		// Vault credentials are validated when the client is built (they may come
+		// from environment variables), so nothing to check here.
+		return nil
+	}
 	if p.cfg.Acme.Email == "" {
 		return ErrorNoEmail
-	}
-	if p.cfg.Type == CertVaultProvider {
-		return errors.New("vault provider not yet implemented")
 	}
 	if p.cfg.Acme.ChallengeType == DNS01 {
 		if p.cfg.Acme.DnsProvider == "" && p.cfg.Acme.Credentials.ApiToken == "" {
@@ -555,6 +566,10 @@ func (p *provider) requestCertificateSync(domain Domain, renewal bool) (*tls.Cer
 }
 
 func (p *provider) performCertificateRequest(domain Domain) (*tls.Certificate, error) {
+	if p.cfg.Type == CertVaultProvider {
+		return p.performVaultCertificateRequest(domain)
+	}
+
 	httpChallengeMu.Lock()
 	defer httpChallengeMu.Unlock()
 
@@ -580,6 +595,75 @@ func (p *provider) performCertificateRequest(domain Domain) (*tls.Certificate, e
 		logger.Error("Failed to save certificate to storage", "provider", p.name, "error", err)
 	}
 	return &cert, nil
+}
+
+// initializeVault sets up a Vault PKI provider. Unlike ACME there is no user
+// account, registration or challenge; the client just needs valid credentials.
+// Previously issued certificates are loaded from storage when present.
+func (p *provider) initializeVault() error {
+	client, err := newVaultPKIClient(p.cfg.Vault)
+	if err != nil {
+		return fmt.Errorf("failed to configure vault client: %w", err)
+	}
+	p.vaultClient = client
+
+	// A missing storage file is expected on first run; other load errors are
+	// logged but non-fatal since Vault can re-issue every certificate.
+	if err := p.loadFromStorage(); err != nil && !os.IsNotExist(err) {
+		logger.Warn("Failed to load vault certificates from storage", "provider", p.name, "error", err)
+	}
+
+	p.acmeInitialized = true
+	logger.Info("Vault certificate provider initialized", "provider", p.name)
+	return nil
+}
+
+// performVaultCertificateRequest issues a certificate through the Vault PKI
+// secrets engine and stores it. There is no shared challenge port, so it does
+// not take the http challenge lock.
+func (p *provider) performVaultCertificateRequest(domain Domain) (*tls.Certificate, error) {
+	if p.vaultClient == nil {
+		return nil, errors.New("vault client not initialized")
+	}
+
+	p.markRequestInProgress(domain.Hosts, true)
+	defer p.markRequestInProgress(domain.Hosts, false)
+
+	issued, err := p.vaultClient.IssueCertificate(domain.Hosts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to issue certificate from vault: %w", err)
+	}
+
+	cert, err := tls.X509KeyPair(issued.CertPEM, issued.KeyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS certificate: %w", err)
+	}
+
+	certInfo, err := createCertificateInfoFromVault(&cert, domain.Hosts)
+	if err != nil {
+		return nil, err
+	}
+	p.storeCertificateInfo(domain.Hosts, certInfo)
+
+	if err = p.saveToStorage(); err != nil {
+		logger.Error("Failed to save certificate to storage", "provider", p.name, "error", err)
+	}
+	return &cert, nil
+}
+
+// createCertificateInfoFromVault builds a CertificateInfo from a Vault-issued
+// certificate, deriving the expiry from the leaf certificate's NotAfter.
+func createCertificateInfoFromVault(cert *tls.Certificate, domains []string) (*CertificateInfo, error) {
+	parsedCert, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse vault certificate: %w", err)
+	}
+	return &CertificateInfo{
+		Certificate: cert,
+		Domains:     domains,
+		Expires:     parsedCert.NotAfter,
+		IssuedAt:    time.Now(),
+	}, nil
 }
 
 // GetCertificate is the TLS GetCertificate callback. It walks shared customCerts,

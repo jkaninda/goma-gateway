@@ -76,10 +76,28 @@ type ChallengeType string
 type DnsProvider string
 type AcmeProvider string
 type CertProvider string
+
+// Vault configures a HashiCorp Vault PKI issuer. Certificates are issued through
+// the Vault PKI secrets engine (POST <address>/v1/<mount>/issue/<role>).
 type Vault struct {
+	// Address is the Vault server base URL (e.g. https://vault.example.com).
+	// Falls back to the VAULT_ADDR environment variable when empty.
 	Address string `yaml:"address,omitempty"`
-	Token   string `yaml:"token,omitempty"`
-	Role    string `yaml:"role,omitempty"`
+	// Token is the Vault token used to authenticate. Prefer the VAULT_TOKEN
+	// environment variable over inlining it in the config file.
+	Token string `yaml:"token,omitempty"`
+	// Role is the PKI role used to issue certificates.
+	Role string `yaml:"role,omitempty"`
+	// Mount is the PKI secrets engine mount path (default: "pki").
+	Mount string `yaml:"mount,omitempty"`
+	// Namespace is the Vault Enterprise namespace (optional). Falls back to the
+	// VAULT_NAMESPACE environment variable when empty.
+	Namespace string `yaml:"namespace,omitempty"`
+	// Ttl requests a specific certificate lifetime (e.g. "72h"). Empty uses the
+	// PKI role's default TTL.
+	Ttl string `yaml:"ttl,omitempty"`
+	// StorageFile persists issued certificates (default: <cacheDir>/vault-<name>.json).
+	StorageFile string `yaml:"storageFile,omitempty"`
 }
 type StorageConfig struct {
 	CacheDir    string
