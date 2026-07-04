@@ -20,7 +20,12 @@ package middlewares
 import (
 	"net/http"
 	"regexp"
+	"strings"
 )
+
+// headerTokenRegex matches {{goma.headers.<HeaderName>}} placeholders in a
+// rewrite replacement, capturing the header name.
+var headerTokenRegex = regexp.MustCompile(`\{\{\s*goma\.headers\.([A-Za-z0-9-]+)\s*\}\}`)
 
 type RewriteRegex struct {
 	Pattern     string
@@ -34,14 +39,33 @@ func (regex *RewriteRegex) RewriteRegexMiddleware(next http.Handler) http.Handle
 		re := regexp.MustCompile(regex.Pattern)
 		originalURL := r.URL.Path
 
-		// Rewrite the path
+		// Rewrite the path (resolves regex group refs like $1)
 		rewrittenURL := re.ReplaceAllString(originalURL, regex.Replacement)
+
+		// Expand {{goma.headers.<Name>}} placeholders from incoming request
+		// headers (done after the regex replace so a header value containing $1
+		// is not treated as a group reference).
+		rewrittenURL = injectHeaderTokens(rewrittenURL, r.Header)
+
 		r.URL.Path = rewrittenURL
 
 		// Ensure the URL is properly formatted
 		r.URL.RawPath = rewrittenURL
 
-		logger.Debug("Rewriting URL from %s to %s", originalURL, rewrittenURL)
+		logger.Debug("Rewriting URL", "from", originalURL, "to", rewrittenURL)
 		next.ServeHTTP(w, r)
+	})
+}
+
+// injectHeaderTokens replaces {{goma.headers.<Name>}} placeholders with the
+// matching incoming request header value (empty string when the header is
+// absent).
+func injectHeaderTokens(s string, headers http.Header) string {
+	if !strings.Contains(s, "{{") {
+		return s
+	}
+	return headerTokenRegex.ReplaceAllStringFunc(s, func(match string) string {
+		name := headerTokenRegex.FindStringSubmatch(match)[1]
+		return headers.Get(name)
 	})
 }

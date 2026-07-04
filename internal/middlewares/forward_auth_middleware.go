@@ -41,6 +41,10 @@ func (f *ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 					RespondWithError(w, r, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), f.Origins, contentType)
 					return
 				}
+				// The deny-path response body is the caller's to close.
+				if authResponse.Body != nil {
+					defer func() { _ = authResponse.Body.Close() }()
+				}
 				// If the authentication failed, check if the status code is Unauthorized
 				if authResponse.StatusCode == http.StatusUnauthorized && f.AuthSignIn != "" {
 					// Redirect to the sign in page
@@ -59,7 +63,17 @@ func (f *ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 					http.Redirect(w, r, redirectURL, http.StatusFound)
 					return
 				}
-				RespondWithError(w, r, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), f.Origins, contentType)
+				// Relay the auth service's challenge so clients (e.g. docker login)
+				// know how to authenticate, and mirror its status (401 vs 403)
+				// instead of always reporting 401.
+				if challenge := authResponse.Header.Get("WWW-Authenticate"); challenge != "" {
+					w.Header().Set("WWW-Authenticate", challenge)
+				}
+				status := authResponse.StatusCode
+				if status != http.StatusUnauthorized && status != http.StatusForbidden {
+					status = http.StatusUnauthorized
+				}
+				RespondWithError(w, r, status, fmt.Sprintf("%d %s", status, http.StatusText(status)), f.Origins, contentType)
 				return
 			}
 			// Inject headers and parameters
@@ -129,6 +143,10 @@ func (f *ForwardAuth) authCopyHeadersAndCookies(src *http.Request, dest *http.Re
 	// Forward the host from the source request to the destination request
 	if f.ForwardHostHeaders {
 		dest.Host = src.Host
+	}
+
+	if auth := src.Header.Get("Authorization"); auth != "" {
+		dest.Header.Set("Authorization", auth)
 	}
 	// Copy headers from the source request to the destination request
 	if f.AuthRequestHeaders != nil {
