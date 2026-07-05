@@ -22,7 +22,6 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
-	"os"
 	"slices"
 )
 
@@ -31,7 +30,7 @@ func CheckConfig(fileName string) error {
 	if !util.FileExists(fileName) {
 		return fmt.Errorf("config file not found: %s", fileName)
 	}
-	buf, err := os.ReadFile(fileName)
+	buf, err := readConfigFile(fileName)
 	if err != nil {
 		return err
 	}

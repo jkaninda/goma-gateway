@@ -20,7 +20,6 @@ package internal
 import (
 	"fmt"
 	"gopkg.in/yaml.v3"
-	"os"
 )
 
 // loadExtraRoutes loads additional routes
@@ -31,7 +30,7 @@ func loadExtraRoutes(path string) ([]Route, error) {
 	}
 	var extraRoutes []Route
 	for _, yamlFile := range yamlFiles {
-		buf, err := os.ReadFile(yamlFile)
+		buf, err := readConfigFile(yamlFile)
 		if err != nil {
 			return nil, fmt.Errorf("error loading extra file: %v", err)
 		}

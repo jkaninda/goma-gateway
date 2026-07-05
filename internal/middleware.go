@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -69,7 +68,7 @@ func loadExtraMiddlewares(path string) ([]Middleware, error) {
 	}
 	var extraMiddlewares []Middleware
 	for _, yamlFile := range yamlFiles {
-		buf, err := os.ReadFile(yamlFile)
+		buf, err := readConfigFile(yamlFile)
 		if err != nil {
 			return nil, fmt.Errorf("error loading extra file: %v", err)
 		}
