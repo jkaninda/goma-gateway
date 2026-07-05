@@ -41,10 +41,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// readConfigFile reads a declarative configuration file and expands
+// environment-variable references (`${VAR}`) and `{{func()}}` helpers in its
+// contents before it is parsed. This lets any field — hosts, redis.password,
+// certManager.acme.email, … — be sourced from the environment (e.g. a .env
+// file), not just the handful wired to ReplaceEnvVars per field.
+//
+// Only the braced `${VAR}` form is substituted, so values that contain a bare
+// `$` (bcrypt hashes like `$2y$05$…`, regex patterns) are left untouched, and
+// references to unset variables are preserved verbatim rather than blanked.
+func readConfigFile(path string) ([]byte, error) {
+	buf, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(goutils.ReplaceEnvVars(string(buf))), nil
+}
+
 // Config reads config file and returns Gateway
 func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 	if util.FileExists(configFile) {
-		buf, err := os.ReadFile(configFile)
+		buf, err := readConfigFile(configFile)
 		if err != nil {
 			return nil, err
 		}
@@ -70,7 +87,7 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 	logger.Error("Configuration file not found", "file", configFile)
 	// Check a default file
 	if util.FileExists(ConfigFile) {
-		buf, err := os.ReadFile(ConfigFile)
+		buf, err := readConfigFile(ConfigFile)
 		if err != nil {
 			return nil, err
 
@@ -109,7 +126,7 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 	}
 	logger.Info("Generating new configuration file...done", "file", ConfigFile)
 	util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
-	buf, err := os.ReadFile(ConfigFile)
+	buf, err := readConfigFile(ConfigFile)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +437,7 @@ func initConfig(configFile string) error {
 }
 func (g *Gateway) Setup(conf string) *Gateway {
 	if util.FileExists(conf) {
-		buf, err := os.ReadFile(conf)
+		buf, err := readConfigFile(conf)
 		if err != nil {
 			return &Gateway{}
 		}
