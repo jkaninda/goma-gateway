@@ -94,8 +94,8 @@ github.com/jcmturner/gokrb5/v8 v8.4.4 h1:x1Sv4HaTpepFkXbt2IkL29DXRf8sOfZXo8eRKh6
 github.com/jcmturner/gokrb5/v8 v8.4.4/go.mod h1:1btQEpgT6k+unzCwX1KdWMEwPPkkgBtP+F6aCACiMrs=
 github.com/jcmturner/rpc/v2 v2.0.3 h1:7FXXj8Ti1IaVFpSAziCZWNzbNuZmnvw/i6CqLNdWfZY=
 github.com/jcmturner/rpc/v2 v2.0.3/go.mod h1:VUJYCIDm3PVOEHw8sgt091/20OJjskO/YJki3ELg/Hc=
-github.com/jedib0t/go-pretty/v6 v6.8.1 h1:0fkCNhjrX0zPpwkWaDYU5VMrygg41Tu197mWILIJoqQ=
-github.com/jedib0t/go-pretty/v6 v6.8.1/go.mod h1:YwC5CE4fJ1HFUDeivSV1r//AmANFHyqczZk+U6BDALU=
+github.com/jedib0t/go-pretty/v6 v6.8.2 h1:FmKNr1GOyot/zqNQplE8HLhFguJaeHJTCArntnI4uxE=
+github.com/jedib0t/go-pretty/v6 v6.8.2/go.mod h1:YwC5CE4fJ1HFUDeivSV1r//AmANFHyqczZk+U6BDALU=
 github.com/jkaninda/encryptor v0.0.0-20260626172340-f2c16df29717 h1:AoGc90fHEkaPwu2d4nhYcz7tpxdToMmhPPG4k74/huQ=
 github.com/jkaninda/encryptor v0.0.0-20260626172340-f2c16df29717/go.mod h1:tZDXSP93pQao4WK0AoR5n1PI9S97B0XPqFIRyvfVa+U=
 github.com/jkaninda/go-utils v0.1.4 h1:ZdNlI+yLWc4/S0qKcCNQIPj+6lHSdJcGaxtRADAifAU=
