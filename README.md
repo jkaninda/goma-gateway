@@ -49,6 +49,7 @@ Architecture:
 - **Kubernetes Provider**: [Kubernetes Provider](https://github.com/jkaninda/goma-k8s-provider)
 
 - **Kubernetes Operator**: [Kubernetes Operator](https://github.com/jkaninda/goma-operator)
+- **Miabi PaaS**: [Miabi PaaS](https://github.com/miabi-io/miabi)
 
 ### [Documentation](https://jkaninda.github.io/goma-gateway)
 
@@ -582,6 +583,27 @@ For production deployments, use the example from the link below:
 
 [production-deployment](https://github.com/jkaninda/goma-gateway-production-deployment).
 
+### 13. Miabi
+
+[**Miabi**](https://github.com/miabi-io/miabi) is a self-hosted, developer-first Platform-as-a-Service for containerized apps.
+Push an app from a Git repo, a Docker image, or a marketplace template and Miabi handles the rest: build, deploy, domains, automatic SSL, databases, scaling, backups, and monitoring. 
+All from one web interface, in minutes, without touching a single Docker command.
+
+Miabi runs **Goma Gateway** as its edge layer. Every app deployed on the platform is exposed through the gateway, which provides:
+
+* **Routing** — service discovery and per-app routes, including load balancing and canary traffic splitting
+* **TLS** — automatic HTTPS with Let's Encrypt, wildcard certificates, and DNS provider integrations (ACME)
+* **Middleware** — authentication, rate limiting, access control, and the rest of Goma's middleware chain
+* **Security** — a single hardened entry point in front of every workload
+
+See:
+[Miabi](https://github.com/miabi-io/miabi)
+
+#### Dashboard Preview
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/miabi-io/miabi/main/docs/screenshots/dashboard.png" alt="Miabi Dashboard" width="900"/>
+</p>
 
 ---
 ## Supported Systems
