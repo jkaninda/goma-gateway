@@ -128,6 +128,8 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *mux.Router) {
 		applyBodyLimitMiddleware(mid, router)
 	case userAgentBlock:
 		applyUserAgentBlockMiddleware(mid, router)
+	case geoBlock:
+		applyGeoBlockMiddleware(mid, router)
 	case accessLog:
 		applyAccessLogMiddleware(mid, r)
 	case responseHeaders:
@@ -386,6 +388,40 @@ func applyUserAgentBlockMiddleware(mid Middleware, router *mux.Router) {
 		UserAgents: rule.UserAgents,
 	}
 	router.Use(userAgents.Middleware)
+}
+
+func applyGeoBlockMiddleware(mid Middleware, router *mux.Router) {
+	rule := &GeoBlockRuleMiddleware{}
+	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
+		logger.Error("Error applying middleware, middleware not applied", "error", err)
+		return
+	}
+	if err := rule.validate(); err != nil {
+		logger.Error("Error applying middleware, middleware not applied", "error", err)
+		return
+	}
+	countries := make(map[string]struct{}, len(rule.Countries))
+	for _, c := range rule.Countries {
+		countries[strings.ToUpper(strings.TrimSpace(c))] = struct{}{}
+	}
+	allowUnknown := true // fail-open: an absent/unreadable GeoIP DB never locks everyone out
+	if rule.AllowUnknown != nil {
+		allowUnknown = *rule.AllowUnknown
+	}
+	geo := middlewares.GeoBlock{
+		Name:          mid.Name,
+		Deny:          strings.EqualFold(rule.Action, "DENY"),
+		Countries:     countries,
+		StatusCode:    rule.StatusCode,
+		Message:       rule.Message,
+		AllowUnknown:  allowUnknown,
+		CountryHeader: rule.AddCountryHeader,
+		Resolve:       geoCountry,
+		OnDeny: func(country string) {
+			prometheusMetrics.GatewayGeoBlockDenied.WithLabelValues(mid.Name, country).Inc()
+		},
+	}
+	router.Use(geo.Middleware)
 }
 
 func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router) {

@@ -18,10 +18,11 @@
 package metrics
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"os"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // PrometheusMetrics defines all Prometheus metrics tracked by the gateway.
@@ -74,6 +75,9 @@ type PrometheusMetrics struct {
 	// bounded (~250 values), so it is safe as a label — unlike per-path. Only
 	// recorded when a country is resolved (a GeoIP database is configured).
 	GatewayRequestsByCountry *prometheus.CounterVec
+	// GatewayGeoBlockDenied counts requests denied by a geoBlock middleware,
+	// labeled by middleware name and the client country (ISO code).
+	GatewayGeoBlockDenied *prometheus.CounterVec
 }
 
 // NewPrometheusMetrics initializes and registers all Prometheus metrics for the gateway.
@@ -150,6 +154,13 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 			prometheus.CounterOpts{
 				Name: "gateway_requests_by_country_total",
 				Help: "Total requests labeled by route name and client country (ISO code, from GeoIP)",
+			},
+			[]string{"name", "country"},
+		),
+		GatewayGeoBlockDenied: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_geoblock_denied_total",
+				Help: "Total requests denied by a geoBlock middleware, labeled by middleware name and country",
 			},
 			[]string{"name", "country"},
 		),

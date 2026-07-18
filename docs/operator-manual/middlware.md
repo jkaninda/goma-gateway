@@ -36,6 +36,7 @@ The `spec.rule` field is a free-form object whose shape depends on `spec.type`. 
 | `responseHeaders` | Add / remove response headers. |
 | `errorInterceptor` | Map upstream error codes to custom responses. |
 | `userAgentBlock` | Block requests by User-Agent pattern. |
+| `geoBlock` | Allow / deny requests by country (GeoIP). |
 
 ## Basic auth
 
