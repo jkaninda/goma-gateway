@@ -62,6 +62,7 @@ const (
 	responseHeaders     MiddlewareType = "responseHeaders"
 	requestHeaders      MiddlewareType = "requestHeaders"
 	errorInterceptor    MiddlewareType = "errorInterceptor"
+	geoBlock            MiddlewareType = "geoBlock"
 )
 
 // ************** CORS ***************

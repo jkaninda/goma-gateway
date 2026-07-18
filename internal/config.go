@@ -525,6 +525,24 @@ func (u UserAgentBlockRuleMiddleware) validate() error {
 	return nil
 }
 
+// validate validates GeoBlockRuleMiddleware
+func (g GeoBlockRuleMiddleware) validate() error {
+	switch strings.ToUpper(g.Action) {
+	case "ALLOW", "DENY":
+	default:
+		return fmt.Errorf("invalid action %q in geoBlock middleware (want ALLOW or DENY)", g.Action)
+	}
+	if len(g.Countries) == 0 {
+		return fmt.Errorf("empty countries in geoBlock middleware")
+	}
+	for _, c := range g.Countries {
+		if len(strings.TrimSpace(c)) != 2 {
+			return fmt.Errorf("invalid country %q in geoBlock middleware (want ISO 3166-1 alpha-2, e.g. US)", c)
+		}
+	}
+	return nil
+}
+
 // validate validates BasicRuleMiddleware
 func (basicAuth *BasicRuleMiddleware) validate() error {
 	if len(basicAuth.Users) == 0 {

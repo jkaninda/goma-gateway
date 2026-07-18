@@ -278,6 +278,16 @@ type AccessPolicyRuleMiddleware struct {
 type UserAgentBlockRuleMiddleware struct {
 	UserAgents []string `yaml:"userAgents" json:"userAgents"`
 }
+
+// GeoBlockRuleMiddleware is country-based access control backed by the GeoIP
+type GeoBlockRuleMiddleware struct {
+	Action           string   `yaml:"action,omitempty" json:"action"` // ALLOW or DENY
+	Countries        []string `yaml:"countries" json:"countries"`     // ISO 3166-1 alpha-2
+	StatusCode       int      `yaml:"statusCode,omitempty" json:"statusCode"`
+	Message          string   `yaml:"message,omitempty" json:"message"`
+	AllowUnknown     *bool    `yaml:"allowUnknown,omitempty" json:"allowUnknown"`
+	AddCountryHeader string   `yaml:"addCountryHeader,omitempty" json:"addCountryHeader"`
+}
 type ProxyMiddleware struct {
 	Name           string
 	Path           string
