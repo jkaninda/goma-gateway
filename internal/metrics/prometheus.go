@@ -61,6 +61,19 @@ type PrometheusMetrics struct {
 	// Total number of HTTP responses sent by the gateway,
 	// labeled by status code, route name, and method.
 	GatewayResponseStatus *prometheus.CounterVec
+
+	// Total request/response body bytes, labeled by route name and method (bandwidth).
+	GatewayRequestBytes  *prometheus.CounterVec
+	GatewayResponseBytes *prometheus.CounterVec
+
+	// Duration spent in the upstream/backend (excludes gateway pre/post work), by route.
+	// Lets a consumer separate "my app is slow" from "the gateway is slow".
+	GatewayUpstreamDuration *prometheus.HistogramVec
+
+	// Requests by route name and client country (ISO code, from GeoIP). Country is
+	// bounded (~250 values), so it is safe as a label — unlike per-path. Only
+	// recorded when a country is resolved (a GeoIP database is configured).
+	GatewayRequestsByCountry *prometheus.CounterVec
 }
 
 // NewPrometheusMetrics initializes and registers all Prometheus metrics for the gateway.
@@ -110,6 +123,35 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Help: "Total number of errors intercepted, labeled by route name and status code",
 			},
 			[]string{"name", "status"},
+		),
+		GatewayRequestBytes: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_request_bytes_total",
+				Help: "Total request body bytes received, labeled by route name and method",
+			},
+			[]string{"name", "method"},
+		),
+		GatewayResponseBytes: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_response_bytes_total",
+				Help: "Total response body bytes sent, labeled by route name and method",
+			},
+			[]string{"name", "method"},
+		),
+		GatewayUpstreamDuration: promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "gateway_upstream_duration_seconds",
+				Help:    "Histogram of upstream/backend response durations in seconds",
+				Buckets: prometheus.DefBuckets,
+			},
+			[]string{"name"},
+		),
+		GatewayRequestsByCountry: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_requests_by_country_total",
+				Help: "Total requests labeled by route name and client country (ISO code, from GeoIP)",
+			},
+			[]string{"name", "country"},
 		),
 
 		// Deprecated metrics (backward compatibility)
