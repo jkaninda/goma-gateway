@@ -20,14 +20,15 @@ package internal
 import (
 	"bytes"
 	"context"
-	"github.com/google/uuid"
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
 // responseRecorder is a custom http.ResponseWriter that captures the response status code and body
@@ -39,6 +40,7 @@ type responseRecorder struct {
 	intercept   bool
 	wroteHeader bool
 	bodySize    int64
+	written     int64 // total response body bytes handed to the client (all write paths)
 	maxBodySize int64
 	skipBuffer  bool
 	request     *http.Request
@@ -90,6 +92,7 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 	if !rec.wroteHeader {
 		rec.WriteHeader(rec.statusCode)
 	}
+	rec.written += int64(len(data)) // all data passed to Write is eventually sent to the client
 
 	if !rec.intercept || rec.skipBuffer {
 		return rec.ResponseWriter.Write(data)
@@ -164,7 +167,18 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			}
 		}
 
+		upstreamStart := time.Now()
 		next.ServeHTTP(rec, r)
+		upstream := time.Since(upstreamStart) // backend round-trip (excludes gateway pre/post work)
+
+		// Resolve the client country once (GeoIP), shared by the metric and the
+		// event; the raw IP is used only here and then dropped. Empty when no
+		// GeoIP database is configured or the address doesn't resolve.
+		emitEvent := analytics != nil && analytics.sampled()
+		var country string
+		if p.enableMetrics || emitEvent {
+			country = geoCountry(ip)
+		}
 
 		if p.enableMetrics {
 			duration := time.Since(startTime).Seconds()
@@ -176,11 +190,48 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, p.Name, method).Inc()
 			prometheusMetrics.HttpDuration.WithLabelValues(p.Name, method).Observe(duration)
 
+			// Bandwidth + upstream split.
+			reqBytes := r.ContentLength
+			if reqBytes < 0 {
+				reqBytes = 0
+			}
+			prometheusMetrics.GatewayRequestBytes.WithLabelValues(p.Name, method).Add(float64(reqBytes))
+			prometheusMetrics.GatewayResponseBytes.WithLabelValues(p.Name, method).Add(float64(rec.written))
+			prometheusMetrics.GatewayUpstreamDuration.WithLabelValues(p.Name).Observe(upstream.Seconds())
+			if country != "" {
+				prometheusMetrics.GatewayRequestsByCountry.WithLabelValues(p.Name, country).Inc()
+			}
+
 			logger.Debug("Metrics recorded",
 				"status", statusStr,
 				"duration", duration,
 			)
 
+		}
+
+		if emitEvent {
+			reqBytes := r.ContentLength
+			if reqBytes < 0 {
+				reqBytes = 0
+			}
+			analytics.emit(&AnalyticsEvent{
+				Ts:           time.Now().UnixMilli(),
+				Gateway:      analytics.gatewayID,
+				Route:        p.Name,
+				Host:         r.Host,
+				Method:       method,
+				Status:       rec.statusCode,
+				Path:         r.URL.Path,
+				PathTemplate: p.Path, // the matched route pattern
+				ReqBytes:     reqBytes,
+				RespBytes:    rec.written,
+				DurationMs:   time.Since(startTime).Milliseconds(),
+				UpstreamMs:   upstream.Milliseconds(),
+				VID:          visitorID(ip, r.UserAgent()),
+				Country:      country,
+				UA:           r.UserAgent(),
+				RefererHost:  refererHost(r.Referer()),
+			})
 		}
 
 		// Log core request info

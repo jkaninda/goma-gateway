@@ -39,6 +39,8 @@ func (g *Goma) Start() error {
 	// Initialize redis if configured
 	g.initRedis()
 	defer g.closeRedis()
+	initAnalytics()
+	defer closeGeoIP()
 	// Configure provider Manager
 	err := g.configureProviderManager()
 	if err != nil {
