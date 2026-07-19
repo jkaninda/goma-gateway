@@ -10,6 +10,14 @@ source "https://rubygems.org"
 # Happy Jekylling!
 gem "jekyll", "~> 3.10.0"
 
+# Formerly-default gems dropped from Ruby's standard library (3.4+/4.0). Jekyll
+# and its plugins still `require` these, so they must be explicit dependencies or
+# the build fails with "cannot load such file".
+gem "base64"
+gem "csv"
+gem "logger"
+gem "bigdecimal"
+
 # This is the default theme for new Jekyll sites. You may change this to anything you like.
 gem "minima", "~> 2.0"
 
