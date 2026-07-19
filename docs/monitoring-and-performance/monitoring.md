@@ -120,7 +120,14 @@ Goma Gateway exposes several Prometheus metrics to monitor the gateway at variou
 * `gateway_response_status_total` — Total number of HTTP responses sent, labeled by status code, route name, and method.
 * `gateway_request_duration_seconds` — Histogram of request durations in seconds.
 * `gateway_total_errors_intercepted` — Total number of errors intercepted, labeled by route name and status code.
+* `gateway_request_bytes_total` — Total request body bytes received, labeled by route name and method (bandwidth in).
+* `gateway_response_bytes_total` — Total response body bytes sent, labeled by route name and method (bandwidth out).
+* `gateway_upstream_duration_seconds` — Histogram of **upstream/backend** response durations, by route. Lets you separate *"my app is slow"* from *"the gateway is slow"* (gateway overhead = request − upstream).
+* `gateway_requests_by_country_total` — Requests by route name and client **country** (ISO code, from GeoIP). Only recorded when a GeoIP database is configured.
+* `gateway_geoblock_denied_total` — Requests denied by a [`geoBlock`](../middlewares/geo-block.md) middleware, labeled by middleware name and country.
 * And many more...
+
+> 💡 **Web-performance metrics.** The bandwidth (`*_bytes_total`), upstream-duration, and by-country metrics power per-route traffic, throughput and latency-split views. Miabi consumes the richer **event stream** below to build full traffic/performance/web-analytics dashboards — see [Analytics](./analytics.md).
 
 ---
 
