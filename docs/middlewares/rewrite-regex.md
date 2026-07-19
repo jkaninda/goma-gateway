@@ -34,6 +34,7 @@ In this example:
 
 ### Dynamic tokens
 
+{% raw %}
 In addition to regex capture groups (`$1`, `$2`, …), the `replacement` may reference
 values from the incoming request using `{{goma.<source>.<name>}}` placeholders:
 
@@ -64,6 +65,7 @@ middlewares:
 
 For a request `POST /v2/acme/frontend/blobs?env=prod` with header
 `X-Workspace-Id: ws_1`, the path is rewritten to `/v2/ws_1/prod/frontend/blobs`.
+{% endraw %}
 
 ### When to Use RewriteRegex
 - 
