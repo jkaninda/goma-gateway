@@ -19,38 +19,56 @@ package internal
 
 import (
 	"net"
+	"strings"
 	"sync"
 
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/oschwald/geoip2-golang"
 )
 
-// defaultGeoIPPath is where Miabi drops the GeoIP database into the gateway.
-// The .mmdb format is used by both MaxMind (GeoLite2-Country.mmdb) and
-// IP2Location (IP2LOCATION-*.MMDB) — both expose a `country.iso_code`, so one
-// reader covers either provider. Override with GOMA_GEOIP_DB.
-const defaultGeoIPPath = "/etc/goma/GeoLite2-Country.mmdb"
+// defaultGeoIPPaths are the databases Goma looks for when GOMA_GEOIP_DB is unset,
+// tried in order.
+//
+// `country.mmdb` is the provider-neutral name, and the one the docs use: the .mmdb
+// format is shared by MaxMind, DB-IP and IP2Location, and all three expose a
+// `country.iso_code`, so one reader covers whichever the operator supplied — naming
+// the file after any one of them was always a little wrong.
+//
+// GeoLite2-Country.mmdb stays as a fallback. It is what Goma defaulted to, and what
+// MaxMind's own download is called, so operators land on it without thinking.
+var defaultGeoIPPaths = []string{
+	"/etc/goma/country.mmdb",
+	"/etc/goma/GeoLite2-Country.mmdb",
+}
 
 var (
 	geoOnce   sync.Once
 	geoReader *geoip2.Reader
 )
 
-// initGeoIP opens the GeoIP database once, from GOMA_GEOIP_DB (default
-// /etc/goma/GeoLite2-Country.mmdb). It is a no-op — country enrichment stays
-// off, `geoCountry` returns "" — when the file is absent or unreadable, so
-// analytics keeps working without geo. Called from initAnalytics.
+// initGeoIP opens the GeoIP database once: GOMA_GEOIP_DB if set, otherwise the
+// first of defaultGeoIPPaths that opens. It is a no-op — country enrichment stays
+// off, `geoCountry` returns "" — when no database is readable, so analytics keeps
+// working without geo. Called from initAnalytics.
 func initGeoIP() {
 	geoOnce.Do(func() {
-		path := goutils.Env("GOMA_GEOIP_DB", defaultGeoIPPath)
-		r, err := geoip2.Open(path)
-		if err != nil {
-			logger.Warn("GeoIP database not loaded; country enrichment disabled",
-				"path", path, "error", err)
+		paths := defaultGeoIPPaths
+		if p := strings.TrimSpace(goutils.Env("GOMA_GEOIP_DB", "")); p != "" {
+			paths = []string{p}
+		}
+		var lastErr error
+		for _, path := range paths {
+			r, err := geoip2.Open(path)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			geoReader = r
+			logger.Info("GeoIP database loaded", "path", path)
 			return
 		}
-		geoReader = r
-		logger.Info("GeoIP database loaded", "path", path)
+		logger.Warn("GeoIP database not loaded; country enrichment disabled",
+			"paths", paths, "error", lastErr)
 	})
 }
 

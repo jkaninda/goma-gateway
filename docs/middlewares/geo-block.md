@@ -22,13 +22,15 @@ Privacy note: the client IP is used only to look up the country at the edge and 
 
 ## Prerequisites
 
-The middleware requires a GeoIP database in MaxMind `.mmdb` format. Both MaxMind (`GeoLite2-Country.mmdb`) and IP2Location (`IP2LOCATION-*.MMDB`) are supported — both expose a `country.iso_code`.
+The middleware requires a country-level GeoIP database in MaxMind `.mmdb` format. MaxMind, DB-IP and IP2Location all publish one — any of them works, since all three expose a `country.iso_code`.
 
-Set the path with the `GOMA_GEOIP_DB` environment variable (default `/etc/goma/GeoLite2-Country.mmdb`):
+Save it as **`/etc/goma/country.mmdb`** and Goma picks it up with no configuration. To keep it elsewhere, set `GOMA_GEOIP_DB`:
 
 ```bash
-GOMA_GEOIP_DB=/etc/goma/GeoLite2-Country.mmdb
+GOMA_GEOIP_DB=/srv/geoip/dbip-country-lite.mmdb
 ```
+
+An explicit `GOMA_GEOIP_DB` is used exactly as given — Goma will not quietly fall back to another file, because geo rules deciding on a database nobody chose is worse than geo rules that do not run.
 
 If the database is absent or unreadable, country resolution is disabled and the middleware follows its `allowUnknown` setting (fail-open by default), so a missing database never locks everyone out.
 
