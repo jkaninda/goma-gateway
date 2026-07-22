@@ -48,7 +48,7 @@ GOMA_ANALYTICS_ENABLED=true          # off by default
 GOMA_ANALYTICS_STREAM=goma:analytics # Redis stream key
 GOMA_REDIS_DB=0                      # must match the consumer's Redis DB
 # Optional country enrichment (see GeoIP below):
-GOMA_GEOIP_DB=/etc/goma/GeoLite2-Country.mmdb
+GOMA_GEOIP_DB=/etc/goma/country.mmdb
 ```
 
 ### Configuration (environment)
@@ -61,7 +61,7 @@ GOMA_GEOIP_DB=/etc/goma/GeoLite2-Country.mmdb
 | `GOMA_ANALYTICS_MAXLEN` | `1000000` | Approximate stream length cap (`XADD MAXLEN ~`). |
 | `GOMA_GATEWAY_ID` | `""` | Identifier stamped on each event (`gw`); useful with multiple gateways. |
 | `GOMA_REDIS_DB` | `0` | Redis database index (must match the consumer). |
-| `GOMA_GEOIP_DB` | `/etc/goma/GeoLite2-Country.mmdb` | Path to the GeoIP `.mmdb` for the `country` field. |
+| `GOMA_GEOIP_DB` | `/etc/goma/country.mmdb` | Path to the GeoIP `.mmdb` for the `country` field. |
 
 ### Event schema
 
@@ -88,9 +88,16 @@ Each stream entry has a single field `e` whose value is the JSON below.
 
 ### GeoIP (country enrichment)
 
-Set `GOMA_GEOIP_DB` to a MaxMind-format `.mmdb` (both MaxMind
-`GeoLite2-Country.mmdb` and IP2Location `IP2LOCATION-*.MMDB` work — both expose a
-country ISO code). It enriches the `country` field on events, the
+Save a country-level `.mmdb` database at **`/etc/goma/country.mmdb`** and Goma
+loads it at startup with no configuration; `GOMA_GEOIP_DB` overrides the path.
+MaxMind, DB-IP and IP2Location all publish a suitable database — any of them
+works, since all three expose a country ISO code.
+
+It enriches the `country` field on events, the
 `gateway_requests_by_country_total` metric, and powers the
 [`geoBlock`](../middlewares/geo-block.md) middleware. Everything keeps working
 without it — you just lose the country dimension.
+
+Goma ships no database: the ones worth having carry licenses that bind whoever
+uses or displays the data, which is a choice only you can make for your
+deployment.
