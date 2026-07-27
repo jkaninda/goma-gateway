@@ -25,9 +25,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
+	mux "github.com/jkaninda/njia/muxcompat"
 )
 
 type Router interface {
