@@ -22,9 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	mux "github.com/jkaninda/njia/muxcompat"
 	"io"
 	"net"
 	"net/http"
@@ -41,7 +41,7 @@ import (
 //   - cors: Cors configuration containing all CORS settings
 //
 // Returns:
-//   - mux.MiddlewareFunc: A middleware function that can be used with gorilla/mux router
+//   - mux.MiddlewareFunc: A middleware function that can be used with the njia router
 func (cors *Cors) CORSHandler() mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

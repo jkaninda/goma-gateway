@@ -28,13 +28,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/mux"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/proxy"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/dns"
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
+	mux "github.com/jkaninda/njia/muxcompat"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

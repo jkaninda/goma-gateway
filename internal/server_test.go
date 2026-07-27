@@ -22,7 +22,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
+	mux "github.com/jkaninda/njia/muxcompat"
 	"io"
 	"log"
 	"net/http"

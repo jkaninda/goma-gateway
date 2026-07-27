@@ -10,10 +10,10 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/mux v1.8.1
 	github.com/jkaninda/encryptor v0.0.0-20260626172340-f2c16df29717
 	github.com/jkaninda/go-utils v0.1.4
 	github.com/jkaninda/logger v0.0.5
+	github.com/jkaninda/njia v0.0.1
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/redis/go-redis/v9 v9.21.0

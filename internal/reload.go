@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
+	mux "github.com/jkaninda/njia/muxcompat"
 )
 
 // registerReloadHandler exposes the token-protected on-demand reload endpoint.

@@ -22,7 +22,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gorilla/mux"
+	mux "github.com/jkaninda/njia/muxcompat"
 )
 
 const testReloadToken = "secret"

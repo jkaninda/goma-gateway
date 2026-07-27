@@ -74,8 +74,6 @@ github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
-github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
 github.com/hashicorp/go-uuid v1.0.3 h1:2gKiV6YVmrJ1i2CKKa9obLvRieoRGviZFL26PcT/Co8=
 github.com/hashicorp/go-uuid v1.0.3/go.mod h1:6SBZvOh/SIDV7/2o3Jml5SYk/TvGqwFJ/bN7x4byOro=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
@@ -102,6 +100,8 @@ github.com/jkaninda/go-utils v0.1.4 h1:ZdNlI+yLWc4/S0qKcCNQIPj+6lHSdJcGaxtRADAif
 github.com/jkaninda/go-utils v0.1.4/go.mod h1:Aa54jEAcDykc3CnOdreqZG80UfSZOvrYecyusu+oPb4=
 github.com/jkaninda/logger v0.0.5 h1:fTHKgDsHtuN8rkSBvwe6QStfi8yIdm8O3r0g99dRDTY=
 github.com/jkaninda/logger v0.0.5/go.mod h1:ZUXJ2BdxDPG6e8t6mbKhc2ZFaFi2Iuy/4ukquFrPkFE=
+github.com/jkaninda/njia v0.0.1 h1:mrbDONgVpHC2ngh6Qj8Bdxcz+cuUxedxHIE3v4ncaJQ=
+github.com/jkaninda/njia v0.0.1/go.mod h1:YZe9FDA9bqnvKJ/PC3nT8LDOOa6a29KQtLF6XVSRODg=
 github.com/kevinburke/ssh_config v1.6.0 h1:J1FBfmuVosPHf5GRdltRLhPJtJpTlMdKTBjRgTaQBFY=
 github.com/kevinburke/ssh_config v1.6.0/go.mod h1:q2RIzfka+BXARoNexmF9gkxEX7DmvbW9P4hIVx2Kg4M=
 github.com/klauspost/compress v1.19.1 h1:VsB4HPswih7mmZ8WleSFQ75c/Ui1M4trX5oAsJnhSlk=

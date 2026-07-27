@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
-	"github.com/gorilla/mux"
+	mux "github.com/jkaninda/njia/muxcompat"
 	"github.com/redis/go-redis/v9"
 	"math"
 	"net"

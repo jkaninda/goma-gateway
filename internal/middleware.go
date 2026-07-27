@@ -26,10 +26,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
+	mux "github.com/jkaninda/njia/muxcompat"
 	"gopkg.in/yaml.v3"
 )
 
