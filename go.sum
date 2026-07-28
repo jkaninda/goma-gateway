@@ -100,8 +100,8 @@ github.com/jkaninda/go-utils v0.1.4 h1:ZdNlI+yLWc4/S0qKcCNQIPj+6lHSdJcGaxtRADAif
 github.com/jkaninda/go-utils v0.1.4/go.mod h1:Aa54jEAcDykc3CnOdreqZG80UfSZOvrYecyusu+oPb4=
 github.com/jkaninda/logger v0.0.5 h1:fTHKgDsHtuN8rkSBvwe6QStfi8yIdm8O3r0g99dRDTY=
 github.com/jkaninda/logger v0.0.5/go.mod h1:ZUXJ2BdxDPG6e8t6mbKhc2ZFaFi2Iuy/4ukquFrPkFE=
-github.com/jkaninda/njia v0.0.1 h1:mrbDONgVpHC2ngh6Qj8Bdxcz+cuUxedxHIE3v4ncaJQ=
-github.com/jkaninda/njia v0.0.1/go.mod h1:YZe9FDA9bqnvKJ/PC3nT8LDOOa6a29KQtLF6XVSRODg=
+github.com/jkaninda/njia v0.0.3 h1:7DBKbp/Y/r5DYTEZd7z7oWuNDfnxAzifs2EZ2ux5WNg=
+github.com/jkaninda/njia v0.0.3/go.mod h1:YZe9FDA9bqnvKJ/PC3nT8LDOOa6a29KQtLF6XVSRODg=
 github.com/kevinburke/ssh_config v1.6.0 h1:J1FBfmuVosPHf5GRdltRLhPJtJpTlMdKTBjRgTaQBFY=
 github.com/kevinburke/ssh_config v1.6.0/go.mod h1:q2RIzfka+BXARoNexmF9gkxEX7DmvbW9P4hIVx2Kg4M=
 github.com/klauspost/compress v1.19.1 h1:VsB4HPswih7mmZ8WleSFQ75c/Ui1M4trX5oAsJnhSlk=

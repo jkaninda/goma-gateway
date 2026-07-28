@@ -22,9 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	mux "github.com/jkaninda/njia/muxcompat"
 	"io"
 	"net"
 	"net/http"
@@ -32,6 +29,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"github.com/jkaninda/njia"
 )
 
 // CORSHandler creates a middleware function that handles CORS headers for incoming requests
@@ -41,8 +42,8 @@ import (
 //   - cors: Cors configuration containing all CORS settings
 //
 // Returns:
-//   - mux.MiddlewareFunc: A middleware function that can be used with the njia router
-func (cors *Cors) CORSHandler() mux.MiddlewareFunc {
+//   - njia.Middleware: A middleware function that can be used with the njia router
+func (cors *Cors) CORSHandler() njia.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

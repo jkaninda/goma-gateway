@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	mux "github.com/jkaninda/njia/muxcompat"
+	"github.com/jkaninda/njia"
 )
 
 // registerReloadHandler exposes the token-protected on-demand reload endpoint.
@@ -32,7 +32,7 @@ import (
 // its configuration immediately instead of waiting for the provider poll
 // interval. The endpoint is only registered when it is enabled and a token is
 // configured, so it is never exposed unauthenticated.
-func (g *Goma) registerReloadHandler(router *mux.Router, r Router) {
+func (g *Goma) registerReloadHandler(router *njia.Router, r Router) {
 	cfg := g.gateway.Reload
 	token := cfg.reloadToken()
 	if !cfg.Enabled || token == "" {
@@ -59,9 +59,13 @@ func (g *Goma) registerReloadHandler(router *mux.Router, r Router) {
 		writeReloadStatus(w, http.StatusOK, "ok", map[string]any{"routes": len(g.dynamicRoutes), "durationMs": ms})
 	}
 
-	route := router.HandleFunc(path, handler).Methods(http.MethodPost)
+	var opts []njia.RouteOption
 	if cfg.Host != "" {
-		route.Host(cfg.Host)
+		opts = append(opts, njia.WithHost(cfg.Host))
+	}
+	if err := router.HandleFunc(http.MethodPost, path, handler, opts...); err != nil {
+		logger.Error("Failed to register reload endpoint", "path", path, "error", err)
+		return
 	}
 	logger.Debug("Reload endpoint registered", "path", path, "host", cfg.Host)
 }
