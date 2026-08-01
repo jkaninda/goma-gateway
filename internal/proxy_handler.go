@@ -19,7 +19,6 @@ package internal
 
 import (
 	"bytes"
-	"context"
 	"net/http"
 	"sort"
 	"strconv"
@@ -163,7 +162,7 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 
 			// Update real-time visitors gauge
 			if p.VisitorTracker != nil {
-				p.VisitorTracker.AddVisitor(context.Background(), ip, r.UserAgent())
+				p.VisitorTracker.AddVisitor(ip, r.UserAgent())
 			}
 		}
 

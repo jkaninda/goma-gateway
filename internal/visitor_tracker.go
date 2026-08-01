@@ -19,273 +19,292 @@ package internal
 
 import (
 	"context"
-	"fmt"
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/redis/go-redis/v9"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
-// Visitor represents a tracked visitor
-type Visitor struct {
-	IP        string    `json:"ip"`
-	UserAgent string    `json:"user_agent"`
-	FirstSeen time.Time `json:"first_seen"`
-	LastSeen  time.Time `json:"last_seen"`
-}
-
-// VisitorTracker manages visitor tracking
+// VisitorTracker feeds the gateway's real-time visitors gauge: how many distinct
+// visitors have been seen within the TTL. One tracker serves the whole gateway —
+// the gauge is gateway-wide, and it survives config reloads, so it must not be
+// built per route.
+//
+// The request path only enqueues a visitor id; a single background goroutine
+// owns every store call, batching what has piled up into one write and sweeping
+// expired visitors on a ticker. Nothing on the hot path talks to Redis, and a
+// burst costs a dropped sample rather than a slow response.
+//
+// Visitors are keyed on the same daily-salted hash the analytics stream uses, so
+// no client IP is written to the store.
 type VisitorTracker struct {
-	store  VisitorStore
-	ttl    time.Duration
-	ticker *time.Ticker
-	stop   chan struct{}
+	store      VisitorStore
+	ttl        time.Duration
+	sweepEvery time.Duration
+
+	queue   chan string
+	stop    chan struct{}
+	done    chan struct{}
+	stopped sync.Once
 }
 
-// Config holds configuration for VisitorTracker
+// Config holds configuration for VisitorTracker.
 type Config struct {
-	TTL             time.Duration
+	// TTL is how long a visitor stays "active" after their last request.
+	TTL time.Duration
+	// CleanupInterval is how often expired visitors are swept and the gauge is
+	// republished — so it also sets how fresh the gauge is.
 	CleanupInterval time.Duration
 	Store           VisitorStore
-	RedisBased      bool
 }
 
-// VisitorStore defines the interface for visitor storage backends
+// VisitorStore holds the set of recently-active visitor ids. Implementations are
+// called from one goroutine only.
 type VisitorStore interface {
-	AddVisitor(ctx context.Context, key string, visitor *Visitor) error
-	GetVisitor(ctx context.Context, key string) (*Visitor, error)
-	UpdateLastSeen(ctx context.Context, key string, lastSeen time.Time) error
-	CountVisitors(ctx context.Context) (int, error)
-	Cleanup(ctx context.Context, ttl time.Duration) error
+	// Touch records ids as active at seen.
+	Touch(ctx context.Context, ids []string, seen time.Time) error
+	// Count returns the distinct visitors active at or after since.
+	Count(ctx context.Context, since time.Time) (int, error)
+	// Sweep drops visitors last seen before the given time.
+	Sweep(ctx context.Context, before time.Time) error
 	Close() error
 }
 
-// MemoryStore implements VisitorStore using in-memory map
-type MemoryStore struct {
-	visitors map[string]*Visitor
-	mu       sync.RWMutex
-}
+const (
+	// visitorQueueSize absorbs bursts between store writes. Full means the
+	// gateway is taking requests faster than the store can record them, and a
+	// sample is dropped — the gauge is a sample of activity, not a ledger.
+	visitorQueueSize = 4096
+	// visitorBatchSize bounds how many ids go into a single store write.
+	visitorBatchSize = 512
+
+	// defaultVisitorTTL spans the gap between a visitor's requests rather than
+	// their visit.
+	defaultVisitorTTL   = 5 * time.Minute
+	minVisitorTTL       = defaultVisitorSweep
+	defaultVisitorSweep = 30 * time.Second
+)
 
 func NewVisitorTracker(config Config) *VisitorTracker {
-	vt := &VisitorTracker{
-		store:  config.Store,
-		ttl:    config.TTL,
-		ticker: time.NewTicker(config.CleanupInterval),
-		stop:   make(chan struct{}),
-	}
-
-	if !redisBased {
-		go vt.cleanupJob()
-	}
-	return vt
-}
-func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{
-		visitors: make(map[string]*Visitor),
-	}
-}
-
-func (m *MemoryStore) AddVisitor(_ context.Context, key string, visitor *Visitor) error {
-	logger.Debug("visitorTracker:: Adding visitor to MemoryStore", "key", key)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if existing, exists := m.visitors[key]; exists {
-		existing.LastSeen = visitor.LastSeen
+	if config.Store == nil {
 		return nil
 	}
-
-	m.visitors[key] = visitor
-	return nil
-}
-
-func (m *MemoryStore) GetVisitor(_ context.Context, key string) (*Visitor, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	visitor, exists := m.visitors[key]
-	if !exists {
-		return nil, fmt.Errorf("visitor not found")
+	vt := &VisitorTracker{
+		store:      config.Store,
+		ttl:        config.TTL,
+		sweepEvery: config.CleanupInterval,
+		queue:      make(chan string, visitorQueueSize),
+		stop:       make(chan struct{}),
+		done:       make(chan struct{}),
 	}
-	return visitor, nil
-}
-
-func (m *MemoryStore) UpdateLastSeen(_ context.Context, key string, lastSeen time.Time) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if visitor, exists := m.visitors[key]; exists {
-		visitor.LastSeen = lastSeen
+	if vt.ttl <= 0 {
+		vt.ttl = defaultVisitorTTL
 	}
-	return nil
-}
-
-func (m *MemoryStore) CountVisitors(ctx context.Context) (int, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return len(m.visitors), nil
-}
-
-func (m *MemoryStore) Cleanup(_ context.Context, ttl time.Duration) error {
-	logger.Debug("visitorTracker:: Cleaning up Visitor Cache", "ttl", ttl)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	now := time.Now()
-	for key, visitor := range m.visitors {
-		if now.Sub(visitor.LastSeen) > ttl {
-			delete(m.visitors, key)
-		}
+	if vt.sweepEvery <= 0 {
+		vt.sweepEvery = defaultVisitorSweep
 	}
-	return nil
+	go vt.run()
+	return vt
 }
 
-func (m *MemoryStore) Close() error {
-	return nil
-}
-
-type RedisStore struct {
-	client *redis.Client
-}
-
-func NewRedisStore(client *redis.Client) *RedisStore {
-	return &RedisStore{
-		client: client,
-	}
-}
-
-func (r *RedisStore) AddVisitor(ctx context.Context, key string, visitor *Visitor) error {
-	pipe := r.client.Pipeline()
-
-	logger.Debug("visitorTracker:: Adding visitor to Redis", "key", key)
-
-	// Check if visitor exists
-	exists := pipe.Exists(ctx, key)
-
-	if _, err := pipe.Exec(ctx); err != nil {
-		return fmt.Errorf("failed to check visitor existence: %w", err)
-	}
-
-	if exists.Val() > 0 {
-		logger.Debug("visitorTracker:: Adding visitor to Redis", "key", key, "visitor", visitor)
-		return r.UpdateLastSeen(ctx, key, visitor.LastSeen)
-	}
-
-	visitorData := map[string]interface{}{
-		"IP":        visitor.IP,
-		"UserAgent": visitor.UserAgent,
-		"FirstSeen": visitor.FirstSeen.Unix(),
-		"LastSeen":  visitor.LastSeen.Unix(),
-	}
-
-	pipe = r.client.Pipeline()
-	pipe.HSet(ctx, key, visitorData)
-	pipe.Expire(ctx, key, time.Minute*5) // Set TTL for automatic expiration, 5m
-	_, err := pipe.Exec(ctx)
-	return err
-}
-
-func (r *RedisStore) GetVisitor(ctx context.Context, key string) (*Visitor, error) {
-	result := r.client.HGetAll(ctx, key)
-	data, err := result.Result()
-	if err != nil {
-		return nil, err
-	}
-	if len(data) == 0 {
-		return nil, fmt.Errorf("visitor not found")
-	}
-	visitor := &Visitor{
-		IP:        data["IP"],
-		UserAgent: data["UserAgent"],
-	}
-	return visitor, nil
-}
-
-func (r *RedisStore) UpdateLastSeen(ctx context.Context, key string, lastSeen time.Time) error {
-	return r.client.HSet(ctx, key, "LastSeen", lastSeen.Unix()).Err()
-}
-
-func (r *RedisStore) CountVisitors(ctx context.Context) (int, error) {
-	logger.Debug("visitorTracker:: Counting visitors in Redis")
-	keys, err := r.client.Keys(ctx, fmt.Sprintf("%s*", visitorPrefix)).Result()
-	if err != nil {
-		return 0, err
-	}
-	return len(keys), nil
-}
-
-func (r *RedisStore) Cleanup(ctx context.Context, ttl time.Duration) error {
-	return nil
-}
-
-func (r *RedisStore) Close() error {
-	return r.client.Close()
-}
-
-func (vt *VisitorTracker) AddVisitor(ctx context.Context, ip string, userAgent string) {
-	if strings.TrimSpace(ip) == "" || strings.TrimSpace(userAgent) == "" {
+// AddVisitor records a request's visitor. Safe to call from every request: it
+// hashes the identity and hands it to the background writer without blocking,
+// and does nothing at all when the tracker is nil (metrics disabled).
+func (vt *VisitorTracker) AddVisitor(ip, userAgent string) {
+	if vt == nil || ip == "" {
 		return
 	}
-	go func(ip, userAgent string) {
-		key := generateVisitorID(ip, userAgent)
-		now := time.Now()
-
-		visitor := &Visitor{
-			IP:        ip,
-			UserAgent: userAgent,
-			FirstSeen: now,
-			LastSeen:  now,
-		}
-		logger.Debug("VisitorTracker:: Tracking visitor", "ip", ip, "userAgent", userAgent, "key", key)
-		if err := vt.store.AddVisitor(ctx, key, visitor); err != nil {
-			logger.Error("visitorTracker:: Failed to add visitor", "error", err, "ip", ip)
-		}
-		vt.updateVisitorCountMetric(ctx)
-	}(ip, userAgent)
-
+	select {
+	case vt.queue <- visitorID(ip, userAgent):
+	default:
+		// Queue full — drop rather than block a response on the gauge.
+	}
 }
 
+// GetVisitorCount returns the distinct visitors active within the TTL.
 func (vt *VisitorTracker) GetVisitorCount(ctx context.Context) (int, error) {
-	return vt.store.CountVisitors(ctx)
+	if vt == nil {
+		return 0, nil
+	}
+	return vt.store.Count(ctx, time.Now().Add(-vt.ttl))
 }
 
-func (vt *VisitorTracker) updateVisitorCountMetric(ctx context.Context) {
+// run owns the store: it batches queued ids into single writes, and on each tick
+// sweeps expired visitors and republishes the gauge.
+func (vt *VisitorTracker) run() {
+	defer close(vt.done)
+	ticker := time.NewTicker(vt.sweepEvery)
+	defer ticker.Stop()
+	ctx := context.Background()
+
+	for {
+		select {
+		case id := <-vt.queue:
+			vt.write(ctx, vt.drain(id))
+		case <-ticker.C:
+			vt.sweep(ctx)
+		case <-vt.stop:
+			// Record whatever is still queued, so a shutdown doesn't lose the
+			// last few seconds of activity from a shared store.
+			if batch := vt.drain(); len(batch) > 0 {
+				vt.write(ctx, batch)
+			}
+			return
+		}
+	}
+}
+
+// drain collects everything already queued (starting from any ids already in
+// hand), up to the batch size, without waiting for more.
+func (vt *VisitorTracker) drain(seed ...string) []string {
+	batch := make([]string, 0, len(seed)+16)
+	batch = append(batch, seed...)
+	for len(batch) < visitorBatchSize {
+		select {
+		case id := <-vt.queue:
+			batch = append(batch, id)
+		default:
+			return batch
+		}
+	}
+	return batch
+}
+
+func (vt *VisitorTracker) write(ctx context.Context, ids []string) {
+	if len(ids) == 0 {
+		return
+	}
+	if err := vt.store.Touch(ctx, ids, time.Now()); err != nil {
+		logger.Error("visitorTracker:: Failed to record visitors", "error", err, "count", len(ids))
+	}
+}
+
+func (vt *VisitorTracker) sweep(ctx context.Context) {
+	cutoff := time.Now().Add(-vt.ttl)
+	if err := vt.store.Sweep(ctx, cutoff); err != nil {
+		logger.Error("visitorTracker:: Sweep failed", "error", err)
+	}
 	if prometheusMetrics == nil {
 		return
 	}
-	logger.Debug("visitorTracker:: Updating real-time visitors metric")
-	count, err := vt.store.CountVisitors(ctx)
+	count, err := vt.store.Count(ctx, cutoff)
 	if err != nil {
-		logger.Error("Failed to get visitor count", "error", err)
-
+		logger.Error("visitorTracker:: Failed to count visitors", "error", err)
 		return
 	}
 	prometheusMetrics.GatewayRealTimeVisitorsCount.Set(float64(count))
 	logger.Debug("visitorTracker:: Updated real-time visitors metric", "count", count)
 }
 
-func (vt *VisitorTracker) cleanupJob() {
-	ctx := context.Background()
-	for {
-		select {
-		case <-vt.ticker.C:
-			if err := vt.store.Cleanup(ctx, vt.ttl); err != nil {
-				logger.Error("visitorTracker:: Cleanup failed", "error", err)
-			}
-			vt.updateVisitorCountMetric(ctx)
-		case <-vt.stop:
-			vt.ticker.Stop()
-			return
-		}
-	}
-}
-
+// Stop shuts the background writer down. Safe to call more than once.
 func (vt *VisitorTracker) Stop() error {
-	close(vt.stop)
+	if vt == nil {
+		return nil
+	}
+	vt.stopped.Do(func() {
+		close(vt.stop)
+		<-vt.done
+	})
 	return vt.store.Close()
 }
 
-func generateVisitorID(ip string, agent string) string {
-	return fmt.Sprintf("%s%s-%s", visitorPrefix, ip, goutils.Slug(agent))
+// MemoryStore keeps active visitors in process. Counts are per gateway instance,
+// so a multi-replica deployment wanting one number needs the Redis store.
+type MemoryStore struct {
+	mu   sync.RWMutex
+	seen map[string]time.Time
 }
+
+func NewMemoryStore() *MemoryStore {
+	return &MemoryStore{seen: make(map[string]time.Time)}
+}
+
+func (m *MemoryStore) Touch(_ context.Context, ids []string, seen time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, id := range ids {
+		m.seen[id] = seen
+	}
+	return nil
+}
+
+// Count filters by last-seen rather than returning the map size, so it is exact
+// between sweeps instead of counting visitors who have already gone stale.
+func (m *MemoryStore) Count(_ context.Context, since time.Time) (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	n := 0
+	for _, ts := range m.seen {
+		if !ts.Before(since) {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (m *MemoryStore) Sweep(_ context.Context, before time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for id, ts := range m.seen {
+		if ts.Before(before) {
+			delete(m.seen, id)
+		}
+	}
+	return nil
+}
+
+func (m *MemoryStore) Close() error { return nil }
+
+// RedisStore keeps active visitors in one sorted set — member = visitor id,
+// score = last-seen unix seconds — so every replica behind the same Redis agrees
+// on one number. Counting is a range query and expiry a range delete; both are
+// O(log N), where a key-per-visitor layout could only be counted by scanning the
+// keyspace.
+type RedisStore struct {
+	client *redis.Client
+}
+
+// visitorSetKey is the single sorted set holding active visitors.
+const visitorSetKey = "goma:visitors:active"
+
+func NewRedisStore(client *redis.Client) *RedisStore {
+	return &RedisStore{client: client}
+}
+
+func (r *RedisStore) Touch(ctx context.Context, ids []string, seen time.Time) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	members := make([]redis.Z, 0, len(ids))
+	for _, id := range ids {
+		members = append(members, redis.Z{Score: float64(seen.Unix()), Member: id})
+	}
+	pipe := r.client.Pipeline()
+	pipe.ZAdd(ctx, visitorSetKey, members...)
+	// A whole-set TTL is the backstop that drops the key if this gateway stops
+	// sweeping (crash, shutdown) — the sweep is what keeps it trimmed normally.
+	pipe.Expire(ctx, visitorSetKey, time.Hour)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+func (r *RedisStore) Count(ctx context.Context, since time.Time) (int, error) {
+	n, err := r.client.ZCount(ctx, visitorSetKey, strconv.FormatInt(since.Unix(), 10), "+inf").Result()
+	if err == redis.Nil {
+		return 0, nil
+	}
+	return int(n), err
+}
+
+func (r *RedisStore) Sweep(ctx context.Context, before time.Time) error {
+	err := r.client.ZRemRangeByScore(ctx, visitorSetKey, "-inf", "("+strconv.FormatInt(before.Unix(), 10)).Err()
+	if err == redis.Nil {
+		return nil
+	}
+	return err
+}
+
+// Close does not close the client: it is the gateway-wide Redis connection,
+// shared with rate limiting, the HTTP cache and the analytics stream.
+func (r *RedisStore) Close() error { return nil }

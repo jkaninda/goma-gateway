@@ -44,6 +44,7 @@ type Goma struct {
 	webServer             *http.Server
 	webSecureServer       *http.Server
 	proxyServer           *proxy.PassThroughServer
+	router                Router
 	certManager           *certmanager.Config
 	configFile            string
 	version               string
@@ -247,6 +248,7 @@ func (g *Goma) NewRouter() Router {
 		strictSlash:        g.gateway.StrictSlash,
 		dynamicRoutes:      g.dynamicRoutes,
 		dynamicMiddlewares: g.dynamicMiddlewares,
+		visitors:           newVisitorTracker(g.gateway.Monitoring),
 	}
 
 	g.addGlobalHandler(rt.njia, rt)

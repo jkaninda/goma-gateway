@@ -35,6 +35,7 @@ func (f *fakeRouter) AddRoute(*Route) error                        { return nil 
 func (f *fakeRouter) AddRoutes() error                             { return nil }
 func (f *fakeRouter) UpdateHandler(*Goma)                          { f.updated++ }
 func (f *fakeRouter) ServeHTTP(http.ResponseWriter, *http.Request) {}
+func (f *fakeRouter) Stop() error                                  { return nil }
 
 func newReloadMux(t *testing.T, cfg ReloadConfig) *njia.Router {
 	t.Helper()

@@ -177,6 +177,10 @@ type Monitoring struct {
 	// MetricsPath sets a custom path for metrics (default: /metrics).
 	MetricsPath string `yaml:"metricsPath,omitempty"`
 
+	// VisitorTTL is how long a visitor keeps counting towards the real-time
+	// visitors gauge after their last request, as a duration (default: 5m).
+	VisitorTTL string `yaml:"visitorTTL,omitempty"`
+
 	// EnableReadiness controls exposure of the /readyz endpoint (default: true).
 	EnableReadiness bool `yaml:"enableReadiness,omitempty"`
 

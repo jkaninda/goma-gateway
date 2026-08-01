@@ -207,6 +207,7 @@ spec:
     monitoring:
       enableMetrics: true
       metricsPath: /metrics
+      visitorTTL: 5m
       host: metrics.internal.example.com   # restrict by Host header
       middleware:
         metrics:
@@ -268,6 +269,7 @@ spec:
 | `redis.password` | string | — | Redis password (consider using a Secret). |
 | `monitoring.enableMetrics` | bool | `false` | Expose Prometheus metrics. |
 | `monitoring.metricsPath` | string | `/metrics` | Path of the metrics endpoint. |
+| `monitoring.visitorTTL` | string | `5m` | How long a visitor counts towards the real-time visitors gauge. |
 | `monitoring.host` | string | — | Restrict metrics endpoints to this Host header. |
 | `monitoring.middleware.metrics` | []string | — | Middleware CR names applied to `/metrics`. |
 | `networking.dnsCache.ttl` | int | `300` | DNS cache TTL in seconds. |

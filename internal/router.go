@@ -22,11 +22,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
+	"github.com/jkaninda/goma-gateway/util"
 	"github.com/jkaninda/njia"
 )
 
@@ -35,6 +37,8 @@ type Router interface {
 	AddRoutes() error
 	UpdateHandler(goma *Goma)
 	ServeHTTP(http.ResponseWriter, *http.Request)
+	// Stop releases the router's background work. Called on shutdown.
+	Stop() error
 }
 
 type router struct {
@@ -47,6 +51,55 @@ type router struct {
 	plugins            map[string]plugins.Middleware
 	dynamicRoutes      []Route
 	dynamicMiddlewares []Middleware
+	// visitors feeds the real-time visitors gauge. Gateway-wide and shared by
+	// every route; nil when metrics are disabled.
+	visitors *VisitorTracker
+}
+
+// Stop releases router-owned background work. The visitor tracker records what
+// is still queued before returning, so the last few seconds of activity aren't
+// lost from a store shared with other replicas.
+func (r *router) Stop() error {
+	return r.visitors.Stop() // nil-safe when metrics are disabled
+}
+
+// newVisitorTracker builds the gateway's single visitor tracker, backed by Redis
+// when one is configured so replicas report one shared number.
+func newVisitorTracker(m Monitoring) *VisitorTracker {
+	if !m.EnableMetrics {
+		return nil
+	}
+	var store VisitorStore = NewMemoryStore()
+	if redisBased && middlewares.RedisClient != nil {
+		store = NewRedisStore(middlewares.RedisClient)
+	}
+	return NewVisitorTracker(Config{
+		TTL:             visitorTTL(m.VisitorTTL),
+		CleanupInterval: defaultVisitorSweep,
+		Store:           store,
+	})
+}
+
+// visitorTTL resolves monitoring.visitorTTL. A bad value warns and falls back
+// rather than refusing to start — the gauge is observability, not traffic.
+func visitorTTL(raw string) time.Duration {
+	if strings.TrimSpace(raw) == "" {
+		return defaultVisitorTTL
+	}
+	d, err := util.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		logger.Error("Invalid monitoring.visitorTTL, using the default",
+			"value", raw, "default", defaultVisitorTTL)
+		return defaultVisitorTTL
+	}
+	// Below the sweep interval the gauge would mostly read zero between
+	// republishes, which looks like an outage rather than a short window.
+	if d < minVisitorTTL {
+		logger.Warn("monitoring.visitorTTL is below the minimum, clamping",
+			"value", raw, "minimum", minVisitorTTL)
+		return minVisitorTTL
+	}
+	return d
 }
 
 // AddRoutes adds multiple routes from another router.
@@ -228,20 +281,12 @@ func (r *router) attachMiddlewares(route *Route, rRouter *njia.Group, globalMidd
 	if r.enableMetrics && route.DisableMetrics {
 		logger.Debug("Metrics collection disabled for route", "route", route.Name)
 	}
+	// The visitor tracker is gateway-wide and built once (see newVisitorTracker):
+	// the gauge it feeds counts the whole gateway, and building one here would
+	// give every route its own count and leak a goroutine on every reload.
 	var visitorTracker *VisitorTracker
 	if enableMetrics {
-		var visitorStore VisitorStore
-		if redisBased {
-			visitorStore = NewRedisStore(middlewares.RedisClient)
-		} else {
-			visitorStore = NewMemoryStore()
-		}
-
-		visitorTracker = NewVisitorTracker(Config{
-			TTL:             5 * time.Minute,
-			CleanupInterval: 5 * time.Minute,
-			Store:           visitorStore,
-		})
+		visitorTracker = r.visitors
 	}
 	logger.Debug("Attaching middleware", "route", route.Name, "responseHeaders", len(route.responseHeaders))
 	// Proxy middleware

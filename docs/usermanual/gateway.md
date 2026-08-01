@@ -133,6 +133,7 @@ These features help you monitor system performance, readiness, and route-level h
 | `host`                        | `string`   | `""`       | Restricts access to observability endpoints to a specific hostname.   |
 | `enableMetrics`               | `bool`     | `false`    | Enables the Prometheus-compatible `/metrics` endpoint.                |
 | `metricsPath`                 | `string`   | `/metrics` | Sets a custom path for metrics exposure.                              |
+| `visitorTTL`                  | `string`   | `5m`       | How long a visitor keeps counting towards the real-time visitors gauge after their last request. |
 | `enableReadiness`             | `bool`     | `true`     | Enables the `/readyz` readiness probe endpoint.                       |
 | `enableLiveness`              | `bool`     | `true`     | Enables the `/healthz` liveness probe endpoint.                       |
 | `enableRouteHealthCheck`      | `bool`     | `false`    | Enables the `/healthz/routes` endpoint for route-level health checks. |
