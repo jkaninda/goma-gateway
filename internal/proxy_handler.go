@@ -19,7 +19,6 @@ package internal
 
 import (
 	"bytes"
-	"context"
 	"net/http"
 	"sort"
 	"strconv"
@@ -163,7 +162,7 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 
 			// Update real-time visitors gauge
 			if p.VisitorTracker != nil {
-				p.VisitorTracker.AddVisitor(context.Background(), ip, r.UserAgent())
+				p.VisitorTracker.AddVisitor(ip, r.UserAgent())
 			}
 		}
 
@@ -215,22 +214,21 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 				reqBytes = 0
 			}
 			analytics.emit(&AnalyticsEvent{
-				Ts:           time.Now().UnixMilli(),
-				Gateway:      analytics.gatewayID,
-				Route:        p.Name,
-				Host:         r.Host,
-				Method:       method,
-				Status:       rec.statusCode,
-				Path:         r.URL.Path,
-				PathTemplate: p.Path, // the matched route pattern
-				ReqBytes:     reqBytes,
-				RespBytes:    rec.written,
-				DurationMs:   time.Since(startTime).Milliseconds(),
-				UpstreamMs:   upstream.Milliseconds(),
-				VID:          visitorID(ip, r.UserAgent()),
-				Country:      country,
-				UA:           r.UserAgent(),
-				RefererHost:  refererHost(r.Referer()),
+				Ts:          time.Now().UnixMilli(),
+				Gateway:     analytics.gatewayID,
+				Route:       p.Name,
+				Host:        r.Host,
+				Method:      method,
+				Status:      rec.statusCode,
+				Path:        r.URL.Path,
+				ReqBytes:    reqBytes,
+				RespBytes:   rec.written,
+				DurationMs:  time.Since(startTime).Milliseconds(),
+				UpstreamMs:  upstream.Milliseconds(),
+				VID:         visitorID(ip, r.UserAgent()),
+				Country:     country,
+				UA:          r.UserAgent(),
+				RefererHost: refererHost(r.Referer()),
 			})
 		}
 

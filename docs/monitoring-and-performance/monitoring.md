@@ -20,6 +20,7 @@ The `monitoring` section in the configuration enables you to control observabili
 | `host`                        | `string`   | `""`       | Restricts access to observability endpoints to a specific hostname.   |
 | `enableMetrics`               | `bool`     | `false`    | Enables the Prometheus-compatible `/metrics` endpoint.                |
 | `metricsPath`                 | `string`   | `/metrics` | Sets a custom path for metrics exposure.                              |
+| `visitorTTL`                  | `string`   | `5m`       | How long a visitor keeps counting towards the real-time visitors gauge after their last request. |
 | `enableReadiness`             | `bool`     | `true`     | Enables the `/readyz` readiness probe endpoint.                       |
 | `enableLiveness`              | `bool`     | `true`     | Enables the `/healthz` liveness probe endpoint.                       |
 | `enableRouteHealthCheck`      | `bool`     | `false`    | Enables the `/healthz/routes` endpoint for route-level health checks. |
@@ -50,6 +51,7 @@ gateway:
   monitoring:
     enableMetrics: true                  # Enable Prometheus metrics
     metricsPath: /metrics                # Custom metrics path (optional)
+    visitorTTL: 5m                       # How long a visitor counts as active (optional)
     enableReadiness: true               # Enable /readyz endpoint
     enableLiveness: true                # Enable /healthz endpoint
     enableRouteHealthCheck: true        # Enable /healthz/routes

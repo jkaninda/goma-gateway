@@ -52,8 +52,10 @@ func (g *Goma) Start() error {
 		logger.Fatal("Failed to initialize routes", "error", err)
 	}
 
-	// Create router
+	// Create router. Held on the Goma instance so shutdown can release the
+	// background work it owns.
 	newRouter := g.NewRouter()
+	g.router = newRouter
 	err = newRouter.AddRoutes()
 	if err != nil {
 		logger.Error("Failed to add routes", "error", err)
@@ -184,6 +186,13 @@ func (g *Goma) shutdown() error {
 	}
 	// stop TCP/UDP server
 	g.proxyServer.Stop()
+	// Release router-owned background work (the visitor tracker), after the
+	// servers stop so nothing is still recording visitors.
+	if g.router != nil {
+		if err := g.router.Stop(); err != nil {
+			logger.Error("Error stopping router", "error", err)
+		}
+	}
 	logger.Info("Goma Gateway gracefully stopped")
 	return nil
 }
