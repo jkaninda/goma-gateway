@@ -18,6 +18,9 @@
 package internal
 
 import (
+	"strconv"
+	"strings"
+
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/config"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -74,6 +77,14 @@ type Gateway struct {
 	// external controller (e.g. Miabi) tell the gateway to pull and apply its
 	// configuration immediately instead of waiting for the provider poll interval.
 	Reload ReloadConfig `yaml:"reload,omitempty"`
+	// Analytics configures the per-request event stream the gateway publishes to
+	// Redis for an external consumer to roll up into web analytics.
+	Analytics AnalyticsConfig `yaml:"analytics,omitempty"`
+	// GeoIP configures country resolution at the edge. It is top-level rather
+	// than nested under Analytics because three separate features read it: the
+	// analytics `country` field, the requests-by-country metric, and the geoBlock
+	// middleware — which must work whether or not analytics is enabled.
+	GeoIP GeoIPConfig `yaml:"geoip,omitempty"`
 	// Routes defines the list of proxy routes.
 	Routes []Route `yaml:"routes"`
 }
@@ -91,6 +102,106 @@ type ReloadConfig struct {
 	Token string `yaml:"token,omitempty"`
 	// Host optionally restricts the endpoint to requests with this Host header.
 	Host string `yaml:"host,omitempty"`
+}
+
+// AnalyticsConfig configures the per-request event stream Goma publishes to
+// Redis (a consumer such as Miabi rolls it up into traffic/web analytics).
+//
+// Events carry no raw client IP — only a daily-salted visitor id and, when a
+// GeoIP database is available, a country resolved at the edge.
+//
+// Every field can also be set from the environment, which takes precedence, so
+// an existing GOMA_ANALYTICS_* deployment keeps working unchanged and a
+// container can still override what the config file says.
+type AnalyticsConfig struct {
+	// Enabled turns the emitter on (default: false). Redis must be configured —
+	// it is the transport — or analytics stays off with a warning.
+	// Env: GOMA_ANALYTICS_ENABLED
+	Enabled bool `yaml:"enabled,omitempty"`
+	// Stream is the Redis stream events are published to (default:
+	// goma:analytics). The consumer must read the same stream and Redis database.
+	// Env: GOMA_ANALYTICS_STREAM
+	Stream string `yaml:"stream,omitempty"`
+	// Sample is the fraction of requests recorded, 0..1 (default: 1 = all). Values
+	// <= 0 or >= 1 record everything.
+	// Env: GOMA_ANALYTICS_SAMPLE
+	Sample float64 `yaml:"sample,omitempty"`
+	// MaxLen approximately caps the stream length so a lagging or absent consumer
+	// cannot grow Redis unbounded (default: 1000000).
+	// Env: GOMA_ANALYTICS_MAXLEN
+	MaxLen int64 `yaml:"maxLen,omitempty"`
+	// GatewayID labels events with the gateway that served them, for installs
+	// running more than one edge.
+	// Env: GOMA_GATEWAY_ID
+	GatewayID string `yaml:"gatewayId,omitempty"`
+}
+
+// GeoIPConfig points at the MaxMind-format database used to resolve a request's
+// country at the edge. Goma ships and downloads no database — every GeoIP
+// dataset carries license terms only the operator can accept — so this is empty
+// by default and country resolution simply stays off.
+type GeoIPConfig struct {
+	// Database is the path to a .mmdb file. When empty, Goma tries
+	// /etc/goma/country.mmdb then /etc/goma/GeoLite2-Country.mmdb, and leaves
+	// country resolution off if neither opens.
+	// Env: GOMA_GEOIP_DB
+	Database string `yaml:"database,omitempty"`
+}
+
+// databasePath returns the explicit database path, or "" to search the
+// well-known locations. GOMA_GEOIP_DB overrides the config file.
+func (g GeoIPConfig) databasePath() string {
+	return strings.TrimSpace(goutils.Env("GOMA_GEOIP_DB", g.Database))
+}
+
+// analyticsEnabled reports whether the emitter should start, with
+// GOMA_ANALYTICS_ENABLED taking precedence over the config file.
+func (a AnalyticsConfig) analyticsEnabled() bool {
+	return goutils.EnvBool("GOMA_ANALYTICS_ENABLED", a.Enabled)
+}
+
+// stream returns the target Redis stream, env first, then config, then default.
+func (a AnalyticsConfig) streamName() string {
+	if s := goutils.Env("GOMA_ANALYTICS_STREAM", a.Stream); s != "" {
+		return s
+	}
+	return defaultAnalyticsStream
+}
+
+// sampleRate returns the sampling fraction. A malformed env value falls back to
+// the config value rather than silently recording nothing.
+func (a AnalyticsConfig) sampleRate() float64 {
+	if raw := goutils.Env("GOMA_ANALYTICS_SAMPLE", ""); raw != "" {
+		if v, err := strconv.ParseFloat(raw, 64); err == nil {
+			return v
+		}
+		logger.Warn("Invalid GOMA_ANALYTICS_SAMPLE, ignoring", "value", raw)
+	}
+	if a.Sample > 0 {
+		return a.Sample
+	}
+	return 1
+}
+
+// streamMaxLen returns the approximate stream cap. Non-positive values are
+// rejected at both layers: an uncapped stream is how a stalled consumer fills
+// Redis.
+func (a AnalyticsConfig) streamMaxLen() int64 {
+	if raw := goutils.Env("GOMA_ANALYTICS_MAXLEN", ""); raw != "" {
+		if v, err := strconv.ParseInt(raw, 10, 64); err == nil && v > 0 {
+			return v
+		}
+		logger.Warn("Invalid GOMA_ANALYTICS_MAXLEN, ignoring", "value", raw)
+	}
+	if a.MaxLen > 0 {
+		return a.MaxLen
+	}
+	return defaultAnalyticsMaxLen
+}
+
+// gatewayIdentifier returns the label stamped on emitted events.
+func (a AnalyticsConfig) gatewayIdentifier() string {
+	return goutils.Env("GOMA_GATEWAY_ID", a.GatewayID)
 }
 
 // reloadToken returns the configured reload token, with the GOMA_RELOAD_TOKEN
