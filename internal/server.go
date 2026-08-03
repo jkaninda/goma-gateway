@@ -39,7 +39,10 @@ func (g *Goma) Start() error {
 	// Initialize redis if configured
 	g.initRedis()
 	defer g.closeRedis()
-	initAnalytics()
+	// GeoIP first, and unconditionally: the geoBlock middleware resolves countries
+	// through the same reader, so it must load whether or not analytics is on.
+	initGeoIP(g.gateway.GeoIP.databasePath())
+	initAnalytics(g.gateway.Analytics)
 	defer closeGeoIP()
 	// Configure provider Manager
 	err := g.configureProviderManager()

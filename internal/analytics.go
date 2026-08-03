@@ -25,11 +25,9 @@ import (
 	"encoding/json"
 	mrand "math/rand"
 	"net/url"
-	"strconv"
 	"sync"
 	"time"
 
-	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/redis/go-redis/v9"
 )
@@ -72,35 +70,39 @@ type analyticsEmitter struct {
 // analytics is the package-global emitter, nil unless initAnalytics enabled it.
 var analytics *analyticsEmitter
 
-// initAnalytics wires the emitter from the environment. No-op unless enabled
-// AND Redis is configured (the transport). Call it at boot after initRedis.
-func initAnalytics() {
-	if goutils.Env("GOMA_ANALYTICS_ENABLED", "false") != "true" {
+// Analytics defaults, shared by the config accessors so the yaml and env paths
+// can never drift apart on what "unset" means.
+const (
+	defaultAnalyticsStream = "goma:analytics"
+	defaultAnalyticsMaxLen = int64(1_000_000)
+)
+
+// initAnalytics wires the emitter from the gateway's `analytics` configuration,
+// with the GOMA_ANALYTICS_* environment variables overriding it field by field
+// (see AnalyticsConfig). No-op unless enabled AND Redis is configured (the
+// transport). Call it at boot after initRedis.
+//
+// GeoIP is initialized separately (see initGeoIP): the geoBlock middleware reads
+// the same database and must work with analytics off.
+func initAnalytics(cfg AnalyticsConfig) {
+	if !cfg.analyticsEnabled() {
 		return
 	}
 	if !redisBased || middlewares.RedisClient == nil {
 		logger.Warn("Analytics enabled but Redis is not configured; analytics disabled")
 		return
 	}
-	initGeoIP() // optional country enrichment from /etc/goma (GOMA_GEOIP_DB)
-	sample := 1.0
-	if v, err := strconv.ParseFloat(goutils.Env("GOMA_ANALYTICS_SAMPLE", "1"), 64); err == nil {
-		sample = v
-	}
-	maxLen := int64(1_000_000)
-	if v, err := strconv.ParseInt(goutils.Env("GOMA_ANALYTICS_MAXLEN", "1000000"), 10, 64); err == nil && v > 0 {
-		maxLen = v
-	}
 	analytics = &analyticsEmitter{
-		stream:    goutils.Env("GOMA_ANALYTICS_STREAM", "goma:analytics"),
-		maxLen:    maxLen,
-		sample:    sample,
-		gatewayID: goutils.Env("GOMA_GATEWAY_ID", ""),
+		stream:    cfg.streamName(),
+		maxLen:    cfg.streamMaxLen(),
+		sample:    cfg.sampleRate(),
+		gatewayID: cfg.gatewayIdentifier(),
 		client:    middlewares.RedisClient,
 		ch:        make(chan *AnalyticsEvent, 8192),
 	}
 	go analytics.run()
-	logger.Info("Goma analytics enabled", "stream", analytics.stream, "sample", sample)
+	logger.Info("Goma analytics enabled",
+		"stream", analytics.stream, "sample", analytics.sample, "maxLen", analytics.maxLen)
 }
 
 // sampled decides (cheaply, before the event is built) whether to record this one.

@@ -312,11 +312,15 @@ middlewares:
           password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin'
         - username: user
           password: password
-certManager:
-  acme:
-    ## Uncomment email to enable Let's Encrypt
-    # email: admin@example.com # Email for ACME registration
-    storageFile: /etc/letsencrypt/acme.json
+  defaultProvider: letsencrypt
+  providers:
+    letsencrypt:
+      type: acme
+      acme:
+        # Enable by providing your contact email
+        # email: admin@example.com
+        challengeType: http-01
+        storageFile: /etc/letsencrypt/acme.json
 ```
 
 **`compose.yaml`**

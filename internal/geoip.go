@@ -22,7 +22,6 @@ import (
 	"strings"
 	"sync"
 
-	goutils "github.com/jkaninda/go-utils"
 	"github.com/oschwald/geoip2-golang"
 )
 
@@ -46,14 +45,11 @@ var (
 	geoReader *geoip2.Reader
 )
 
-// initGeoIP opens the GeoIP database once: GOMA_GEOIP_DB if set, otherwise the
-// first of defaultGeoIPPaths that opens. It is a no-op — country enrichment stays
-// off, `geoCountry` returns "" — when no database is readable, so analytics keeps
-// working without geo. Called from initAnalytics.
-func initGeoIP() {
+func initGeoIP(dbPath string) {
 	geoOnce.Do(func() {
 		paths := defaultGeoIPPaths
-		if p := strings.TrimSpace(goutils.Env("GOMA_GEOIP_DB", "")); p != "" {
+		if p := strings.TrimSpace(dbPath); p != "" {
+
 			paths = []string{p}
 		}
 		var lastErr error
