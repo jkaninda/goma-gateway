@@ -27,19 +27,18 @@ import (
 
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
-	mux "github.com/jkaninda/njia/muxcompat"
+	"github.com/jkaninda/njia"
 )
 
 type Router interface {
 	AddRoute(route *Route) error
 	AddRoutes() error
-	Mux() http.Handler
 	UpdateHandler(goma *Goma)
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 
 type router struct {
-	mux           *mux.Router
+	njia          *njia.Router
 	enableMetrics bool
 	sync.RWMutex
 	gateway            *Gateway
@@ -91,7 +90,7 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := context.WithValue(req.Context(), CtxRequestStartTime, startTime)
 	ctx = context.WithValue(ctx, CtxRequestIDHeader, requestID)
 	req = req.WithContext(ctx)
-	r.mux.ServeHTTP(w, req)
+	r.njia.ServeHTTP(w, req)
 }
 
 // UpdateHandler updates the router's handler based on the gateway configuration.
@@ -104,8 +103,8 @@ func (r *router) UpdateHandler(g *Goma) {
 	close(stopChan)
 	reloaded = true
 	logger.Debug("Updating router with new routes")
-	r.mux = mux.NewRouter().StrictSlash(r.strictSlash)
-	g.addGlobalHandler(r.mux, r)
+	r.njia = newProxyRouter(r.strictSlash)
+	g.addGlobalHandler(r.njia, r)
 
 	err := r.AddRoutes()
 	if err != nil {
@@ -181,18 +180,22 @@ func (r *router) AddRoute(route *Route) error {
 		certPool:      certPool,
 		networking:    r.networking,
 	}
-	rRouter := r.mux.PathPrefix(route.Path).Subrouter().StrictSlash(r.strictSlash)
+	// The route and everything beneath it live in one group, which is what
+	// carries the middleware. njia resolves a group's middleware when the table
+	// is compiled, so Use and the registrations below may happen in any order:
+	// every route in the group is wrapped either way.
+	group := r.njia.Group(groupPrefix(route.Path))
 	// Check maintenance mode
 	if route.Maintenance.Enabled {
 		logger.Warn("Route maintenance mode enabled", "route", route.Name)
-		rRouter.Use(route.Maintenance.MaintenanceMode)
+		group.Use(route.Maintenance.MaintenanceMode)
 	}
-	// Configure handlers
-	r.configureHandlers(route, rRouter, proxyRoute)
-	// Add middlewares
-	r.attachMiddlewares(route, rRouter, r.dynamicMiddlewares)
+	// Add middlewares. Order of the Use calls is what nests them, outermost
+	// first, so maintenance mode stays outside everything it short-circuits.
+	r.attachMiddlewares(route, group, r.dynamicMiddlewares)
 	proxyRoute.responseHeaders = route.responseHeaders
-	return nil
+	// Configure handlers
+	return r.configureHandlers(route, group, proxyRoute)
 }
 
 // configureCORS handles CORS configuration with deduplication
@@ -219,7 +222,7 @@ func (r *router) configureCORS(route *Route) {
 }
 
 // attachMiddlewares configures all middlewares for a route
-func (r *router) attachMiddlewares(route *Route, rRouter *mux.Router, globalMiddlewares []Middleware) {
+func (r *router) attachMiddlewares(route *Route, rRouter *njia.Group, globalMiddlewares []Middleware) {
 	enableMetrics := r.enableMetrics && !route.DisableMetrics
 
 	if r.enableMetrics && route.DisableMetrics {
@@ -274,7 +277,7 @@ func (r *router) attachMiddlewares(route *Route, rRouter *mux.Router, globalMidd
 }
 
 // attachMiddlewares attaches middlewares to the route
-func (r *Route) attachMiddlewares(router *mux.Router, globalMiddlewares []Middleware, plugins map[string]plugins.Middleware) {
+func (r *Route) attachMiddlewares(router *njia.Group, globalMiddlewares []Middleware, plugins map[string]plugins.Middleware) {
 	if r.Security.EnableExploitProtection {
 		logger.Debug("Block common exploits enabled")
 		router.Use(middlewares.BlockExploitsMiddleware)
@@ -301,24 +304,38 @@ func (r *Route) attachMiddlewares(router *mux.Router, globalMiddlewares []Middle
 	}
 }
 
-// configureHandlers sets up route handlers
-func (r *router) configureHandlers(route *Route, rRouter *mux.Router, proxyRoute *ProxyRoute) {
-	handler := proxyRoute.ProxyHandler()
-
-	if len(route.Hosts) > 0 {
-		for _, host := range route.Hosts {
-			if len(host) > 0 {
-				rRouter.Host(host).PathPrefix("").Handler(handler)
-			} else {
-				rRouter.PathPrefix("").Handler(handler)
-			}
-		}
-	} else {
-		rRouter.PathPrefix("").Handler(handler)
+// configureHandlers registers the route's proxy handler for its path and every
+// path beneath it.
+//
+// The handler answers every HTTP method: a gateway forwards whatever verb the
+// client sent, and which ones a route actually allows is enforced further in,
+// against route.Methods, so that a rejected verb gets the gateway's own error
+// rather than a bare router 405.
+func (r *router) configureHandlers(route *Route, group *njia.Group, proxyRoute *ProxyRoute) error {
+	var opts []njia.RouteOption
+	// Lower priority wins, which is the order the gateway documents. Left at
+	// the default, routes fall back to longest-path-first.
+	if route.Priority != 0 {
+		opts = append(opts, njia.WithPriority(route.Priority))
 	}
+	if hosts := nonEmpty(route.Hosts); len(hosts) > 0 {
+		opts = append(opts, njia.WithHost(hosts...))
+	}
+
+	// The group applies its middleware, so the handler is registered bare. Any
+	// route a middleware registered on the group — an OAuth callback, say — is
+	// an exact path and outranks this catch-all on specificity.
+	return registerPrefix(group, njia.MethodAny, route.Name, proxyRoute.ProxyHandler(), opts...)
 }
 
-// Mux returns the underlying mux router.
-func (r *router) Mux() http.Handler {
-	return r.mux
+// nonEmpty drops blank entries, which a configuration file can produce for a
+// host list and which would otherwise register an unparseable host pattern.
+func nonEmpty(in []string) []string {
+	out := in[:0:0]
+	for _, s := range in {
+		if len(s) > 0 {
+			out = append(out, s)
+		}
+	}
+	return out
 }

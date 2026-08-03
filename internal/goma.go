@@ -34,7 +34,7 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 	"github.com/jkaninda/goma-gateway/pkg/dns"
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
-	mux "github.com/jkaninda/njia/muxcompat"
+	"github.com/jkaninda/njia"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -240,7 +240,7 @@ func (g *Goma) attachDefaultConfigurations() {
 func (g *Goma) NewRouter() Router {
 	rt := &router{
 		plugins:            g.plugins,
-		mux:                mux.NewRouter().StrictSlash(g.gateway.StrictSlash),
+		njia:               newProxyRouter(g.gateway.StrictSlash),
 		enableMetrics:      g.gateway.Monitoring.EnableMetrics,
 		gateway:            g.gateway,
 		networking:         g.gateway.Networking,
@@ -249,13 +249,13 @@ func (g *Goma) NewRouter() Router {
 		dynamicMiddlewares: g.dynamicMiddlewares,
 	}
 
-	g.addGlobalHandler(rt.mux, rt)
+	g.addGlobalHandler(rt.njia, rt)
 
 	return rt
 }
 
 // addGlobalHandler configures global handlers with better error handling
-func (g *Goma) addGlobalHandler(mux *mux.Router, r Router) {
+func (g *Goma) addGlobalHandler(rt *njia.Router, r Router) {
 	logger.Debug("Adding global handler")
 
 	health := HealthCheckRoute{
@@ -264,23 +264,53 @@ func (g *Goma) addGlobalHandler(mux *mux.Router, r Router) {
 	}
 
 	// Register global observability endpoints
-	g.registerMetricsHandler(mux)
-	g.registerRouteHealthHandler(mux, health)
+	g.registerMetricsHandler(rt)
+	g.registerRouteHealthHandler(rt, health)
 	// Register the on-demand reload endpoint
-	g.registerReloadHandler(mux, r)
+	g.registerReloadHandler(rt, r)
 
 	// Gateway health endpoints
 	if goutils.EnvBool("GOMA_ENABLE_READINESS", g.gateway.Monitoring.EnableReadiness) {
-		mux.HandleFunc("/readyz", health.HealthReadyHandler).Methods(http.MethodGet)
+		if err := rt.HandleFunc(http.MethodGet, "/readyz", health.HealthReadyHandler); err != nil {
+			logger.Error("Failed to register readiness endpoint", "error", err)
+		}
 	}
 	if goutils.EnvBool("GOMA_ENABLE_LIVENESS", g.gateway.Monitoring.EnableLiveness) {
-		mux.HandleFunc("/healthz", health.HealthReadyHandler).Methods(http.MethodGet)
+		if err := rt.HandleFunc(http.MethodGet, "/healthz", health.HealthReadyHandler); err != nil {
+			logger.Error("Failed to register liveness endpoint", "error", err)
+		}
 	}
 	logger.Debug("Added global handler")
 }
 
+// registerObservabilityHandler registers a monitoring endpoint for a path and
+// everything beneath it, restricted to GET and to the configured monitoring
+// host, and wrapped in whatever middleware its configuration names.
+//
+// The endpoint gets its own group, which is what carries that middleware.
+func (g *Goma) registerObservabilityHandler(rt *njia.Router, name, path string, h http.Handler, middlewareNames []string) {
+	group := rt.Group(groupPrefix(path))
+	if len(middlewareNames) > 0 {
+		route := &Route{
+			Path:           path,
+			Name:           name,
+			Middlewares:    middlewareNames,
+			DisableMetrics: true,
+		}
+		route.attachMiddlewares(group, g.dynamicMiddlewares, g.plugins)
+	}
+
+	var opts []njia.RouteOption
+	if g.gateway.Monitoring.Host != "" {
+		opts = append(opts, njia.WithHost(g.gateway.Monitoring.Host))
+	}
+	if err := registerPrefix(group, http.MethodGet, name, h, opts...); err != nil {
+		logger.Error("Failed to register endpoint", "endpoint", name, "path", path, "error", err)
+	}
+}
+
 // registerMetricsHandler configures the /metrics endpoint
-func (g *Goma) registerMetricsHandler(mux *mux.Router) {
+func (g *Goma) registerMetricsHandler(rt *njia.Router) {
 	if !g.gateway.Monitoring.EnableMetrics {
 		return
 	}
@@ -292,47 +322,20 @@ func (g *Goma) registerMetricsHandler(mux *mux.Router) {
 		path = g.gateway.Monitoring.MetricsPath
 	}
 
-	sub := mux.PathPrefix(path).Subrouter()
-	if g.gateway.Monitoring.Host != "" {
-		sub.Host(g.gateway.Monitoring.Host).PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
-	} else {
-		sub.PathPrefix("").Handler(promhttp.Handler()).Methods(http.MethodGet)
-	}
-	if metricsMiddlewares := g.gateway.Monitoring.Middleware.Metrics; len(metricsMiddlewares) > 0 {
-		route := &Route{
-			Path:           path,
-			Name:           "metrics",
-			Middlewares:    metricsMiddlewares,
-			DisableMetrics: true,
-		}
-		route.attachMiddlewares(sub, g.dynamicMiddlewares, g.plugins)
-	}
+	g.registerObservabilityHandler(rt, "metrics", path, promhttp.Handler(),
+		g.gateway.Monitoring.Middleware.Metrics)
 }
 
 // registerRouteHealthHandler configures the /healthz/routes endpoint
-func (g *Goma) registerRouteHealthHandler(mux *mux.Router, health HealthCheckRoute) {
+func (g *Goma) registerRouteHealthHandler(rt *njia.Router, health HealthCheckRoute) {
 	if !g.gateway.Monitoring.EnableRouteHealthCheck {
 		return
 	}
 
 	logger.Debug("Route health check enabled")
-	path := "/healthz/routes"
-	sub := mux.PathPrefix(path).Subrouter()
-	if g.gateway.Monitoring.Host != "" {
-		sub.Host(g.gateway.Monitoring.Host).PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
-	} else {
-		sub.PathPrefix("").HandlerFunc(health.HealthCheckHandler).Methods(http.MethodGet)
-	}
-
-	if healthCheckMiddlewares := g.gateway.Monitoring.Middleware.RouteHealthCheck; len(healthCheckMiddlewares) > 0 {
-		route := &Route{
-			Path:           path,
-			Name:           "routeHealth",
-			Middlewares:    healthCheckMiddlewares,
-			DisableMetrics: true,
-		}
-		route.attachMiddlewares(sub, g.dynamicMiddlewares, g.plugins)
-	}
+	g.registerObservabilityHandler(rt, "routeHealth", "/healthz/routes",
+		http.HandlerFunc(health.HealthCheckHandler),
+		g.gateway.Monitoring.Middleware.RouteHealthCheck)
 }
 
 func (g *Goma) loadPlugins() error {

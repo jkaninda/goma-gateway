@@ -29,7 +29,7 @@ import (
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/util"
-	mux "github.com/jkaninda/njia/muxcompat"
+	"github.com/jkaninda/njia"
 	"gopkg.in/yaml.v3"
 )
 
@@ -104,7 +104,7 @@ func findDuplicateMiddlewareNames(middlewares []Middleware) ([]string, error) {
 	}
 	return duplicates, nil
 }
-func (r *Route) applyMiddlewareByType(mid Middleware, router *mux.Router) {
+func (r *Route) applyMiddlewareByType(mid Middleware, router *njia.Group) {
 	switch mid.Type {
 	case AccessMiddleware:
 		applyAccessMiddleware(mid, *r, router)
@@ -170,7 +170,7 @@ func applyAccessLogMiddleware(mid Middleware, r *Route) {
 	}
 	r.logRule = rule
 }
-func applyRequestHeadersMiddleware(mid Middleware, route Route, router *mux.Router) {
+func applyRequestHeadersMiddleware(mid Middleware, route Route, router *njia.Group) {
 	logger.Debug("Applying request headers middleware", "middleware", mid.Name, "route", route.Name)
 	rule := &RequestHeader{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
@@ -210,7 +210,7 @@ func applyResponseHeadersMiddleware(mid Middleware, r *Route) {
 	r.responseHeaders = append(r.responseHeaders, *rule)
 }
 
-func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {
+func applyBodyLimitMiddleware(mid Middleware, r *njia.Group) {
 	rule := &BodyLimitRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
@@ -229,7 +229,7 @@ func applyBodyLimitMiddleware(mid Middleware, r *mux.Router) {
 
 }
 
-func applyRedirectSchemeMiddleware(mid Middleware, r *mux.Router) {
+func applyRedirectSchemeMiddleware(mid Middleware, r *njia.Group) {
 	var rule RedirectSchemeRuleMiddleware
 	if err := goutils.DeepCopy(&rule, mid.Rule); err != nil {
 		logger.Error("Failed to apply redirect scheme middleware: deep copy error", "error", err)
@@ -246,7 +246,7 @@ func applyRedirectSchemeMiddleware(mid Middleware, r *mux.Router) {
 	}
 	r.Use(redirectSchemeM.Middleware)
 }
-func applyRedirectMiddleware(mid Middleware, r *mux.Router) {
+func applyRedirectMiddleware(mid Middleware, r *njia.Group) {
 	var rule RedirectRuleMiddleware
 	if err := goutils.DeepCopy(&rule, mid.Rule); err != nil {
 		logger.Error("Failed to apply redirect scheme middleware: deep copy error", "error", err)
@@ -262,7 +262,7 @@ func applyRedirectMiddleware(mid Middleware, r *mux.Router) {
 	}
 	r.Use(redirectSchemeM.Middleware)
 }
-func applyRedirectRegexMiddleware(mid Middleware, r *mux.Router) {
+func applyRedirectRegexMiddleware(mid Middleware, r *njia.Group) {
 	var rule RedirectRegexRuleMiddleware
 	if err := goutils.DeepCopy(&rule, mid.Rule); err != nil {
 		logger.Error("Failed to apply redirect scheme middleware: deep copy error", "error", err)
@@ -280,7 +280,7 @@ func applyRedirectRegexMiddleware(mid Middleware, r *mux.Router) {
 	r.Use(redirectSchemeM.Middleware)
 }
 
-func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
+func applyHttpCacheMiddleware(route Route, mid Middleware, r *njia.Group) {
 	rule := &httpCacheRule{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
@@ -320,7 +320,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *mux.Router) {
 
 }
 
-func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
+func applyAccessMiddleware(mid Middleware, route Route, router *njia.Group) {
 	rule := &AccessRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error applying middleware", "error", err.Error())
@@ -334,7 +334,7 @@ func applyAccessMiddleware(mid Middleware, route Route, router *mux.Router) {
 	router.Use(blM.AccessMiddleware)
 }
 
-func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
+func applyRateLimitMiddleware(mid Middleware, route Route, router *njia.Group) {
 	rule := &RateLimitRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
@@ -374,7 +374,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *mux.Router) {
 		router.Use(limiter.RateLimitMiddleware())
 	}
 }
-func applyUserAgentBlockMiddleware(mid Middleware, router *mux.Router) {
+func applyUserAgentBlockMiddleware(mid Middleware, router *njia.Group) {
 	rule := &UserAgentBlockRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error applying middleware, middleware not applied", "error", err)
@@ -390,7 +390,7 @@ func applyUserAgentBlockMiddleware(mid Middleware, router *mux.Router) {
 	router.Use(userAgents.Middleware)
 }
 
-func applyGeoBlockMiddleware(mid Middleware, router *mux.Router) {
+func applyGeoBlockMiddleware(mid Middleware, router *njia.Group) {
 	rule := &GeoBlockRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error applying middleware, middleware not applied", "error", err)
@@ -424,7 +424,7 @@ func applyGeoBlockMiddleware(mid Middleware, router *mux.Router) {
 	router.Use(geo.Middleware)
 }
 
-func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router) {
+func applyAccessPolicyMiddleware(mid Middleware, route Route, router *njia.Group) {
 	rule := &AccessPolicyRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error applying middleware, middleware not applied", "error", err)
@@ -445,7 +445,7 @@ func applyAccessPolicyMiddleware(mid Middleware, route Route, router *mux.Router
 	}
 }
 
-func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
+func applyAddPrefixMiddleware(mid Middleware, router *njia.Group) {
 	rule := &AddPrefixRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
@@ -456,7 +456,7 @@ func applyAddPrefixMiddleware(mid Middleware, router *mux.Router) {
 	}
 	router.Use(add.AddPrefixMiddleware)
 }
-func applyRewriteRegexMiddleware(mid Middleware, router *mux.Router) {
+func applyRewriteRegexMiddleware(mid Middleware, router *njia.Group) {
 	rule := &RewriteRegexRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
@@ -469,7 +469,7 @@ func applyRewriteRegexMiddleware(mid Middleware, router *mux.Router) {
 	router.Use(add.RewriteRegexMiddleware)
 }
 
-func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Router) {
+func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *njia.Group) {
 	// Validate and apply middleware based on type
 	switch routeMiddleware.Type {
 	case BasicAuth, BasicAuthMiddleware:
@@ -490,7 +490,7 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *mux.Route
 }
 
 // applyBasicAuthMiddleware applies Basic Authentication middleware
-func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
 	rule := &BasicRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
@@ -513,7 +513,7 @@ func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Ro
 }
 
 // applyLdapAuthMiddleware applies LDAP Authentication middleware
-func applyLdapAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+func applyLdapAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
 	rule := &LdapRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
@@ -546,7 +546,7 @@ func applyLdapAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rou
 }
 
 // applyJWTAuthMiddleware applies JWT Authentication middleware
-func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
 	var err error
 	rule := &JWTRuleMiddleware{}
 	if err = goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
@@ -599,7 +599,7 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Rout
 }
 
 // applyForwardAuthMiddleware applies Forward Authentication middleware
-func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
 	rule := &ForwardAuthRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
 		logger.Error("Error middleware not applied", "error", err)
@@ -628,7 +628,7 @@ func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.
 }
 
 // applyOAuthMiddleware applies OAuth Authentication middleware
-func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router) {
+func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
 	rule := &OauthRulerMiddleware{}
 	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
 		logger.Error("Error applying middleware, middleware not applied", "error", err)
@@ -678,5 +678,11 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *mux.Router
 	}
 
 	r.Use(amw.AuthMiddleware)
-	r.HandleFunc(util.UrlParsePath(redirectURL), oauthRuler.callbackHandler).Methods(http.MethodGet)
+	// The callback lives inside the route's group, so it is wrapped by the same
+	// middleware, and its exact path outranks the route's catch-all.
+	if err := r.Handle(http.MethodGet, util.UrlParsePath(redirectURL),
+		http.HandlerFunc(oauthRuler.callbackHandler)); err != nil {
+		logger.Error("Failed to register OAuth callback",
+			"route", route.Name, "path", util.UrlParsePath(redirectURL), "error", err)
+	}
 }

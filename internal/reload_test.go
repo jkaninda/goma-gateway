@@ -22,7 +22,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	mux "github.com/jkaninda/njia/muxcompat"
+	"github.com/jkaninda/njia"
 )
 
 const testReloadToken = "secret"
@@ -33,17 +33,16 @@ type fakeRouter struct{ updated int }
 
 func (f *fakeRouter) AddRoute(*Route) error                        { return nil }
 func (f *fakeRouter) AddRoutes() error                             { return nil }
-func (f *fakeRouter) Mux() http.Handler                            { return nil }
 func (f *fakeRouter) UpdateHandler(*Goma)                          { f.updated++ }
 func (f *fakeRouter) ServeHTTP(http.ResponseWriter, *http.Request) {}
 
-func newReloadMux(t *testing.T, cfg ReloadConfig) *mux.Router {
+func newReloadMux(t *testing.T, cfg ReloadConfig) *njia.Router {
 	t.Helper()
 	// reloadToken() prefers GOMA_RELOAD_TOKEN; drive it through the env so the
 	// helper resolves the same token regardless of any ambient value.
 	t.Setenv("GOMA_RELOAD_TOKEN", cfg.Token)
 	g := &Goma{gateway: &Gateway{Reload: cfg}}
-	m := mux.NewRouter()
+	m := njia.New()
 	g.registerReloadHandler(m, &fakeRouter{})
 	return m
 }

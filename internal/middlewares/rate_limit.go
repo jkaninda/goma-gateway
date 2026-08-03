@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
-	mux "github.com/jkaninda/njia/muxcompat"
+	"github.com/jkaninda/njia"
 	"github.com/redis/go-redis/v9"
 	"math"
 	"net"
@@ -60,7 +60,7 @@ type RateLimitKeyStrategy struct {
 }
 
 // RateLimitMiddleware limits request based on the number of requests per time unit.
-func (rl *RateLimiter) RateLimitMiddleware() mux.MiddlewareFunc {
+func (rl *RateLimiter) RateLimitMiddleware() njia.Middleware {
 	var window time.Duration
 	switch rl.unit {
 	case "hour":

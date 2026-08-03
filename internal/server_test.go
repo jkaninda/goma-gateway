@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	mux "github.com/jkaninda/njia/muxcompat"
 	"io"
 	"log"
 	"net/http"
@@ -31,6 +30,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jkaninda/njia"
 )
 
 const testPath = "./tests"
@@ -136,29 +137,34 @@ func testBasicAuthRequest(t *testing.T) {
 }
 
 func startMockServer() *http.Server {
-	mRouter := mux.NewRouter()
-	mRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mRouter := njia.New()
+	must := func(err error) {
+		if err != nil {
+			log.Fatalf("mock server route: %v", err)
+		}
+	}
+	must(mRouter.HandleFunc(http.MethodGet, "/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("Hello, World!"))
-	}).Methods(http.MethodGet)
+	}))
 
-	mRouter.HandleFunc("/api/books", func(w http.ResponseWriter, r *http.Request) {
+	must(mRouter.HandleFunc(http.MethodGet, "/api/books", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"books": [{"id": 1, "title": "Book One"}, {"id": 2, "title": "Book Two"}]}`))
-	}).Methods(http.MethodGet)
-	mRouter.HandleFunc("/api/books", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	must(mRouter.HandleFunc(http.MethodPost, "/api/books", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		body, _ := io.ReadAll(r.Body)
 		_, _ = fmt.Fprintf(w, `{"message": "Book created", "data": %s}`, string(body))
-	}).Methods(http.MethodPost)
-	mRouter.HandleFunc("/api/v2/books", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	must(mRouter.HandleFunc(http.MethodGet, "/api/v2/books", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"books": [{"id": 1, "title": "Book One"}, {"id": 2, "title": "Book Two"}]}`))
-	}).Methods(http.MethodGet)
-	mRouter.HandleFunc("/api/v2/books", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	must(mRouter.HandleFunc(http.MethodPost, "/api/v2/books", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write([]byte(`{"books": [{"id": 1, "title": "Book One"}, {"id": 2, "title": "Book Two"}]}`))
-	}).Methods(http.MethodPost)
+	}))
 	server := &http.Server{
 		Addr:    ":9090",
 		Handler: mRouter,
