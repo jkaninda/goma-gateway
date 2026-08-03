@@ -28,7 +28,6 @@ import (
 
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
-	"github.com/jkaninda/goma-gateway/util"
 	"github.com/jkaninda/njia"
 )
 
