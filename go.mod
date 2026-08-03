@@ -13,7 +13,7 @@ require (
 	github.com/jkaninda/encryptor v0.0.0-20260626172340-f2c16df29717
 	github.com/jkaninda/go-utils v0.1.4
 	github.com/jkaninda/logger v0.0.5
-	github.com/jkaninda/njia v0.0.1
+	github.com/jkaninda/njia v0.0.3
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/redis/go-redis/v9 v9.21.0
