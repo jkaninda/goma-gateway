@@ -23,6 +23,7 @@ You can configure the gateway using the following options:
 * **`entryPoints`**: Network addresses and ports for incoming HTTP/HTTPS and TCP/UDP traffic.
 * **`networking`**: Proxy networking options (e.g., connection pooling).
 * **`monitoring`**: Metrics and health check configuration.
+* **`defaults`**: Middlewares applied to every route, ahead of the route's own.
 * **`reload`**: Token-protected on-demand configuration reload endpoint.
 * **`enableStrictSlash`** (`boolean`): Whether the router should normalize paths with/without trailing slashes.
 
@@ -221,6 +222,67 @@ gateway:
       - basic-auth
 ```
 
+### Execution order
+
+Default middlewares run **before** a route's own, in the order listed:
+
+```
+defaults.middlewares…  →  route.middlewares…  →  backend
+```
+
+That ordering is what makes a default useful for a policy that must not be
+bypassable — a rate limit or an IP allowlist runs before anything a route
+declares for itself.
+
+### Overriding the order for one route
+
+A route that lists a default by name keeps **its own** position for it, and the
+default is not prepended a second time. Use this when a route needs a default to
+run later in its chain:
+
+```yaml
+defaults:
+  middlewares: [rate-limit, basic-auth]
+
+routes:
+  - name: api
+    middlewares: [cors]                    # → rate-limit, basic-auth, cors
+  - name: upload
+    middlewares: [cors, rate-limit]        # → basic-auth, cors, rate-limit
+```
+
+There is no way to *remove* a default from a single route. If a policy should not
+apply everywhere, declare it on the routes that need it instead.
+
+### Every default must be defined
+
+A name in `defaults.middlewares` that matches no middleware definition is a
+**fatal configuration error** — the gateway logs it and refuses to start:
+
+```
+defaults.middlewares references an undefined middleware "basic-auht";
+it would be applied to every route and silently do nothing
+```
+
+This is stricter than a route referencing a missing middleware, which is only a
+warning. The reason is blast radius: a typo in a route costs that one route its
+middleware, while a typo in `defaults` silently leaves **every** route
+unprotected by a policy the configuration appears to enforce.
+
+A reload is never affected — if a reloaded configuration is invalid, the gateway
+keeps serving the one it already has.
+
+{: .warning }
+> **Authentication in defaults affects every route, including ones that
+> authenticate themselves.** A default `basicAuth`, `jwtAuth`, `oauth` or
+> `forwardAuth` runs *before* a route's own auth middleware, so a route that
+> already authenticates its callers will challenge them twice — or reject them
+> outright, since the two schemes rarely accept the same credential. A Docker
+> registry route is the common casualty: `docker login` fails against a gateway
+> whose defaults add an unrelated auth middleware. Put authentication on the
+> routes that need it, and keep defaults for policies that compose — rate limits,
+> IP allowlists, access logging, response headers.
+
 ## Networking
 
 The `networking` section defines low-level HTTP transport and connection pooling settings used by the internal proxy to forward traffic to backend services. These configurations help optimize performance, connection reuse, and resource usage across all routes.
@@ -412,7 +474,7 @@ gateway:
         - ldap                      
 
   networking:
-    proxy:
+    transport:
       forceAttemptHTTP2: true
       disableCompression: false
       maxIdleConns: 1024
@@ -421,16 +483,80 @@ gateway:
       idleConnTimeout: 90
       tlsHandshakeTimeout: 10
       responseHeaderTimeout: 10
+    dnsCache:
+      ttl: 300
+      clearOnReload: true
+      # resolver: ["1.1.1.1", "8.8.8.8:53"]   # empty = the system resolver
+
+  # Real client IP when Goma runs behind another proxy or a CDN. Only enable it
+  # when that is true: a forwarded header is trusted from trustedProxies sources,
+  # so enabling it while directly exposed lets any client spoof its IP.
+  proxy:
+    enabled: false
+    trustedProxies:
+      - "10.0.0.0/8"
+      - "fc00::/7"
+    ipHeaders:
+      - "CF-Connecting-IP"
+      - "X-Forwarded-For"
+
+  # Shared cache and distributed rate limiting. Without it those middlewares fall
+  # back to per-instance memory.
+  redis:
+    addr: redis:6379
+    password: ""
+
+  # Emit one event per request to a Redis stream for an external consumer.
+  analytics:
+    enabled: false
+    stream: goma:analytics
+    sample: 1
+    maxLen: 1000000
+
+  # Country resolution for analytics and the geoBlock middleware. Goma ships no
+  # database; drop a MaxMind-format .mmdb at this path to enable it.
+  geoip:
+    database: /etc/goma/country.mmdb
+
+  # Middlewares applied to every route, ahead of the route's own.
+  defaults:
+    middlewares: []
+
+  # Token-protected endpoint that makes the gateway pull its configuration now
+  # instead of waiting for the provider poll.
+  reload:
+    enabled: false
+    path: /gateway/reload
+    # Prefer GOMA_RELOAD_TOKEN over writing the token here.
+    host: ""
+
+  # Dynamic configuration sources, merged with the routes below.
+  providers:
+    file:
+      enabled: true
+      directory: /etc/goma/providers
+      watch: true
 
   extraConfig:
     directory: /etc/goma/extra
     watch: true
 
+  strictSlash: true
+  debug: false
+
   routes: []
-  middlewares: []
-  certManager:
+
+middlewares: []
+
+# Named certificate providers, selected per route with `tls.provider: <name>`
+# (or `none` to opt out). defaultProvider serves routes that name none.
+certManager:
+  defaultProvider: acme
+  providers:
     acme:
-      ## Uncomment email to enable Let's Encrypt
-      #email: admin@example.com # Email for ACME registration
-      storageFile: /etc/letsencrypt/acme.json
+      type: acme
+      acme:
+        email: admin@example.com
+        storageFile: /etc/letsencrypt/acme.json
+        # directoryUrl: https://acme-staging-v02.api.letsencrypt.org/directory
 ```

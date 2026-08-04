@@ -65,6 +65,7 @@ var (
 		string(rateLimit),
 		string(redirectRegex),
 		string(rewriteRegex),
+		string(stripQuery),
 		string(forwardAuth),
 		string(httpCache),
 		string(redirect),

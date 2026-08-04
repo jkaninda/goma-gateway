@@ -125,6 +125,19 @@ type RewriteRegexRuleMiddleware struct {
 	Replacement string `yaml:"replacement" json:"replacement"`
 }
 
+// StripQueryRuleMiddleware removes named query parameters from a request before
+// it is forwarded upstream. Use it for an OPTIONAL hint the backend would honour
+// but the gateway will not pass on: dropping the parameter lets the request
+// succeed, where refusing it would fail an otherwise valid call.
+type StripQueryRuleMiddleware struct {
+	// Params are the query parameter names to remove. Required.
+	Params []string `yaml:"params" json:"params"`
+	// Methods optionally limits the rule to these HTTP methods (empty = all).
+	Methods []string `yaml:"methods,omitempty" json:"methods,omitempty"`
+	// PathPattern optionally limits the rule to matching paths (empty = all).
+	PathPattern string `yaml:"pathPattern,omitempty" json:"pathPattern,omitempty"`
+}
+
 // JWTRuleMiddleware authentication using HTTP GET method
 //
 // JWTRuleMiddleware contains the authentication details

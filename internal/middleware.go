@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -120,6 +121,8 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *njia.Group) {
 		applyRedirectSchemeMiddleware(mid, router)
 	case rewriteRegex:
 		applyRewriteRegexMiddleware(mid, router)
+	case stripQuery:
+		applyStripQueryMiddleware(mid, router)
 	case redirectRegex:
 		applyRedirectRegexMiddleware(mid, router)
 	case httpCache:
@@ -467,6 +470,32 @@ func applyRewriteRegexMiddleware(mid Middleware, router *njia.Group) {
 		Replacement: rule.Replacement,
 	}
 	router.Use(add.RewriteRegexMiddleware)
+}
+
+// applyStripQueryMiddleware removes optional query parameters the gateway will
+// not forward, instead of refusing the request that carries them.
+func applyStripQueryMiddleware(mid Middleware, router *njia.Group) {
+	rule := &StripQueryRuleMiddleware{}
+	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
+		logger.Error("Error middleware not applied", "error", err)
+		return
+	}
+	if len(rule.Params) == 0 {
+		logger.Error("Error middleware not applied: stripQuery requires at least one param", "middleware", mid.Name)
+		return
+	}
+	if rule.PathPattern != "" {
+		if _, err := regexp.Compile(rule.PathPattern); err != nil {
+			logger.Error("Error middleware not applied: invalid stripQuery pathPattern", "middleware", mid.Name, "error", err)
+			return
+		}
+	}
+	add := middlewares.StripQuery{
+		Params:      rule.Params,
+		Methods:     rule.Methods,
+		PathPattern: rule.PathPattern,
+	}
+	router.Use(add.StripQueryMiddleware)
 }
 
 func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *njia.Group) {
