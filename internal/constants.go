@@ -63,6 +63,7 @@ const (
 	requestHeaders      MiddlewareType = "requestHeaders"
 	errorInterceptor    MiddlewareType = "errorInterceptor"
 	geoBlock            MiddlewareType = "geoBlock"
+	stripQuery          MiddlewareType = "stripQuery"
 )
 
 // ************** CORS ***************

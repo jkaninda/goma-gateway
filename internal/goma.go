@@ -91,8 +91,15 @@ func (g *Goma) Initialize() error {
 
 	// Initialize trusted proxies
 	g.initTrustedProxyConfig()
-	// Load core configuration
-	g.dynamicRoutes = gateway.Routes
+	// Load core configuration.
+	//
+	// Copied, not aliased: Initialize runs again on every reload, and the steps
+	// below rewrite route fields (default middlewares, deprecation merges). Sharing
+	// the backing array would write those results back into the parsed
+	// configuration, so the "original" a later reload starts from would already
+	// carry the previous reload's output — a value the operator never wrote and
+	// cannot remove without restarting the process.
+	g.dynamicRoutes = append([]Route(nil), gateway.Routes...)
 	g.dynamicMiddlewares = g.middlewares
 
 	g.extraRouteConfig.Directory = goutils.Env("GOMA_EXTRA_CONFIG_DIR", gateway.ExtraConfig.Directory)
@@ -142,7 +149,10 @@ func (g *Goma) Initialize() error {
 	}
 
 	// Attach default configurations
-	g.attachDefaultConfigurations()
+	if err := g.attachDefaultConfigurations(); err != nil {
+		logger.Error("Invalid default middlewares", "error", err)
+		return err
+	}
 
 	// Validate configuration
 	logger.Info("Validating configuration", "routes", len(g.dynamicRoutes), "middlewares", len(g.dynamicMiddlewares))
@@ -212,9 +222,24 @@ func (g *Goma) Initialize() error {
 	}
 	return nil
 }
-func (g *Goma) attachDefaultConfigurations() {
+
+// attachDefaultConfigurations prepends gateway.defaults.middlewares to every
+// route, skipping any the route already lists (so a route can re-order a default
+// by naming it explicitly).
+func (g *Goma) attachDefaultConfigurations() error {
 	if len(g.gateway.Defaults.Middlewares) == 0 {
-		return
+		return nil
+	}
+
+	defined := make(map[string]struct{}, len(g.dynamicMiddlewares))
+	for _, m := range g.dynamicMiddlewares {
+		defined[m.Name] = struct{}{}
+	}
+	for _, name := range g.gateway.Defaults.Middlewares {
+		if _, ok := defined[name]; !ok {
+			return fmt.Errorf("defaults.middlewares references an undefined middleware %q; "+
+				"it would be applied to every route and silently do nothing", name)
+		}
 	}
 
 	logger.Debug("Applying default middlewares", "count", len(g.gateway.Defaults.Middlewares))
@@ -233,8 +258,9 @@ func (g *Goma) attachDefaultConfigurations() {
 			}
 		}
 		final = append(final, route.Middlewares...)
-		g.dynamicRoutes[i].Middlewares = append([]string(nil), final...)
+		g.dynamicRoutes[i].Middlewares = final
 	}
+	return nil
 }
 
 // NewRouter creates a new router instance.
