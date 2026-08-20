@@ -165,9 +165,11 @@ certManager:
 | `email`         | string | **Required.** Email for ACME registration and expiry notices      |
 | `directoryUrl`  | string | ACME directory URL. Default: Let's Encrypt production             |
 | `storageFile`   | string | File to store certificates. Default: `acme.json`                  |
+| `termsAccepted` | bool   | Agreement to the CA's terms. Omitted means agreed                 |
 | `challengeType` | string | `http-01` (default) or `dns-01`                                   |
 | `dnsProvider`   | string | DNS provider for DNS-01 challenge (e.g., `cloudflare`, `route53`) |
 | `credentials`   | object | Provider-specific credentials                                     |
+| `eab`           | object | External account binding: `kid` and `hmacKey` (see below)         |
 
 ### DNS-01 Challenge (Cloudflare Example)
 
@@ -209,6 +211,29 @@ certManager:
 ```
 
 > **Warning:** Staging certificates are not trusted by browsers. Switch to production (`https://acme-v02.api.letsencrypt.org/directory`) for live deployments.
+
+### External Account Binding (EAB)
+
+Let's Encrypt issues to anyone who can answer a challenge, but most other CAs — ZeroSSL, Google Public CA, Sectigo, and private CAs — first want to know *which* of their subscribers is asking. They hand you a key id and an HMAC key out of band; the gateway proves it holds that key when it registers its ACME account, and the CA ties the account to whatever it authorized the credential for.
+
+```yaml
+certManager:
+  provider: acme
+  acme:
+    email: "admin@example.com"
+    directoryUrl: "https://acme.zerossl.com/v2/DV90"
+    eab:
+      kid: "your-key-id"
+      hmacKey: "${GOMA_ACME_EAB_HMAC}"
+```
+
+Every field in the config file expands `${VAR}` from the environment, so keep the HMAC key out of the file and pass it as `GOMA_ACME_EAB_HMAC` (any name works). `hmacKey` is base64url-encoded, exactly the value other ACME clients take in their `--eab-hmac-key` flag.
+
+A few things worth knowing:
+
+- **Both fields or neither.** Setting only one fails at startup rather than at registration.
+- **A directory that requires a binding says so.** If the ACME directory advertises `externalAccountRequired` and no `eab` block is configured, the provider fails with a message naming the two fields instead of the CA's error later on.
+- **Rotating the credential registers a new account.** A CA checks the binding only when an account is created, so an existing account key stays bound to the credential it registered with. Changing `kid` therefore makes the gateway generate a new account key and register again under the new credential. Certificates already in the store keep working and are renewed through the new account. Changing only `hmacKey` — the same credential with a re-issued secret — does not re-register.
 
 ---
 
@@ -367,6 +392,15 @@ certManager:
       acme:
         email: "ops@example.com"
         directoryUrl: "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+    zerossl:
+      type: acme
+      acme:
+        email: "ops@example.com"
+        directoryUrl: "https://acme.zerossl.com/v2/DV90"
+        eab:                              # CA-issued, see External Account Binding
+          kid: "your-key-id"
+          hmacKey: "${GOMA_ACME_EAB_HMAC}"
 
     cloudflare-dns:
       type: acme

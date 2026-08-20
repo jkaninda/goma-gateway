@@ -75,6 +75,7 @@ type (
 		Email        string `json:"email"`
 		PrivateKey   string `json:"private_key"`
 		Registration string `json:"registration"`
+		EabKid       string `json:"eab_kid,omitempty"`
 	}
 
 	StoredCertificate struct {
@@ -113,6 +114,10 @@ type LegoUser struct {
 	Email        string
 	Registration *registration.Resource
 	key          crypto.PrivateKey
+	// eabKid is the external account binding key id this account was
+	// registered under, empty when it was registered without one. Kept so a
+	// changed credential in the config can be detected on the next start.
+	eabKid string
 }
 
 func (u *LegoUser) GetEmail() string                        { return u.Email }
@@ -231,7 +236,13 @@ func (p *provider) initialize() error {
 		return p.initializeVault()
 	}
 
-	if err := p.loadFromStorage(); err != nil {
+	if err := p.loadFromStorage(); err != nil || p.user == nil {
+		if err := p.createNewUser(); err != nil {
+			return fmt.Errorf("failed to create new user: %w", err)
+		}
+	} else if p.eabCredentialChanged() {
+		logger.Info("ACME external account binding changed, registering a new account",
+			"provider", p.name, "kid", p.cfg.Acme.Eab.Kid)
 		if err := p.createNewUser(); err != nil {
 			return fmt.Errorf("failed to create new user: %w", err)
 		}
@@ -266,6 +277,9 @@ func (p *provider) validateConfig() error {
 			return errors.New("no DNS provider or API token configured for DNS01 challenge")
 		}
 	}
+	if eab := p.cfg.Acme.Eab; (eab.Kid == "") != (eab.HmacKey == "") {
+		return errors.New("external account binding needs both acme.eab.kid and acme.eab.hmacKey")
+	}
 	return nil
 }
 
@@ -275,23 +289,54 @@ func (p *provider) createNewUser() error {
 		return fmt.Errorf("failed to generate private key: %w", err)
 	}
 	p.user = &LegoUser{
-		Email: p.cfg.Acme.Email,
-		key:   privateKey,
+		Email:  p.cfg.Acme.Email,
+		key:    privateKey,
+		eabKid: p.cfg.Acme.Eab.Kid,
 	}
 	return nil
+}
+
+// eabCredentialChanged reports whether the configured external account binding
+// key id differs from the one the stored account registered with.
+func (p *provider) eabCredentialChanged() bool {
+	if p.user == nil || p.user.Registration == nil {
+		return false
+	}
+	return p.user.eabKid != p.cfg.Acme.Eab.Kid
 }
 
 func (p *provider) registerUser() error {
 	if p.user.Registration != nil {
 		return nil
 	}
-	reg, err := p.legoClient.Registration.Register(registration.RegisterOptions{
-		TermsOfServiceAgreed: true,
-	})
+
+	var (
+		reg *registration.Resource
+		err error
+	)
+
+	agreed := p.cfg.Acme.TermsAgreed()
+	if !agreed {
+		logger.Warn("Registering with acme.termsAccepted set to false; the CA will most likely refuse",
+			"provider", p.name)
+	}
+	if eab := p.cfg.Acme.Eab; eab.Kid != "" {
+		reg, err = p.legoClient.Registration.RegisterWithExternalAccountBinding(
+			registration.RegisterEABOptions{
+				TermsOfServiceAgreed: agreed,
+				Kid:                  eab.Kid,
+				HmacEncoded:          eab.HmacKey,
+			})
+	} else {
+		reg, err = p.legoClient.Registration.Register(registration.RegisterOptions{
+			TermsOfServiceAgreed: agreed,
+		})
+	}
 	if err != nil {
 		return fmt.Errorf("failed to register user: %w", err)
 	}
 	p.user.Registration = reg
+	p.user.eabKid = p.cfg.Acme.Eab.Kid
 	return p.saveToStorage()
 }
 
@@ -307,6 +352,11 @@ func (p *provider) setupLegoClient() error {
 	client, err := lego.NewClient(config)
 	if err != nil {
 		return fmt.Errorf("failed to create ACME client: %w", err)
+	}
+
+	if p.cfg.Acme.Eab.Kid == "" && client.GetExternalAccountRequired() {
+		return errors.New("this ACME directory requires external account binding: " +
+			"set acme.eab.kid and acme.eab.hmacKey")
 	}
 
 	p.legoClient = client
@@ -1177,6 +1227,7 @@ func saveUserToStorage(user *LegoUser) (*StoredUserAccount, error) {
 	stored := &StoredUserAccount{
 		Email:      user.Email,
 		PrivateKey: base64.StdEncoding.EncodeToString(keyPEM),
+		EabKid:     user.eabKid,
 	}
 
 	if user.Registration != nil {
@@ -1291,8 +1342,9 @@ func loadUserFromStorage(stored *StoredUserAccount) (*LegoUser, error) {
 	}
 
 	user := &LegoUser{
-		Email: stored.Email,
-		key:   privateKey,
+		Email:  stored.Email,
+		key:    privateKey,
+		eabKid: stored.EabKid,
 	}
 
 	if stored.Registration != "" {

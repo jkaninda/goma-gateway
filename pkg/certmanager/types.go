@@ -59,10 +59,28 @@ type Acme struct {
 	Email         string        `yaml:"email"`
 	DirectoryURL  string        `yaml:"directoryUrl,omitempty"`
 	StorageFile   string        `yaml:"storageFile,omitempty"`
-	TermsAccepted bool          `yaml:"termsAccepted,omitempty" default:"true"`
+	TermsAccepted *bool         `yaml:"termsAccepted,omitempty"`
 	ChallengeType ChallengeType `yaml:"challengeType,omitempty"`
 	DnsProvider   DnsProvider   `yaml:"dnsProvider,omitempty"`
 	Credentials   Credentials   `yaml:"credentials,omitempty"`
+	// Eab holds external account binding credentials for CAs that require them
+	// (ZeroSSL, Google Public CA, Sectigo, private CAs). Empty for CAs that do
+	// not, such as Let's Encrypt.
+	Eab Eab `yaml:"eab,omitempty"`
+}
+
+type Eab struct {
+	// Kid is the key identifier the CA issued.
+	Kid string `yaml:"kid,omitempty"`
+	// HmacKey is the shared secret, base64url-encoded, as every ACME client's
+	// --eab-hmac-key flag expects it.
+	HmacKey string `yaml:"hmacKey,omitempty"`
+}
+
+// TermsAgreed reports whether the CA's terms of service are accepted. An
+// omitted termsAccepted is an agreement, so existing configs keep registering.
+func (a Acme) TermsAgreed() bool {
+	return a.TermsAccepted == nil || *a.TermsAccepted
 }
 
 type Challenge struct {

@@ -206,3 +206,34 @@ func filepathBase(p string) string {
 	}
 	return p
 }
+
+func TestAcmeTermsAgreed(t *testing.T) {
+	yes, no := true, false
+	tests := []struct {
+		name string
+		acme Acme
+		want bool
+	}{
+		{name: "unset means agreed", acme: Acme{}, want: true},
+		{name: "explicit true", acme: Acme{TermsAccepted: &yes}, want: true},
+		{name: "explicit false", acme: Acme{TermsAccepted: &no}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.acme.TermsAgreed(); got != tt.want {
+				t.Errorf("TermsAgreed() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateConfig_TermsRefusedStillValidates(t *testing.T) {
+	no := false
+	p := &provider{cfg: ProviderConfig{
+		Type: CertAcmeProvider,
+		Acme: Acme{Email: "ops@example.com", TermsAccepted: &no},
+	}}
+	if err := p.validateConfig(); err != nil {
+		t.Fatalf("validateConfig: %v", err)
+	}
+}

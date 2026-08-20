@@ -291,6 +291,20 @@ certManager:
           apiToken: ""
         storageFile: /etc/letsencrypt/cloudflare-acme.json
 
+    # --- ACME with external account binding (ZeroSSL, Google Public CA, private CAs) ---
+    zerossl:
+      type: acme
+      acme:
+        # email: admin@example.com
+        directoryUrl: https://acme.zerossl.com/v2/DV90
+        eab:
+          # Key id and HMAC key the CA issues out of band. Both are required
+          # together. ${VAR} is expanded in this file, so keep the secret in
+          # the environment, e.g. hmacKey: ${GOMA_ACME_EAB_HMAC}
+          kid: ""
+          hmacKey: ""
+        storageFile: /etc/letsencrypt/zerossl-acme.json
+
     # --- HashiCorp Vault issuer (PKI secrets engine) ---
     vault:
       type: vault
