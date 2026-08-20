@@ -119,7 +119,7 @@ func TestSetupLegoClient_ExternalAccountRequired(t *testing.T) {
 	var srv *httptest.Server
 	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{
+		_, _ = fmt.Fprintf(w, `{
 			"newNonce": "%[1]s/nonce",
 			"newAccount": "%[1]s/account",
 			"newOrder": "%[1]s/order",
