@@ -19,7 +19,7 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Get the tag name
         id: get_tag_name
         run: |
