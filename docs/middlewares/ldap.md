@@ -37,7 +37,7 @@ middlewares:
   - name: ldap-auth
     type: ldapAuth
     paths:
-      - /*
+      - /.*
     rule:
       url: ldap://ldap.example.com:389 # or use env ${ENV_NAME}
       baseDN: dc=example,dc=com
@@ -53,8 +53,8 @@ middlewares:
   - name: ldap-auth
     type: ldap
     paths:
-      - /api/*
-      - /admin/*
+      - /api/.*
+      - /admin/.*
     rule:
       # Authentication Settings
       realm: "Company LDAP"              # Authentication realm displayed in browser

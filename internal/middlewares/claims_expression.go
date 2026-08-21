@@ -364,12 +364,51 @@ func (p *ExpressionParser) parseUnaryExpression() (Expression, error) {
 	return p.parseFunction()
 }
 
+// Claim expressions accept backticks, single quotes or double quotes around a
+// claim key or a literal, and an unquoted literal for values such as true or 42.
+// The documented examples use single quotes, so the parser has to read them.
+const quoteClass = "[`'\"]"
+
+var (
+	// A claim key is always quoted: it may contain dots and other characters
+	// that would otherwise be ambiguous.
+	quotedKey = quoteClass + "([^`'\"]+)" + quoteClass
+	// A value is either quoted, possibly empty, or a bare literal.
+	quotedLiteral = quoteClass + "([^`'\"]*)" + quoteClass
+	bareLiteral   = `([^,()\s]+)`
+
+	singleParamCall = regexp.MustCompile(`^(Equals|Prefix)\s*\(\s*` + quotedKey +
+		`\s*,\s*(?:` + quotedLiteral + `|` + bareLiteral + `)\s*\)`)
+	multiParamCall = regexp.MustCompile(`^(Contains|OneOf)\s*\(\s*` + quotedKey + `\s*,\s*(.+?)\s*\)`)
+
+	quotedParam = regexp.MustCompile(quoteClass + "([^`'\"]*)" + quoteClass)
+)
+
+// parseCallParameters reads the arguments of a multi-parameter call, accepting
+// quoted strings and bare literals alike.
+func parseCallParameters(input string) []string {
+	if matches := quotedParam.FindAllStringSubmatch(input, -1); len(matches) > 0 {
+		params := make([]string, 0, len(matches))
+		for _, match := range matches {
+			params = append(params, match[1])
+		}
+		return params
+	}
+
+	var params []string
+	for _, part := range strings.Split(input, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			params = append(params, trimmed)
+		}
+	}
+	return params
+}
+
 func (p *ExpressionParser) parseFunction() (Expression, error) {
 	p.skipWhitespace()
 
-	// Match function patterns - updated to support multiple parameters
-	singleParamPattern := regexp.MustCompile(`^(Equals|Prefix)\s*\(\s*` + "`" + `([^` + "`" + `]+)` + "`" + `\s*,\s*` + "`" + `([^` + "`" + `]*)` + "`" + `\s*\)`)
-	multiParamPattern := regexp.MustCompile(`^(Contains|OneOf)\s*\(\s*` + "`" + `([^` + "`" + `]+)` + "`" + `\s*,\s*(.+?)\s*\)`)
+	singleParamPattern := singleParamCall
+	multiParamPattern := multiParamCall
 
 	if p.pos >= p.length {
 		return nil, fmt.Errorf("unexpected end of input")
@@ -381,7 +420,12 @@ func (p *ExpressionParser) parseFunction() (Expression, error) {
 	if match := singleParamPattern.FindStringSubmatch(remaining); match != nil {
 		funcName := match[1]
 		claimKey := match[2]
+		// A quoted value lands in the third group, a bare one in the fourth;
+		// when both are empty the value is the empty string either way.
 		value := match[3]
+		if match[4] != "" {
+			value = match[4]
+		}
 
 		p.pos += len(match[0])
 
@@ -401,14 +445,7 @@ func (p *ExpressionParser) parseFunction() (Expression, error) {
 		claimKey := match[2]
 		paramsStr := match[3]
 
-		// Parse parameters (backtick-quoted strings separated by commas)
-		paramPattern := regexp.MustCompile("`([^`]*)`")
-		paramMatches := paramPattern.FindAllStringSubmatch(paramsStr, -1)
-
-		var params []string
-		for _, paramMatch := range paramMatches {
-			params = append(params, paramMatch[1])
-		}
+		params := parseCallParameters(paramsStr)
 
 		if len(params) == 0 {
 			return nil, fmt.Errorf("function %s requires at least one parameter", funcName)

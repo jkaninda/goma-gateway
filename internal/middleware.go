@@ -509,8 +509,8 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *njia.Grou
 		applyJWTAuthMiddleware(route, routeMiddleware, r)
 	case forwardAuth:
 		applyForwardAuthMiddleware(route, routeMiddleware, r)
-	case OAuth, OAuth2:
-		applyOAuthMiddleware(route, routeMiddleware, r)
+	case OAuth, OAuth2, OIDC:
+		applyOIDCMiddleware(route, routeMiddleware, r)
 	default:
 		if !doesExist(string(routeMiddleware.Type)) {
 			logger.Debug("Middleware type not found, skipping middleware application", "middleware", routeMiddleware.Name, "type", routeMiddleware.Type)
@@ -656,9 +656,11 @@ func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *njia
 	r.Use(auth.AuthMiddleware)
 }
 
-// applyOAuthMiddleware applies OAuth Authentication middleware
-func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
-	rule := &OauthRulerMiddleware{}
+// applyOIDCMiddleware applies OpenID Connect authentication to a route: the
+// middleware guards the configured paths, and the login callback and logout
+// endpoints are registered inside the route's group.
+func applyOIDCMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
+	rule := &OIDCRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
 		logger.Error("Error applying middleware, middleware not applied", "error", err)
 		return
@@ -667,22 +669,29 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group
 		logger.Error("Error validating middleware", "error", err)
 		return
 	}
-	redirectPath := rule.RedirectPath
-	redirectURL := "/callback" + route.Path
-	cookiePath := rule.CookiePath
-	if cookiePath == "" {
-		cookiePath = route.Path
-	}
-	if rule.RedirectURL != "" {
-		redirectURL = rule.RedirectURL
+
+	callbackPath := rule.CallbackPath
+	if callbackPath == "" {
+		callbackPath = util.ParseURLPath(route.Path + "/oauth2/callback")
 	}
 
-	amw := &middlewares.Oauth{
+	sessionOpts := sessionOptions(rule.Session, route.Path)
+	// The browser must send the session and login cookies to the middleware's
+	// own endpoints, or the flow it started can never be completed.
+	warnUnreachableEndpoint(routeMiddleware.Name, "callbackPath", callbackPath, sessionOpts.CookiePath)
+	if rule.LogoutPath != "" {
+		warnUnreachableEndpoint(routeMiddleware.Name, "logoutPath", rule.LogoutPath, sessionOpts.CookiePath)
+	}
+
+	config := middlewares.OIDCConfig{
 		Path:         route.Path,
 		Paths:        routeMiddleware.Paths,
+		Origins:      route.Cors.Origins,
 		ClientID:     rule.ClientID,
 		ClientSecret: rule.ClientSecret,
-		RedirectURL:  redirectURL,
+		Provider:     rule.Provider,
+		Issuer:       rule.Issuer,
+		Audience:     rule.Audience,
 		Scopes:       rule.Scopes,
 		Endpoint: middlewares.OauthEndpoint{
 			AuthURL:     rule.Endpoint.AuthURL,
@@ -690,28 +699,111 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group
 			UserInfoURL: rule.Endpoint.UserInfoURL,
 			JwksURL:     rule.Endpoint.JwksURL,
 		},
-		State:        rule.State,
-		Origins:      route.Cors.Origins,
-		CookiePath:   cookiePath,
-		Provider:     rule.Provider,
-		Issuer:       rule.Issuer,
-		Audience:     rule.Audience,
-		ClaimsSource: rule.ClaimsSource,
-		Forward:      claimMapper(rule.Forward, nil),
+		RedirectURL:        rule.RedirectURL,
+		CallbackPath:       callbackPath,
+		LogoutPath:         rule.LogoutPath,
+		PostLoginRedirect:  rule.PostLoginRedirect,
+		PostLogoutRedirect: rule.PostLogoutRedirect,
+		DisablePKCE:        rule.PKCE != nil && !*rule.PKCE,
+		ClaimsSource:       rule.ClaimsSource,
+		ClaimsExpression:   rule.ClaimsExpression,
+		Forward:            claimMapper(rule.Forward, nil),
+		Session:            sessionOpts,
 	}
 
-	oauthRuler := oauthRulerMiddleware(amw)
-	oauthRuler.RedirectPath = redirectPath
-	oauthRuler.CookiePath = cookiePath
-	if oauthRuler.RedirectPath == "" {
-		oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
+	oidc, err := middlewares.NewOIDC(config)
+	if err != nil {
+		logger.Error("Error applying middleware, middleware not applied",
+			"middleware", routeMiddleware.Name, "route", route.Name, "error", err)
+		return
 	}
-	r.Use(amw.AuthMiddleware)
-	// The callback lives inside the route's group, so it is wrapped by the same
-	// middleware, and its exact path outranks the route's catch-all.
-	if err := r.Handle(http.MethodGet, util.UrlParsePath(redirectURL),
-		http.HandlerFunc(oauthRuler.callbackHandler)); err != nil {
-		logger.Error("Failed to register OAuth callback",
-			"route", route.Name, "path", util.UrlParsePath(redirectURL), "error", err)
+
+	r.Use(oidc.AuthMiddleware)
+
+	// The callback and logout endpoints live inside the route's group, so their
+	// exact paths outrank the route's catch-all. The route stays guarded even if
+	// they cannot be registered: an unprotected route would be worse than a
+	// login that fails loudly.
+	registerOIDCEndpoint(r, route, "callback", callbackPath, oidc.CallbackHandler)
+	if rule.LogoutPath != "" {
+		registerOIDCEndpoint(r, route, "logout", rule.LogoutPath, oidc.LogoutHandler)
 	}
+}
+
+// registerOIDCEndpoint registers one of the middleware's own endpoints at an
+// absolute request path.
+func registerOIDCEndpoint(r *njia.Group, route Route, name, path string, handler http.HandlerFunc) {
+	pattern, ok := groupPattern(route.Path, path)
+	if !ok {
+		logger.Error("The OIDC "+name+" path must be under the route path, login cannot complete",
+			"route", route.Name, "routePath", route.Path, "path", path)
+		return
+	}
+	if err := r.Handle(http.MethodGet, pattern, handler); err != nil {
+		logger.Error("Failed to register the OIDC "+name+" endpoint",
+			"route", route.Name, "path", path, "error", err)
+	}
+}
+
+// groupPattern turns an absolute request path into the pattern to register on a
+// route's group, which joins its own prefix onto whatever it is given.
+func groupPattern(routePath, absolutePath string) (string, bool) {
+	prefix := groupPrefix(routePath)
+	switch {
+	case prefix == "":
+		return absolutePath, true
+	case absolutePath == prefix:
+		return "/", true
+	case strings.HasPrefix(absolutePath, prefix+"/"):
+		return strings.TrimPrefix(absolutePath, prefix), true
+	default:
+		return "", false
+	}
+}
+
+// warnUnreachableEndpoint reports an endpoint the session cookie would not be
+// sent to, which silently breaks the login or logout it serves.
+func warnUnreachableEndpoint(middlewareName, field, path, cookiePath string) {
+	if cookiePath == "" || cookiePath == "/" {
+		return
+	}
+	if path == cookiePath || strings.HasPrefix(path, strings.TrimSuffix(cookiePath, "/")+"/") {
+		return
+	}
+	logger.Warn("The OIDC "+field+" is outside the session cookie path, the browser will not send the session to it",
+		"middleware", middlewareName, field, path, "session.cookie.path", cookiePath)
+}
+
+// sessionOptions turns the session rule into the middleware's options, scoping
+// the cookie to the route when the operator has not chosen a path.
+func sessionOptions(rule *OIDCSessionRule, routePath string) middlewares.SessionOptions {
+	options := middlewares.SessionOptions{CookiePath: routePath}
+	if rule == nil {
+		return options
+	}
+
+	options.Store = rule.Store
+	options.Secret = rule.Secret
+	options.CookieName = rule.Cookie.Name
+	options.CookieDomain = rule.Cookie.Domain
+	options.CookieSecure = rule.Cookie.Secure
+	if rule.Cookie.Path != "" {
+		options.CookiePath = rule.Cookie.Path
+	}
+	// Durations are validated when the rule is loaded.
+	if rule.TTL != "" {
+		options.TTL, _ = time.ParseDuration(rule.TTL)
+	}
+	if rule.IdleTimeout != "" {
+		options.IdleTimeout, _ = time.ParseDuration(rule.IdleTimeout)
+	}
+	switch strings.ToLower(rule.Cookie.SameSite) {
+	case sameSiteStrict:
+		options.SameSite = http.SameSiteStrictMode
+	case sameSiteNone:
+		options.SameSite = http.SameSiteNoneMode
+	default:
+		options.SameSite = http.SameSiteLaxMode
+	}
+	return options
 }

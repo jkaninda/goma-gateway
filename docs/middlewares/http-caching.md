@@ -65,7 +65,7 @@ middlewares:
     type: httpCache
     paths:
       - ^/store/items/(.*)$
-      - /store/categories/*
+      - /store/categories/.*
       - /api/stores/(.*)/items/(.*)
     rule:
       maxTtl: 60
@@ -84,7 +84,7 @@ middlewares:
 
 For example:
    - `^/store/items/(.*)$` matches paths starting with `/store/items/`.
-   - `/store/categories/*` matches all paths under `/store/categories/`.
+   - `/store/categories/.*` matches all paths under `/store/categories/`.
    - `/api/stores/(.*)/items/(.*)` matches dynamic paths under `/api/stores/`.
 
 ###  Cache only specific query params

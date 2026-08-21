@@ -62,7 +62,7 @@ func TestForwardAuthRelaysChallengeOnDeny(t *testing.T) {
 			}))
 			defer authSrv.Close()
 
-			f := &ForwardAuth{AuthURL: authSrv.URL, Path: "/", Paths: []string{"/*"}}
+			f := &ForwardAuth{AuthURL: authSrv.URL, Path: "/", Paths: []string{testAllPaths}}
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "https://registry.example.com/v2/", nil)
 			f.AuthMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {

@@ -97,8 +97,8 @@ You can limit logging enrichment to specific paths:
 
 ```yaml
 paths:
-  - /api/*
-  - /admin/*
+  - /api/.*
+  - /admin/.*
 ```
 
 This helps reduce log noise and control sensitive data exposure.
@@ -120,7 +120,7 @@ This helps reduce log noise and control sensitive data exposure.
 - name: observability-logger
   type: accessLog
   paths:
-    - /api/*
+    - /api/.*
   rule:
     headers:
       - X-Request-ID

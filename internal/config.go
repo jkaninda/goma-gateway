@@ -24,6 +24,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -699,10 +700,10 @@ func (a *ResponseHeader) validateCookies() error {
 	}
 
 	validSameSite := map[string]bool{
-		"":       true,
-		"strict": true,
-		"lax":    true,
-		"none":   true,
+		"":             true,
+		sameSiteStrict: true,
+		sameSiteLax:    true,
+		sameSiteNone:   true,
 	}
 
 	cookieNames := make(map[string]bool)
@@ -740,7 +741,7 @@ func (a *ResponseHeader) validateCookies() error {
 		}
 
 		// SameSite=None requires Secure flag
-		if sameSite == "none" && !cookie.Attrs.Secure {
+		if sameSite == sameSiteNone && !cookie.Attrs.Secure {
 			return fmt.Errorf("cookie '%s' has SameSite=None but Secure flag is not set", cookie.Name)
 		}
 
@@ -793,25 +794,84 @@ func (l LogEnrichRule) validate() error {
 	return nil
 }
 
-// oAuthMiddleware returns OauthRulerMiddleware, error
-func (oauthRuler *OauthRulerMiddleware) validate() error {
-	oauthRuler.applyProviderDefaults()
+// validate normalizes the rule and rejects a configuration that could not
+// actually guard a route.
+func (rule *OIDCRuleMiddleware) validate() error {
+	rule.applyProviderDefaults()
+	rule.warnDeprecatedFields()
 
-	if oauthRuler.ClientID == "" || oauthRuler.ClientSecret == "" || oauthRuler.RedirectURL == "" {
-		return fmt.Errorf("error parsing yaml: empty clientId/clientSecret/redirectUrl in oauth middleware for provider %q", oauthRuler.Provider)
+	if rule.ClientID == "" || rule.ClientSecret == "" {
+		return fmt.Errorf("error parsing yaml: empty clientId/clientSecret in oidc middleware for provider %q", rule.Provider)
 	}
-
-	if oauthRuler.Endpoint.JwksURL == "" && oauthRuler.Endpoint.UserInfoURL == "" {
-		return fmt.Errorf("error parsing yaml: oauth middleware requires endpoint.jwksUrl or endpoint.userInfoUrl to verify tokens")
+	if rule.Issuer == "" && (rule.Endpoint.AuthURL == "" || rule.Endpoint.TokenURL == "") {
+		return fmt.Errorf("error parsing yaml: oidc middleware requires issuer, or endpoint.authUrl and endpoint.tokenUrl")
 	}
-	for _, source := range oauthRuler.ClaimsSource {
+	// Without one of these the gateway has no way to tell a token issued by the
+	// provider from one a client made up. Discovery supplies both, so an issuer
+	// is enough on its own.
+	if rule.Issuer == "" && rule.Endpoint.JwksURL == "" && rule.Endpoint.UserInfoURL == "" {
+		return fmt.Errorf("error parsing yaml: oidc middleware requires issuer, endpoint.jwksUrl or endpoint.userInfoUrl to verify tokens")
+	}
+	for _, source := range rule.ClaimsSource {
 		switch source {
 		case middlewares.ClaimSourceIDToken, middlewares.ClaimSourceUserInfo, middlewares.ClaimSourceAccessToken:
 		default:
 			return fmt.Errorf("error parsing yaml: unknown claimsSource %q, expected one of id_token, userinfo, access_token", source)
 		}
 	}
-	return oauthRuler.Forward.validate()
+	if err := rule.Session.validate(); err != nil {
+		return err
+	}
+	return rule.Forward.validate()
+}
+
+// validate checks the session rule.
+func (s *OIDCSessionRule) validate() error {
+	if s == nil {
+		return nil
+	}
+	switch s.Store {
+	case "", middlewares.SessionStoreCookie, middlewares.SessionStoreMemory, middlewares.SessionStoreRedis:
+	default:
+		return fmt.Errorf("error parsing yaml: unknown session.store %q, expected cookie, memory or redis", s.Store)
+	}
+	for name, value := range map[string]string{"ttl": s.TTL, "idleTimeout": s.IdleTimeout} {
+		if value == "" {
+			continue
+		}
+		if _, err := time.ParseDuration(value); err != nil {
+			return fmt.Errorf("error parsing yaml: invalid session.%s %q: %w", name, value, err)
+		}
+	}
+	switch strings.ToLower(s.Cookie.SameSite) {
+	case "", sameSiteLax, sameSiteStrict, sameSiteNone:
+	default:
+		return fmt.Errorf("error parsing yaml: unknown session.cookie.sameSite %q, expected lax, strict or none", s.Cookie.SameSite)
+	}
+	return nil
+}
+
+// warnDeprecatedFields tells the operator which replacement to move to, once
+// per load rather than per request.
+func (rule *OIDCRuleMiddleware) warnDeprecatedFields() {
+	if rule.State != "" {
+		logger.Warn("oidc: 'state' is ignored, the login state is now random per request")
+	}
+	if rule.RedirectPath != "" && rule.PostLoginRedirect == "" {
+		logger.Warn("oidc: 'redirectPath' is deprecated, use 'postLoginRedirect'")
+		rule.PostLoginRedirect = rule.RedirectPath
+	}
+	if rule.CookiePath != "" && (rule.Session == nil || rule.Session.Cookie.Path == "") {
+		logger.Warn("oidc: 'cookiePath' is deprecated, use 'session.cookie.path'")
+		if rule.Session == nil {
+			rule.Session = &OIDCSessionRule{}
+		}
+		rule.Session.Cookie.Path = rule.CookiePath
+	}
+	if rule.RedirectURL != "" && rule.CallbackPath == "" {
+		logger.Warn("oidc: 'redirectUrl' is deprecated, use 'callbackPath'")
+		rule.CallbackPath = util.UrlParsePath(rule.RedirectURL)
+	}
 }
 
 // validate checks the claim projection rule.
@@ -862,75 +922,38 @@ func claimMapper(rule *ForwardClaimsRule, legacyHeaders map[string]string) *midd
 
 // applyProviderDefaults fills in the endpoints a well-known provider does not
 // need spelled out in the configuration.
-func (oauthRuler *OauthRulerMiddleware) applyProviderDefaults() {
-	if oauthRuler.Provider == "" {
-		oauthRuler.Provider = middlewares.ProviderCustom
+func (rule *OIDCRuleMiddleware) applyProviderDefaults() {
+	if rule.Provider == "" {
+		rule.Provider = middlewares.ProviderCustom
 	}
-	switch oauthRuler.Provider {
+	switch rule.Provider {
 	case middlewares.ProviderGoogle:
-		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://www.googleapis.com/oauth2/v2/userinfo")
-		setIfEmpty(&oauthRuler.Endpoint.JwksURL, "https://www.googleapis.com/oauth2/v3/certs")
+		rule.setEndpoints(google.Endpoint,
+			"https://www.googleapis.com/oauth2/v2/userinfo", "https://www.googleapis.com/oauth2/v3/certs")
 	case middlewares.ProviderFacebook:
-		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://graph.facebook.com/me?fields=id,name,email")
+		rule.setEndpoints(facebook.Endpoint, "https://graph.facebook.com/me?fields=id,name,email", "")
 	case middlewares.ProviderGitHub:
-		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://api.github.com/user")
+		rule.setEndpoints(github.Endpoint, "https://api.github.com/user", "")
 	case middlewares.ProviderGitLab:
-		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://gitlab.com/oauth/userinfo")
-		setIfEmpty(&oauthRuler.Endpoint.JwksURL, "https://gitlab.com/oauth/discovery/keys")
+		rule.setEndpoints(gitlab.Endpoint,
+			"https://gitlab.com/oauth/userinfo", "https://gitlab.com/oauth/discovery/keys")
 	case middlewares.ProviderAmazon:
-		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://api.amazon.com/user/profile")
+		rule.setEndpoints(amazon.Endpoint, "https://api.amazon.com/user/profile", "")
 	case middlewares.ProviderCustom:
 	default:
-		logger.Error("Unknown oauth provider", "provider", oauthRuler.Provider)
+		logger.Error("Unknown oidc provider", "provider", rule.Provider)
 	}
+}
+
+func (rule *OIDCRuleMiddleware) setEndpoints(endpoint oauth2.Endpoint, userInfoURL, jwksURL string) {
+	setIfEmpty(&rule.Endpoint.AuthURL, endpoint.AuthURL)
+	setIfEmpty(&rule.Endpoint.TokenURL, endpoint.TokenURL)
+	setIfEmpty(&rule.Endpoint.UserInfoURL, userInfoURL)
+	setIfEmpty(&rule.Endpoint.JwksURL, jwksURL)
 }
 
 func setIfEmpty(field *string, value string) {
 	if *field == "" {
 		*field = value
 	}
-}
-func oauthRulerMiddleware(oauth *middlewares.Oauth) *OauthRulerMiddleware {
-	return &OauthRulerMiddleware{
-		ClientID:     oauth.ClientID,
-		ClientSecret: oauth.ClientSecret,
-		RedirectURL:  oauth.RedirectURL,
-		State:        oauth.State,
-		Scopes:       oauth.Scopes,
-		Provider:     oauth.Provider,
-		Endpoint: OauthEndpoint{
-			AuthURL:     oauth.Endpoint.AuthURL,
-			TokenURL:    oauth.Endpoint.TokenURL,
-			UserInfoURL: oauth.Endpoint.UserInfoURL,
-			JwksURL:     oauth.Endpoint.JwksURL,
-		},
-		Issuer:   oauth.Issuer,
-		Audience: oauth.Audience,
-	}
-}
-func oauth2Config(oauth *OauthRulerMiddleware) *oauth2.Config {
-	conf := &oauth2.Config{
-		ClientID:     oauth.ClientID,
-		ClientSecret: oauth.ClientSecret,
-		RedirectURL:  oauth.RedirectURL,
-		Scopes:       oauth.Scopes,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  oauth.Endpoint.AuthURL,
-			TokenURL: oauth.Endpoint.TokenURL,
-		},
-	}
-	oauth.applyProviderDefaults()
-	switch oauth.Provider {
-	case middlewares.ProviderGoogle:
-		conf.Endpoint = google.Endpoint
-	case middlewares.ProviderAmazon:
-		conf.Endpoint = amazon.Endpoint
-	case middlewares.ProviderFacebook:
-		conf.Endpoint = facebook.Endpoint
-	case middlewares.ProviderGitHub:
-		conf.Endpoint = github.Endpoint
-	case middlewares.ProviderGitLab:
-		conf.Endpoint = gitlab.Endpoint
-	}
-	return conf
 }

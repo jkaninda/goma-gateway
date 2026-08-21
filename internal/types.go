@@ -195,35 +195,58 @@ type ForwardClaimsRule struct {
 	AccessTokenHeader string `yaml:"accessTokenHeader,omitempty" json:"accessTokenHeader,omitempty"`
 	IDTokenHeader     string `yaml:"idTokenHeader,omitempty" json:"idTokenHeader,omitempty"`
 }
-type OauthRulerMiddleware struct {
+
+// OIDCRuleMiddleware configures the OpenID Connect middleware.
+type OIDCRuleMiddleware struct {
 	// ClientID is the application's ID.
 	ClientID string `yaml:"clientId" json:"clientId"`
 
 	// ClientSecret is the application's secret.
 	ClientSecret string `yaml:"clientSecret" json:"clientSecret"`
-	// oauth provider google, gitlab, github, amazon, facebook, custom
-	Provider string `yaml:"provider" json:"provider"`
-	// Endpoint contains the resource server's token endpoint
-	Endpoint OauthEndpoint `yaml:"endpoint" json:"endpoint"`
 
-	// RedirectURL is the URL to redirect users going through
-	// the OAuth flow, after the resource owner's URLs.
-	RedirectURL string `yaml:"redirectUrl" json:"redirectUrl"`
-	// RedirectPath is the PATH to redirect users after authentication, e.g: /my-protected-path/dashboard
-	RedirectPath string `yaml:"redirectPath" json:"redirectPath"`
-	// CookiePath e.g: /my-protected-path or / || by default is applied on a route path
-	CookiePath string `yaml:"cookiePath" json:"cookiePath"`
+	// Provider is a well-known provider — google, gitlab, github, amazon,
+	// facebook — or "custom".
+	Provider string `yaml:"provider,omitempty" json:"provider,omitempty"`
 
-	// Scope specifies optional requested permissions.
-	Scopes []string `yaml:"scopes" json:"scopes"`
-	// contains filtered or unexported fields
-	State string `yaml:"state" json:"state"`
-
-	// Issuer, when set, is enforced on JWT tokens issued by the provider.
+	// Issuer enables discovery: any endpoint left empty is read from the
+	// provider's /.well-known/openid-configuration document.
 	Issuer string `yaml:"issuer,omitempty" json:"issuer,omitempty"`
-	// Audience, when set, is enforced on JWT access tokens. The ID token's
-	// audience is always checked against clientId, as OIDC requires.
+
+	// Endpoint overrides anything discovery would supply.
+	Endpoint OauthEndpoint `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+
+	// Audience, when set, is enforced as the aud claim on JWT access tokens.
+	// The ID token's audience is always checked against clientId.
 	Audience string `yaml:"audience,omitempty" json:"audience,omitempty"`
+
+	// Scopes specifies the requested permissions.
+	Scopes []string `yaml:"scopes,omitempty" json:"scopes,omitempty"`
+
+	// CallbackPath is where the provider sends the user back, e.g.
+	// /oauth2/callback. It must match the redirect URI registered with the
+	// provider.
+	CallbackPath string `yaml:"callbackPath,omitempty" json:"callbackPath,omitempty"`
+
+	// LogoutPath ends the session, and the provider's session when it supports
+	// RP-initiated logout.
+	LogoutPath string `yaml:"logoutPath,omitempty" json:"logoutPath,omitempty"`
+
+	// PostLoginRedirect is where a user lands after signing in. Empty sends
+	// them back to the URL they originally requested.
+	PostLoginRedirect string `yaml:"postLoginRedirect,omitempty" json:"postLoginRedirect,omitempty"`
+
+	// PostLogoutRedirect is where a user lands after signing out.
+	PostLogoutRedirect string `yaml:"postLogoutRedirect,omitempty" json:"postLogoutRedirect,omitempty"`
+
+	// PKCE adds a proof key to the authorization code exchange. Enabled unless
+	// explicitly set to false.
+	PKCE *bool `yaml:"pkce,omitempty" json:"pkce,omitempty"`
+
+	// Session configures where the signed-in session is kept.
+	Session *OIDCSessionRule `yaml:"session,omitempty" json:"session,omitempty"`
+
+	// ClaimsExpression authorizes the user against their claims.
+	ClaimsExpression string `yaml:"claimsExpression,omitempty" json:"claimsExpression,omitempty"`
 
 	// ClaimsSource lists where user claims are read from, in increasing order of
 	// precedence: id_token, userinfo, access_token.
@@ -231,7 +254,63 @@ type OauthRulerMiddleware struct {
 
 	// Forward projects the authenticated user's claims onto the upstream request.
 	Forward *ForwardClaimsRule `yaml:"forward,omitempty" json:"forward,omitempty"`
+
+	// RedirectURL is the callback URL registered with the provider.
+	// Deprecated: use CallbackPath; the URL is derived from the request.
+	RedirectURL string `yaml:"redirectUrl,omitempty" json:"redirectUrl,omitempty"`
+
+	// RedirectPath is where users land after authentication.
+	// Deprecated: use PostLoginRedirect.
+	RedirectPath string `yaml:"redirectPath,omitempty" json:"redirectPath,omitempty"`
+
+	// CookiePath scopes the session cookie.
+	// Deprecated: use Session.Cookie.Path.
+	CookiePath string `yaml:"cookiePath,omitempty" json:"cookiePath,omitempty"`
+
+	// State was a fixed CSRF value shared by every login.
+	// Deprecated: the state is now random per login and ignored here.
+	State string `yaml:"state,omitempty" json:"state,omitempty"`
 }
+
+// OauthRulerMiddleware is the former name of OIDCRuleMiddleware.
+//
+// Deprecated: use OIDCRuleMiddleware.
+type OauthRulerMiddleware = OIDCRuleMiddleware
+
+// OIDCSessionRule configures where a signed-in session is kept and how long it
+// lives.
+type OIDCSessionRule struct {
+	// Store is "cookie" (default), "memory" or "redis". Cookie sessions need no
+	// shared state; redis sessions are shared across replicas and can be ended
+	// centrally.
+	Store string `yaml:"store,omitempty" json:"store,omitempty"`
+
+	// Secret keys the sealing of session data. Defaults to the client secret,
+	// which every replica serving this route already shares.
+	Secret string `yaml:"secret,omitempty" json:"secret,omitempty"`
+
+	// TTL bounds a session's life regardless of activity, e.g. "12h".
+	TTL string `yaml:"ttl,omitempty" json:"ttl,omitempty"`
+
+	// IdleTimeout ends a session that has been unused for this long, e.g. "1h".
+	IdleTimeout string `yaml:"idleTimeout,omitempty" json:"idleTimeout,omitempty"`
+
+	// Cookie configures the cookie that carries or addresses the session.
+	Cookie OIDCCookieRule `yaml:"cookie,omitempty" json:"cookie,omitempty"`
+}
+
+// OIDCCookieRule configures the session cookie.
+type OIDCCookieRule struct {
+	Name   string `yaml:"name,omitempty" json:"name,omitempty"`
+	Path   string `yaml:"path,omitempty" json:"path,omitempty"`
+	Domain string `yaml:"domain,omitempty" json:"domain,omitempty"`
+	// SameSite is "lax" (default), "strict" or "none". Strict breaks the
+	// provider's cross-site callback redirect.
+	SameSite string `yaml:"sameSite,omitempty" json:"sameSite,omitempty"`
+	// Secure defaults to whether the request arrived over TLS.
+	Secure *bool `yaml:"secure,omitempty" json:"secure,omitempty"`
+}
+
 type OauthEndpoint struct {
 	AuthURL     string `yaml:"authUrl" json:"authUrl"`
 	TokenURL    string `yaml:"tokenUrl" json:"tokenUrl"`

@@ -57,13 +57,13 @@ Like other middlewares, an optional `paths` list scopes the rule to specific URL
 middlewares:
   - name: api-only
     type: requestHeaders
-    paths: [/api/*]
+    paths: [/api/.*]
     rule:
       setHeaders:
         X-API-Surface: "public"
 ```
 
-Path patterns support exact match, `/*` wildcard, and regex (same syntax as other middlewares).
+Path patterns support exact match, `/*` wildcard, and regex such as `/api/.*` (same syntax as other middlewares).
 
 ---
 
@@ -127,7 +127,7 @@ middlewares:
   - name: admin-headers
     type: requestHeaders
     paths:
-      - /admin/*
+      - /admin/.*
     rule:
       setHeaders:
         X-Admin-Surface: "true"

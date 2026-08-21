@@ -54,7 +54,7 @@ middlewares:
 The `paths` field supports flexible pattern matching:
 
 - **Exact paths**: `/admin`, `/api/users`
-- **Wildcard patterns**: `/admin/*`, `/api/*/users`
+- **Wildcard patterns**: `/admin/.*`, `/api/.*/users`
 - **Regex patterns**: `/api/v[0-9]+/.*`
 
 ## Automatically Forwarded Headers
@@ -79,8 +79,8 @@ middlewares:
   - name: comprehensive-auth
     type: forwardAuth
     paths:
-      - /admin/*
-      - /api/private/*
+      - /admin/.*
+      - /api/private/.*
     rule:
       authUrl: http://auth-service:8080/auth/verify
       # Redirect URL - current URL automatically appended to 'redirect=' parameter
@@ -166,7 +166,7 @@ middlewares:
   - name: dev-auth
     type: forwardAuth
     paths:
-      - /admin/*
+      - /admin/.*
     rule:
       authUrl: https://dev-auth.local:8443/verify
       authSignIn: https://dev-auth.local:8443/login?next=

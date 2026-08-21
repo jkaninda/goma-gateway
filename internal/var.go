@@ -58,6 +58,7 @@ var (
 		string(JWTAuth),
 		string(LDAPAuthMiddleware),
 		string(LDAPAuth),
+		string(OIDC),
 		string(OAuth),
 		string(OAuth2),
 		string(accessPolicy),

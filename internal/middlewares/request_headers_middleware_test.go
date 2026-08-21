@@ -60,7 +60,7 @@ func TestRequestHeaders_SetAndRemove(t *testing.T) {
 
 func TestRequestHeaders_PathScoping(t *testing.T) {
 	rh := &RequestHeaders{
-		Paths:      []string{"/api/*"},
+		Paths:      []string{"/api/.*"},
 		SetHeaders: map[string]string{"X-Touched": "yes"},
 	}
 
