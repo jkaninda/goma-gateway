@@ -449,7 +449,11 @@ type httpCacheRule struct {
 	CacheableStatusCodes     []int    `yaml:"cacheableStatusCodes,omitempty" json:"cacheableStatusCodes"`
 	ExcludedResponseCodes    []string `yaml:"excludedResponseCodes,omitempty" json:"excludedResponseCodes"`
 	IncludeQueryInKey        bool     `yaml:"includeQueryInKey,omitempty" json:"includeQueryInKey"`
-	QueryParamsToCache       []string `yaml:"queryParamsToCache,omitempty" json:"queryParamsToCache"`
+	// CachePrivateResponses allows responses to requests that carried
+	// credentials to be cached, keyed by the caller. Off by default: a shared
+	// cache would otherwise serve one user's response to everyone else.
+	CachePrivateResponses bool     `yaml:"cachePrivateResponses,omitempty" json:"cachePrivateResponses"`
+	QueryParamsToCache    []string `yaml:"queryParamsToCache,omitempty" json:"queryParamsToCache"`
 }
 type RedirectSchemeRuleMiddleware struct {
 	Scheme    string `yaml:"scheme" json:"scheme"`

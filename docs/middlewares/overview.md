@@ -37,5 +37,37 @@ Middleware provides a flexible and powerful way to enhance the functionality, se
 
 - **`name`** (`string`): Name of the middleware without white space.
 - **`type`** (`string`): Type of the middleware.
-- **`paths`** (`array of string`): Paths to prevent or protect.
+- **`paths`** (`array of string`): Paths to prevent or protect. See [Path patterns](#path-patterns).
 - **`rule`** (`dictionary`): Middleware rule, changes depending on their type.
+
+## Path patterns
+
+A path is matched as a **regular expression** first, and as a wildcard only if it
+is not valid regex. Prefer the regular expression form:
+
+```yaml
+paths:
+  - /.*                # everything on the route
+  - /admin/.*          # everything under /admin
+  - ^/api/v[0-9]+/.*$  # anchored, matches only at the start
+```
+
+Two things are worth knowing before you write a rule:
+
+**Patterns are unanchored.** `/admin` matches any path *containing* `/admin`,
+including `/public/admin/notes`. Anchor with `^` and `$` when you mean a
+specific path:
+
+```yaml
+  - ^/admin$        # exactly /admin
+  - ^/admin(/.*)?$  # /admin and everything under it
+```
+
+**Matching is case-insensitive.** `/admin/.*` also matches `/Admin/users`, which
+is deliberate: many backends treat the two as the same resource, and a rule that
+only covered the lowercase form could be walked around by changing the case.
+
+The wildcard form (`/admin/*`) is still accepted for existing configurations. It
+only supports a trailing `*` — a pattern like `/tenant/*/api/*` matches nothing —
+and the gateway logs the regex form to replace it with the first time it sees
+one.

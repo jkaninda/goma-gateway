@@ -21,15 +21,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis_rate/v10"
-	"github.com/jkaninda/njia"
-	"github.com/redis/go-redis/v9"
 	"math"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-redis/redis_rate/v10"
+	"github.com/jkaninda/njia"
+	"github.com/redis/go-redis/v9"
 )
 
 // RateLimiter defines requests limit properties.
@@ -115,6 +116,7 @@ func (rl *RateLimiter) RateLimitMiddleware() njia.Middleware {
 			} else {
 				// Memory-based rate limiting with token bucket algorithm
 				rl.mu.Lock()
+				rl.evictStaleLocked()
 				client, exists := rl.clientMap[clientIdentifier]
 				now := time.Now()
 
@@ -154,6 +156,7 @@ func (rl *RateLimiter) RateLimitMiddleware() njia.Middleware {
 
 					if allowedOrigin(rl.origins, r.Header.Get("Origin")) {
 						w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+						w.Header().Add("Vary", "Origin")
 					}
 					RespondWithError(w, r, http.StatusTooManyRequests, "429 Too many requests. Try again later.", nil, contentType)
 					return
@@ -164,6 +167,44 @@ func (rl *RateLimiter) RateLimitMiddleware() njia.Middleware {
 		})
 	}
 }
+
+// evictStaleLocked drops buckets and bans that no longer decide anything. The
+// caller must hold rl.mu.
+func (rl *RateLimiter) evictStaleLocked() {
+	now := time.Now()
+
+	for identifier, banUntil := range rl.banList {
+		if now.After(banUntil) {
+			delete(rl.banList, identifier)
+			delete(rl.strikeMap, identifier)
+		}
+	}
+
+	if len(rl.clientMap) < maxTrackedClients {
+		if len(rl.clientMap)%evictionInterval != 0 {
+			return
+		}
+	}
+
+	for identifier, client := range rl.clientMap {
+		if now.Sub(client.LastRefill) > clientIdleTTL {
+			delete(rl.clientMap, identifier)
+		}
+	}
+
+	// Still over the cap after dropping idle buckets: the traffic is not idle,
+	// it is adversarial. Start again rather than grow without bound.
+	if len(rl.clientMap) >= maxTrackedClients {
+		logger.Warn("Rate limiter is tracking too many distinct clients, resetting its state",
+			"tracked", len(rl.clientMap), "limit", maxTrackedClients,
+			"hint", "a keyStrategy on a client-supplied header or cookie lets one caller mint unlimited keys")
+		rl.clientMap = make(map[string]*Client)
+		rl.strikeMap = make(map[string]int)
+	}
+}
+
+// evictionInterval spreads the sweep over many requests.
+const evictionInterval = 256
 
 func (rl *RateLimiter) getClientIdentifier(r *http.Request) string {
 	ip := rl.getIPAddress(r)

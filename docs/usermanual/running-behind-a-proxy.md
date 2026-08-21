@@ -70,6 +70,15 @@ gateway:
 
 * Only requests coming **from trusted proxies** are allowed to override the client IP.
 * If `enabled` is `false`, Goma will **ignore all forwarding headers** and use the request’s direct remote address.
+* **`trustedProxies` must not be empty.** An empty list with `enabled: true` is rejected at startup and all forwarding headers are ignored, because there would be nothing to distinguish a proxy from a client that simply sends the header itself.
+* The client IP is taken from the **rightmost** entry of the chain that is not one of your own proxies. The leftmost entry is whatever the original caller wrote there, so it is never trusted.
+* `X-Forwarded-Proto` and `X-Forwarded-Scheme` follow the same rule. Read from an untrusted source they would let a caller declare a plaintext request to be TLS, which turns off the HTTPS redirect and the `Secure` flag on session cookies.
+
+> **Behind a TLS-terminating load balancer, this section is required.** Without
+> it Goma sees the plaintext hop between the balancer and itself, so a
+> `redirectScheme` middleware will keep redirecting to HTTPS and session cookies
+> will not be marked `Secure`.
+
 * Misconfiguring `trustedProxies` may lead to spoofed IPs or inaccurate client identification. Always include only **known and controlled proxy networks**.
 
 

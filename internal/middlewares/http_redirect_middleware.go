@@ -286,16 +286,23 @@ func (rr *RedirectRegex) redirectStatusCode() int {
 	return http.StatusFound // 302
 }
 
-// scheme extracts the scheme from the request
+// scheme reports the scheme the client used.
+//
+// The forwarded headers are only read when the request came from a trusted
+// proxy. Believing them from anyone lets a client claim its plaintext request
+// was TLS, which turns off the HTTPS redirect, marks session cookies as
+// non-Secure, and is passed on to backends that make the same decision.
 func scheme(r *http.Request) string {
-	// Check X-Forwarded-Proto header
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
-		return strings.ToLower(proto)
-	}
+	if FromTrustedProxy(r) {
+		// Check X-Forwarded-Proto header
+		if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+			return strings.ToLower(proto)
+		}
 
-	// Check X-Forwarded-Scheme header
-	if rScheme := r.Header.Get("X-Forwarded-Scheme"); rScheme != "" {
-		return strings.ToLower(rScheme)
+		// Check X-Forwarded-Scheme header
+		if rScheme := r.Header.Get("X-Forwarded-Scheme"); rScheme != "" {
+			return strings.ToLower(rScheme)
+		}
 	}
 
 	// Check if TLS is used

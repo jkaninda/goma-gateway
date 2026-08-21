@@ -18,6 +18,7 @@
 package config
 
 import (
+	"fmt"
 	"net"
 	"strings"
 )
@@ -52,6 +53,13 @@ func (p *ProxyConfig) Init() (*ProxyConfig, error) {
 	}
 	if len(p.IPHeaders) == 0 {
 		p.IPHeaders = []string{"X-Forwarded-For", "X-Real-IP"}
+	}
+	// Forwarded headers are only believed from a listed proxy, so an empty list
+	// means they are all ignored. That is the safe reading, but it is not what
+	// an operator who enabled the feature expects, so say so.
+	if len(p.trustedNetworks) == 0 {
+		return p, fmt.Errorf("forwardedHeaders are enabled but trustedProxies is empty: " +
+			"list the proxies in front of the gateway, or disable the feature")
 	}
 	return p, nil
 }

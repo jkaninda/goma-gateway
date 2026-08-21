@@ -141,20 +141,32 @@ func tooManyRequestsResponse(w http.ResponseWriter, r *http.Request, ttl time.Du
 func (basicAuth *AuthBasic) validateCredentials(username, password string) bool {
 	if basicAuth.Ldap != nil {
 		return basicAuth.Ldap.authenticateLDAP(username, password)
-	} else {
-		for _, user := range basicAuth.Users {
-			if username == user.Username {
-				ok, err := ValidatePassword(password, user.Password)
-				if err != nil {
-					logger.Error("Password validation error", "err", err)
-					return false
-				}
-				return ok
+	}
+
+	for _, user := range basicAuth.Users {
+		if subtle.ConstantTimeCompare([]byte(username), []byte(user.Username)) == 1 {
+			ok, err := ValidatePassword(password, user.Password)
+			if err != nil {
+				logger.Error("Password validation error", "err", err)
+				return false
 			}
+			return ok
 		}
+	}
+
+	// Verify against a decoy so an unknown username costs what a known one
+	// costs. Returning early would let a caller tell the two apart by timing
+	// and enumerate the user list.
+	if _, err := ValidatePassword(password, decoyPasswordHash); err != nil {
+		logger.Debug("Decoy password validation failed", "err", err)
 	}
 	return false
 }
+
+// decoyPasswordHash exists only so an unknown username performs the same work
+// as a known one. Its plaintext is unused; the comparison is what matters, and
+// its result is discarded.
+const decoyPasswordHash = "$2a$10$cuP9xB2TreX18wJ0JYFV8OZTcSx6oKukzmwR6UYaO068wA2NNzEM6"
 
 func ValidatePassword(plain, hash string) (bool, error) {
 	switch {
