@@ -15,7 +15,7 @@ The **JWT Middleware** validates JSON Web Tokens (JWT) in incoming requests to e
 middlewares:
   - name: jwt-auth
     type: jwtAuth
-    paths: ["/*"]
+    paths: ["/.*"]
     rule:
       secret: "your-secret-key-here"
       algorithms: ["HS256"]
@@ -120,6 +120,10 @@ Use `claimsExpression` to implement complex validation logic with boolean expres
 | `Contains` | Value exists in string/array | `Contains(claim, value)`        | `Contains('roles', 'admin')`         |
 | `OneOf`    | Value matches any option     | `OneOf(claim, val1, val2, ...)` | `OneOf('plan', 'pro', 'enterprise')` |
 
+Claim keys and string values may be quoted with single quotes, double quotes or
+backticks. A bare literal is accepted for a value, so `Equals('active', true)`
+and ``Equals(`active`, `true`)`` mean the same thing.
+
 ### Logical Operators
 
 - `!` — NOT (highest precedence)
@@ -185,7 +189,7 @@ can set for themselves cannot inject a second header into the proxied request.
 
 The deprecated flat `forwardHeaders` map still works and is merged into
 `forward.headers`, which takes precedence key by key. The same claim path syntax
-is used by the [OAuth middleware](oauth.md).
+is used by the [OpenID Connect middleware](oidc.md).
 
 ## Complete Examples
 
@@ -195,7 +199,7 @@ is used by the [OAuth middleware](oauth.md).
 middlewares:
   - name: simple-jwt
     type: jwtAuth
-    paths: ["/api/*"]
+    paths: ["/api/.*"]
     rule:
       secret: "your-256-bit-secret"
       algorithms: ["HS256"]
@@ -208,7 +212,7 @@ middlewares:
 middlewares:
   - name: enterprise-jwt
     type: jwtAuth
-    paths: ["/*"]
+    paths: ["/.*"]
     rule:
       jwksUrl: "https://auth.company.com/.well-known/jwks.json"
       issuer: "https://auth.company.com"
@@ -234,7 +238,7 @@ middlewares:
 middlewares:
   - name: tenant-jwt
     type: jwtAuth
-    paths: ["/tenant/*/api/*"]
+    paths: ["/tenant/.*/api/.*"]
     rule:
       publicKey: "/etc/ssl/jwt-public.pem"
       algorithms: ["RS256"]

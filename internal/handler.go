@@ -206,40 +206,6 @@ func (heathRoute HealthCheckRoute) HealthReadyHandler(w http.ResponseWriter, r *
 	}
 }
 
-// callbackHandler handles oauth callback
-func (oauthRuler *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r *http.Request) {
-	oauthConfig := oauth2Config(oauthRuler)
-	// Verify the state to protect against CSRF
-	if r.URL.Query().Get("state") != oauthRuler.State {
-		http.Error(w, "Invalid state", http.StatusBadRequest)
-		return
-	}
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		http.Error(w, "Missing code", http.StatusBadRequest)
-		return
-	}
-	// Exchange the authorization code for an access token
-	token, err := oauthConfig.Exchange(context.Background(), code)
-	if err != nil {
-		logger.Error("Failed to exchange token", "error", err)
-		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
-		return
-	}
-	http.SetCookie(w, middlewares.NewAuthCookie(r, GomaAccessToken, token.AccessToken, oauthRuler.CookiePath))
-	if token.RefreshToken != "" {
-		http.SetCookie(w, middlewares.NewAuthCookie(r, GomaRefreshToken, token.RefreshToken, oauthRuler.CookiePath))
-	}
-	// The ID token is the provider's identity assertion: it is what the
-	// middleware verifies and reads the user's claims from.
-	if idToken, ok := token.Extra("id_token").(string); ok && idToken != "" {
-		http.SetCookie(w, middlewares.NewAuthCookie(r, GomaIDToken, idToken, oauthRuler.CookiePath))
-	}
-
-	// Redirect to the home page or another protected route
-	http.Redirect(w, r, oauthRuler.RedirectPath, http.StatusSeeOther)
-}
-
 // ComputeStatusCode computes the HTTP status code according to the given error.
 func ComputeStatusCode(err error) int {
 	switch {

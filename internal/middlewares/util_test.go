@@ -41,3 +41,65 @@ func TestValidateMD5Crypt(t *testing.T) {
 
 	fmt.Printf("Generated hash: %s\n", newHash)
 }
+
+// Path fixtures shared by the package's tests.
+const (
+	testAllPaths      = "/.*"
+	testAdminWildcard = "/admin/*"
+)
+
+// A pattern that is not a regular expression must not stop the ones beside it
+// from being matched, and it still matches as a wildcard.
+func TestPathMatchingMixesWildcardsAndRegex(t *testing.T) {
+	paths := []string{"/legacy/*", "/api/v[0-9]+/.*"}
+
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"/api/v2/users", true},   // regex, listed after the invalid pattern
+		{"/api/v10/users", true},  // regex again
+		{"/legacy/reports", true}, // wildcard fallback
+		{"/legacy", true},         // wildcard fallback, base path
+		{"/public", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			if got := isPathMatching(test.path, "/", paths); got != test.want {
+				t.Errorf("isPathMatching(%q, %v) = %v, want %v", test.path, paths, got, test.want)
+			}
+		})
+	}
+}
+
+func TestRegexHint(t *testing.T) {
+	tests := map[string]string{
+		"/*":              testAllPaths,
+		testAdminWildcard: "/admin/.*",
+		"/tenant/*/api/*": "/tenant/.*/api/.*",
+		"/already/.*":     "/already/.*",
+		"/exact":          "/exact",
+	}
+	for pattern, want := range tests {
+		if got := regexHint(pattern); got != want {
+			t.Errorf("regexHint(%q) = %q, want %q", pattern, got, want)
+		}
+	}
+}
+
+// An unusable pattern is compiled once and reported once, not on every request.
+func TestPatternCompilationIsCached(t *testing.T) {
+	pattern := "/uncacheable-[test/*"
+	compiledPatterns.Delete(pattern)
+
+	first := compilePattern(pattern)
+	second := compilePattern(pattern)
+
+	if first != second {
+		t.Error("compilePattern returned a new entry for a pattern it had already seen")
+	}
+	if first.err == nil {
+		t.Error("compilePattern reported an invalid pattern as valid")
+	}
+}

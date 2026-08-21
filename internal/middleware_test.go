@@ -46,7 +46,7 @@ func TestMiddleware(t *testing.T) {
 		{
 			Name:  "forwardAuth",
 			Type:  forwardAuth,
-			Paths: []string{"/*"},
+			Paths: []string{"/.*"},
 			Rule: ForwardAuthRuleMiddleware{
 				AuthURL: "http://localhost:8080/readyz",
 			},
@@ -83,10 +83,10 @@ func TestMiddleware(t *testing.T) {
 			Name: "api-forbidden-paths",
 			Type: AccessMiddleware,
 			Paths: []string{
-				"/swagger-ui/*",
-				"/v2/swagger-ui/*",
-				"/api-docs/*",
-				"/actuator/*",
+				"/swagger-ui/.*",
+				"/v2/swagger-ui/.*",
+				"/api-docs/.*",
+				"/actuator/.*",
 			},
 		},
 	}

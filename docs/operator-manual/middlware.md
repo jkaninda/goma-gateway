@@ -170,7 +170,7 @@ spec:
   type: basic
   paths:
     - /admin       # exact
-    - /admin/*     # subpaths
+    - /admin/.*     # subpaths
   rule:
     realm: admin
     users:

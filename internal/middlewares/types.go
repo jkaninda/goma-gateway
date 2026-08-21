@@ -146,37 +146,6 @@ type InterceptErrors struct {
 	Origins     []string
 }
 
-type Oauth struct {
-	// Route path
-	Path string
-	// Route protected path
-	Paths []string
-	// ClientID is the application's ID.
-	ClientID string
-	// ClientSecret is the application's secret.
-	ClientSecret string
-	// Endpoint contains the resource server's token endpoint
-	Endpoint OauthEndpoint
-	// RedirectURL is the URL to redirect users going through
-	// the OAuth flow, after the resource owner's URLs.
-	RedirectURL string
-	// Scope specifies optional requested permissions.
-	Scopes []string
-	// contains filtered or unexported fields
-	State      string
-	Origins    []string
-	CookiePath string
-	Provider   string
-	// Issuer and Audience, when set, are enforced on JWT access tokens. The ID
-	// token's audience is always checked against ClientID, as OIDC requires.
-	Issuer   string
-	Audience string
-	// ClaimsSource lists where user claims are read from, in increasing order of
-	// precedence. Defaults to DefaultClaimsSource.
-	ClaimsSource []string
-	// Forward projects the authenticated user's claims onto the upstream request.
-	Forward *ClaimMapper
-}
 type OauthEndpoint struct {
 	AuthURL     string
 	TokenURL    string

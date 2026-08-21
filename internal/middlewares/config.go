@@ -17,15 +17,6 @@
 
 package middlewares
 
-import (
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/amazon"
-	"golang.org/x/oauth2/facebook"
-	"golang.org/x/oauth2/github"
-	"golang.org/x/oauth2/gitlab"
-	"golang.org/x/oauth2/google"
-)
-
 // OAuth provider identifiers.
 const (
 	ProviderCustom   = "custom"
@@ -35,34 +26,3 @@ const (
 	ProviderAmazon   = "amazon"
 	ProviderFacebook = "facebook"
 )
-
-func oauth2Config(oauth *Oauth) *oauth2.Config {
-	config := &oauth2.Config{
-		ClientID:     oauth.ClientID,
-		ClientSecret: oauth.ClientSecret,
-		RedirectURL:  oauth.RedirectURL,
-		Scopes:       oauth.Scopes,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  oauth.Endpoint.AuthURL,
-			TokenURL: oauth.Endpoint.TokenURL,
-		},
-	}
-	switch oauth.Provider {
-	case ProviderGoogle:
-		config.Endpoint = google.Endpoint
-	case ProviderAmazon:
-		config.Endpoint = amazon.Endpoint
-	case ProviderFacebook:
-		config.Endpoint = facebook.Endpoint
-	case ProviderGitHub:
-		config.Endpoint = github.Endpoint
-	case ProviderGitLab:
-		config.Endpoint = gitlab.Endpoint
-	default:
-		if oauth.Provider != ProviderCustom {
-			logger.Error("Unknown provider,", "provider", oauth.Provider)
-		}
-
-	}
-	return config
-}

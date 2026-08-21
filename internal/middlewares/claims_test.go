@@ -27,13 +27,13 @@ import (
 
 func testClaims() map[string]interface{} {
 	return map[string]interface{}{
-		claimSub:         testSubject,
-		claimEmail:       testEmail,
-		"email_verified": true,
-		"given_name":     "Ada",
-		"family_name":    "Lovelace",
-		claimGroups:      []interface{}{testGroup, "engineering"},
-		claimExp:         float64(1893456000),
+		claimSub:           testSubject,
+		claimEmail:         testEmail,
+		claimEmailVerified: true,
+		"given_name":       "Ada",
+		"family_name":      "Lovelace",
+		claimGroups:        []interface{}{testGroup, "engineering"},
+		claimExp:           float64(1893456000),
 		"resource_access": map[string]interface{}{
 			"app": map[string]interface{}{"tenant": testTenant},
 		},
@@ -44,7 +44,7 @@ func TestClaimMapperHeaders(t *testing.T) {
 	mapper := &ClaimMapper{Headers: map[string]string{
 		headerUser:        claimSub,
 		headerEmail:       "email",
-		"X-Auth-Verified": "email_verified",
+		"X-Auth-Verified": claimEmailVerified,
 		headerGroup:       "groups",
 		"X-Auth-Tenant":   "resource_access.app.tenant",
 		headerName:        "{{ .given_name }} {{ .family_name }}",
@@ -191,18 +191,18 @@ func TestClaimMapperBoundsValueSize(t *testing.T) {
 }
 
 func TestClaimMapperForwardTokens(t *testing.T) {
-	mapper := &ClaimMapper{AccessTokenHeader: "Authorization", IDTokenHeader: "X-Auth-Id-Token"}
+	mapper := &ClaimMapper{AccessTokenHeader: "Authorization", IDTokenHeader: headerIDToken}
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.Header.Set("Authorization", "Bearer forged")
-	request.Header.Set("X-Auth-Id-Token", "forged")
+	request.Header.Set(headerIDToken, "forged")
 	mapper.Strip(request)
-	mapper.ForwardTokens(request, "access-token", "id-token")
+	mapper.ForwardTokens(request, "access-token", testIDToken)
 
 	if got := request.Header.Get("Authorization"); got != "Bearer access-token" {
 		t.Errorf("Authorization = %q, want the session's access token", got)
 	}
-	if got := request.Header.Get("X-Auth-Id-Token"); got != "id-token" {
+	if got := request.Header.Get(headerIDToken); got != testIDToken {
 		t.Errorf("X-Auth-Id-Token = %q, want the session's ID token", got)
 	}
 }

@@ -79,8 +79,8 @@ func TestIsMatchingPathCaseInsensitive(t *testing.T) {
 		{adminPath, adminPath, true},
 		{"/Admin", adminPath, true}, // case bypass must not work
 		{"/ADMIN", adminPath, true},
-		{"/admin/users", "/admin/*", true},
-		{"/Admin/Users", "/admin/*", true}, // case bypass on wildcard
+		{"/admin/users", testAdminWildcard, true},
+		{"/Admin/Users", testAdminWildcard, true}, // case bypass on wildcard
 		{"/public", adminPath, false},
 		{"/administrator", adminPath, false}, // exact rule, not a prefix
 	}

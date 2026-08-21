@@ -174,27 +174,66 @@ func isJson(s string) bool {
 	return err == nil
 }
 
-// checkRegexMatch checks if the given string matches any regex pattern from the list.
-func checkRegexMatch(input string, patterns []string) (bool, string, error) {
-	for _, pattern := range patterns {
-		matcher, err := regexp.Compile(pattern)
-		if err != nil {
-			return false, "", fmt.Errorf("invalid regex pattern: %s, error: %w", pattern, err)
+// compiledPatterns caches path patterns, including the ones that do not compile,
+// so a pattern is compiled once rather than on every request and an unusable one
+// is reported once rather than every time it is passed over.
+var compiledPatterns sync.Map // pattern -> *compiledPattern
+
+type compiledPattern struct {
+	regex *regexp.Regexp
+	err   error
+}
+
+func compilePattern(pattern string) *compiledPattern {
+	if cached, ok := compiledPatterns.Load(pattern); ok {
+		return cached.(*compiledPattern)
+	}
+
+	regex, err := regexp.Compile(pattern)
+	entry := &compiledPattern{regex: regex, err: err}
+	if _, alreadyStored := compiledPatterns.LoadOrStore(pattern, entry); !alreadyStored && err != nil {
+		logger.Warn("Path pattern is not a valid regular expression, matching it as a wildcard instead",
+			"pattern", pattern, "regexForm", regexHint(pattern))
+	}
+	return entry
+}
+
+// regexHint rewrites a wildcard pattern as the regular expression that means
+// the same thing, so the warning says what to change it to.
+func regexHint(pattern string) string {
+	var hint strings.Builder
+	for index, character := range pattern {
+		if character == '*' && (index == 0 || pattern[index-1] != '.') {
+			hint.WriteString(".*")
+			continue
 		}
-		if matcher.MatchString(input) {
-			return true, pattern, nil
+		hint.WriteRune(character)
+	}
+	return hint.String()
+}
+
+// checkRegexMatch checks if the given string matches any regex pattern from the
+// list. A pattern that is not a regular expression is passed over rather than
+// abandoning the whole list: one wildcard entry must not stop the regular
+// expressions beside it from being matched.
+func checkRegexMatch(input string, patterns []string) (bool, string) {
+	for _, pattern := range patterns {
+		compiled := compilePattern(pattern)
+		if compiled.err != nil {
+			continue
+		}
+		if compiled.regex.MatchString(input) {
+			return true, pattern
 		}
 	}
-	return false, "", nil
+	return false, ""
 }
 
 // isPathMatching checks if the urlPath matches any regex pattern or static path from the list.
 func isPathMatching(urlPath, prefix string, paths []string) bool {
 	// Check if the string matches any regex pattern
-	if matched, _, err := checkRegexMatch(urlPath, paths); err == nil && matched {
+	if matched, _ := checkRegexMatch(urlPath, paths); matched {
 		return true
-	} else if err != nil {
-		logger.Error("Error", "error", err.Error())
 	}
 
 	// Check without and with the route prefix
@@ -210,10 +249,8 @@ func isPathMatching(urlPath, prefix string, paths []string) bool {
 // IsPathMatching checks if the urlPath matches any regex pattern or static path from the list.
 func IsPathMatching(urlPath, prefix string, paths []string) (bool, string) {
 	// Check if the string matches any regex pattern
-	if matched, path, err := checkRegexMatch(urlPath, paths); err == nil && matched {
+	if matched, path := checkRegexMatch(urlPath, paths); matched {
 		return true, path
-	} else if err != nil {
-		logger.Error("Error", "error", err.Error())
 	}
 
 	// Check without and with the route prefix

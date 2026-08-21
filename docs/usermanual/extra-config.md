@@ -101,7 +101,7 @@ middlewares:
     type: basicAuth
     paths:
       - /user
-      - /admin/*
+      - /admin/.*
       - /account
     rule:
       realm: your-realm
@@ -114,11 +114,11 @@ middlewares:
   - name: extra-api-forbidden-paths
     type: access
     paths:
-      - /swagger-ui/*
-      - /v2/swagger-ui/*
-      - /api-docs/*
-      - /internal/*
-      - /actuator/*
+      - /swagger-ui/.*
+      - /v2/swagger-ui/.*
+      - /api-docs/.*
+      - /internal/.*
+      - /actuator/.*
 ```
 
 ---

@@ -18,23 +18,28 @@
 package internal
 
 const (
-	ConfigDir                            = "/etc/goma/" // Default configuration file
-	ExtraDir                             = ConfigDir + "extra"
-	ConfigFile                           = "/etc/goma/goma.yml"          // Default configuration file
-	accessControlAllowOrigin             = "Access-Control-Allow-Origin" // Cors
-	GatewayName                          = "Goma Gateway"
-	applicationJson                      = "application/json"
-	CertsPath                            = ConfigDir + "certs"
-	CtxRequestStartTime       contextKey = "requestStartTime"
-	CtxRequestIDHeader        contextKey = "requestID"
-	CtxSelectedBackend        contextKey = "selectedBackend"
-	RequestIDHeader                      = "X-Goma-Request-ID"
-	GomaAccessToken                      = "goma_access_token"
-	GomaRefreshToken                     = "goma_refresh_token"
-	GomaIDToken                          = "goma_id_token"
-	StatusClientClosedRequest            = 499
-	acmeServerURL                        = "localhost:5002"
-	visitorPrefix                        = "visitor-"
+	ConfigDir                           = "/etc/goma/" // Default configuration file
+	ExtraDir                            = ConfigDir + "extra"
+	ConfigFile                          = "/etc/goma/goma.yml"          // Default configuration file
+	accessControlAllowOrigin            = "Access-Control-Allow-Origin" // Cors
+	GatewayName                         = "Goma Gateway"
+	applicationJson                     = "application/json"
+	CertsPath                           = ConfigDir + "certs"
+	CtxRequestStartTime      contextKey = "requestStartTime"
+	CtxRequestIDHeader       contextKey = "requestID"
+	CtxSelectedBackend       contextKey = "selectedBackend"
+	RequestIDHeader                     = "X-Goma-Request-ID"
+	GomaAccessToken                     = "goma_access_token"
+	GomaRefreshToken                    = "goma_refresh_token"
+	GomaIDToken                         = "goma_id_token"
+
+	// SameSite cookie attribute values, as written in the configuration.
+	sameSiteStrict            = "strict"
+	sameSiteLax               = "lax"
+	sameSiteNone              = "none"
+	StatusClientClosedRequest = 499
+	acmeServerURL             = "localhost:5002"
+	visitorPrefix             = "visitor-"
 )
 
 // ************** Built-In Middlewares types ***************
@@ -46,8 +51,9 @@ const (
 	LDAPAuthMiddleware  MiddlewareType = "ldapAuth"  // JWT authentication middlewares
 	LDAPAuth            MiddlewareType = "ldap"      // JWT authentication middlewares
 	JWTAuth             MiddlewareType = "jwtAuth"   // JWT authentication middlewares
-	OAuth               MiddlewareType = "oauth"     // OAuth authentication middlewares
-	OAuth2              MiddlewareType = "oauth2"    // OAuth authentication middlewares
+	OIDC                MiddlewareType = "oidc"      // OpenID Connect authentication middlewares
+	OAuth               MiddlewareType = "oauth"     // Deprecated: use oidc
+	OAuth2              MiddlewareType = "oauth2"    // Deprecated: use oidc
 	accessPolicy        MiddlewareType = "accessPolicy"
 	addPrefix           MiddlewareType = "addPrefix"
 	rateLimit           MiddlewareType = "rateLimit"
