@@ -20,7 +20,6 @@ package middlewares
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jkaninda/goma-gateway/util"
 	"html"
 	"net"
 	"net/http"
@@ -29,6 +28,8 @@ import (
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/jkaninda/goma-gateway/util"
 )
 
 var htmlCache = make(map[string][]byte)
@@ -189,7 +190,7 @@ func compilePattern(pattern string) *compiledPattern {
 		return cached.(*compiledPattern)
 	}
 
-	regex, err := regexp.Compile(pattern)
+	regex, err := regexp.Compile("(?i)" + pattern)
 	entry := &compiledPattern{regex: regex, err: err}
 	if _, alreadyStored := compiledPatterns.LoadOrStore(pattern, entry); !alreadyStored && err != nil {
 		logger.Warn("Path pattern is not a valid regular expression, matching it as a wildcard instead",

@@ -103,3 +103,19 @@ func TestPatternCompilationIsCached(t *testing.T) {
 		t.Error("compilePattern reported an invalid pattern as valid")
 	}
 }
+
+// Path rules must not be escapable by changing the case of the request path:
+// many backends treat /Admin and /admin as the same resource, so a rule written
+// for one has to cover the other.
+func TestPathMatchingIsCaseInsensitive(t *testing.T) {
+	for _, pattern := range []string{testAdminWildcard, "/admin/.*", "/admin/[a-z]+"} {
+		for _, path := range []string{"/admin/users", "/Admin/users", "/ADMIN/USERS"} {
+			if !isPathMatching(path, "/", []string{pattern}) {
+				t.Errorf("isPathMatching(%q, [%q]) = false, want true", path, pattern)
+			}
+		}
+		if isPathMatching("/public/page", "/", []string{pattern}) {
+			t.Errorf("isPathMatching(%q, [%q]) = true, want false", "/public/page", pattern)
+		}
+	}
+}
