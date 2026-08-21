@@ -27,7 +27,7 @@ When enabled, Goma inspects specific headers (such as `X-Forwarded-For`) **only*
 | Key              | Type       | Default                            | Description                                                                      |
 |------------------|------------|------------------------------------|----------------------------------------------------------------------------------|
 | `enabled`        | `bool`     | `false`                            | Enables proxy mode. Set to `true` if Goma runs behind a reverse proxy or CDN.    |
-| `trustedProxies` | `[]string` | `[]`                               | List of trusted proxy IP addresses or CIDR ranges allowed to forward client IPs. |
+| `trustedProxies` | `[]string` | `[]`                               | **Required when `enabled` is `true`.** Proxy IP addresses or CIDR ranges allowed to forward client IPs. An empty list means no proxy is trusted, so every forwarded header is ignored. |
 | `ipHeaders`      | `[]string` | `["X-Forwarded-For", "X-Real-IP"]` | Ordered list of HTTP headers to check for the original client IP.                |
 
 ---
@@ -40,8 +40,10 @@ When enabled, Goma inspects specific headers (such as `X-Forwarded-For`) **only*
 gateway:
   proxy:
     enabled: true
+    trustedProxies:
+      - "10.0.0.0/8"                  # the proxy in front of Goma — required
     # Default headers X-Forwarded-For and X-Real-IP will be used
-   # ipHeaders: ["CF-Connecting-IP"] 
+    # ipHeaders: ["CF-Connecting-IP"]
 ```
 
 >  Full Example
@@ -63,6 +65,55 @@ gateway:
       - "True-Client-IP"
       - "Forwarded"
 ```
+
+---
+
+### Behind Cloudflare
+
+Cloudflare connects to your origin from its own network, so those ranges are
+what `trustedProxies` has to contain. Cloudflare publishes them, and they do
+change — take them from the source rather than copying a list out of a blog
+post:
+
+* IPv4 — [https://www.cloudflare.com/ips-v4](https://www.cloudflare.com/ips-v4)
+* IPv6 — [https://www.cloudflare.com/ips-v6](https://www.cloudflare.com/ips-v6)
+* Both, as JSON — [https://api.cloudflare.com/client/v4/ips](https://api.cloudflare.com/client/v4/ips)
+* Reference — [Cloudflare IP Ranges](https://www.cloudflare.com/ips/)
+
+```yaml
+gateway:
+  proxy:
+    enabled: true
+    trustedProxies:
+      # From https://www.cloudflare.com/ips-v4 — abridged; use the full list.
+      - "173.245.48.0/20"
+      - "103.21.244.0/22"
+      - "104.16.0.0/13"
+      - "131.0.72.0/22"
+      # From https://www.cloudflare.com/ips-v6
+      - "2400:cb00::/32"
+      - "2606:4700::/32"
+      - "2803:f800::/32"
+    ipHeaders:
+      - "CF-Connecting-IP"            # Cloudflare sets this on every request
+      - "X-Forwarded-For"
+```
+
+`CF-Connecting-IP` is only worth trusting because of the list above. Cloudflare
+overwrites that header on every request it proxies, so it cannot be forged — but
+only for connections that genuinely came from Cloudflare. If Goma accepted it
+from any source, a caller could set it directly and choose their own IP, which
+is why an empty `trustedProxies` disables the feature rather than trusting
+everyone.
+
+Keep the list current. Cloudflare announces changes on its
+[IP ranges page](https://www.cloudflare.com/ips/); a range added after you
+copied the list will simply stop being trusted, and requests through it fall
+back to the connecting address.
+
+> Origins reachable only through Cloudflare should also be firewalled to those
+> ranges. Otherwise anyone who learns the origin address can bypass Cloudflare
+> altogether, and no header configuration will help.
 
 ---
 
