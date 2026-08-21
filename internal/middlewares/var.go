@@ -18,16 +18,19 @@
 package middlewares
 
 import (
+	"regexp"
+
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/jkaninda/goma-gateway/internal/config"
 	logger2 "github.com/jkaninda/logger"
 	"github.com/redis/go-redis/v9"
-	"regexp"
 )
 
 const (
 	GomaAccessToken            = "goma_access_token"
 	GomaRefreshToken           = "goma_refresh_token"
+	GomaIDToken                = "goma_id_token"
+	contentTypeHTML            = "text/html"
 	constGomaCacheHeader       = "X-Goma-Cache"
 	constGomaCacheMaxAgeHeader = "X-Goma-Cache-Max-Age"
 )

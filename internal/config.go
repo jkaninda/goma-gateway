@@ -20,6 +20,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"strconv"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"github.com/jkaninda/goma-gateway/util"
 	logger2 "github.com/jkaninda/logger"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/amazon"
 	"golang.org/x/oauth2/facebook"
@@ -793,13 +795,102 @@ func (l LogEnrichRule) validate() error {
 
 // oAuthMiddleware returns OauthRulerMiddleware, error
 func (oauthRuler *OauthRulerMiddleware) validate() error {
-	if oauthRuler.ClientID == "" || oauthRuler.ClientSecret == "" || oauthRuler.RedirectURL == "" {
-		return fmt.Errorf("error parsing yaml: empty clientId/secretId in %s middlewares", oauthRuler)
+	oauthRuler.applyProviderDefaults()
 
+	if oauthRuler.ClientID == "" || oauthRuler.ClientSecret == "" || oauthRuler.RedirectURL == "" {
+		return fmt.Errorf("error parsing yaml: empty clientId/clientSecret/redirectUrl in oauth middleware for provider %q", oauthRuler.Provider)
+	}
+
+	if oauthRuler.Endpoint.JwksURL == "" && oauthRuler.Endpoint.UserInfoURL == "" {
+		return fmt.Errorf("error parsing yaml: oauth middleware requires endpoint.jwksUrl or endpoint.userInfoUrl to verify tokens")
+	}
+	for _, source := range oauthRuler.ClaimsSource {
+		switch source {
+		case middlewares.ClaimSourceIDToken, middlewares.ClaimSourceUserInfo, middlewares.ClaimSourceAccessToken:
+		default:
+			return fmt.Errorf("error parsing yaml: unknown claimsSource %q, expected one of id_token, userinfo, access_token", source)
+		}
+	}
+	return oauthRuler.Forward.validate()
+}
+
+// validate checks the claim projection rule.
+func (f *ForwardClaimsRule) validate() error {
+	if f == nil {
+		return nil
+	}
+	switch f.Encoding {
+	case "", middlewares.ClaimEncodingAuto, middlewares.ClaimEncodingRaw:
+	default:
+		return fmt.Errorf("error parsing yaml: unknown forward.encoding %q, expected auto or raw", f.Encoding)
+	}
+	if f.StripInbound != nil && !*f.StripInbound {
+		logger.Warn("Claim forwarding has stripInbound disabled, clients can forge the forwarded identity headers")
 	}
 	return nil
 }
-func oauthRulerMiddleware(oauth middlewares.Oauth) *OauthRulerMiddleware {
+
+// claimMapper builds the shared claim projector. legacyHeaders carries the
+// deprecated flat forwardHeaders map; keys also present in forward.headers are
+// overridden by it.
+func claimMapper(rule *ForwardClaimsRule, legacyHeaders map[string]string) *middlewares.ClaimMapper {
+	mapper := &middlewares.ClaimMapper{}
+	if len(legacyHeaders) > 0 {
+		mapper.Headers = maps.Clone(legacyHeaders)
+	}
+	if rule != nil {
+		if len(rule.Headers) > 0 {
+			if mapper.Headers == nil {
+				mapper.Headers = make(map[string]string, len(rule.Headers))
+			}
+			maps.Copy(mapper.Headers, rule.Headers)
+		}
+		mapper.Query = rule.Query
+		mapper.Cookies = rule.Cookies
+		mapper.StripInbound = rule.StripInbound
+		mapper.ArraySeparator = rule.ArraySeparator
+		mapper.Encoding = rule.Encoding
+		mapper.MaxValueBytes = rule.MaxValueBytes
+		mapper.AccessTokenHeader = rule.AccessTokenHeader
+		mapper.IDTokenHeader = rule.IDTokenHeader
+	}
+	if !mapper.Enabled() {
+		return nil
+	}
+	return mapper
+}
+
+// applyProviderDefaults fills in the endpoints a well-known provider does not
+// need spelled out in the configuration.
+func (oauthRuler *OauthRulerMiddleware) applyProviderDefaults() {
+	if oauthRuler.Provider == "" {
+		oauthRuler.Provider = middlewares.ProviderCustom
+	}
+	switch oauthRuler.Provider {
+	case middlewares.ProviderGoogle:
+		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://www.googleapis.com/oauth2/v2/userinfo")
+		setIfEmpty(&oauthRuler.Endpoint.JwksURL, "https://www.googleapis.com/oauth2/v3/certs")
+	case middlewares.ProviderFacebook:
+		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://graph.facebook.com/me?fields=id,name,email")
+	case middlewares.ProviderGitHub:
+		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://api.github.com/user")
+	case middlewares.ProviderGitLab:
+		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://gitlab.com/oauth/userinfo")
+		setIfEmpty(&oauthRuler.Endpoint.JwksURL, "https://gitlab.com/oauth/discovery/keys")
+	case middlewares.ProviderAmazon:
+		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://api.amazon.com/user/profile")
+	case middlewares.ProviderCustom:
+	default:
+		logger.Error("Unknown oauth provider", "provider", oauthRuler.Provider)
+	}
+}
+
+func setIfEmpty(field *string, value string) {
+	if *field == "" {
+		*field = value
+	}
+}
+func oauthRulerMiddleware(oauth *middlewares.Oauth) *OauthRulerMiddleware {
 	return &OauthRulerMiddleware{
 		ClientID:     oauth.ClientID,
 		ClientSecret: oauth.ClientSecret,
@@ -813,6 +904,8 @@ func oauthRulerMiddleware(oauth middlewares.Oauth) *OauthRulerMiddleware {
 			UserInfoURL: oauth.Endpoint.UserInfoURL,
 			JwksURL:     oauth.Endpoint.JwksURL,
 		},
+		Issuer:   oauth.Issuer,
+		Audience: oauth.Audience,
 	}
 }
 func oauth2Config(oauth *OauthRulerMiddleware) *oauth2.Config {
@@ -826,31 +919,18 @@ func oauth2Config(oauth *OauthRulerMiddleware) *oauth2.Config {
 			TokenURL: oauth.Endpoint.TokenURL,
 		},
 	}
+	oauth.applyProviderDefaults()
 	switch oauth.Provider {
-	case "google":
+	case middlewares.ProviderGoogle:
 		conf.Endpoint = google.Endpoint
-		if oauth.Endpoint.UserInfoURL == "" {
-			oauth.Endpoint.UserInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
-		}
-	case "amazon":
+	case middlewares.ProviderAmazon:
 		conf.Endpoint = amazon.Endpoint
-	case "facebook":
+	case middlewares.ProviderFacebook:
 		conf.Endpoint = facebook.Endpoint
-		if oauth.Endpoint.UserInfoURL == "" {
-			oauth.Endpoint.UserInfoURL = "https://graph.facebook.com/me"
-		}
-	case "github":
+	case middlewares.ProviderGitHub:
 		conf.Endpoint = github.Endpoint
-		if oauth.Endpoint.UserInfoURL == "" {
-			oauth.Endpoint.UserInfoURL = "https://api.github.com/user/repo"
-		}
-	case "gitlab":
+	case middlewares.ProviderGitLab:
 		conf.Endpoint = gitlab.Endpoint
-	default:
-		if oauth.Provider != "custom" {
-			logger.Error(fmt.Sprintf("Unknown provider: %s", oauth.Provider))
-		}
-
 	}
 	return conf
 }

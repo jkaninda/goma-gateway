@@ -611,7 +611,7 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Gro
 		Path:                 route.Path,
 		Paths:                routeMiddleware.Paths,
 		ClaimsExpression:     rule.ClaimsExpression,
-		ForwardHeaders:       rule.ForwardHeaders,
+		Forward:              claimMapper(rule.Forward, rule.ForwardHeaders),
 		ForwardAuthorization: rule.ForwardAuthorization,
 		RsaKey:               key,
 		Algo:                 rule.Alg,
@@ -677,7 +677,7 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group
 		redirectURL = rule.RedirectURL
 	}
 
-	amw := middlewares.Oauth{
+	amw := &middlewares.Oauth{
 		Path:         route.Path,
 		Paths:        routeMiddleware.Paths,
 		ClientID:     rule.ClientID,
@@ -690,10 +690,14 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group
 			UserInfoURL: rule.Endpoint.UserInfoURL,
 			JwksURL:     rule.Endpoint.JwksURL,
 		},
-		State:      rule.State,
-		Origins:    route.Cors.Origins,
-		CookiePath: cookiePath,
-		Provider:   rule.Provider,
+		State:        rule.State,
+		Origins:      route.Cors.Origins,
+		CookiePath:   cookiePath,
+		Provider:     rule.Provider,
+		Issuer:       rule.Issuer,
+		Audience:     rule.Audience,
+		ClaimsSource: rule.ClaimsSource,
+		Forward:      claimMapper(rule.Forward, nil),
 	}
 
 	oauthRuler := oauthRulerMiddleware(amw)
@@ -702,10 +706,6 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group
 	if oauthRuler.RedirectPath == "" {
 		oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
 	}
-	if oauthRuler.Provider == "" {
-		oauthRuler.Provider = "custom"
-	}
-
 	r.Use(amw.AuthMiddleware)
 	// The callback lives inside the route's group, so it is wrapped by the same
 	// middleware, and its exact path outranks the route's catch-all.

@@ -226,18 +226,15 @@ func (oauthRuler *OauthRulerMiddleware) callbackHandler(w http.ResponseWriter, r
 		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     GomaAccessToken,
-		Value:    token.AccessToken,
-		Path:     oauthRuler.CookiePath,
-		HttpOnly: true,
-	})
-	http.SetCookie(w, &http.Cookie{
-		Name:     GomaRefreshToken,
-		Value:    token.RefreshToken,
-		Path:     oauthRuler.CookiePath,
-		HttpOnly: true,
-	})
+	http.SetCookie(w, middlewares.NewAuthCookie(r, GomaAccessToken, token.AccessToken, oauthRuler.CookiePath))
+	if token.RefreshToken != "" {
+		http.SetCookie(w, middlewares.NewAuthCookie(r, GomaRefreshToken, token.RefreshToken, oauthRuler.CookiePath))
+	}
+	// The ID token is the provider's identity assertion: it is what the
+	// middleware verifies and reads the user's claims from.
+	if idToken, ok := token.Extra("id_token").(string); ok && idToken != "" {
+		http.SetCookie(w, middlewares.NewAuthCookie(r, GomaIDToken, idToken, oauthRuler.CookiePath))
+	}
 
 	// Redirect to the home page or another protected route
 	http.Redirect(w, r, oauthRuler.RedirectPath, http.StatusSeeOther)

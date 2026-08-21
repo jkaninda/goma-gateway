@@ -99,12 +99,13 @@ rule:
 | `audience`         | string | Expected `aud` claim value                     | `"api.example.com"`                         |
 | `claimsExpression` | string | Boolean expression for custom claim validation | See [Claims Validation](#claims-validation) |
 
-### Header Forwarding
+### Claim Forwarding
 
-| Option                 | Type    | Description                                                              |
-|------------------------|---------|--------------------------------------------------------------------------|
-| `forwardHeaders`       | map     | Forward JWT claims as HTTP headers to upstream services                  |
-| `forwardAuthorization` | boolean | Whether to forward the original `Authorization` header (default: `true`) |
+| Option                 | Type    | Description                                                                     |
+|------------------------|---------|---------------------------------------------------------------------------------|
+| `forward`              | map     | Project claims onto the upstream request as headers, query parameters and cookies |
+| `forwardHeaders`       | map     | Deprecated: use `forward.headers`                                                |
+| `forwardAuthorization` | boolean | Whether to forward the original `Authorization` header (default: `true`)         |
 
 ## Claims Validation
 
@@ -143,18 +144,48 @@ claimsExpression: >
   !Equals('suspended', true)
 ```
 
-## Header Forwarding
+## Claim Forwarding
 
-Forward JWT claims as HTTP headers to your upstream services:
+Project verified claims onto the request sent to your upstream services:
 
 ```yaml
-forwardHeaders:
-  X-User-ID: sub                    # Standard claim
-  X-User-Email: email               # Standard claim  
-  X-User-Role: user.role            # Nested claim (dot notation)
-  X-Department: profile.department  # Deeply nested claim
-  X-Is-Admin: permissions.admin     # Boolean claims become "true"/"false"
+forward:
+  headers:
+    X-User-ID: sub                    # Standard claim
+    X-User-Email: email               # Standard claim
+    X-User-Role: user.role            # Nested claim (dot notation)
+    X-Department: profile.department  # Deeply nested claim
+    X-Is-Admin: permissions.admin     # Boolean claims become "true"/"false"
+    X-User-Roles: roles               # Array claims are joined with ","
+    X-User-Name: "{{ .given_name }} {{ .family_name }}"   # Template
+  query:
+    uid: sub
+  cookies:
+    app_user: email
 ```
+
+| Option           | Type    | Description                                                                                          |
+|------------------|---------|--------------------------------------------------------------------------------------------------------|
+| `headers`        | map     | Header name → claim path or template.                                                                   |
+| `query`          | map     | Query parameter → claim path or template.                                                               |
+| `cookies`        | map     | Cookie name → claim path or template. Added to the upstream request only, never to the client response. |
+| `stripInbound`   | boolean | Remove client-supplied copies of every mapped key. Default `true`.                                      |
+| `arraySeparator` | string  | Joins array claims. Default `,`.                                                                        |
+| `encoding`       | string  | `auto` (default) base64-encodes non-ASCII values and flags them with a `<Header>-Encoding` companion header; `raw` passes them through. |
+| `maxValueBytes`  | int     | Bounds a single projected value. Default `4096`.                                                        |
+
+Every mapped key is removed from the incoming request before the verified value
+is set, on every path of the route — including the ones this middleware does not
+guard. Without that, a client could send `X-User-Email: admin@example.com` and
+your backend would believe it. Set `stripInbound: false` only when nothing but
+the gateway can reach the upstream.
+
+Control characters are always removed from forwarded values, so a claim a user
+can set for themselves cannot inject a second header into the proxied request.
+
+The deprecated flat `forwardHeaders` map still works and is merged into
+`forward.headers`, which takes precedence key by key. The same claim path syntax
+is used by the [OAuth middleware](oauth.md).
 
 ## Complete Examples
 
@@ -188,12 +219,13 @@ middlewares:
         Equals('email_verified', true) &&
         OneOf('department', 'engineering', 'product', 'security') &&
         !Equals('account_disabled', true)
-      forwardHeaders:
-        X-User-ID: sub
-        X-User-Email: email
-        X-User-Name: name
-        X-User-Department: department
-        X-User-Roles: roles
+      forward:
+        headers:
+          X-User-ID: sub
+          X-User-Email: email
+          X-User-Name: name
+          X-User-Department: department
+          X-User-Roles: roles
 ```
 
 ### Multi-Tenant SaaS
@@ -210,8 +242,9 @@ middlewares:
         Equals('email_verified', true) &&
         Contains('scopes', 'api:read') &&
         OneOf('tenant_role', 'admin', 'user', 'viewer')
-      forwardHeaders:
-        X-Tenant-ID: tenant_id
-        X-User-Role: tenant_role
-        X-Permissions: scopes
+      forward:
+        headers:
+          X-Tenant-ID: tenant_id
+          X-User-Role: tenant_role
+          X-Permissions: scopes
 ```

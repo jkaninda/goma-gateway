@@ -148,16 +148,52 @@ type JWTRuleMiddleware struct {
 	// Algorithms is the list of accepted JWT signing algorithms (e.g.
 	// ["RS256", "ES256"]). When empty, a safe set scoped to the configured key
 	// type is used (HMAC for a shared secret, asymmetric for JWKS/RSA keys).
-	Algorithms           []string          `yaml:"algorithms,omitempty" json:"algorithms,omitempty"`
-	Secret               string            `yaml:"secret,omitempty" json:"secret"`
-	PublicKey            string            `yaml:"publicKey,omitempty" json:"publicKey"`
-	Issuer               string            `yaml:"issuer,omitempty" json:"issuer"`
-	Audience             string            `yaml:"audience,omitempty" json:"audience"`
-	JwksUrl              string            `yaml:"jwksUrl,omitempty" json:"jwksUrl"`
-	JwksFile             string            `yaml:"jwksFile,omitempty" json:"jwksFile"`
-	ForwardAuthorization bool              `yaml:"forwardAuthorization,omitempty" json:"forwardAuthorization"`
-	ClaimsExpression     string            `yaml:"claimsExpression,omitempty" json:"claimsExpression"`
-	ForwardHeaders       map[string]string `yaml:"forwardHeaders,omitempty" json:"forwardHeaders"`
+	Algorithms           []string `yaml:"algorithms,omitempty" json:"algorithms,omitempty"`
+	Secret               string   `yaml:"secret,omitempty" json:"secret"`
+	PublicKey            string   `yaml:"publicKey,omitempty" json:"publicKey"`
+	Issuer               string   `yaml:"issuer,omitempty" json:"issuer"`
+	Audience             string   `yaml:"audience,omitempty" json:"audience"`
+	JwksUrl              string   `yaml:"jwksUrl,omitempty" json:"jwksUrl"`
+	JwksFile             string   `yaml:"jwksFile,omitempty" json:"jwksFile"`
+	ForwardAuthorization bool     `yaml:"forwardAuthorization,omitempty" json:"forwardAuthorization"`
+	ClaimsExpression     string   `yaml:"claimsExpression,omitempty" json:"claimsExpression"`
+	// ForwardHeaders maps upstream headers to claim paths.
+	// Deprecated: use Forward.Headers instead.
+	ForwardHeaders map[string]string `yaml:"forwardHeaders,omitempty" json:"forwardHeaders"`
+	// Forward projects verified claims onto the upstream request as headers,
+	// query parameters and cookies.
+	Forward *ForwardClaimsRule `yaml:"forward,omitempty" json:"forward,omitempty"`
+}
+
+// ForwardClaimsRule configures how a verified user's claims are projected onto
+// the upstream request. Values are claim paths with dot notation for nested
+// objects ("resource_access.app.tenant"), or templates interpolating several
+// of them ("{{ .given_name }} {{ .family_name }}").
+type ForwardClaimsRule struct {
+	// Headers, Query and Cookies map a destination key to a claim path.
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	Query   map[string]string `yaml:"query,omitempty" json:"query,omitempty"`
+	Cookies map[string]string `yaml:"cookies,omitempty" json:"cookies,omitempty"`
+
+	// StripInbound removes any client-supplied copy of the mapped keys before
+	// projecting. Enabled unless explicitly set to false, which is only safe
+	// when nothing but the gateway can reach the upstream.
+	StripInbound *bool `yaml:"stripInbound,omitempty" json:"stripInbound,omitempty"`
+
+	// ArraySeparator joins array claims such as "groups". Defaults to ",".
+	ArraySeparator string `yaml:"arraySeparator,omitempty" json:"arraySeparator,omitempty"`
+
+	// Encoding is "auto" (default), which base64-encodes non-ASCII values and
+	// flags them with a "<Header>-Encoding: base64" companion header, or "raw".
+	Encoding string `yaml:"encoding,omitempty" json:"encoding,omitempty"`
+
+	// MaxValueBytes bounds a single projected value. Defaults to 4096.
+	MaxValueBytes int `yaml:"maxValueBytes,omitempty" json:"maxValueBytes,omitempty"`
+
+	// AccessTokenHeader and IDTokenHeader forward the raw tokens to the upstream
+	// when set, e.g. "Authorization" or "X-Auth-Id-Token".
+	AccessTokenHeader string `yaml:"accessTokenHeader,omitempty" json:"accessTokenHeader,omitempty"`
+	IDTokenHeader     string `yaml:"idTokenHeader,omitempty" json:"idTokenHeader,omitempty"`
 }
 type OauthRulerMiddleware struct {
 	// ClientID is the application's ID.
@@ -182,6 +218,19 @@ type OauthRulerMiddleware struct {
 	Scopes []string `yaml:"scopes" json:"scopes"`
 	// contains filtered or unexported fields
 	State string `yaml:"state" json:"state"`
+
+	// Issuer, when set, is enforced on JWT tokens issued by the provider.
+	Issuer string `yaml:"issuer,omitempty" json:"issuer,omitempty"`
+	// Audience, when set, is enforced on JWT access tokens. The ID token's
+	// audience is always checked against clientId, as OIDC requires.
+	Audience string `yaml:"audience,omitempty" json:"audience,omitempty"`
+
+	// ClaimsSource lists where user claims are read from, in increasing order of
+	// precedence: id_token, userinfo, access_token.
+	ClaimsSource []string `yaml:"claimsSource,omitempty" json:"claimsSource,omitempty"`
+
+	// Forward projects the authenticated user's claims onto the upstream request.
+	Forward *ForwardClaimsRule `yaml:"forward,omitempty" json:"forward,omitempty"`
 }
 type OauthEndpoint struct {
 	AuthURL     string `yaml:"authUrl" json:"authUrl"`

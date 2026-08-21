@@ -31,6 +31,7 @@ const (
 	RequestIDHeader                      = "X-Goma-Request-ID"
 	GomaAccessToken                      = "goma_access_token"
 	GomaRefreshToken                     = "goma_refresh_token"
+	GomaIDToken                          = "goma_id_token"
 	StatusClientClosedRequest            = 499
 	acmeServerURL                        = "localhost:5002"
 	visitorPrefix                        = "visitor-"

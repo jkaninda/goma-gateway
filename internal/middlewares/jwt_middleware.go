@@ -26,6 +26,10 @@ import (
 
 func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Strip the keys the gateway owns before anything else, so a client
+		// cannot supply them on a path this middleware does not guard.
+		jwtAuth.Forward.Strip(r)
+
 		if !isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
 			next.ServeHTTP(w, r)
 			return
@@ -83,12 +87,14 @@ func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			r.Header.Del("Authorization")
 		}
 
-		if jwtAuth.ForwardHeaders != nil {
-			if err := jwtAuth.forwardHeadersFromClaims(token, r.Header); err != nil {
-				logger.Error("Failed to forward headers from claims", "error", err)
+		if jwtAuth.Forward.Enabled() {
+			claims, ok := token.Claims.(jwt.MapClaims)
+			if !ok {
+				logger.Error("Failed to forward claims", "error", "invalid claims format")
 				RespondWithError(w, r, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), jwtAuth.Origins, contentType)
 				return
 			}
+			jwtAuth.Forward.Apply(r, claims)
 		}
 
 		next.ServeHTTP(w, r)
@@ -216,84 +222,4 @@ func (jwtAuth *JwtAuth) validateJWTClaims(token *jwt.Token) (bool, error) {
 	}
 
 	return true, nil // No claims validation configured
-}
-
-// forwardHeadersFromClaims extracts values from JWT claims and sets them as HTTP headers
-func (jwtAuth *JwtAuth) forwardHeadersFromClaims(token *jwt.Token, headers map[string][]string) error {
-	// Get claims as MapClaims
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return fmt.Errorf("invalid claims format")
-	}
-	// Process each header mapping
-	for headerName, claimPath := range jwtAuth.ForwardHeaders {
-		// Extract claim value using nested key traversal with dot notation support
-		claimValue, err := jwtAuth.extractNestedClaimValue(claims, claimPath)
-		if err != nil {
-			logger.Error("Warning: Could not extract claim", "claimPath", claimPath, "error", err)
-			continue
-		}
-
-		// Convert claim value to string
-		headerValue := jwtAuth.formatHeaderValue(claimValue)
-		if headerValue == "" {
-			continue // Skip empty values
-		}
-
-		// Set the header
-		if headers == nil {
-			headers = make(map[string][]string)
-		}
-		headers[headerName] = []string{headerValue}
-	}
-
-	return nil
-}
-
-// extractNestedClaimValue extracts a value from JWT claims using dot notation for nested keys
-func (jwtAuth *JwtAuth) extractNestedClaimValue(claims jwt.MapClaims, claimKey string) (interface{}, error) {
-	// Handle nested keys using dot notation (e.g., "user.profile.email")
-	keys := strings.Split(claimKey, ".")
-	var current interface{} = map[string]interface{}(claims)
-
-	// Traverse nested keys
-	for i, k := range keys {
-		if m, ok := current.(map[string]interface{}); ok {
-			if val, exists := m[k]; exists {
-				current = val
-			} else {
-				return nil, fmt.Errorf("claim key '%s' not found at path '%s'", k, strings.Join(keys[:i+1], "."))
-			}
-		} else {
-			return nil, fmt.Errorf("cannot traverse claim path at key '%s' (expected object, got %T)", k, current)
-		}
-	}
-
-	return current, nil
-}
-
-// formatHeaderValue converts a claim value to a header string
-func (jwtAuth *JwtAuth) formatHeaderValue(claimValue interface{}) string {
-	// Convert claim value to string
-	switch cv := claimValue.(type) {
-	case string:
-		return cv
-	case float64:
-		return fmt.Sprintf("%.0f", cv)
-	case bool:
-		return fmt.Sprintf("%t", cv)
-	case []interface{}:
-		// Join array values with comma
-		var strValues []string
-		for _, v := range cv {
-			if vStr, ok := v.(string); ok {
-				strValues = append(strValues, vStr)
-			} else {
-				strValues = append(strValues, fmt.Sprintf("%v", v))
-			}
-		}
-		return strings.Join(strValues, ",")
-	default:
-		return fmt.Sprintf("%v", cv)
-	}
 }

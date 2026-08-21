@@ -26,7 +26,17 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-func oauth2Config(oauth Oauth) *oauth2.Config {
+// OAuth provider identifiers.
+const (
+	ProviderCustom   = "custom"
+	ProviderGoogle   = "google"
+	ProviderGitHub   = "github"
+	ProviderGitLab   = "gitlab"
+	ProviderAmazon   = "amazon"
+	ProviderFacebook = "facebook"
+)
+
+func oauth2Config(oauth *Oauth) *oauth2.Config {
 	config := &oauth2.Config{
 		ClientID:     oauth.ClientID,
 		ClientSecret: oauth.ClientSecret,
@@ -38,18 +48,18 @@ func oauth2Config(oauth Oauth) *oauth2.Config {
 		},
 	}
 	switch oauth.Provider {
-	case "google":
+	case ProviderGoogle:
 		config.Endpoint = google.Endpoint
-	case "amazon":
+	case ProviderAmazon:
 		config.Endpoint = amazon.Endpoint
-	case "facebook":
+	case ProviderFacebook:
 		config.Endpoint = facebook.Endpoint
-	case "github":
+	case ProviderGitHub:
 		config.Endpoint = github.Endpoint
-	case "gitlab":
+	case ProviderGitLab:
 		config.Endpoint = gitlab.Endpoint
 	default:
-		if oauth.Provider != "custom" {
+		if oauth.Provider != ProviderCustom {
 			logger.Error("Unknown provider,", "provider", oauth.Provider)
 		}
 
