@@ -26,7 +26,7 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-func oauth2Config(oauth Oauth) *oauth2.Config {
+func oauth2Config(oauth *Oauth) *oauth2.Config {
 	config := &oauth2.Config{
 		ClientID:     oauth.ClientID,
 		ClientSecret: oauth.ClientSecret,

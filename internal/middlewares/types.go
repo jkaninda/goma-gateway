@@ -98,9 +98,10 @@ type JwtAuth struct {
 	JwksUrl              string
 	RsaKey               *rsa.PublicKey
 	ClaimsExpression     string
-	ForwardHeaders       map[string]string
 	ForwardAuthorization bool
-	parsedExpression     Expression
+	// Forward projects verified claims onto the upstream request.
+	Forward          *ClaimMapper
+	parsedExpression Expression
 }
 
 // AuthenticationMiddleware Define struct
@@ -166,6 +167,15 @@ type Oauth struct {
 	Origins    []string
 	CookiePath string
 	Provider   string
+	// Issuer and Audience, when set, are enforced on JWT access tokens. The ID
+	// token's audience is always checked against ClientID, as OIDC requires.
+	Issuer   string
+	Audience string
+	// ClaimsSource lists where user claims are read from, in increasing order of
+	// precedence. Defaults to DefaultClaimsSource.
+	ClaimsSource []string
+	// Forward projects the authenticated user's claims onto the upstream request.
+	Forward *ClaimMapper
 }
 type OauthEndpoint struct {
 	AuthURL     string
