@@ -706,10 +706,6 @@ func applyOAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group
 	if oauthRuler.RedirectPath == "" {
 		oauthRuler.RedirectPath = util.ParseRoutePath(route.Path, routeMiddleware.Paths[0])
 	}
-	if oauthRuler.Provider == "" {
-		oauthRuler.Provider = "custom"
-	}
-
 	r.Use(amw.AuthMiddleware)
 	// The callback lives inside the route's group, so it is wrapped by the same
 	// middleware, and its exact path outranks the route's catch-all.

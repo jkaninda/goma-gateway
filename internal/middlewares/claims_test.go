@@ -27,28 +27,28 @@ import (
 
 func testClaims() map[string]interface{} {
 	return map[string]interface{}{
-		"sub":            "user-1",
-		"email":          "ada@example.com",
+		claimSub:         testSubject,
+		claimEmail:       testEmail,
 		"email_verified": true,
 		"given_name":     "Ada",
 		"family_name":    "Lovelace",
-		"groups":         []interface{}{"admins", "engineering"},
-		"exp":            float64(1893456000),
+		claimGroups:      []interface{}{testGroup, "engineering"},
+		claimExp:         float64(1893456000),
 		"resource_access": map[string]interface{}{
-			"app": map[string]interface{}{"tenant": "acme"},
+			"app": map[string]interface{}{"tenant": testTenant},
 		},
 	}
 }
 
 func TestClaimMapperHeaders(t *testing.T) {
 	mapper := &ClaimMapper{Headers: map[string]string{
-		"X-Auth-User":     "sub",
-		"X-Auth-Email":    "email",
+		headerUser:        claimSub,
+		headerEmail:       "email",
 		"X-Auth-Verified": "email_verified",
-		"X-Auth-Groups":   "groups",
+		headerGroup:       "groups",
 		"X-Auth-Tenant":   "resource_access.app.tenant",
-		"X-Auth-Name":     "{{ .given_name }} {{ .family_name }}",
-		"X-Auth-Expiry":   "exp",
+		headerName:        "{{ .given_name }} {{ .family_name }}",
+		"X-Auth-Expiry":   claimExp,
 		"X-Auth-Missing":  "does_not_exist",
 	}}
 
@@ -56,12 +56,12 @@ func TestClaimMapperHeaders(t *testing.T) {
 	mapper.Apply(request, testClaims())
 
 	expected := map[string]string{
-		"X-Auth-User":     "user-1",
-		"X-Auth-Email":    "ada@example.com",
+		headerUser:        testSubject,
+		headerEmail:       testEmail,
 		"X-Auth-Verified": "true",
-		"X-Auth-Groups":   "admins,engineering",
-		"X-Auth-Tenant":   "acme",
-		"X-Auth-Name":     "Ada Lovelace",
+		headerGroup:       testGroup + ",engineering",
+		"X-Auth-Tenant":   testTenant,
+		headerName:        "Ada Lovelace",
 		"X-Auth-Expiry":   "1893456000",
 	}
 	for header, want := range expected {
@@ -77,41 +77,41 @@ func TestClaimMapperHeaders(t *testing.T) {
 // A client must never be able to supply its own identity headers.
 func TestClaimMapperStripsInboundHeaders(t *testing.T) {
 	mapper := &ClaimMapper{Headers: map[string]string{
-		"X-Auth-Email": "email",
-		"X-Auth-Role":  "role", // Not present in the claims.
+		headerEmail:   claimEmail,
+		"X-Auth-Role": "role", // Not present in the claims.
 	}}
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.Header.Set("X-Auth-Email", "attacker@example.com")
+	request.Header.Set(headerEmail, "attacker@example.com")
 	request.Header.Set("X-Auth-Role", "admin")
-	request.Header.Set("X-Auth-Email-Encoding", "base64")
+	request.Header.Set(headerEmail+encodingHeaderSuffix, "base64")
 	mapper.Apply(request, testClaims())
 
-	if got := request.Header.Get("X-Auth-Email"); got != "ada@example.com" {
-		t.Errorf("X-Auth-Email = %q, want the verified claim", got)
+	if got := request.Header.Get(headerEmail); got != testEmail {
+		t.Errorf("%s = %q, want the verified claim", headerEmail, got)
 	}
 	if got := request.Header.Get("X-Auth-Role"); got != "" {
 		t.Errorf("X-Auth-Role = %q, want the client value to be stripped", got)
 	}
-	if got := request.Header.Get("X-Auth-Email-Encoding"); got != "" {
+	if got := request.Header.Get(headerEmail + encodingHeaderSuffix); got != "" {
 		t.Errorf("X-Auth-Email-Encoding = %q, want the client value to be stripped", got)
 	}
 }
 
 func TestClaimMapperStripsInboundQueryAndCookies(t *testing.T) {
 	mapper := &ClaimMapper{
-		Query:   map[string]string{"uid": "sub"},
-		Cookies: map[string]string{"app_user": "email", "app_role": "role"},
+		Query:   map[string]string{"uid": claimSub},
+		Cookies: map[string]string{"app_user": claimEmail, "app_role": "role"},
 	}
 
-	request := httptest.NewRequest(http.MethodGet, "/api?uid=attacker&page=2", nil)
-	request.AddCookie(&http.Cookie{Name: "app_user", Value: "attacker"})
+	request := httptest.NewRequest(http.MethodGet, "/api?uid="+testAttacker+"&page=2", nil)
+	request.AddCookie(&http.Cookie{Name: "app_user", Value: testAttacker})
 	request.AddCookie(&http.Cookie{Name: "app_role", Value: "admin"})
 	request.AddCookie(&http.Cookie{Name: "session", Value: "keep-me"})
 	mapper.Apply(request, testClaims())
 
 	query := request.URL.Query()
-	if got := query.Get("uid"); got != "user-1" {
+	if got := query.Get("uid"); got != testSubject {
 		t.Errorf("uid = %q, want the verified claim", got)
 	}
 	if got := query.Get("page"); got != "2" {
@@ -136,13 +136,13 @@ func TestClaimMapperStripsInboundQueryAndCookies(t *testing.T) {
 // A claim an identity provider lets users set themselves must not be able to
 // inject a second header into the proxied request.
 func TestClaimMapperRejectsHeaderInjection(t *testing.T) {
-	mapper := &ClaimMapper{Headers: map[string]string{"X-Auth-Name": "name"}}
-	claims := map[string]interface{}{"name": "Ada\r\nX-Auth-Role: admin"}
+	mapper := &ClaimMapper{Headers: map[string]string{headerName: claimName}}
+	claims := map[string]interface{}{claimName: "Ada\r\nX-Auth-Role: admin"}
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	mapper.Apply(request, claims)
 
-	value := request.Header.Get("X-Auth-Name")
+	value := request.Header.Get(headerName)
 	if strings.ContainsAny(value, "\r\n") {
 		t.Fatalf("X-Auth-Name = %q, want control characters removed", value)
 	}
@@ -152,40 +152,40 @@ func TestClaimMapperRejectsHeaderInjection(t *testing.T) {
 }
 
 func TestClaimMapperEncodesNonASCII(t *testing.T) {
-	mapper := &ClaimMapper{Headers: map[string]string{"X-Auth-Name": "name"}}
-	claims := map[string]interface{}{"name": "Jönas Kaninda"}
+	mapper := &ClaimMapper{Headers: map[string]string{headerName: claimName}}
+	claims := map[string]interface{}{claimName: "Jönas Kaninda"}
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	mapper.Apply(request, claims)
 
 	want := base64.StdEncoding.EncodeToString([]byte("Jönas Kaninda"))
-	if got := request.Header.Get("X-Auth-Name"); got != want {
+	if got := request.Header.Get(headerName); got != want {
 		t.Errorf("X-Auth-Name = %q, want %q", got, want)
 	}
-	if got := request.Header.Get("X-Auth-Name-Encoding"); got != "base64" {
+	if got := request.Header.Get(headerName + encodingHeaderSuffix); got != "base64" {
 		t.Errorf("X-Auth-Name-Encoding = %q, want base64", got)
 	}
 
-	raw := &ClaimMapper{Headers: map[string]string{"X-Auth-Name": "name"}, Encoding: ClaimEncodingRaw}
+	raw := &ClaimMapper{Headers: map[string]string{headerName: claimName}, Encoding: ClaimEncodingRaw}
 	request = httptest.NewRequest(http.MethodGet, "/", nil)
 	raw.Apply(request, claims)
-	if got := request.Header.Get("X-Auth-Name"); got != "Jönas Kaninda" {
+	if got := request.Header.Get(headerName); got != "Jönas Kaninda" {
 		t.Errorf("raw encoding: X-Auth-Name = %q, want the value unchanged", got)
 	}
 }
 
 func TestClaimMapperBoundsValueSize(t *testing.T) {
 	mapper := &ClaimMapper{
-		Headers:       map[string]string{"X-Auth-Groups": "groups"},
+		Headers:       map[string]string{headerGroup: claimGroups},
 		MaxValueBytes: 8,
 	}
-	claims := map[string]interface{}{"groups": []interface{}{"a-very-long-group-name", "another-one"}}
+	claims := map[string]interface{}{claimGroups: []interface{}{"a-very-long-group-name", "another-one"}}
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.Header.Set("X-Auth-Groups", "spoofed")
+	request.Header.Set(headerGroup, "spoofed")
 	mapper.Apply(request, claims)
 
-	if got := request.Header.Get("X-Auth-Groups"); got != "" {
+	if got := request.Header.Get(headerGroup); got != "" {
 		t.Errorf("X-Auth-Groups = %q, want oversized value dropped and inbound value stripped", got)
 	}
 }
@@ -209,13 +209,13 @@ func TestClaimMapperForwardTokens(t *testing.T) {
 
 func TestClaimMapperCustomArraySeparator(t *testing.T) {
 	mapper := &ClaimMapper{
-		Headers:        map[string]string{"X-Auth-Groups": "groups"},
+		Headers:        map[string]string{headerGroup: claimGroups},
 		ArraySeparator: "|",
 	}
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	mapper.Apply(request, testClaims())
 
-	if got := request.Header.Get("X-Auth-Groups"); got != "admins|engineering" {
+	if got := request.Header.Get(headerGroup); got != testGroup+"|engineering" {
 		t.Errorf("X-Auth-Groups = %q, want admins|engineering", got)
 	}
 }
@@ -226,7 +226,7 @@ func TestClaimMapperDisabled(t *testing.T) {
 		t.Fatal("nil mapper reported as enabled")
 	}
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.Header.Set("X-Auth-Email", "attacker@example.com")
+	request.Header.Set(headerEmail, "attacker@example.com")
 	// A nil mapper must be inert, not panic.
 	mapper.Apply(request, testClaims())
 	mapper.Strip(request)
@@ -259,7 +259,7 @@ func TestFormatClaimValue(t *testing.T) {
 func TestExtractClaim(t *testing.T) {
 	claims := testClaims()
 
-	if value, err := ExtractClaim(claims, "resource_access.app.tenant"); err != nil || value != "acme" {
+	if value, err := ExtractClaim(claims, "resource_access.app.tenant"); err != nil || value != testTenant {
 		t.Errorf("ExtractClaim(nested) = %v, %v; want acme, nil", value, err)
 	}
 	if _, err := ExtractClaim(claims, "resource_access.missing.tenant"); err == nil {

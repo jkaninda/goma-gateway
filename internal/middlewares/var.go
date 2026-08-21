@@ -30,6 +30,7 @@ const (
 	GomaAccessToken            = "goma_access_token"
 	GomaRefreshToken           = "goma_refresh_token"
 	GomaIDToken                = "goma_id_token"
+	contentTypeHTML            = "text/html"
 	constGomaCacheHeader       = "X-Goma-Cache"
 	constGomaCacheMaxAgeHeader = "X-Goma-Cache-Max-Age"
 )

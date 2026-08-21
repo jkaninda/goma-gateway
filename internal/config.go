@@ -864,22 +864,22 @@ func claimMapper(rule *ForwardClaimsRule, legacyHeaders map[string]string) *midd
 // need spelled out in the configuration.
 func (oauthRuler *OauthRulerMiddleware) applyProviderDefaults() {
 	if oauthRuler.Provider == "" {
-		oauthRuler.Provider = "custom"
+		oauthRuler.Provider = middlewares.ProviderCustom
 	}
 	switch oauthRuler.Provider {
-	case "google":
+	case middlewares.ProviderGoogle:
 		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://www.googleapis.com/oauth2/v2/userinfo")
 		setIfEmpty(&oauthRuler.Endpoint.JwksURL, "https://www.googleapis.com/oauth2/v3/certs")
-	case "facebook":
+	case middlewares.ProviderFacebook:
 		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://graph.facebook.com/me?fields=id,name,email")
-	case "github":
+	case middlewares.ProviderGitHub:
 		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://api.github.com/user")
-	case "gitlab":
+	case middlewares.ProviderGitLab:
 		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://gitlab.com/oauth/userinfo")
 		setIfEmpty(&oauthRuler.Endpoint.JwksURL, "https://gitlab.com/oauth/discovery/keys")
-	case "amazon":
+	case middlewares.ProviderAmazon:
 		setIfEmpty(&oauthRuler.Endpoint.UserInfoURL, "https://api.amazon.com/user/profile")
-	case "custom":
+	case middlewares.ProviderCustom:
 	default:
 		logger.Error("Unknown oauth provider", "provider", oauthRuler.Provider)
 	}
@@ -921,15 +921,15 @@ func oauth2Config(oauth *OauthRulerMiddleware) *oauth2.Config {
 	}
 	oauth.applyProviderDefaults()
 	switch oauth.Provider {
-	case "google":
+	case middlewares.ProviderGoogle:
 		conf.Endpoint = google.Endpoint
-	case "amazon":
+	case middlewares.ProviderAmazon:
 		conf.Endpoint = amazon.Endpoint
-	case "facebook":
+	case middlewares.ProviderFacebook:
 		conf.Endpoint = facebook.Endpoint
-	case "github":
+	case middlewares.ProviderGitHub:
 		conf.Endpoint = github.Endpoint
-	case "gitlab":
+	case middlewares.ProviderGitLab:
 		conf.Endpoint = gitlab.Endpoint
 	}
 	return conf

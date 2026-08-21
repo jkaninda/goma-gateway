@@ -33,14 +33,40 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+const (
+	testKeyID       = "test-key"
+	testClientID    = "goma"
+	testIssuer      = "https://idp.example.com"
+	testAuthURL     = "https://idp.example.com/authorize"
+	testRedirectURL = "https://example.com/callback"
+	testSubject     = "user-1"
+	testEmail       = "ada@example.com"
+	testGroup       = "admins"
+	testAttacker    = "attacker"
+	testGuardedPath = "/admin/*"
+
+	claimSub     = "sub"
+	claimExp     = "exp"
+	claimAud     = "aud"
+	headerUser   = "X-Auth-User"
+	headerEmail  = "X-Auth-Email"
+	headerGroup  = "X-Auth-Groups"
+	headerAccept = "Accept"
+	headerName   = "X-Auth-Name"
+	claimName    = "name"
+	claimEmail   = "email"
+	claimGroups  = "groups"
+	testTenant   = "acme"
+)
+
 // jwksServer serves a JWKS for key, so the middleware can verify tokens the
 // test signs with it.
-func jwksServer(t *testing.T, key *rsa.PrivateKey, kid string) *httptest.Server {
+func jwksServer(t *testing.T, key *rsa.PrivateKey) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(Jwks{Keys: []Jwk{{
-			Kid: kid,
+			Kid: testKeyID,
 			Kty: "RSA",
 			N:   base64.RawURLEncoding.EncodeToString(key.N.Bytes()),
 			E:   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.E)).Bytes()),
@@ -81,7 +107,7 @@ func nextRecorder(reached *bool, captured **http.Request) http.Handler {
 
 func browserRequest(path string, cookies ...*http.Cookie) *http.Request {
 	request := httptest.NewRequest(http.MethodGet, path, nil)
-	request.Header.Set("Accept", "text/html,application/xhtml+xml")
+	request.Header.Set(headerAccept, contentTypeHTML+",application/xhtml+xml")
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -92,21 +118,21 @@ func browserRequest(path string, cookies ...*http.Cookie) *http.Request {
 // future.
 func TestOauthRejectsForgedToken(t *testing.T) {
 	key := testRSAKey(t)
-	jwks := jwksServer(t, key, "test-key")
+	jwks := jwksServer(t, key)
 
 	attacker := testRSAKey(t)
-	forged := signToken(t, attacker, "test-key", jwt.MapClaims{
-		"sub": "attacker",
-		"exp": time.Now().Add(time.Hour).Unix(),
+	forged := signToken(t, attacker, testKeyID, jwt.MapClaims{
+		claimSub: testAttacker,
+		claimExp: time.Now().Add(time.Hour).Unix(),
 	})
 
 	oauth := &Oauth{
 		Path:        "/",
 		Paths:       []string{"/*"},
-		Provider:    "custom",
-		ClientID:    "goma",
-		RedirectURL: "https://example.com/callback",
-		Endpoint:    OauthEndpoint{AuthURL: "https://idp.example.com/authorize", JwksURL: jwks.URL},
+		Provider:    ProviderCustom,
+		ClientID:    testClientID,
+		RedirectURL: testRedirectURL,
+		Endpoint:    OauthEndpoint{AuthURL: testAuthURL, JwksURL: jwks.URL},
 	}
 
 	reached := false
@@ -126,11 +152,11 @@ func TestOauthRejectsForgedToken(t *testing.T) {
 // An unsigned or alg=none token must not be accepted either.
 func TestOauthRejectsUnsignedToken(t *testing.T) {
 	key := testRSAKey(t)
-	jwks := jwksServer(t, key, "test-key")
+	jwks := jwksServer(t, key)
 
 	unsigned, err := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{
-		"sub": "attacker",
-		"exp": time.Now().Add(time.Hour).Unix(),
+		claimSub: testAttacker,
+		claimExp: time.Now().Add(time.Hour).Unix(),
 	}).SignedString(jwt.UnsafeAllowNoneSignatureType)
 	if err != nil {
 		t.Fatalf("failed to build unsigned token: %v", err)
@@ -139,10 +165,10 @@ func TestOauthRejectsUnsignedToken(t *testing.T) {
 	oauth := &Oauth{
 		Path:        "/",
 		Paths:       []string{"/*"},
-		Provider:    "custom",
-		ClientID:    "goma",
-		RedirectURL: "https://example.com/callback",
-		Endpoint:    OauthEndpoint{AuthURL: "https://idp.example.com/authorize", JwksURL: jwks.URL},
+		Provider:    ProviderCustom,
+		ClientID:    testClientID,
+		RedirectURL: testRedirectURL,
+		Endpoint:    OauthEndpoint{AuthURL: testAuthURL, JwksURL: jwks.URL},
 	}
 
 	reached := false
@@ -158,31 +184,31 @@ func TestOauthRejectsUnsignedToken(t *testing.T) {
 
 func TestOauthAcceptsVerifiedTokenAndForwardsClaims(t *testing.T) {
 	key := testRSAKey(t)
-	jwks := jwksServer(t, key, "test-key")
+	jwks := jwksServer(t, key)
 
-	accessToken := signToken(t, key, "test-key", jwt.MapClaims{
-		"sub":    "user-1",
-		"email":  "ada@example.com",
-		"groups": []string{"admins"},
-		"iss":    "https://idp.example.com",
-		"aud":    "goma",
-		"exp":    time.Now().Add(time.Hour).Unix(),
+	accessToken := signToken(t, key, testKeyID, jwt.MapClaims{
+		"sub":      testSubject,
+		claimEmail: testEmail,
+		"groups":   []string{testGroup},
+		"iss":      testIssuer,
+		"aud":      testClientID,
+		claimExp:   time.Now().Add(time.Hour).Unix(),
 	})
 
 	oauth := &Oauth{
 		Path:         "/",
 		Paths:        []string{"/*"},
-		Provider:     "custom",
-		ClientID:     "goma",
-		Issuer:       "https://idp.example.com",
-		Audience:     "goma",
-		RedirectURL:  "https://example.com/callback",
-		Endpoint:     OauthEndpoint{AuthURL: "https://idp.example.com/authorize", JwksURL: jwks.URL},
+		Provider:     ProviderCustom,
+		ClientID:     testClientID,
+		Issuer:       testIssuer,
+		Audience:     testClientID,
+		RedirectURL:  testRedirectURL,
+		Endpoint:     OauthEndpoint{AuthURL: testAuthURL, JwksURL: jwks.URL},
 		ClaimsSource: []string{ClaimSourceAccessToken},
 		Forward: &ClaimMapper{Headers: map[string]string{
-			"X-Auth-User":   "sub",
-			"X-Auth-Email":  "email",
-			"X-Auth-Groups": "groups",
+			headerUser:  claimSub,
+			headerEmail: claimEmail,
+			headerGroup: claimGroups,
 		}},
 	}
 
@@ -190,19 +216,19 @@ func TestOauthAcceptsVerifiedTokenAndForwardsClaims(t *testing.T) {
 	var upstream *http.Request
 	recorder := httptest.NewRecorder()
 	request := browserRequest("/protected", &http.Cookie{Name: GomaAccessToken, Value: accessToken})
-	request.Header.Set("X-Auth-Email", "attacker@example.com")
+	request.Header.Set(headerEmail, "attacker@example.com")
 	oauth.AuthMiddleware(nextRecorder(&reached, &upstream)).ServeHTTP(recorder, request)
 
 	if !reached {
 		t.Fatalf("verified token did not reach the upstream, status = %d", recorder.Code)
 	}
-	if got := upstream.Header.Get("X-Auth-User"); got != "user-1" {
+	if got := upstream.Header.Get(headerUser); got != testSubject {
 		t.Errorf("X-Auth-User = %q, want user-1", got)
 	}
-	if got := upstream.Header.Get("X-Auth-Email"); got != "ada@example.com" {
+	if got := upstream.Header.Get(headerEmail); got != testEmail {
 		t.Errorf("X-Auth-Email = %q, want the verified claim, not the client's", got)
 	}
-	if got := upstream.Header.Get("X-Auth-Groups"); got != "admins" {
+	if got := upstream.Header.Get(headerGroup); got != testGroup {
 		t.Errorf("X-Auth-Groups = %q, want admins", got)
 	}
 }
@@ -210,24 +236,24 @@ func TestOauthAcceptsVerifiedTokenAndForwardsClaims(t *testing.T) {
 // A token minted for a different client of the same provider must not pass.
 func TestOauthEnforcesIssuerAndAudience(t *testing.T) {
 	key := testRSAKey(t)
-	jwks := jwksServer(t, key, "test-key")
+	jwks := jwksServer(t, key)
 
-	otherClient := signToken(t, key, "test-key", jwt.MapClaims{
-		"sub": "user-1",
-		"iss": "https://idp.example.com",
-		"aud": "another-app",
-		"exp": time.Now().Add(time.Hour).Unix(),
+	otherClient := signToken(t, key, testKeyID, jwt.MapClaims{
+		claimSub: testSubject,
+		"iss":    "https://idp.example.com",
+		claimAud: "another-app",
+		claimExp: time.Now().Add(time.Hour).Unix(),
 	})
 
 	oauth := &Oauth{
 		Path:        "/",
 		Paths:       []string{"/*"},
-		Provider:    "custom",
-		ClientID:    "goma",
-		Issuer:      "https://idp.example.com",
-		Audience:    "goma",
-		RedirectURL: "https://example.com/callback",
-		Endpoint:    OauthEndpoint{AuthURL: "https://idp.example.com/authorize", JwksURL: jwks.URL},
+		Provider:    ProviderCustom,
+		ClientID:    testClientID,
+		Issuer:      testIssuer,
+		Audience:    testClientID,
+		RedirectURL: testRedirectURL,
+		Endpoint:    OauthEndpoint{AuthURL: testAuthURL, JwksURL: jwks.URL},
 	}
 
 	reached := false
@@ -244,25 +270,25 @@ func TestOauthEnforcesIssuerAndAudience(t *testing.T) {
 // The ID token's audience is this client by definition, whatever the config says.
 func TestOauthEnforcesIDTokenAudience(t *testing.T) {
 	key := testRSAKey(t)
-	jwks := jwksServer(t, key, "test-key")
+	jwks := jwksServer(t, key)
 
-	idToken := signToken(t, key, "test-key", jwt.MapClaims{
-		"sub": "user-1",
-		"aud": "another-app",
-		"exp": time.Now().Add(time.Hour).Unix(),
+	idToken := signToken(t, key, testKeyID, jwt.MapClaims{
+		claimSub: testSubject,
+		claimAud: "another-app",
+		claimExp: time.Now().Add(time.Hour).Unix(),
 	})
-	accessToken := signToken(t, key, "test-key", jwt.MapClaims{
-		"sub": "user-1",
-		"exp": time.Now().Add(time.Hour).Unix(),
+	accessToken := signToken(t, key, testKeyID, jwt.MapClaims{
+		claimSub: testSubject,
+		claimExp: time.Now().Add(time.Hour).Unix(),
 	})
 
 	oauth := &Oauth{
 		Path:        "/",
 		Paths:       []string{"/*"},
-		Provider:    "custom",
-		ClientID:    "goma",
-		RedirectURL: "https://example.com/callback",
-		Endpoint:    OauthEndpoint{AuthURL: "https://idp.example.com/authorize", JwksURL: jwks.URL},
+		Provider:    ProviderCustom,
+		ClientID:    testClientID,
+		RedirectURL: testRedirectURL,
+		Endpoint:    OauthEndpoint{AuthURL: testAuthURL, JwksURL: jwks.URL},
 	}
 
 	reached := false
@@ -296,11 +322,11 @@ func TestOauthVerifiesOpaqueTokenWithUserInfo(t *testing.T) {
 	oauth := &Oauth{
 		Path:        "/",
 		Paths:       []string{"/*"},
-		Provider:    "custom",
-		ClientID:    "goma",
-		RedirectURL: "https://example.com/callback",
-		Endpoint:    OauthEndpoint{AuthURL: "https://idp.example.com/authorize", UserInfoURL: userInfo.URL},
-		Forward:     &ClaimMapper{Headers: map[string]string{"X-Auth-Email": "email"}},
+		Provider:    ProviderCustom,
+		ClientID:    testClientID,
+		RedirectURL: testRedirectURL,
+		Endpoint:    OauthEndpoint{AuthURL: testAuthURL, UserInfoURL: userInfo.URL},
+		Forward:     &ClaimMapper{Headers: map[string]string{headerEmail: claimEmail}},
 	}
 
 	reached := false
@@ -312,7 +338,7 @@ func TestOauthVerifiesOpaqueTokenWithUserInfo(t *testing.T) {
 	if !reached {
 		t.Fatalf("valid opaque token did not reach the upstream, status = %d", recorder.Code)
 	}
-	if got := upstream.Header.Get("X-Auth-Email"); got != "ada@example.com" {
+	if got := upstream.Header.Get(headerEmail); got != testEmail {
 		t.Errorf("X-Auth-Email = %q, want ada@example.com", got)
 	}
 
@@ -332,10 +358,10 @@ func TestOauthFailsClosedWithoutVerifier(t *testing.T) {
 	oauth := &Oauth{
 		Path:        "/",
 		Paths:       []string{"/*"},
-		Provider:    "custom",
-		ClientID:    "goma",
-		RedirectURL: "https://example.com/callback",
-		Endpoint:    OauthEndpoint{AuthURL: "https://idp.example.com/authorize"},
+		Provider:    ProviderCustom,
+		ClientID:    testClientID,
+		RedirectURL: testRedirectURL,
+		Endpoint:    OauthEndpoint{AuthURL: testAuthURL},
 	}
 
 	reached := false
@@ -357,10 +383,10 @@ func TestOauthChallengeMatchesClientType(t *testing.T) {
 	oauth := &Oauth{
 		Path:        "/",
 		Paths:       []string{"/*"},
-		Provider:    "custom",
-		ClientID:    "goma",
-		RedirectURL: "https://example.com/callback",
-		Endpoint:    OauthEndpoint{AuthURL: "https://idp.example.com/authorize", JwksURL: "https://idp.example.com/jwks"},
+		Provider:    ProviderCustom,
+		ClientID:    testClientID,
+		RedirectURL: testRedirectURL,
+		Endpoint:    OauthEndpoint{AuthURL: testAuthURL, JwksURL: "https://idp.example.com/jwks"},
 	}
 
 	tests := []struct {
@@ -369,12 +395,12 @@ func TestOauthChallengeMatchesClientType(t *testing.T) {
 		method  string
 		want    int
 	}{
-		{"browser navigation", map[string]string{"Accept": "text/html", "Sec-Fetch-Dest": "document"}, http.MethodGet, http.StatusFound},
-		{"browser without fetch metadata", map[string]string{"Accept": "text/html"}, http.MethodGet, http.StatusFound},
-		{"fetch from a page", map[string]string{"Accept": "*/*", "Sec-Fetch-Dest": "empty"}, http.MethodGet, http.StatusUnauthorized},
+		{"browser navigation", map[string]string{headerAccept: contentTypeHTML, "Sec-Fetch-Dest": "document"}, http.MethodGet, http.StatusFound},
+		{"browser without fetch metadata", map[string]string{headerAccept: contentTypeHTML}, http.MethodGet, http.StatusFound},
+		{"fetch from a page", map[string]string{headerAccept: "*/*", "Sec-Fetch-Dest": "empty"}, http.MethodGet, http.StatusUnauthorized},
 		{"xhr", map[string]string{"X-Requested-With": "XMLHttpRequest"}, http.MethodGet, http.StatusUnauthorized},
-		{"json api", map[string]string{"Accept": "application/json"}, http.MethodGet, http.StatusUnauthorized},
-		{"form post", map[string]string{"Accept": "text/html"}, http.MethodPost, http.StatusUnauthorized},
+		{"json api", map[string]string{headerAccept: "application/json"}, http.MethodGet, http.StatusUnauthorized},
+		{"form post", map[string]string{headerAccept: contentTypeHTML}, http.MethodPost, http.StatusUnauthorized},
 	}
 
 	for _, test := range tests {
@@ -403,10 +429,10 @@ func TestOauthSkipsCallbackPath(t *testing.T) {
 	oauth := &Oauth{
 		Path:        "/",
 		Paths:       []string{"/*"},
-		Provider:    "custom",
-		ClientID:    "goma",
+		Provider:    ProviderCustom,
+		ClientID:    testClientID,
 		RedirectURL: "https://example.com/callback/protected",
-		Endpoint:    OauthEndpoint{AuthURL: "https://idp.example.com/authorize", JwksURL: "https://idp.example.com/jwks"},
+		Endpoint:    OauthEndpoint{AuthURL: testAuthURL, JwksURL: "https://idp.example.com/jwks"},
 	}
 
 	reached := false
@@ -425,17 +451,17 @@ func TestOauthSkipsCallbackPath(t *testing.T) {
 func TestOauthStripsIdentityHeadersOnUnguardedPaths(t *testing.T) {
 	oauth := &Oauth{
 		Path:        "/",
-		Paths:       []string{"/admin/*"},
-		Provider:    "custom",
-		ClientID:    "goma",
-		RedirectURL: "https://example.com/callback",
-		Endpoint:    OauthEndpoint{AuthURL: "https://idp.example.com/authorize", UserInfoURL: "https://idp.example.com/userinfo"},
-		Forward:     &ClaimMapper{Headers: map[string]string{"X-Auth-Email": "email"}},
+		Paths:       []string{testGuardedPath},
+		Provider:    ProviderCustom,
+		ClientID:    testClientID,
+		RedirectURL: testRedirectURL,
+		Endpoint:    OauthEndpoint{AuthURL: testAuthURL, UserInfoURL: "https://idp.example.com/userinfo"},
+		Forward:     &ClaimMapper{Headers: map[string]string{headerEmail: claimEmail}},
 	}
 
 	// A path the middleware does not guard, so the request is proxied as is.
 	request := browserRequest("/public")
-	request.Header.Set("X-Auth-Email", "attacker@example.com")
+	request.Header.Set(headerEmail, "attacker@example.com")
 
 	recorder := httptest.NewRecorder()
 	reached := false
@@ -445,16 +471,16 @@ func TestOauthStripsIdentityHeadersOnUnguardedPaths(t *testing.T) {
 	if !reached {
 		t.Fatalf("unguarded path was blocked, status = %d", recorder.Code)
 	}
-	if got := upstream.Header.Get("X-Auth-Email"); got != "" {
+	if got := upstream.Header.Get(headerEmail); got != "" {
 		t.Errorf("X-Auth-Email = %q, want the client value stripped", got)
 	}
 
 	// And on the guarded path, where the request never reaches the upstream.
 	request = browserRequest("/admin/settings")
-	request.Header.Set("X-Auth-Email", "attacker@example.com")
+	request.Header.Set(headerEmail, "attacker@example.com")
 	recorder = httptest.NewRecorder()
 	oauth.AuthMiddleware(nextRecorder(&reached, &upstream)).ServeHTTP(recorder, request)
-	if got := request.Header.Get("X-Auth-Email"); got != "" {
+	if got := request.Header.Get(headerEmail); got != "" {
 		t.Errorf("X-Auth-Email = %q, want the client value stripped", got)
 	}
 }
@@ -463,13 +489,13 @@ func TestOauthStripsIdentityHeadersOnUnguardedPaths(t *testing.T) {
 func TestJwtStripsIdentityHeadersOnUnguardedPaths(t *testing.T) {
 	jwtAuth := &JwtAuth{
 		Path:    "/",
-		Paths:   []string{"/admin/*"},
+		Paths:   []string{testGuardedPath},
 		Secret:  "test-secret",
-		Forward: &ClaimMapper{Headers: map[string]string{"X-Auth-Email": "email"}},
+		Forward: &ClaimMapper{Headers: map[string]string{headerEmail: claimEmail}},
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "/public", nil)
-	request.Header.Set("X-Auth-Email", "attacker@example.com")
+	request.Header.Set(headerEmail, "attacker@example.com")
 
 	reached := false
 	var upstream *http.Request
@@ -479,14 +505,14 @@ func TestJwtStripsIdentityHeadersOnUnguardedPaths(t *testing.T) {
 	if !reached {
 		t.Fatalf("unguarded path was blocked, status = %d", recorder.Code)
 	}
-	if got := upstream.Header.Get("X-Auth-Email"); got != "" {
+	if got := upstream.Header.Get(headerEmail); got != "" {
 		t.Errorf("X-Auth-Email = %q, want the client value stripped", got)
 	}
 }
 
 func TestIsJWT(t *testing.T) {
 	key := testRSAKey(t)
-	signed := signToken(t, key, "kid", jwt.MapClaims{"sub": "user-1"})
+	signed := signToken(t, key, "kid", jwt.MapClaims{claimSub: testSubject})
 
 	if !isJWT(signed) {
 		t.Error("isJWT(signed token) = false, want true")

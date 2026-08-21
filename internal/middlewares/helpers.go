@@ -160,7 +160,7 @@ func RespondWithErrorHTML(
 		return
 	}
 
-	if contentType == "text/html" {
+	if contentType == contentTypeHTML {
 		serveHTMLString(w, statusCode, logMessage)
 		return
 	}

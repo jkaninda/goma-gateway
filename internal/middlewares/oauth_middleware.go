@@ -137,7 +137,7 @@ func (oauth *Oauth) verify(ctx context.Context, session oauthSession) (map[strin
 	sources := oauth.claimsSources()
 
 	var idClaims, accessClaims, userInfoClaims map[string]interface{}
-	verified := false
+	idTokenVerified := false
 
 	// The ID token is the only token OIDC defines as an identity assertion, and
 	// its audience must be this client — otherwise a token minted for another
@@ -148,7 +148,7 @@ func (oauth *Oauth) verify(ctx context.Context, session oauthSession) (map[strin
 			return nil, fmt.Errorf("id token verification failed: %w", err)
 		}
 		idClaims = claims
-		verified = true
+		idTokenVerified = true
 	}
 
 	switch {
@@ -158,7 +158,6 @@ func (oauth *Oauth) verify(ctx context.Context, session oauthSession) (map[strin
 			return nil, fmt.Errorf("access token verification failed: %w", err)
 		}
 		accessClaims = claims
-		verified = true
 
 	case oauth.Endpoint.UserInfoURL != "":
 		// Opaque access tokens carry no verifiable claims; the provider's user
@@ -168,10 +167,11 @@ func (oauth *Oauth) verify(ctx context.Context, session oauthSession) (map[strin
 			return nil, fmt.Errorf("user info verification failed: %w", err)
 		}
 		userInfoClaims = claims
-		verified = true
 
 	default:
-		if !verified {
+		// Nothing could be verified: an opaque access token with no user info
+		// endpoint, and no ID token to fall back on.
+		if !idTokenVerified {
 			return nil, errNoVerifier
 		}
 	}
@@ -267,7 +267,7 @@ func wantsHTML(r *http.Request) bool {
 	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
 		return false
 	}
-	return strings.Contains(r.Header.Get("Accept"), "text/html")
+	return strings.Contains(r.Header.Get("Accept"), contentTypeHTML)
 }
 
 // readOauthSession reads the session tokens from the request cookies.
@@ -314,7 +314,7 @@ func NewAuthCookie(r *http.Request, name, value, path string) *http.Cookie {
 		Value:    value,
 		Path:     path,
 		HttpOnly: true,
-		Secure:   scheme(r) == "https",
+		Secure:   scheme(r) == schemeHTTPS,
 		SameSite: http.SameSiteLaxMode,
 	}
 }

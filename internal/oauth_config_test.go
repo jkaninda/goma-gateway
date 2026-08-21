@@ -21,7 +21,14 @@ import (
 	"testing"
 
 	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"gopkg.in/yaml.v3"
+)
+
+const (
+	testClientID = "goma"
+	claimSub     = "sub"
+	claimEmail   = "email"
 )
 
 // decodeOauthRule walks the same path the gateway takes at load time: YAML into
@@ -75,7 +82,7 @@ rule:
 	if err := rule.validate(); err != nil {
 		t.Fatalf("validate() = %v, want nil", err)
 	}
-	if rule.Issuer != "https://idp.example.com" || rule.Audience != "goma" {
+	if rule.Issuer != "https://idp.example.com" || rule.Audience != testClientID {
 		t.Errorf("issuer/audience = %q/%q, want the configured values", rule.Issuer, rule.Audience)
 	}
 	if len(rule.ClaimsSource) != 2 {
@@ -89,10 +96,10 @@ rule:
 	if got := mapper.Headers["X-Auth-Name"]; got != "{{ .given_name }} {{ .family_name }}" {
 		t.Errorf("X-Auth-Name mapping = %q, want the template", got)
 	}
-	if got := mapper.Query["uid"]; got != "sub" {
+	if got := mapper.Query["uid"]; got != claimSub {
 		t.Errorf("uid mapping = %q, want sub", got)
 	}
-	if got := mapper.Cookies["app_user"]; got != "email" {
+	if got := mapper.Cookies["app_user"]; got != claimEmail {
 		t.Errorf("app_user mapping = %q, want email", got)
 	}
 	if mapper.ArraySeparator != "|" || mapper.Encoding != "raw" || mapper.MaxValueBytes != 2048 {
@@ -131,15 +138,15 @@ rule:
 // Known providers do not need their endpoints spelled out.
 func TestOauthRuleProviderDefaults(t *testing.T) {
 	for provider, wantUserInfo := range map[string]string{
-		"google":   "https://www.googleapis.com/oauth2/v2/userinfo",
-		"github":   "https://api.github.com/user",
-		"gitlab":   "https://gitlab.com/oauth/userinfo",
-		"amazon":   "https://api.amazon.com/user/profile",
-		"facebook": "https://graph.facebook.com/me?fields=id,name,email",
+		middlewares.ProviderGoogle:   "https://www.googleapis.com/oauth2/v2/userinfo",
+		middlewares.ProviderGitHub:   "https://api.github.com/user",
+		middlewares.ProviderGitLab:   "https://gitlab.com/oauth/userinfo",
+		middlewares.ProviderAmazon:   "https://api.amazon.com/user/profile",
+		middlewares.ProviderFacebook: "https://graph.facebook.com/me?fields=id,name,email",
 	} {
 		t.Run(provider, func(t *testing.T) {
 			rule := &OauthRulerMiddleware{
-				ClientID:     "goma",
+				ClientID:     testClientID,
 				ClientSecret: "secret",
 				RedirectURL:  "https://example.com/callback",
 				Provider:     provider,
@@ -156,10 +163,10 @@ func TestOauthRuleProviderDefaults(t *testing.T) {
 
 func TestOauthRuleRejectsUnknownClaimsSource(t *testing.T) {
 	rule := &OauthRulerMiddleware{
-		ClientID:     "goma",
+		ClientID:     testClientID,
 		ClientSecret: "secret",
 		RedirectURL:  "https://example.com/callback",
-		Provider:     "google",
+		Provider:     middlewares.ProviderGoogle,
 		ClaimsSource: []string{"refresh_token"},
 	}
 	if err := rule.validate(); err == nil {
@@ -169,17 +176,17 @@ func TestOauthRuleRejectsUnknownClaimsSource(t *testing.T) {
 
 // The deprecated flat map keeps working, and the nested block wins per key.
 func TestJwtForwardHeadersBackwardCompatible(t *testing.T) {
-	legacy := map[string]string{"X-User-ID": "sub", "X-User-Email": "email"}
+	legacy := map[string]string{"X-User-ID": claimSub, "X-User-Email": claimEmail}
 
 	mapper := claimMapper(nil, legacy)
-	if mapper == nil || mapper.Headers["X-User-ID"] != "sub" {
+	if mapper == nil || mapper.Headers["X-User-ID"] != claimSub {
 		t.Fatalf("claimMapper(legacy only) = %v, want the legacy headers", mapper)
 	}
 
 	mapper = claimMapper(&ForwardClaimsRule{
 		Headers: map[string]string{"X-User-Email": "mail", "X-User-Name": "name"},
 	}, legacy)
-	if got := mapper.Headers["X-User-ID"]; got != "sub" {
+	if got := mapper.Headers["X-User-ID"]; got != claimSub {
 		t.Errorf("X-User-ID = %q, want the legacy mapping preserved", got)
 	}
 	if got := mapper.Headers["X-User-Email"]; got != "mail" {
@@ -188,7 +195,7 @@ func TestJwtForwardHeadersBackwardCompatible(t *testing.T) {
 	if got := mapper.Headers["X-User-Name"]; got != "name" {
 		t.Errorf("X-User-Name = %q, want the nested mapping", got)
 	}
-	if legacy["X-User-Email"] != "email" {
+	if legacy["X-User-Email"] != claimEmail {
 		t.Error("the legacy map was mutated")
 	}
 
