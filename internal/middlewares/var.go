@@ -19,7 +19,6 @@ package middlewares
 
 import (
 	"regexp"
-	"time"
 
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/jkaninda/goma-gateway/internal/config"
@@ -34,10 +33,6 @@ const (
 	contentTypeHTML            = "text/html"
 	constGomaCacheHeader       = "X-Goma-Cache"
 	constGomaCacheMaxAgeHeader = "X-Goma-Cache-Max-Age"
-)
-const (
-	maxTrackedClients = 100_000
-	clientIdleTTL     = 10 * time.Minute
 )
 
 var (

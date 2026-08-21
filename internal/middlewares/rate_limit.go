@@ -33,6 +33,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const (
+	maxTrackedClients = 100_000
+	clientIdleTTL     = 10 * time.Minute
+)
+
 // RateLimiter defines requests limit properties.
 type RateLimiter struct {
 	requests    int
