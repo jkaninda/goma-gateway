@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // tokenRegex matches {{goma.<source>.<name>}} placeholders in a rewrite
@@ -31,13 +32,36 @@ var tokenRegex = regexp.MustCompile(`\{\{\s*goma\.(headers|query)\.([A-Za-z0-9_-
 type RewriteRegex struct {
 	Pattern     string
 	Replacement string
+
+	compileOnce sync.Once
+	compiled    *regexp.Regexp
+}
+
+// regex returns the compiled pattern, compiling it on first use rather than on
+// every request. A pattern that does not compile disables the rewrite instead
+// of panicking mid-request.
+func (regex *RewriteRegex) regex() *regexp.Regexp {
+	regex.compileOnce.Do(func() {
+		compiled, err := regexp.Compile(regex.Pattern)
+		if err != nil {
+			logger.Error("Invalid rewriteRegex pattern, requests are passed through unchanged",
+				"pattern", regex.Pattern, "error", err)
+			return
+		}
+		regex.compiled = compiled
+	})
+	return regex.compiled
 }
 
 // RewriteRegexMiddleware updates the path of a request before forwarding it.
 func (regex *RewriteRegex) RewriteRegexMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		re := regex.regex()
+		if re == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
 
-		re := regexp.MustCompile(regex.Pattern)
 		originalURL := r.URL.Path
 
 		// Rewrite the path (resolves regex group refs like $1)

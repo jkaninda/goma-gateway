@@ -28,6 +28,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/pkg/certmanager"
 )
 
@@ -80,10 +81,15 @@ func isIPOrCIDR(input string) (isIP bool, isCIDR bool) {
 }
 
 // Helper function to determine the scheme (http or https)
+//
+// The forwarded header is only read when the request came from a trusted proxy;
+// otherwise any client could declare its plaintext request to be TLS.
 func scheme(r *http.Request) string {
-	// Check if the request is behind a reverse proxy
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
-		return strings.ToLower(proto)
+	// Check if the request is behind a trusted reverse proxy
+	if middlewares.FromTrustedProxy(r) {
+		if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+			return strings.ToLower(proto)
+		}
 	}
 	// Check if the request is using TLS
 	if r.TLS != nil {
@@ -309,7 +315,7 @@ func parseSameSite(sameSite string) http.SameSite {
 		return http.SameSiteStrictMode
 	case "lax":
 		return http.SameSiteLaxMode
-	case "none":
+	case sameSiteNone:
 		return http.SameSiteNoneMode
 	default:
 		return http.SameSiteLaxMode // Secure default

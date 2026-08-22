@@ -36,40 +36,81 @@ var htmlCache = make(map[string][]byte)
 var htmlCacheMu sync.RWMutex
 
 // RealIP extracts the real IP address of the client from the HTTP request.
+//
+// Forwarded-for headers are only read when the request actually arrived from a
+// configured trusted proxy: they are client-supplied data, and a gateway that
+// believes them from anyone lets every caller choose the IP that access
+// policies, geo blocking and rate limits are applied to.
 func RealIP(r *http.Request) string {
-	remoteIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	remoteIP := socketIP(r)
 
-	if !TrustedProxyConfig.Enabled {
-		if remoteIP != "" {
-			return remoteIP
-		}
-		return r.RemoteAddr
-	}
-
-	// Check if request actually came through a trusted proxy
-	if len(TrustedProxyConfig.TrustedProxies) > 0 {
-		if !TrustedProxyConfig.IsTrustedSource(remoteIP) {
-			return remoteIP
-		}
-	}
-
-	//  configured IP headers
-	for _, header := range TrustedProxyConfig.IPHeaders {
-		if val := r.Header.Get(header); val != "" {
-			ips := strings.Split(val, ",")
-			for _, ip := range ips {
-				trimmed := strings.TrimSpace(ip)
-				if trimmed != "" {
-					return trimmed
-				}
-			}
-		}
-	}
-	if remoteIP != "" {
+	if !FromTrustedProxy(r) {
 		return remoteIP
+	}
+
+	for _, header := range TrustedProxyConfig.IPHeaders {
+		if ip := rightmostUntrusted(r.Header.Values(header)); ip != "" {
+			return ip
+		}
+	}
+	return remoteIP
+}
+
+// socketIP is the address the connection actually came from, which is the only
+// value no client can choose.
+func socketIP(r *http.Request) string {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil && host != "" {
+		return host
 	}
 	return r.RemoteAddr
 }
+
+// FromTrustedProxy reports whether the request arrived from a proxy the
+// operator has vouched for, which is the condition for believing any of the
+// forwarded-* headers it carries.
+func FromTrustedProxy(r *http.Request) bool {
+	if TrustedProxyConfig == nil || !TrustedProxyConfig.Enabled {
+		return false
+	}
+	return TrustedProxyConfig.IsTrustedSource(socketIP(r))
+}
+
+// rightmostUntrusted walks a forwarded-for chain from the right — the end the
+// nearest proxy appended — and returns the first address that is not one of our
+// own proxies. Reading from the left would return whatever the original client
+// chose to put there, which is exactly the value an attacker controls.
+func rightmostUntrusted(values []string) string {
+	var chain []string
+	for _, value := range values {
+		for _, entry := range strings.Split(value, ",") {
+			if trimmed := strings.TrimSpace(entry); trimmed != "" {
+				chain = append(chain, normalizeIP(trimmed))
+			}
+		}
+	}
+
+	for index := len(chain) - 1; index >= 0; index-- {
+		if chain[index] != "" && !TrustedProxyConfig.IsTrustedSource(chain[index]) {
+			return chain[index]
+		}
+	}
+	return ""
+}
+
+// normalizeIP strips the port some proxies append, and the brackets IPv6 needs
+// when a port is present.
+func normalizeIP(entry string) string {
+	if net.ParseIP(entry) != nil {
+		return entry
+	}
+	if host, _, err := net.SplitHostPort(entry); err == nil {
+		if net.ParseIP(host) != nil {
+			return host
+		}
+	}
+	return strings.Trim(entry, "[]")
+}
+
 func getContentType(r *http.Request) string {
 	contentType := r.Header.Get("Accept")
 	if contentType == "" {
@@ -91,6 +132,7 @@ func RespondWithError(w http.ResponseWriter, r *http.Request, statusCode int, lo
 	// Set Access-Control-Allow-Origin header if the origin is allowed
 	if allowedOrigin(origins, r.Header.Get("Origin")) {
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+		w.Header().Add("Vary", "Origin")
 	}
 	w.Header().Del("Content-Length")
 	switch contentType {
@@ -153,6 +195,7 @@ func RespondWithErrorHTML(
 	// Handle CORS
 	if allowedOrigin(origins, r.Header.Get("Origin")) {
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+		w.Header().Add("Vary", "Origin")
 	}
 	w.Header().Del("Content-Length")
 

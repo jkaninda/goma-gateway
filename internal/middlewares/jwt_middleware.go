@@ -146,6 +146,7 @@ func validateHeaders(r *http.Request, origins []string, w http.ResponseWriter, r
 		logger.Error("Proxy error, missing Authorization")
 		if allowedOrigin(origins, r.Header.Get("Origin")) {
 			w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+			w.Header().Add("Vary", "Origin")
 		}
 		RespondWithError(w, req, http.StatusUnauthorized, fmt.Sprintf("%d %s", http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)), origins, contentType)
 		return authHeader, false

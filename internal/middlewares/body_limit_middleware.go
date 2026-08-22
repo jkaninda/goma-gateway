@@ -19,9 +19,7 @@ package middlewares
 
 import (
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 )
 
 type BodyLimit struct {
@@ -30,27 +28,29 @@ type BodyLimit struct {
 
 func (b BodyLimit) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contentType := getContentType(r)
-		// Create a new limited reader with the specified limit
-		lr := &io.LimitedReader{R: r.Body, N: b.MaxBytes + 1}
-		// Read the entire body into a buffer
-		body, err := io.ReadAll(lr)
-		if err != nil {
-			http.Error(w, "Error reading body", http.StatusInternalServerError)
+		if b.MaxBytes <= 0 || r.Body == nil || r.Body == http.NoBody {
+			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Check if the body exceeded the limit
-		if lr.N <= 0 {
-			logger.Debug("Request body too large", "limit", b.MaxBytes)
-			RespondWithError(w, r, http.StatusRequestEntityTooLarge, fmt.Sprintf("Request body too large (limit %d bytes)", b.MaxBytes), nil, contentType)
+		// Reject on the declared length when there is one, so an oversized
+		// upload is refused before any of it is read.
+		if r.ContentLength > b.MaxBytes {
+			b.reject(w, r)
 			return
 		}
 
-		// Replace the original body with the limited body
-		r.Body = io.NopCloser(strings.NewReader(string(body)))
+		// MaxBytesReader enforces the limit as the body is read, so a handler
+		// that streams never holds more than it consumes, and one that reads to
+		// the end fails at the limit instead of buffering past it.
+		r.Body = http.MaxBytesReader(w, r.Body, b.MaxBytes)
 
-		// Call the next handler
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (b BodyLimit) reject(w http.ResponseWriter, r *http.Request) {
+	logger.Debug("Request body too large", "limit", b.MaxBytes, "declared", r.ContentLength)
+	RespondWithError(w, r, http.StatusRequestEntityTooLarge,
+		fmt.Sprintf("Request body too large (limit %d bytes)", b.MaxBytes), nil, getContentType(r))
 }

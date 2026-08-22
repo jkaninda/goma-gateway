@@ -53,6 +53,30 @@ The HTTP Cache Middleware provides the following configuration options:
 - **`excludedResponseCodes`** (`array of strings`):  
   Configures specific HTTP response status codes or ranges of codes for which caching is disabled. For example, you can exclude error responses like `404` or `500-599`.
 
+- **`cachePrivateResponses`** (`boolean`, default=`false`):  
+  Allows responses to requests that carried credentials to be cached, keyed per caller. See [What is not cached](#what-is-not-cached) before enabling it.
+
+---
+
+## What is not cached
+
+The cache is shared by every caller of the route, so anything that would let one
+caller read another's response stays out of it:
+
+- **Requests carrying credentials** — an `Authorization`, `Proxy-Authorization`
+  or `Cookie` header — bypass the cache in both directions. Set
+  `cachePrivateResponses: true` to cache them anyway; the key then includes a
+  fingerprint of those credentials, so each caller gets their own entry.
+- **Responses that set a cookie**, carry `WWW-Authenticate`, or are marked
+  `Cache-Control: private`, `no-store` or `no-cache`.
+- **Responses with a `Vary` header** other than `Vary: Accept-Encoding`, which
+  the cache key already covers.
+
+The cache key is the route name, host, negotiated encoding, path, and — when
+enabled — the query parameters and the caller fingerprint. Responses to
+credentialed requests are returned with `Cache-Control: private` so caches
+between Goma and the browser do not store them either.
+
 ---
 
 ## Example Configuration

@@ -43,8 +43,16 @@ The `keyStrategy` defines how clients are identified for rate limiting. You can 
 | `source: header` | Uses a specific HTTP header for identification  | `name`: Name of the header to use |
 | `source: cookie` | Uses a specific cookie for identification       | `name`: Name of the cookie to use |
 
-
-
+> **`header` and `cookie` keys are chosen by the caller.** A client that changes
+> the value gets a fresh allowance, so these strategies only limit anything when
+> the value has already been verified by a middleware in front of the rate
+> limiter — a JWT-derived header, or a session cookie the gateway issued. On an
+> unauthenticated route, use `source: ip`.
+>
+> Goma caps how many distinct keys it tracks and drops idle ones, so an endless
+> supply of made-up keys cannot exhaust memory; it will log when that cap is
+> reached, which usually means the strategy is being applied to a value the
+> caller controls.
 
 ### Example Scenarios
 

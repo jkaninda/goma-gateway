@@ -565,6 +565,9 @@ func (rec *responseRecorder) applyCorsHeaders(policy ResponseHeader) {
 
 	// Set allowed origin (overrides any backend CORS)
 	headers.Set("Access-Control-Allow-Origin", origin)
+	// The response now depends on the request's Origin, so any cache between
+	// here and the browser has to key on it too.
+	headers.Add("Vary", "Origin")
 
 	// Set allow credentials header if configured
 	if cors.AllowCredentials {

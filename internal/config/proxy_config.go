@@ -18,6 +18,7 @@
 package config
 
 import (
+	"fmt"
 	"net"
 	"strings"
 )
@@ -52,6 +53,13 @@ func (p *ProxyConfig) Init() (*ProxyConfig, error) {
 	}
 	if len(p.IPHeaders) == 0 {
 		p.IPHeaders = []string{"X-Forwarded-For", "X-Real-IP"}
+	}
+
+	if len(p.trustedNetworks) == 0 {
+		return p, fmt.Errorf("forwardedHeaders are enabled but trustedProxies is empty, so forwarded " +
+			"headers are ignored: list the IPs or CIDRs of the proxies in front of the gateway, or " +
+			"disable the feature. Behind a CDN, see " +
+			"https://goma.jkaninda.dev/usermanual/running-behind-a-proxy.html")
 	}
 	return p, nil
 }

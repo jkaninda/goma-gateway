@@ -19,6 +19,8 @@ package middlewares
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/redis/go-redis/v9"
@@ -26,6 +28,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -47,6 +50,11 @@ type HttpCacheConfig struct {
 	CacheableStatusCodes     []int
 	IncludeQueryInKey        bool
 	QueryParamsToCache       []string
+	// CachePrivateResponses allows responses to requests that carried
+	// credentials to be cached. It is off by default: the cache is shared by
+	// every caller of the route, so a per-user response stored under a key that
+	// does not identify the user would be served to everyone else.
+	CachePrivateResponses bool
 }
 
 // Cache is a wrapper around the Redis client.
@@ -274,6 +282,15 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// A request carrying credentials gets a response meant for whoever sent
+		// them. The cache key cannot tell those callers apart, so such requests
+		// bypass the cache in both directions unless the operator opts in.
+		if h.isCredentialed(r) && !h.CachePrivateResponses {
+			logger.Debug("Cache: bypassed for a credentialed request", "path", r.URL.Path)
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Generate cache key
 		cacheKey := h.generateCacheKey(r)
 
@@ -282,8 +299,9 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 			if response, contentType, contentEncoding, ttl, found := h.Cache.Get(ctx, cacheKey, maxStale); found {
 				if allowedOrigin(h.Origins, r.Header.Get("Origin")) {
 					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+					w.Header().Add("Vary", "Origin")
 				}
-				writeCachedResponse(w, contentType, contentEncoding, response, ttl, h.DisableCacheStatusHeader)
+				writeCachedResponse(w, contentType, contentEncoding, response, ttl, h.DisableCacheStatusHeader, h.cacheability(r))
 				logger.Debug("Cache: served from cache", "key", cacheKey)
 				return
 			}
@@ -291,7 +309,7 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 			w.Header().Set(constGomaCacheMaxAgeHeader, fmt.Sprintf("%d", int(h.TTL.Seconds())))
 			if !h.DisableCacheStatusHeader {
 				w.Header().Set("X-Cache-Status", "MISS")
-				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", h.TTL.Seconds()))
+				w.Header().Set("Cache-Control", fmt.Sprintf("%s, max-age=%v", h.cacheability(r), h.TTL.Seconds()))
 			}
 		}
 
@@ -318,6 +336,11 @@ func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *ht
 	}
 
 	if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
+		if reason, ok := notStorable(rec.Header()); !ok {
+			logger.Debug("Cache: response not stored", "path", r.URL.Path, "reason", reason)
+			return
+		}
+
 		contentType := rec.Header().Get("Content-Type")
 		contentEncoding := rec.Header().Get("Content-Encoding")
 
@@ -329,7 +352,7 @@ func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *ht
 }
 
 // writeCachedResponse writes a cached response to the client.
-func writeCachedResponse(w http.ResponseWriter, contentType, contentEncoding string, response []byte, ttl time.Duration, disableCacheStatusHeader bool) {
+func writeCachedResponse(w http.ResponseWriter, contentType, contentEncoding string, response []byte, ttl time.Duration, disableCacheStatusHeader bool, cacheability string) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set(constGomaCacheHeader, "HIT")
 	w.Header().Set(constGomaCacheMaxAgeHeader, fmt.Sprintf("%d", int(ttl.Seconds())))
@@ -337,7 +360,7 @@ func writeCachedResponse(w http.ResponseWriter, contentType, contentEncoding str
 		w.Header().Set("Content-Encoding", contentEncoding)
 	}
 	if !disableCacheStatusHeader {
-		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(ttl.Seconds())))
+		w.Header().Set("Cache-Control", fmt.Sprintf("%s, max-age=%d", cacheability, int(ttl.Seconds())))
 		w.Header().Set("X-Cache-Status", "HIT")
 	}
 
@@ -371,8 +394,65 @@ func (h HttpCacheConfig) shouldCacheStatus(statusCode int) bool {
 }
 
 // generateCacheKey creates a cache key with optional query parameter filtering
+// isCredentialed reports whether the request carries anything that makes the
+// response specific to its sender.
+func (h HttpCacheConfig) isCredentialed(r *http.Request) bool {
+	return r.Header.Get("Authorization") != "" ||
+		r.Header.Get("Proxy-Authorization") != "" ||
+		r.Header.Get("Cookie") != ""
+}
+
+// cacheability is what the response may tell shared caches downstream. A
+// response to a credentialed request is never public, whatever this gateway
+// chose to do with it.
+func (h HttpCacheConfig) cacheability(r *http.Request) string {
+	if h.isCredentialed(r) {
+		return "private"
+	}
+	return "public"
+}
+
+// notStorable reports whether a response may be kept in a shared cache. It
+// returns the reason it may not, so the decision is visible in the logs.
+func notStorable(header http.Header) (string, bool) {
+	if header.Get("Set-Cookie") != "" {
+		return "the response sets a cookie", false
+	}
+	if header.Get("WWW-Authenticate") != "" {
+		return "the response is an authentication challenge", false
+	}
+	directives := strings.ToLower(header.Get("Cache-Control"))
+	for _, directive := range []string{"private", "no-store", "no-cache"} {
+		if strings.Contains(directives, directive) {
+			return "the response is marked " + directive, false
+		}
+	}
+	// Vary means the response depends on request headers this cache does not
+	// key on. Accept-Encoding is the exception: it is part of the key.
+	for _, vary := range header.Values("Vary") {
+		for _, field := range strings.Split(vary, ",") {
+			field = strings.ToLower(strings.TrimSpace(field))
+			if field == "" || field == "accept-encoding" {
+				continue
+			}
+			if field == "*" {
+				return "the response varies on everything", false
+			}
+			return "the response varies on " + field, false
+		}
+	}
+	return "", true
+}
+
 func (h HttpCacheConfig) generateCacheKey(r *http.Request) string {
-	baseKey := fmt.Sprintf("%s-%s", h.Name, r.URL.Path)
+	// The host separates routes served for several names, and the encoding
+	// separates the compressed and uncompressed forms of the same body, which
+	// are replayed with the Content-Encoding they were stored with.
+	baseKey := fmt.Sprintf("%s-%s-%s-%s", h.Name, r.Host, acceptedEncoding(r), r.URL.Path)
+
+	if h.CachePrivateResponses {
+		baseKey = fmt.Sprintf("%s-%s", baseKey, credentialFingerprint(r))
+	}
 
 	if !h.IncludeQueryInKey {
 		return baseKey
@@ -401,6 +481,32 @@ func (h HttpCacheConfig) generateCacheKey(r *http.Request) string {
 
 	queryString := filteredQuery.Encode()
 	return fmt.Sprintf("%s?%s", baseKey, queryString)
+}
+
+// acceptedEncoding reduces Accept-Encoding to the part that changes the stored
+// body, so every header permutation does not become its own cache entry.
+func acceptedEncoding(r *http.Request) string {
+	accepted := strings.ToLower(r.Header.Get("Accept-Encoding"))
+	switch {
+	case strings.Contains(accepted, "br"):
+		return "br"
+	case strings.Contains(accepted, "gzip"):
+		return "gzip"
+	case strings.Contains(accepted, "deflate"):
+		return "deflate"
+	default:
+		return "identity"
+	}
+}
+
+// credentialFingerprint identifies the caller a cached response belongs to,
+// without putting their credentials in a cache key.
+func credentialFingerprint(r *http.Request) string {
+	sum := sha256.New()
+	sum.Write([]byte(r.Header.Get("Authorization")))
+	sum.Write([]byte{0})
+	sum.Write([]byte(r.Header.Get("Cookie")))
+	return hex.EncodeToString(sum.Sum(nil))
 }
 
 // getExcludedStatusCodes returns the list of status codes to exclude from caching

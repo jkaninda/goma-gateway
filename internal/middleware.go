@@ -318,6 +318,10 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *njia.Group) {
 		RedisBased:               redisBased,
 		DisableCacheStatusHeader: rule.DisableCacheStatusHeader,
 		ExcludedResponseCodes:    codes,
+		CacheableStatusCodes:     rule.CacheableStatusCodes,
+		IncludeQueryInKey:        rule.IncludeQueryInKey,
+		QueryParamsToCache:       rule.QueryParamsToCache,
+		CachePrivateResponses:    rule.CachePrivateResponses,
 	}
 	r.Use(httpCacheM.Middleware)
 
