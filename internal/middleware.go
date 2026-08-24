@@ -322,6 +322,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *njia.Group) {
 		IncludeQueryInKey:        rule.IncludeQueryInKey,
 		QueryParamsToCache:       rule.QueryParamsToCache,
 		CachePrivateResponses:    rule.CachePrivateResponses,
+		IgnoreVary:               rule.IgnoreVary,
 	}
 	r.Use(httpCacheM.Middleware)
 

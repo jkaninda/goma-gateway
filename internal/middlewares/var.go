@@ -33,6 +33,7 @@ const (
 	contentTypeHTML            = "text/html"
 	constGomaCacheHeader       = "X-Goma-Cache"
 	constGomaCacheMaxAgeHeader = "X-Goma-Cache-Max-Age"
+	constGomaCacheReasonHeader = "X-Goma-Cache-Reason"
 )
 
 var (

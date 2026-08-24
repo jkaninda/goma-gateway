@@ -23,7 +23,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"net/http"
 	"net/url"
 	"slices"
@@ -31,7 +30,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
+
+const maxVaryFields = 3
+
+var credentialHeaders = []string{"authorization", "proxy-authorization", "cookie"}
 
 type HttpCacheConfig struct {
 	// Path, route path
@@ -50,11 +55,8 @@ type HttpCacheConfig struct {
 	CacheableStatusCodes     []int
 	IncludeQueryInKey        bool
 	QueryParamsToCache       []string
-	// CachePrivateResponses allows responses to requests that carried
-	// credentials to be cached. It is off by default: the cache is shared by
-	// every caller of the route, so a per-user response stored under a key that
-	// does not identify the user would be served to everyone else.
-	CachePrivateResponses bool
+	CachePrivateResponses    bool
+	IgnoreVary               []string
 }
 
 // Cache is a wrapper around the Redis client.
@@ -65,19 +67,38 @@ type Cache struct {
 	memoryLimit int64
 	memoryUsed  int64
 	mu          sync.RWMutex
+	varyHints   sync.Map
+
+	loggedReasons sync.Map
 }
 
 // responseRecorder helps capture the response.
 type responseRecorder struct {
 	http.ResponseWriter
-	statusCode int
-	body       []byte
+	statusCode  int
+	body        []byte
+	wroteHeader bool
+
+	evaluated  bool
+	storable   bool
+	reason     string
+	varyFields []string
+	onHeader   func()
+}
+
+// CacheEntry is a stored response on its way back to a caller.
+type CacheEntry struct {
+	Response        []byte
+	ContentType     string
+	ContentEncoding string
+	Vary            string
+	TTL             time.Duration
 }
 
 // HttpCache defines the interface for a cache.
 type HttpCache interface {
-	Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, time.Duration, bool)
-	Set(ctx context.Context, key string, response []byte, contentType string) error
+	Get(ctx context.Context, key string, maxStale time.Duration) (*CacheEntry, bool)
+	Set(ctx context.Context, key string, entry *CacheEntry) error
 	Delete(ctx context.Context, key string) error
 	GetTTL(ctx context.Context, key string) time.Duration
 }
@@ -91,12 +112,25 @@ func NewHttpCacheMiddleware(redisBased bool, ttl time.Duration, memoryLimit int6
 		memoryLimit: memoryLimit,
 	}
 }
+
 func (rec *responseRecorder) WriteHeader(statusCode int) {
+	if rec.wroteHeader {
+		return
+	}
 	rec.statusCode = statusCode
+
+	if rec.onHeader != nil {
+		rec.onHeader()
+	}
+	rec.wroteHeader = true
 	rec.ResponseWriter.WriteHeader(statusCode)
 }
 
 func (rec *responseRecorder) Write(data []byte) (int, error) {
+
+	if !rec.wroteHeader {
+		rec.WriteHeader(http.StatusOK)
+	}
 	rec.body = append(rec.body, data...)
 	return rec.ResponseWriter.Write(data)
 }
@@ -106,6 +140,7 @@ type CacheItem struct {
 	Response        []byte
 	ContentType     string
 	ContentEncoding string
+	Vary            string
 	Size            int64 // Size of the item in memory
 	ExpiresAt       time.Time
 }
@@ -132,17 +167,14 @@ func (c *Cache) GetTTL(ctx context.Context, key string) time.Duration {
 	return remainingTTL
 }
 
-// evictOldest evicts the oldest item in the cache to make room for new items.
-func (c *Cache) evictOldest() {
-	var oldestKey string
-	var oldestTime time.Time
+func (c *Cache) evictOldestLocked() bool {
 	if c.redisBased && RedisClient != nil {
-		// Remove from Redis.
-		RedisClient.Del(context.Background(), oldestKey)
-		logger.Debug("Evicted item", "key", oldestKey)
-		return
+		// Redis expires entries on its own.
+		return false
 	}
 
+	var oldestKey string
+	var oldestTime time.Time
 	for key, item := range c.data {
 		if oldestTime.IsZero() || item.ExpiresAt.Before(oldestTime) {
 			oldestKey = key
@@ -150,84 +182,94 @@ func (c *Cache) evictOldest() {
 		}
 	}
 
-	// Evict the oldest item from memory.
-	if oldestKey != "" {
-		c.mu.Lock()
-		defer c.mu.Unlock()
-
-		// Remove from memory.
-		item := c.data[oldestKey]
-		delete(c.data, oldestKey)
-		c.memoryUsed -= item.Size
-
+	if oldestKey == "" {
+		return false
 	}
 
+	item := c.data[oldestKey]
+	delete(c.data, oldestKey)
+	c.memoryUsed -= item.Size
+	logger.Debug("Evicted item", "key", oldestKey)
+	return true
 }
 
 // Get retrieves an item from Redis or the in-memory cache with max-stale support.
-func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) ([]byte, string, string, time.Duration, bool) {
+func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) (*CacheEntry, bool) {
 	ttl := c.GetTTL(ctx, key)
 	if c.redisBased && RedisClient != nil {
 		val, err := RedisClient.HGetAll(ctx, key).Result()
 		if errors.Is(err, redis.Nil) {
-			return nil, "", "", time.Duration(0), false
+			return nil, false
 		} else if err != nil {
 			logger.Error("Error retrieving item from Redis", "error", err)
-			return nil, "", "", time.Duration(0), false
+			return nil, false
 		}
 
 		response := val["response"]
 		contentType := val["contentType"]
-		contentEncoding := val["contentEncoding"]
 		expiresAtStr := val["expiresAt"]
 
 		if response == "" || contentType == "" || expiresAtStr == "" {
 			logger.Debug("Cache entry missing data for key", "key", key)
-			return nil, "", "", time.Duration(0), false
+			return nil, false
 		}
 
 		expiresAt, err := strconv.ParseInt(expiresAtStr, 10, 64)
 		if err != nil {
 			logger.Debug("Invalid cache, cache expired", "key", key, "error", err)
-			return nil, "", "", time.Duration(0), false
+			return nil, false
+		}
+
+		entry := &CacheEntry{
+			Response:        []byte(response),
+			ContentType:     contentType,
+			ContentEncoding: val["contentEncoding"],
+			Vary:            val["vary"],
+			TTL:             ttl,
 		}
 
 		now := time.Now()
 		if now.After(time.Unix(expiresAt, 0)) {
 			if maxStale > 0 && now.Before(time.Unix(expiresAt, 0).Add(maxStale)) {
-				return []byte(response), contentType, contentEncoding, ttl, true
+				return entry, true
 			}
-			return nil, "", "", ttl, false
+			return nil, false
 		}
-		return []byte(response), contentType, contentEncoding, ttl, true
+		return entry, true
 	}
 
 	// In-memory cache
 	c.mu.RLock()
 	item, found := c.data[key]
 	c.mu.RUnlock()
-	if found {
-		now := time.Now()
-		if item.ExpiresAt.After(now) {
-			return item.Response, item.ContentType, item.ContentEncoding, ttl, true
-		}
-		if maxStale > 0 && now.Before(item.ExpiresAt.Add(maxStale)) {
-			return item.Response, item.ContentType, item.ContentEncoding, ttl, true
-		}
+	if !found {
+		return nil, false
 	}
-	return nil, "", "", ttl, false
+
+	now := time.Now()
+	if item.ExpiresAt.After(now) || (maxStale > 0 && now.Before(item.ExpiresAt.Add(maxStale))) {
+		return &CacheEntry{
+			Response:        item.Response,
+			ContentType:     item.ContentType,
+			ContentEncoding: item.ContentEncoding,
+			Vary:            item.Vary,
+			TTL:             ttl,
+		}, true
+	}
+	return nil, false
 }
 
 // Set stores an item in both Redis and the in-memory cache with memory limit checks.
-func (c *Cache) Set(ctx context.Context, key string, response []byte, contentType, contentEncoding string) error {
+func (c *Cache) Set(ctx context.Context, key string, entry *CacheEntry) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.redisBased {
 		data := map[string]interface{}{
-			"response":        response,
-			"contentType":     contentType,
-			"contentEncoding": contentEncoding,
+			"response":        entry.Response,
+			"contentType":     entry.ContentType,
+			"contentEncoding": entry.ContentEncoding,
+			"vary":            entry.Vary,
 			"expiresAt":       time.Now().Add(c.ttl).Unix(),
 		}
 		err := RedisClient.HSet(ctx, key, data).Err()
@@ -238,15 +280,23 @@ func (c *Cache) Set(ctx context.Context, key string, response []byte, contentTyp
 		return RedisClient.Expire(ctx, key, c.ttl).Err()
 	}
 
-	itemSize := int64(len(response))
+	itemSize := int64(len(entry.Response))
 	for c.memoryUsed+itemSize > c.memoryLimit {
-		c.evictOldest()
+		if !c.evictOldestLocked() {
+			break
+		}
+	}
+	if itemSize > c.memoryLimit {
+		logger.Debug("Response larger than the cache memory limit, not stored",
+			"size", itemSize, "memoryLimit", c.memoryLimit)
+		return nil
 	}
 
 	item := &CacheItem{
-		Response:        response,
-		ContentType:     contentType,
-		ContentEncoding: contentEncoding,
+		Response:        entry.Response,
+		ContentType:     entry.ContentType,
+		ContentEncoding: entry.ContentEncoding,
+		Vary:            entry.Vary,
 		Size:            itemSize,
 		ExpiresAt:       time.Now().Add(c.ttl),
 	}
@@ -267,7 +317,10 @@ func (c *Cache) Delete(ctx context.Context, key string) error {
 		}
 		return nil
 	}
-	delete(c.data, key)
+	if item, found := c.data[key]; found {
+		c.memoryUsed -= item.Size
+		delete(c.data, key)
+	}
 
 	return nil
 }
@@ -282,89 +335,148 @@ func (h HttpCacheConfig) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// A request carrying credentials gets a response meant for whoever sent
-		// them. The cache key cannot tell those callers apart, so such requests
-		// bypass the cache in both directions unless the operator opts in.
 		if h.isCredentialed(r) && !h.CachePrivateResponses {
 			logger.Debug("Cache: bypassed for a credentialed request", "path", r.URL.Path)
+			w.Header().Set(constGomaCacheHeader, "BYPASS")
+			if !h.DisableCacheStatusHeader {
+				w.Header().Set("X-Cache-Status", "BYPASS")
+				w.Header().Set(constGomaCacheReasonHeader, "the request carried credentials")
+			}
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Generate cache key
-		cacheKey := h.generateCacheKey(r)
+		baseKey := h.generateCacheKey(r)
 
 		if r.Method == http.MethodGet {
 			maxStale := parseMaxStale(r.Header.Get("Cache-Control"))
-			if response, contentType, contentEncoding, ttl, found := h.Cache.Get(ctx, cacheKey, maxStale); found {
+			if entry, found := h.lookup(ctx, baseKey, r, maxStale); found {
 				if allowedOrigin(h.Origins, r.Header.Get("Origin")) {
 					w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 					w.Header().Add("Vary", "Origin")
 				}
-				writeCachedResponse(w, contentType, contentEncoding, response, ttl, h.DisableCacheStatusHeader, h.cacheability(r))
-				logger.Debug("Cache: served from cache", "key", cacheKey)
+				writeCachedResponse(w, entry, h.DisableCacheStatusHeader, h.cacheability(r))
+				logger.Debug("Cache: served from cache", "key", baseKey)
 				return
 			}
 			w.Header().Set(constGomaCacheHeader, "MISS")
 			w.Header().Set(constGomaCacheMaxAgeHeader, fmt.Sprintf("%d", int(h.TTL.Seconds())))
 			if !h.DisableCacheStatusHeader {
 				w.Header().Set("X-Cache-Status", "MISS")
-				w.Header().Set("Cache-Control", fmt.Sprintf("%s, max-age=%v", h.cacheability(r), h.TTL.Seconds()))
 			}
+
 		}
 
 		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
+		rec.onHeader = func() { h.evaluate(rec, r) }
 		next.ServeHTTP(rec, r)
-
-		if !h.shouldCacheStatus(rec.statusCode) {
-			logger.Debug("Status code excluded from caching", "status", rec.statusCode)
-			return
+		if !rec.evaluated {
+			h.evaluate(rec, r)
 		}
 
-		h.handleCache(ctx, cacheKey, r, rec)
+		h.handleCache(ctx, baseKey, r, rec)
 	})
 }
 
+func (h HttpCacheConfig) lookup(ctx context.Context, baseKey string, r *http.Request, maxStale time.Duration) (*CacheEntry, bool) {
+	if fields, ok := h.varyHint(baseKey); ok {
+		if entry, found := h.Cache.Get(ctx, varyKey(baseKey, r, fields), maxStale); found {
+			return entry, true
+		}
+	}
+	return h.Cache.Get(ctx, baseKey, maxStale)
+}
+
+func (h HttpCacheConfig) evaluate(rec *responseRecorder, r *http.Request) {
+	rec.evaluated = true
+	if r.Method != http.MethodGet {
+		return
+	}
+
+	rec.varyFields, rec.reason, rec.storable = h.storability(rec.Header(), rec.statusCode)
+
+	if !rec.wroteHeader {
+		if rec.storable {
+			if !h.DisableCacheStatusHeader {
+				rec.Header().Set("Cache-Control",
+					fmt.Sprintf("%s, max-age=%d", h.cacheability(r), int(h.TTL.Seconds())))
+			}
+		} else {
+			rec.Header().Set(constGomaCacheHeader, "BYPASS")
+			rec.Header().Del(constGomaCacheMaxAgeHeader)
+			if !h.DisableCacheStatusHeader {
+				rec.Header().Set("X-Cache-Status", "BYPASS")
+				rec.Header().Set(constGomaCacheReasonHeader, rec.reason)
+			}
+		}
+	}
+
+	if !rec.storable {
+		h.logNotStored(r, rec.reason)
+	}
+}
+
+func (h HttpCacheConfig) logNotStored(r *http.Request, reason string) {
+	if h.Cache != nil {
+		if _, seen := h.Cache.loggedReasons.LoadOrStore(h.Name+"|"+reason, struct{}{}); seen {
+			logger.Debug("Cache: response not stored", "route", h.Name, "path", r.URL.Path, "reason", reason)
+			return
+		}
+	}
+	logger.Info("Cache: response not stored", "route", h.Name, "path", r.URL.Path, "reason", reason)
+}
+
 // handleCache handles caching logic
-func (h HttpCacheConfig) handleCache(ctx context.Context, cacheKey string, r *http.Request, rec *responseRecorder) {
+func (h HttpCacheConfig) handleCache(ctx context.Context, baseKey string, r *http.Request, rec *responseRecorder) {
 	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (rec.statusCode >= 200 && rec.statusCode < 400) {
-		if err := h.Cache.Delete(ctx, cacheKey); err != nil {
-			logger.Error("Failed to invalidate cache", "key", cacheKey, "error", err)
+
+		keys := []string{baseKey}
+		if fields, ok := h.varyHint(baseKey); ok {
+			keys = append(keys, varyKey(baseKey, r, fields))
+		}
+		for _, key := range keys {
+			if err := h.Cache.Delete(ctx, key); err != nil {
+				logger.Error("Failed to invalidate cache", "key", key, "error", err)
+			}
 		}
 		logger.Debug("Cache invalidated", "status", rec.statusCode)
 		return
 	}
 
-	if r.Method == http.MethodGet && (rec.statusCode >= 200 && rec.statusCode < 400) {
-		if reason, ok := notStorable(rec.Header()); !ok {
-			logger.Debug("Cache: response not stored", "path", r.URL.Path, "reason", reason)
-			return
-		}
+	if r.Method != http.MethodGet || !rec.storable {
+		return
+	}
 
-		contentType := rec.Header().Get("Content-Type")
-		contentEncoding := rec.Header().Get("Content-Encoding")
-
-		if err := h.Cache.Set(ctx, cacheKey, rec.body, contentType, contentEncoding); err != nil {
-			logger.Error("Error saving response in cache", "error", err.Error())
-			return
-		}
+	h.rememberVary(baseKey, rec.varyFields)
+	entry := &CacheEntry{
+		Response:        rec.body,
+		ContentType:     rec.Header().Get("Content-Type"),
+		ContentEncoding: rec.Header().Get("Content-Encoding"),
+		Vary:            strings.Join(rec.varyFields, ", "),
+	}
+	if err := h.Cache.Set(ctx, varyKey(baseKey, r, rec.varyFields), entry); err != nil {
+		logger.Error("Error saving response in cache", "error", err.Error())
 	}
 }
 
 // writeCachedResponse writes a cached response to the client.
-func writeCachedResponse(w http.ResponseWriter, contentType, contentEncoding string, response []byte, ttl time.Duration, disableCacheStatusHeader bool, cacheability string) {
-	w.Header().Set("Content-Type", contentType)
+func writeCachedResponse(w http.ResponseWriter, entry *CacheEntry, disableCacheStatusHeader bool, cacheability string) {
+	w.Header().Set("Content-Type", entry.ContentType)
 	w.Header().Set(constGomaCacheHeader, "HIT")
-	w.Header().Set(constGomaCacheMaxAgeHeader, fmt.Sprintf("%d", int(ttl.Seconds())))
-	if contentEncoding != "" {
-		w.Header().Set("Content-Encoding", contentEncoding)
+	w.Header().Set(constGomaCacheMaxAgeHeader, fmt.Sprintf("%d", int(entry.TTL.Seconds())))
+	if entry.ContentEncoding != "" {
+		w.Header().Set("Content-Encoding", entry.ContentEncoding)
+	}
+
+	if entry.Vary != "" {
+		w.Header().Add("Vary", entry.Vary)
 	}
 	if !disableCacheStatusHeader {
-		w.Header().Set("Cache-Control", fmt.Sprintf("%s, max-age=%d", cacheability, int(ttl.Seconds())))
+		w.Header().Set("Cache-Control", fmt.Sprintf("%s, max-age=%d", cacheability, int(entry.TTL.Seconds())))
 		w.Header().Set("X-Cache-Status", "HIT")
 	}
 
-	_, err := w.Write(response)
+	_, err := w.Write(entry.Response)
 	if err != nil {
 		logger.Error("Failed to write cached response", "error", err)
 	}
@@ -379,11 +491,12 @@ func parseMaxStale(cacheControl string) time.Duration {
 	var maxStale int
 	_, err := fmt.Sscanf(cacheControl, "max-stale=%d", &maxStale)
 	if err != nil {
-		return 0 // No max-stale directive or invalid value
+		return 0
 	}
 
 	return time.Duration(maxStale) * time.Second
 }
+
 func (h HttpCacheConfig) shouldCacheStatus(statusCode int) bool {
 	if len(h.CacheableStatusCodes) > 0 {
 		return slices.Contains(h.CacheableStatusCodes, statusCode)
@@ -393,7 +506,6 @@ func (h HttpCacheConfig) shouldCacheStatus(statusCode int) bool {
 	return !slices.Contains(excludedCodes, statusCode)
 }
 
-// generateCacheKey creates a cache key with optional query parameter filtering
 // isCredentialed reports whether the request carries anything that makes the
 // response specific to its sender.
 func (h HttpCacheConfig) isCredentialed(r *http.Request) bool {
@@ -402,9 +514,6 @@ func (h HttpCacheConfig) isCredentialed(r *http.Request) bool {
 		r.Header.Get("Cookie") != ""
 }
 
-// cacheability is what the response may tell shared caches downstream. A
-// response to a credentialed request is never public, whatever this gateway
-// chose to do with it.
 func (h HttpCacheConfig) cacheability(r *http.Request) string {
 	if h.isCredentialed(r) {
 		return "private"
@@ -412,38 +521,134 @@ func (h HttpCacheConfig) cacheability(r *http.Request) string {
 	return "public"
 }
 
-// notStorable reports whether a response may be kept in a shared cache. It
-// returns the reason it may not, so the decision is visible in the logs.
-func notStorable(header http.Header) (string, bool) {
+func (h HttpCacheConfig) storability(header http.Header, status int) ([]string, string, bool) {
+	if !h.shouldCacheStatus(status) {
+		return nil, fmt.Sprintf("status %d is excluded from caching", status), false
+	}
+
+	if len(h.CacheableStatusCodes) == 0 && (status < 200 || status >= 400) {
+		return nil, fmt.Sprintf("status %d is not a cacheable result", status), false
+	}
 	if header.Get("Set-Cookie") != "" {
-		return "the response sets a cookie", false
+		return nil, "the response sets a cookie", false
 	}
 	if header.Get("WWW-Authenticate") != "" {
-		return "the response is an authentication challenge", false
+		return nil, "the response is an authentication challenge", false
 	}
-	directives := strings.ToLower(header.Get("Cache-Control"))
-	for _, directive := range []string{"private", "no-store", "no-cache"} {
-		if strings.Contains(directives, directive) {
-			return "the response is marked " + directive, false
+
+	for _, directive := range cacheControlDirectives(header) {
+		switch directive {
+		case "private", "no-store", "no-cache":
+			return nil, "the response is marked " + directive, false
 		}
 	}
-	// Vary means the response depends on request headers this cache does not
-	// key on. Accept-Encoding is the exception: it is part of the key.
-	for _, vary := range header.Values("Vary") {
-		for _, field := range strings.Split(vary, ",") {
-			field = strings.ToLower(strings.TrimSpace(field))
-			if field == "" || field == "accept-encoding" {
-				continue
-			}
-			if field == "*" {
-				return "the response varies on everything", false
-			}
-			return "the response varies on " + field, false
-		}
-	}
-	return "", true
+
+	return h.varyFields(header)
 }
 
+// cacheControlDirectives splits Cache-Control into bare directive names, so
+// "no-store" is recognised while "stale-while-revalidate=60" is not mistaken
+// for one by a substring match.
+func cacheControlDirectives(header http.Header) []string {
+	var directives []string
+	for _, value := range header.Values("Cache-Control") {
+		for _, part := range strings.Split(value, ",") {
+			name, _, _ := strings.Cut(part, "=")
+			name = strings.ToLower(strings.TrimSpace(name))
+			if name != "" {
+				directives = append(directives, name)
+			}
+		}
+	}
+	return directives
+}
+
+func (h HttpCacheConfig) varyFields(header http.Header) ([]string, string, bool) {
+	var fields []string
+	for _, value := range header.Values("Vary") {
+		for _, part := range strings.Split(value, ",") {
+			field := strings.ToLower(strings.TrimSpace(part))
+			switch {
+			case field == "":
+				continue
+			case field == "*":
+				return nil, "the response varies on everything", false
+			case field == "accept-encoding":
+				continue
+			case slices.Contains(credentialHeaders, field):
+				continue
+			case h.ignoresVary(field):
+				continue
+			case slices.Contains(fields, field):
+				continue
+			}
+			fields = append(fields, field)
+		}
+	}
+
+	if len(fields) > maxVaryFields {
+		return nil, fmt.Sprintf("the response varies on %d headers, more than the %d this cache keys on",
+			len(fields), maxVaryFields), false
+	}
+
+	slices.Sort(fields)
+	return fields, "", true
+}
+
+// ignoresVary reports whether the operator asked for this Vary field to be
+// disregarded.
+func (h HttpCacheConfig) ignoresVary(field string) bool {
+	for _, ignored := range h.IgnoreVary {
+		if strings.EqualFold(strings.TrimSpace(ignored), field) {
+			return true
+		}
+	}
+	return false
+}
+
+// varyHint returns the request headers the last stored response for this base
+// key depended on.
+func (h HttpCacheConfig) varyHint(baseKey string) ([]string, bool) {
+	if h.Cache == nil {
+		return nil, false
+	}
+	fields, ok := h.Cache.varyHints.Load(baseKey)
+	if !ok {
+		return nil, false
+	}
+	return fields.([]string), true
+}
+
+// rememberVary records what the response just stored depended on, so the next
+// request can rebuild the same key.
+func (h HttpCacheConfig) rememberVary(baseKey string, fields []string) {
+	if h.Cache == nil {
+		return
+	}
+	if len(fields) == 0 {
+		h.Cache.varyHints.Delete(baseKey)
+		return
+	}
+	h.Cache.varyHints.Store(baseKey, fields)
+}
+
+// varyKey extends a base key with this request's values for the headers the
+// stored response depends on
+func varyKey(baseKey string, r *http.Request, fields []string) string {
+	if len(fields) == 0 {
+		return baseKey
+	}
+	sum := sha256.New()
+	for _, field := range fields {
+		sum.Write([]byte(field))
+		sum.Write([]byte{0})
+		sum.Write([]byte(r.Header.Get(field)))
+		sum.Write([]byte{0})
+	}
+	return fmt.Sprintf("%s-vary-%s", baseKey, hex.EncodeToString(sum.Sum(nil)))
+}
+
+// generateCacheKey creates a cache key with optional query parameter filtering
 func (h HttpCacheConfig) generateCacheKey(r *http.Request) string {
 	// The host separates routes served for several names, and the encoding
 	// separates the compressed and uncompressed forms of the same body, which
@@ -503,9 +708,10 @@ func acceptedEncoding(r *http.Request) string {
 // without putting their credentials in a cache key.
 func credentialFingerprint(r *http.Request) string {
 	sum := sha256.New()
-	sum.Write([]byte(r.Header.Get("Authorization")))
-	sum.Write([]byte{0})
-	sum.Write([]byte(r.Header.Get("Cookie")))
+	for _, header := range []string{"Authorization", "Proxy-Authorization", "Cookie"} {
+		sum.Write([]byte(r.Header.Get(header)))
+		sum.Write([]byte{0})
+	}
 	return hex.EncodeToString(sum.Sum(nil))
 }
 

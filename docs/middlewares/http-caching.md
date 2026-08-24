@@ -32,6 +32,13 @@ The middleware adds a `X-Cache-Status` header to responses, indicating the cache
 - **MISS**: The response was fetched from the upstream application and not from the cache.
 - **BYPASS**: The request or response did not meet the criteria for HTTP caching, so caching was bypassed.
 
+When the status is `BYPASS`, an `X-Goma-Cache-Reason` header says which rule
+declined it — for example `the response is marked no-store` or `the request
+carried credentials`. The same reason is logged at info level the first time a
+route hits it, and at debug level afterwards, so a cache that never fills can be
+diagnosed without reading the source. `X-Goma-Cache` carries the same status and
+is not suppressed by `disableCacheStatusHeader`.
+
 ---
 
 ## Middleware Configuration Options
@@ -56,6 +63,11 @@ The HTTP Cache Middleware provides the following configuration options:
 - **`cachePrivateResponses`** (`boolean`, default=`false`):  
   Allows responses to requests that carried credentials to be cached, keyed per caller. See [What is not cached](#what-is-not-cached) before enabling it.
 
+- **`ignoreVary`** (`array of strings`):  
+  Response `Vary` fields to disregard. Use it for a backend that advertises a
+  `Vary` its bodies do not actually honour: the field is then left out of the
+  cache key, so every caller shares one entry instead of each getting their own.
+
 ---
 
 ## What is not cached
@@ -68,14 +80,44 @@ caller read another's response stays out of it:
   `cachePrivateResponses: true` to cache them anyway; the key then includes a
   fingerprint of those credentials, so each caller gets their own entry.
 - **Responses that set a cookie**, carry `WWW-Authenticate`, or are marked
-  `Cache-Control: private`, `no-store` or `no-cache`.
-- **Responses with a `Vary` header** other than `Vary: Accept-Encoding`, which
-  the cache key already covers.
+  `Cache-Control: private`, `no-store` or `no-cache`. `no-cache` is refused
+  rather than stored-and-revalidated because this cache has no
+  conditional-request path, so a stored copy could never be served.
+- **Responses with `Vary: *`**, or varying on more than three headers — past
+  that, the same resource would occupy an unreasonable number of entries.
+
+## Responses that vary
+
+A response with a `Vary` header is stored under a secondary key built from the
+request's values for the fields it names, which is what RFC 9111 asks a cache to
+do. Two callers who differ on those fields get their own entry; callers who agree
+share one. The `Vary` is replayed on the cached response so caches downstream key
+on it too.
+
+Three kinds of field never reach the key:
+
+- `Accept-Encoding` — already part of the base key.
+- `Authorization`, `Proxy-Authorization` and `Cookie` — a credentialed request
+  never reads a shared entry in the first place, and under
+  `cachePrivateResponses` the key already includes a fingerprint of them. A
+  `Vary` naming them tells the cache nothing it has not already enforced. This
+  matters in practice: `raw.githubusercontent.com`, for one, answers
+  `Vary: Authorization, Accept-Encoding` on public files that are identical for
+  everyone.
+- Anything listed in `ignoreVary`.
+
+## Cache key
 
 The cache key is the route name, host, negotiated encoding, path, and — when
-enabled — the query parameters and the caller fingerprint. Responses to
-credentialed requests are returned with `Cache-Control: private` so caches
-between Goma and the browser do not store them either.
+enabled — the query parameters and the caller fingerprint, plus the secondary
+key described above when the response varies. Responses to credentialed requests
+are returned with `Cache-Control: private` so caches between Goma and the browser
+do not store them either.
+
+An unsafe method (`POST`, `PUT`, `DELETE`) invalidates the entry for the base
+key and the one the same caller would have read. Entries stored for other
+callers' `Vary` values are left to expire — they cannot be enumerated from a
+single request.
 
 ---
 
@@ -99,6 +141,7 @@ middlewares:
       excludedResponseCodes: [] # e.g., [500, 404]
       includeQueryInKey: false # Whether to include query parameters in the cache key
       queryParamsToCache: [] # List of specific query parameters to include in the cache key
+      ignoreVary: [] # Response Vary fields to leave out of the cache key
 ```
 ---
 
