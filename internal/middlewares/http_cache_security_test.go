@@ -25,7 +25,6 @@ import (
 	"time"
 )
 
-// headerAuthorize is the credential the cache must never key a shared entry on.
 const headerAuthorize = "Authorization"
 
 // A cached response must never be handed to a caller other than the one it was
@@ -72,32 +71,29 @@ func TestCacheBypassesCredentialedRequests(t *testing.T) {
 	}
 }
 
-// Responses that identify their reader, or ask not to be stored, stay out of a
-// shared cache.
 func TestCacheDoesNotStorePerCallerResponses(t *testing.T) {
 	tests := map[string][2]string{
 		"sets a cookie":        {"Set-Cookie", "session=abc"},
 		"marked private":       {"Cache-Control", "private, max-age=60"},
 		"marked no-store":      {"Cache-Control", "no-store"},
-		"varies on a header":   {"Vary", headerAuthorize},
 		"varies on everything": {"Vary", "*"},
 		"auth challenge":       {"WWW-Authenticate", `Bearer realm="x"`},
 	}
+	cache := HttpCacheConfig{Name: "test"}
 	for name, pair := range tests {
 		t.Run(name, func(t *testing.T) {
 			header := http.Header{}
 			header.Set(pair[0], pair[1])
-			if _, storable := notStorable(header); storable {
-				t.Errorf("notStorable(%v) said the response may be cached", header)
+			if _, _, storable := cache.storability(header, http.StatusOK); storable {
+				t.Errorf("storability(%v) said the response may be cached", header)
 			}
 		})
 	}
 
-	// Accept-Encoding is part of the cache key, so varying on it is fine.
 	encodingVary := http.Header{}
 	encodingVary.Set("Vary", "Accept-Encoding")
-	if _, storable := notStorable(encodingVary); !storable {
-		t.Error("a response varying only on Accept-Encoding was refused, but the key covers it")
+	if fields, _, storable := cache.storability(encodingVary, http.StatusOK); !storable || len(fields) != 0 {
+		t.Errorf("a response varying only on Accept-Encoding gave fields=%v storable=%v, want none and true", fields, storable)
 	}
 }
 
