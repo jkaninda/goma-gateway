@@ -67,7 +67,7 @@ func TestCacheKeysOnVaryRatherThanRefusing(t *testing.T) {
 	}
 
 	second := get(t, handler, "Origin", "https://a.example")
-	if got := second.Header().Get(constGomaCacheHeader); got != "HIT" {
+	if got := second.Header().Get(constGomaCacheHeader); got != constCacheHIT {
 		t.Errorf("repeat of the same Origin: %s = %q, want HIT", constGomaCacheHeader, got)
 	}
 	if calls != 1 {
@@ -102,7 +102,7 @@ func TestCacheIgnoresVaryOnCredentialHeaders(t *testing.T) {
 			get(t, handler, "", "")
 			second := get(t, handler, "", "")
 
-			if got := second.Header().Get(constGomaCacheHeader); got != "HIT" {
+			if got := second.Header().Get(constGomaCacheHeader); got != constCacheHIT {
 				t.Errorf("%s = %q, want HIT: a Vary on %s is already covered by the credential rules",
 					constGomaCacheHeader, got, field)
 			}
@@ -121,7 +121,7 @@ func TestCacheIgnoreVaryConfig(t *testing.T) {
 	get(t, handler, "X-Region", "eu")
 	second := get(t, handler, "X-Region", "us")
 
-	if got := second.Header().Get(constGomaCacheHeader); got != "HIT" {
+	if got := second.Header().Get(constGomaCacheHeader); got != constCacheHIT {
 		t.Errorf("%s = %q, want HIT: X-Region was declared not to change the body", constGomaCacheHeader, got)
 	}
 	if calls != 1 {

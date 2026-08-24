@@ -34,6 +34,7 @@ const (
 	constGomaCacheHeader       = "X-Goma-Cache"
 	constGomaCacheMaxAgeHeader = "X-Goma-Cache-Max-Age"
 	constGomaCacheReasonHeader = "X-Goma-Cache-Reason"
+	constCacheHIT              = "HIT"
 )
 
 var (
