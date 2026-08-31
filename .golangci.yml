@@ -74,9 +74,13 @@ linters:
           - dupl
           - lll
         path: internal/*
-      # Test fixtures use predictable credentials and hosts on purpose.
+      # Test fixtures use predictable credentials and hosts on purpose, and a
+      # table-driven test repeats literals by design — hoisting "GET" or
+      # "https://example.com" into a constant makes the case harder to read,
+      # not easier.
       - linters:
           - gosec
+          - goconst
         path: _test\.go
     paths:
       - third_party$

@@ -49,3 +49,11 @@ const (
 	cronExpression    = "@every 6h"
 	// cronExpression = "@every 30s" // for testing purposes only
 )
+
+// PEM block types for the private key encodings the certificate manager reads
+// and writes.
+const (
+	pemTypeRSAPrivateKey   = "RSA PRIVATE KEY" // PKCS#1
+	pemTypeECPrivateKey    = "EC PRIVATE KEY"  // SEC 1
+	pemTypePKCS8PrivateKey = "PRIVATE KEY"     // PKCS#8
+)

@@ -40,7 +40,7 @@ func loadExtraFiles(path string) ([]string, error) {
 		}
 
 		// Include .yaml or .yml files
-		if !info.IsDir() && (filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml") {
+		if !info.IsDir() && (filepath.Ext(path) == constYamlExt || filepath.Ext(path) == constYmlExt) {
 			yamlFiles = append(yamlFiles, path)
 		}
 
@@ -79,7 +79,7 @@ func loadAllFiles(path string) ([]string, error) {
 			return nil
 		}
 		switch filepath.Ext(path) {
-		case ".yaml", ".yml", ".json":
+		case constYamlExt, constYmlExt, constJsonExt:
 			files = append(files, path)
 		}
 

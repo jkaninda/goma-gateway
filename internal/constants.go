@@ -127,3 +127,7 @@ const (
 
 // defaultCacheMemoryLimit is the fallback for httpCache.memoryLimit: 64 MiB.
 const defaultCacheMemoryLimit = 64 << 20
+
+// blockAccessMiddlewareName is the access middleware `goma config init`
+// scaffolds, referenced by name from the routes it guards.
+const blockAccessMiddlewareName = "block-access"

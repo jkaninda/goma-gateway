@@ -389,7 +389,7 @@ func initConfig(configFile string) error {
 						},
 						ForwardHostHeaders: false,
 					},
-					Middlewares: []string{"block-access"},
+					Middlewares: []string{blockAccessMiddlewareName},
 				},
 				{
 					Name:    "api",
@@ -401,7 +401,7 @@ func initConfig(configFile string) error {
 						&Backend{Endpoint: "https://api-2.example.com", Weight: 20},
 						&Backend{Endpoint: "https://api-3.example.com", Weight: 30},
 					},
-					Middlewares: []string{"basic-auth", "block-access", "block-admin-access"},
+					Middlewares: []string{"basic-auth", blockAccessMiddlewareName, "block-admin-access"},
 				},
 			},
 		},
@@ -420,7 +420,7 @@ func initConfig(configFile string) error {
 				},
 			},
 			{
-				Name: "block-access",
+				Name: blockAccessMiddlewareName,
 				Type: AccessMiddleware,
 				Paths: []string{
 					"/docs/.*",

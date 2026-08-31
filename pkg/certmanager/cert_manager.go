@@ -1040,7 +1040,7 @@ func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, err
 	}
 
 	keyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
+		Type:  pemTypeRSAPrivateKey,
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
 	certPEM := pem.EncodeToMemory(&pem.Block{
@@ -1275,13 +1275,13 @@ func marshalPrivateKey(key crypto.PrivateKey) ([]byte, string, error) {
 	switch k := key.(type) {
 	case *ecdsa.PrivateKey:
 		keyBytes, err = x509.MarshalECPrivateKey(k)
-		keyType = "EC PRIVATE KEY"
+		keyType = pemTypeECPrivateKey
 	case *rsa.PrivateKey:
 		keyBytes = x509.MarshalPKCS1PrivateKey(k)
-		keyType = "RSA PRIVATE KEY"
+		keyType = pemTypeRSAPrivateKey
 	default:
 		keyBytes, err = x509.MarshalPKCS8PrivateKey(k)
-		keyType = "PRIVATE KEY"
+		keyType = pemTypePKCS8PrivateKey
 	}
 
 	return keyBytes, keyType, err
@@ -1329,7 +1329,7 @@ func marshalCertificatePrivateKey(privateKey crypto.PrivateKey) ([]byte, error) 
 	switch key := privateKey.(type) {
 	case *rsa.PrivateKey:
 		return pem.EncodeToMemory(&pem.Block{
-			Type:  "RSA PRIVATE KEY",
+			Type:  pemTypeRSAPrivateKey,
 			Bytes: x509.MarshalPKCS1PrivateKey(key),
 		}), nil
 	case *ecdsa.PrivateKey:
@@ -1338,7 +1338,7 @@ func marshalCertificatePrivateKey(privateKey crypto.PrivateKey) ([]byte, error) 
 			return nil, fmt.Errorf("failed to marshal EC private key: %w", err)
 		}
 		return pem.EncodeToMemory(&pem.Block{
-			Type:  "EC PRIVATE KEY",
+			Type:  pemTypeECPrivateKey,
 			Bytes: keyBytes,
 		}), nil
 	default:
@@ -1347,7 +1347,7 @@ func marshalCertificatePrivateKey(privateKey crypto.PrivateKey) ([]byte, error) 
 			return nil, fmt.Errorf("failed to marshal private key: %w", err)
 		}
 		return pem.EncodeToMemory(&pem.Block{
-			Type:  "PRIVATE KEY",
+			Type:  pemTypePKCS8PrivateKey,
 			Bytes: keyBytes,
 		}), nil
 	}
@@ -1386,11 +1386,11 @@ func loadUserFromStorage(stored *StoredUserAccount) (*LegoUser, error) {
 
 func parsePrivateKey(block *pem.Block) (crypto.PrivateKey, error) {
 	switch block.Type {
-	case "EC PRIVATE KEY":
+	case pemTypeECPrivateKey:
 		return x509.ParseECPrivateKey(block.Bytes)
-	case "RSA PRIVATE KEY":
+	case pemTypeRSAPrivateKey:
 		return x509.ParsePKCS1PrivateKey(block.Bytes)
-	case "PRIVATE KEY":
+	case pemTypePKCS8PrivateKey:
 		return x509.ParsePKCS8PrivateKey(block.Bytes)
 	default:
 		return nil, fmt.Errorf("unsupported private key type: %s", block.Type)
