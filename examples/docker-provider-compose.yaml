@@ -13,6 +13,10 @@ services:
       -  GOMA_EXTRA_CONFIG_WATCH=true
       -  GOMA_ENTRYPOINT_WEB_ADDRESS=[::]:80
       -  GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS=[::]:443
+    # Runs as root by default, which is what lets it bind 80 and 443 directly.
+    # To run unprivileged instead, set `user: "10001:10001"`, map the ports as
+    # "80:8080" and "443:8443", and point the two entrypoints above at
+    # [::]:8080 and [::]:8443 — uid 10001 cannot bind ports under 1024.
     networks:
       - goma-net
 

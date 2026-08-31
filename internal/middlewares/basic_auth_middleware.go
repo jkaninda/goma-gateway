@@ -33,7 +33,12 @@ import (
 // AuthMiddleware checks for the Authorization header and verifies the credentials
 func (basicAuth *AuthBasic) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isPathMatching(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
+		// The gateway owns this header. It is only Set on a guarded path and
+		// only when forwardUsername is on, so without this a client could
+		// supply its own and have the upstream trust it.
+		r.Header.Del("username")
+
+		if !isGuardedPathMatching(r.URL.Path, basicAuth.Path, basicAuth.Paths) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -170,15 +175,40 @@ const decoyPasswordHash = "$2a$10$cuP9xB2TreX18wJ0JYFV8OZTcSx6oKukzmwR6UYaO068wA
 
 func ValidatePassword(plain, hash string) (bool, error) {
 	switch {
-	case strings.HasPrefix(hash, "$2y$"), strings.HasPrefix(hash, "$2a$"):
+	// Every bcrypt revision, not just the two Go's own generator emits.
+	// "$2b$" (Python bcrypt, bcryptjs) and "$2x$" used to fall through to the
+	// plaintext branch, which made the hash string itself a working password
+	// for anyone who could read the config file.
+	case strings.HasPrefix(hash, "$2y$"), strings.HasPrefix(hash, "$2a$"),
+		strings.HasPrefix(hash, "$2b$"), strings.HasPrefix(hash, "$2x$"):
 		return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil, nil
 	case strings.HasPrefix(hash, "$apr1$"):
+		return validateAPR1(plain, hash)
+	case strings.HasPrefix(hash, "$1$"):
 		return validateMD5Crypt(plain, hash)
 	case strings.HasPrefix(hash, "{SHA}"):
 		return validateSHA1(plain, hash)
 	default:
+		// A value shaped like a hash but in an unsupported scheme must never be
+		// compared as a literal password. Genuine plaintext entries — which the
+		// configuration format still allows — do not start with these markers.
+		if strings.HasPrefix(hash, "$") || strings.HasPrefix(hash, "{") {
+			return false, fmt.Errorf("unsupported password hash scheme")
+		}
 		return validatePlainText(plain, hash)
 	}
+}
+
+// validateAPR1 verifies an Apache htpasswd "$apr1$" hash: MD5 crypt with the
+// "$apr1$" magic. These used to be routed at validateMD5Crypt, which rejects
+// anything not starting with "$1$", so an apr1 user could never authenticate.
+func validateAPR1(plain, hash string) (bool, error) {
+	parts := strings.Split(hash, "$")
+	if len(parts) != 4 || parts[0] != "" || parts[1] != "apr1" {
+		return false, fmt.Errorf("invalid apr1 format: expected $apr1$salt$hash")
+	}
+	generated := generateMD5CryptWithMagic(plain, parts[2], "$apr1$")
+	return subtle.ConstantTimeCompare([]byte(generated), []byte(hash)) == 1, nil
 }
 
 func validatePlainText(plain, hash string) (bool, error) {
@@ -216,5 +246,5 @@ func validateMD5Crypt(plain, hash string) (bool, error) {
 	generatedHash := generateMD5Crypt(plain, salt)
 
 	// Compare the generated hash with the expected hash
-	return generatedHash == hash, nil
+	return subtle.ConstantTimeCompare([]byte(generatedHash), []byte(hash)) == 1, nil
 }

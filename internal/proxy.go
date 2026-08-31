@@ -107,6 +107,9 @@ func (pr *ProxyRoute) handlePreflight(w http.ResponseWriter, r *http.Request, or
 	if pr.shouldHandlePreflight(r) {
 		logger.Debug("Handling preflight request,", "origin", origin)
 		w.Header().Set(accessControlAllowOrigin, origin)
+		// The reflected origin makes this response origin-specific; a shared
+		// cache must not replay it for another origin.
+		w.Header().Add("Vary", "Origin")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return true
@@ -383,7 +386,7 @@ func (pr *ProxyRoute) NewRoundRobinReverseProxy(r *http.Request) (*httputil.Reve
 func (b Backends) TotalWeight() int {
 	total := 0
 	for _, backend := range b {
-		if backend.unavailable {
+		if b.isUnavailable(backend) {
 			continue
 		}
 		total += backend.Weight
@@ -393,8 +396,6 @@ func (b Backends) TotalWeight() int {
 
 // SelectBackend selects a backend based on weighted randomization.
 func (b Backends) SelectBackend() *Backend {
-	b.updateAvailability()
-
 	totalWeight := b.TotalWeight()
 	if totalWeight == 0 {
 		return nil
@@ -402,7 +403,7 @@ func (b Backends) SelectBackend() *Backend {
 	r := rand.Intn(totalWeight)
 
 	for _, backend := range b {
-		if backend.unavailable {
+		if b.isUnavailable(backend) {
 			continue
 		}
 		r -= backend.Weight
@@ -413,23 +414,11 @@ func (b Backends) SelectBackend() *Backend {
 	return nil
 }
 
-// updateAvailability updates the availability status of all backends
-func (b Backends) updateAvailability() {
-	logger.Debug("Update backend availability", "unavailable count", len(unavailableBackends))
-	for _, backend := range b {
-		if unavailableBackends[backend.Endpoint] {
-			if !backend.unavailable {
-				logger.Debug("Backend marked unavailable", "backend", backend.Endpoint)
-			}
-			backend.unavailable = true
-		} else {
-			if backend.unavailable {
-				logger.Debug("Backend recovered", "backend", backend.Endpoint)
-
-			}
-			backend.unavailable = false
-		}
-	}
+// isUnavailable reports whether the health checks have marked this backend
+// down. Read straight from the shared registry rather than cached on the
+// Backend: the request path must not write to state other requests read.
+func (b Backends) isUnavailable(backend *Backend) bool {
+	return unavailableBackends.isUnavailable(backend.Endpoint)
 }
 
 // HasPositiveWeight checks if at least one backend has a positive weight.
@@ -453,7 +442,7 @@ func (b Backends) IsCanaryBased() bool {
 // hasAvailableBackends checks if there are any available backends without creating a new slice.
 func (b Backends) hasAvailableBackends() bool {
 	for _, backend := range b {
-		if !backend.unavailable {
+		if !b.isUnavailable(backend) {
 			return true
 		}
 	}
@@ -462,12 +451,11 @@ func (b Backends) hasAvailableBackends() bool {
 
 // availableBackendCount returns the count of available backends.
 func (b Backends) availableBackendCount() int {
-	// Update availability status for all backends
-	b.updateAvailability()
+	logger.Debug("Backend availability", "unavailable count", unavailableBackends.count())
 
 	count := 0
 	for _, backend := range b {
-		if !backend.unavailable {
+		if !b.isUnavailable(backend) {
 			count++
 		}
 	}
@@ -485,7 +473,7 @@ func (b Backends) getNextAvailableBackend(availableCount int) *Backend {
 	currentIndex := uint32(0)
 
 	for _, backend := range b {
-		if !backend.unavailable {
+		if !b.isUnavailable(backend) {
 			if currentIndex == index {
 				return backend
 			}
@@ -498,11 +486,9 @@ func (b Backends) getNextAvailableBackend(availableCount int) *Backend {
 
 // SelectCanaryBackend returns a matching exclusive canary backend, if any.
 func (b Backends) SelectCanaryBackend(r *http.Request) *Backend {
-	b.updateAvailability()
-
 	var winner *Backend
 	for _, backend := range b {
-		if backend.unavailable || len(backend.Match) == 0 || !backend.Exclusive {
+		if b.isUnavailable(backend) || len(backend.Match) == 0 || !backend.Exclusive {
 			continue
 		}
 		if !b.matchesRequest(backend, r) {
@@ -522,11 +508,9 @@ func (b Backends) SelectCanaryBackend(r *http.Request) *Backend {
 // selectFromNonExclusivePool merges matching non-exclusive canary backends
 // with the stable (non-canary) backends and picks one via weighted selection.
 func (b Backends) selectFromNonExclusivePool(r *http.Request) *Backend {
-	b.updateAvailability()
-
 	pool := make(Backends, 0, len(b))
 	for _, backend := range b {
-		if backend.unavailable {
+		if b.isUnavailable(backend) {
 			continue
 		}
 		if len(backend.Match) == 0 {

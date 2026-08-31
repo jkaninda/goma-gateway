@@ -70,8 +70,16 @@ func loadAllFiles(path string) ([]string, error) {
 			return filepath.SkipDir
 		}
 
-		// Include .yaml, .yml or .json files
-		if !info.IsDir() && (filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml") || filepath.Ext(path) == ".json" {
+		// Include .yaml, .yml or .json files.
+		//
+		// The !info.IsDir() guard used to bind to the first two extensions
+		// only, so a *directory* named foo.json was collected as a config file
+		// and failed the whole load.
+		if info.IsDir() {
+			return nil
+		}
+		switch filepath.Ext(path) {
+		case ".yaml", ".yml", ".json":
 			files = append(files, path)
 		}
 

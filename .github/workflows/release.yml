@@ -10,16 +10,18 @@ jobs:
     permissions:
       packages: write
       contents: read
+      # Required for cosign keyless signing.
+      id-token: write
     steps:
       -
         name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
       -
         name: Login to DockerHub
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -34,9 +36,13 @@ jobs:
           echo BUILD_TIME=$(date) >> ${GITHUB_ENV}
       -
         name: Build and push
-        uses: docker/build-push-action@v7
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           push: true
+          # SLSA provenance and an SBOM, attached to the image as attestations.
+          provenance: mode=max
+          sbom: true
           file: "./Dockerfile"
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           build-args: |
@@ -46,4 +52,18 @@ jobs:
           tags: |
             "${{vars.BUILDKIT_IMAGE}}:${{ env.VERSION }}"
             "${{vars.BUILDKIT_IMAGE}}:latest"
-
+      # Keyless signing: the signature is bound to this workflow's OIDC
+      # identity, so a released image can be traced to the run that built it.
+      # Verify with:
+      #   cosign verify <image> \
+      #     --certificate-identity-regexp '^https://github.com/jkaninda/goma-gateway/' \
+      #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      -
+        name: Install cosign
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+      -
+        name: Sign the published image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{vars.BUILDKIT_IMAGE}}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"

@@ -353,6 +353,10 @@ func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	g.Networking.Transport.MaxConnsPerHost = 256
 	g.Networking.Transport.IdleConnTimeout = 90
 
+	g.Timeouts.Read = defaultServerTimeout
+	g.Timeouts.Write = defaultServerTimeout
+	g.Timeouts.Idle = defaultServerTimeout
+
 	// Monitoring
 	g.Monitoring.EnableLiveness = true
 	g.Monitoring.EnableReadiness = true

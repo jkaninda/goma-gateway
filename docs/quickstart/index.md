@@ -98,6 +98,10 @@ docker run --rm --name goma-gateway \
   jkaninda/goma-gateway --config /etc/goma/config.yml
 ```
 
+The container runs as root by default, which is what lets it bind 80 and 443
+directly. To run unprivileged instead, see
+[Running as a Non-Root User](/install/docker.html).
+
 
 ### 6. Health Checks
 
@@ -162,10 +166,11 @@ middlewares:
       realm: Restricted
       forwardUsername: true
       users:
+        # Generate your own hash — never copy one out of documentation:
+        #   htpasswd -nbBC 12 admin 'your-password' | cut -d: -f2
+        # or keep it out of the file entirely with ${VAR} expansion.
         - username: admin
-          password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin'
-        - username: user
-          password: password
+          password: ${GOMA_ADMIN_PASSWORD_HASH}
 certManager:
   acme:
     ## Uncomment email to enable Let's Encrypt

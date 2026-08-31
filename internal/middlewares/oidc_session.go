@@ -30,6 +30,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,6 +101,13 @@ type SessionStore interface {
 	Load(r *http.Request) (*Session, error)
 	Save(w http.ResponseWriter, r *http.Request, session *Session) error
 	Clear(w http.ResponseWriter, r *http.Request)
+	// Renew discards any session the request already carries and returns a
+	// request that no longer references it, so the next Save mints a fresh
+	// identifier. It must be called at sign-in: without it an attacker who can
+	// plant a cookie — a sibling subdomain, an XSS anywhere on the domain, a
+	// plaintext host where Secure is not set — fixes a session ID the victim
+	// then authenticates, and inherits the session.
+	Renew(w http.ResponseWriter, r *http.Request) *http.Request
 }
 
 // SessionOptions configures a store and the cookie that addresses it.
@@ -193,6 +201,12 @@ func (c *cookieSessionStore) Clear(w http.ResponseWriter, r *http.Request) {
 	clearChunkedCookie(w, r, c.opts)
 }
 
+// Renew is a no-op for the sealed-cookie store: the session lives entirely in
+// the cookie the next Save overwrites, so there is no identifier to fix.
+func (c *cookieSessionStore) Renew(_ http.ResponseWriter, r *http.Request) *http.Request {
+	return r
+}
+
 // memorySessionStore keeps sessions in this process. Sessions do not survive a
 // restart and are not shared between replicas.
 type memorySessionStore struct {
@@ -243,6 +257,11 @@ func (m *memorySessionStore) Clear(w http.ResponseWriter, r *http.Request) {
 		m.mu.Unlock()
 	}
 	http.SetCookie(w, newSessionCookie(r, m.opts, "", -1))
+}
+
+func (m *memorySessionStore) Renew(w http.ResponseWriter, r *http.Request) *http.Request {
+	m.Clear(w, r)
+	return withoutCookie(r, m.opts.cookieName())
 }
 
 func (m *memorySessionStore) pruneLocked() {
@@ -310,6 +329,31 @@ func (s *redisSessionStore) Clear(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.SetCookie(w, newSessionCookie(r, s.opts, "", -1))
+}
+
+func (s *redisSessionStore) Renew(w http.ResponseWriter, r *http.Request) *http.Request {
+	s.Clear(w, r)
+	return withoutCookie(r, s.opts.cookieName())
+}
+
+// withoutCookie returns a shallow copy of the request whose Cookie header no
+// longer carries the named cookie, so sessionIDFrom mints a new identifier
+// instead of reusing whatever the browser presented.
+func withoutCookie(r *http.Request, name string) *http.Request {
+	kept := make([]string, 0, len(r.Cookies()))
+	for _, cookie := range r.Cookies() {
+		if cookie.Name == name {
+			continue
+		}
+		kept = append(kept, cookie.String())
+	}
+
+	clone := r.Clone(r.Context())
+	clone.Header.Del("Cookie")
+	if len(kept) > 0 {
+		clone.Header.Set("Cookie", strings.Join(kept, "; "))
+	}
+	return clone
 }
 
 // sessionIDFrom reuses the identifier the browser already holds, so refreshing

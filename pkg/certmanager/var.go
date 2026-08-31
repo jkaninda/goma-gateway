@@ -42,9 +42,6 @@ var (
 const (
 	httpChallengePort = "5002"
 	configVersion     = "1.0"
-	gomaEnv           = "GOMA_ENV"
-	local             = "local"
-	development       = "development"
 	renewalBufferTime = 30 * 24 * time.Hour // 30 days
 	requestDelay      = 15 * time.Second
 	errorDelay        = 20 * time.Second

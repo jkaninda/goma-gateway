@@ -20,11 +20,18 @@ package middlewares
 import (
 	"crypto/md5"
 	"fmt"
+
 	logger2 "github.com/jkaninda/logger"
 )
 
-// generateMD5Crypt implements the MD5 crypt algorithm
+// generateMD5Crypt implements the MD5 crypt algorithm with the classic "$1$"
+// magic. Apache's htpasswd variant is the same algorithm under a different
+// magic string; see generateMD5CryptWithMagic.
 func generateMD5Crypt(password, salt string) string {
+	return generateMD5CryptWithMagic(password, salt, "$1$")
+}
+
+func generateMD5CryptWithMagic(password, salt, magic string) string {
 	// Limit salt to 8 characters max
 	if len(salt) > 8 {
 		salt = salt[:8]
@@ -33,7 +40,7 @@ func generateMD5Crypt(password, salt string) string {
 	// Step 1: Create initial digest
 	h1 := md5.New()
 	h1.Write([]byte(password))
-	h1.Write([]byte("$1$"))
+	h1.Write([]byte(magic))
 	h1.Write([]byte(salt))
 
 	// Step 2: Create alternate digest
@@ -93,7 +100,7 @@ func generateMD5Crypt(password, salt string) string {
 	// Step 6: Create the final hash string using custom base64-like encoding
 	encoded := encodeMD5Hash(digest)
 
-	return fmt.Sprintf("$1$%s$%s", salt, encoded)
+	return fmt.Sprintf("%s%s$%s", magic, salt, encoded)
 }
 
 // encodeMD5Hash encodes the MD5 digest using the custom MD5 crypt alphabet
@@ -121,7 +128,7 @@ func encodeMD5Hash(digest []byte) string {
 			val = int(digest[group[0]])
 			chars = 2
 		} else {
-			val = int(digest[group[0]]) | (int(digest[group[1]]) << 8) | (int(digest[group[2]]) << 16)
+			val = (int(digest[group[0]]) << 16) | (int(digest[group[1]]) << 8) | int(digest[group[2]])
 			chars = 4
 		}
 

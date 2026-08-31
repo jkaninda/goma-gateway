@@ -8,3 +8,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # Actions were mutable tags until they were SHA-pinned; a pin only stays
+  # current if something updates it.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

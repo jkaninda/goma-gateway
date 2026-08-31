@@ -69,7 +69,7 @@ func resolveStorageConfig(storageFile, defaultFile string) (*StorageConfig, erro
 		}, nil
 	}
 
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	if err := os.MkdirAll(baseDir, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create directory %s: %w", baseDir, err)
 	}
 

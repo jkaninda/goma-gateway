@@ -50,16 +50,20 @@ LABEL org.opencontainers.image.title="goma-gateway" \
       org.opencontainers.image.created="${buildTime}"
 
 
-# Install runtime dependencies and set up directories
+# Install runtime dependencies and set up directories.
 RUN apk --update --no-cache add tzdata ca-certificates curl && \
+    addgroup -g 10001 -S goma && \
+    adduser -u 10001 -S -G goma -h /home/goma goma && \
     mkdir -p "$CONFIG_DIR" "$EXTRADIR" "$CERTS_DIR" && \
-    chmod a+rw "$CONFIG_DIR" "$EXTRADIR" "$CERTS_DIR"
+    chown -R goma:goma "$CONFIG_DIR" "$EXTRADIR" "$CERTS_DIR" && \
+    chmod 0750 "$CONFIG_DIR" "$EXTRADIR" && \
+    chmod 0700 "$CERTS_DIR"
 
 # Copy built binary
 COPY --from=build /app/goma /usr/local/bin/goma
-RUN chmod a+x /usr/local/bin/goma && ln -s /usr/local/bin/goma /goma
+RUN chmod 0755 /usr/local/bin/goma && ln -s /usr/local/bin/goma /goma
 
-# Expose HTTP and HTTPS ports
+
 EXPOSE 8080 8443
 
 ENTRYPOINT ["/goma"]

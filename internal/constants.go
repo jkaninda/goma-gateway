@@ -38,7 +38,7 @@ const (
 	sameSiteLax               = "lax"
 	sameSiteNone              = "none"
 	StatusClientClosedRequest = 499
-	acmeServerURL             = "localhost:5002"
+	acmeServerURL             = "127.0.0.1:5002"
 	visitorPrefix             = "visitor-"
 )
 
@@ -112,3 +112,18 @@ const (
 	constYaml          = "yaml"
 	constJson          = "json"
 )
+
+// ************** Server hardening defaults *****************
+const (
+	// defaultServerTimeout is the fallback for gateway.timeouts.{read,write,idle},
+	// in seconds. Zero means "unlimited" to net/http, which is not a safe default.
+	defaultServerTimeout = 60
+	// defaultReadHeaderTimeout bounds how long a client may take to send its
+	// request headers. Always applied, independent of gateway.timeouts.
+	defaultReadHeaderTimeout = 10
+	// defaultMaxHeaderBytes caps the request header size at 1 MiB.
+	defaultMaxHeaderBytes = 1 << 20
+)
+
+// defaultCacheMemoryLimit is the fallback for httpCache.memoryLimit: 64 MiB.
+const defaultCacheMemoryLimit = 64 << 20

@@ -25,9 +25,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
+
+	"github.com/jkaninda/logger"
 
 	goutils "github.com/jkaninda/go-utils"
 )
@@ -89,10 +90,10 @@ func newVaultPKIClient(cfg Vault) (*vaultPKIClient, error) {
 	}
 
 	transport := &http.Transport{}
-	// Mirror the ACME client's behavior: skip TLS verification only in local /
-	// development environments so a self-signed Vault dev server can be used.
-	if env := os.Getenv(gomaEnv); env == development || env == local {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	if cfg.InsecureSkipVerify {
+		logger.Warn("Vault TLS verification is disabled by vault.insecureSkipVerify — the Vault token and every issued private key travel over an unverified channel",
+			"address", address)
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // explicitly requested by configuration
 	}
 
 	return &vaultPKIClient{

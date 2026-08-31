@@ -363,16 +363,20 @@ func (p *provider) setupLegoClient() error {
 	return nil
 }
 
+// configureInsecureClientIfNeeded disables TLS verification against the ACME
+// directory when the operator has explicitly asked for it.
 func (p *provider) configureInsecureClientIfNeeded(config *lego.Config) {
-	env := os.Getenv(gomaEnv)
-	if env == development || env == local {
-		config.HTTPClient = &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
+	if !p.cfg.Acme.InsecureSkipVerify {
+		return
+	}
+	logger.Warn("ACME TLS verification is disabled by acme.insecureSkipVerify",
+		"directoryUrl", p.cfg.Acme.DirectoryURL)
+	config.HTTPClient = &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, //nolint:gosec // explicitly requested by configuration
 			},
-		}
+		},
 	}
 }
 
@@ -385,7 +389,10 @@ func (p *provider) setupChallenges() error {
 		return p.legoClient.Challenge.SetDNS01Provider(dns)
 	}
 	return p.legoClient.Challenge.SetHTTP01Provider(
-		http01.NewProviderServer("", httpChallengePort),
+		// Bound to loopback, not 0.0.0.0: the gateway proxies
+		// /.well-known/acme-challenge/ to it locally, so there is no reason for
+		// the challenge server to be reachable from the network.
+		http01.NewProviderServer("127.0.0.1", httpChallengePort),
 	)
 }
 
@@ -1058,6 +1065,27 @@ func (cm *CertManager) GenerateDefaultCertificate() (*tls.Certificate, error) {
 func (cm *CertManager) AcmeInitialized() bool {
 	for _, p := range cm.providers {
 		if p.acmeInitialized {
+			return true
+		}
+	}
+	return false
+}
+
+// UsesHTTP01Challenge reports whether any configured ACME provider solves the
+// HTTP-01 challenge, and therefore whether the gateway needs to proxy
+// /.well-known/acme-challenge/ to the local challenge server at all.
+func (cm *CertManager) UsesHTTP01Challenge() bool {
+	if cm == nil {
+		return false
+	}
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	for _, p := range cm.providers {
+		if p.cfg.Type != CertAcmeProvider {
+			continue
+		}
+		// HTTP-01 is the default when no challenge type is configured.
+		if p.cfg.Acme.ChallengeType != DNS01 {
 			return true
 		}
 	}
