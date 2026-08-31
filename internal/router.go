@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
@@ -42,34 +43,27 @@ type Router interface {
 }
 
 type router struct {
-	njia          *njia.Router
-	enableMetrics bool
-	sync.RWMutex
+	table              atomic.Pointer[njia.Router]
+	enableMetrics      bool
+	mu                 sync.Mutex
 	gateway            *Gateway
 	networking         Networking
 	strictSlash        bool
 	plugins            map[string]plugins.Middleware
 	dynamicRoutes      []Route
 	dynamicMiddlewares []Middleware
-	// visitors feeds the real-time visitors gauge. Gateway-wide and shared by
-	// every route; nil when metrics are disabled.
-	visitors *VisitorTracker
-	// healthStop stops the health-check goroutines belonging to the current
-	// generation of routes. Guarded by the router's mutex, and always replaced
-	// in the same step it is closed: a reload that failed part-way used to
-	// leave a closed channel behind, and the next reload panicked on
-	// "close of closed channel" and took the process with it.
-	healthStop chan struct{}
+	visitors           *VisitorTracker
+	healthStop         chan struct{}
 }
 
 // Stop releases router-owned background work. The visitor tracker records what
 // is still queued before returning, so the last few seconds of activity aren't
 // lost from a store shared with other replicas.
 func (r *router) Stop() error {
-	r.Lock()
+	r.mu.Lock()
 	stop := r.healthStop
 	r.healthStop = nil
-	r.Unlock()
+	r.mu.Unlock()
 	if stop != nil {
 		close(stop)
 	}
@@ -117,7 +111,7 @@ func visitorTTL(raw string) time.Duration {
 
 // AddRoutes adds the router's configured routes to its live routing table.
 func (r *router) AddRoutes() error {
-	return r.addRoutesTo(r.njia, r.dynamicRoutes, r.dynamicMiddlewares, r.plugins)
+	return r.addRoutesTo(r.table.Load(), r.dynamicRoutes, r.dynamicMiddlewares, r.plugins)
 }
 
 // addRoutesTo compiles a set of routes onto the given table. It takes the table
@@ -154,16 +148,32 @@ func (r *router) addRoutesTo(rt *njia.Router, routes []Route, mids []Middleware,
 
 // ServeHTTP handles incoming HTTP requests.
 func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	r.RLock()
-	defer r.RUnlock()
-
 	startTime := time.Now()
 	requestID := getRequestID(req)
 
 	ctx := context.WithValue(req.Context(), CtxRequestStartTime, startTime)
 	ctx = context.WithValue(ctx, CtxRequestIDHeader, requestID)
 	req = req.WithContext(ctx)
-	r.njia.ServeHTTP(w, req)
+
+	table := r.table.Load()
+	if table == nil {
+		// Only reachable before the first table is published.
+		logger.Error("No routing table is published yet", "path", req.URL.Path)
+		http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	table.ServeHTTP(w, req)
+}
+
+// setTable publishes the first routing table.
+func (r *router) setTable(table *njia.Router) {
+	r.table.Store(table)
+}
+
+// swapTable publishes a new routing table in one atomic write. In-flight
+// requests finish against the table they started on.
+func (r *router) swapTable(table *njia.Router) {
+	r.table.Store(table)
 }
 
 // UpdateHandler updates the router's handler based on the gateway configuration.
@@ -188,15 +198,16 @@ func (r *router) UpdateHandler(g *Goma) {
 	// rejected reload leaves the gateway serving exactly what it served before.
 	stop := make(chan struct{})
 
-	r.Lock()
+	r.mu.Lock()
 	previousStop := r.healthStop
 	r.healthStop = stop
 	r.dynamicRoutes = g.dynamicRoutes
 	r.dynamicMiddlewares = g.dynamicMiddlewares
 	r.plugins = g.plugins
-	r.njia = next
 	routes := r.dynamicRoutes
-	r.Unlock()
+	r.mu.Unlock()
+
+	r.swapTable(next)
 
 	if previousStop != nil {
 		close(previousStop)
@@ -234,7 +245,7 @@ func (r *router) validateRoute(route *Route) error {
 
 // AddRoute adds a single route to the router's live routing table.
 func (r *router) AddRoute(route *Route) error {
-	return r.addRouteTo(r.njia, route, r.dynamicMiddlewares, r.plugins)
+	return r.addRouteTo(r.table.Load(), route, r.dynamicMiddlewares, r.plugins)
 }
 
 func (r *router) addRouteTo(rt *njia.Router, route *Route, mids []Middleware, plugs map[string]plugins.Middleware) error {
@@ -271,18 +282,13 @@ func (r *router) addRouteTo(rt *njia.Router, route *Route, mids []Middleware, pl
 		certPool:      certPool,
 		networking:    r.networking,
 	}
-	// The route and everything beneath it live in one group, which is what
-	// carries the middleware. njia resolves a group's middleware when the table
-	// is compiled, so Use and the registrations below may happen in any order:
-	// every route in the group is wrapped either way.
+
 	group := rt.Group(groupPrefix(route.Path))
-	// Check maintenance mode
 	if route.Maintenance.Enabled {
 		logger.Warn("Route maintenance mode enabled", "route", route.Name)
 		group.Use(route.Maintenance.MaintenanceMode)
 	}
-	// Add middlewares. Order of the Use calls is what nests them, outermost
-	// first, so maintenance mode stays outside everything it short-circuits.
+
 	r.attachMiddlewares(route, group, mids, plugs)
 	proxyRoute.responseHeaders = route.responseHeaders
 	// Configure handlers
@@ -319,9 +325,7 @@ func (r *router) attachMiddlewares(route *Route, rRouter *njia.Group, globalMidd
 	if r.enableMetrics && route.DisableMetrics {
 		logger.Debug("Metrics collection disabled for route", "route", route.Name)
 	}
-	// The visitor tracker is gateway-wide and built once (see newVisitorTracker):
-	// the gauge it feeds counts the whole gateway, and building one here would
-	// give every route its own count and leak a goroutine on every reload.
+
 	var visitorTracker *VisitorTracker
 	if enableMetrics {
 		visitorTracker = r.visitors
@@ -389,15 +393,8 @@ func (r *Route) attachMiddlewares(router *njia.Group, globalMiddlewares []Middle
 
 // configureHandlers registers the route's proxy handler for its path and every
 // path beneath it.
-//
-// The handler answers every HTTP method: a gateway forwards whatever verb the
-// client sent, and which ones a route actually allows is enforced further in,
-// against route.Methods, so that a rejected verb gets the gateway's own error
-// rather than a bare router 405.
 func (r *router) configureHandlers(route *Route, group *njia.Group, proxyRoute *ProxyRoute) error {
 	var opts []njia.RouteOption
-	// Lower priority wins, which is the order the gateway documents. Left at
-	// the default, routes fall back to longest-path-first.
 	if route.Priority != 0 {
 		opts = append(opts, njia.WithPriority(route.Priority))
 	}
@@ -405,9 +402,6 @@ func (r *router) configureHandlers(route *Route, group *njia.Group, proxyRoute *
 		opts = append(opts, njia.WithHost(hosts...))
 	}
 
-	// The group applies its middleware, so the handler is registered bare. Any
-	// route a middleware registered on the group — an OAuth callback, say — is
-	// an exact path and outranks this catch-all on specificity.
 	return registerPrefix(group, njia.MethodAny, route.Name, proxyRoute.ProxyHandler(), opts...)
 }
 
