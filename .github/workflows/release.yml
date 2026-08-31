@@ -60,7 +60,7 @@ jobs:
       #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
       -
         name: Install cosign
-        uses: sigstore/cosign-installer@v3.9.2
+        uses: sigstore/cosign-installer@v4.1.2
       -
         name: Sign the published image
         env:
