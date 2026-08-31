@@ -106,8 +106,6 @@ type ExtraMiddleware struct {
 
 // Backend defines backend server to route traffic to
 type Backend struct {
-	// unavailable defines backend server availability
-	unavailable bool
 	// Endpoint defines the endpoint of the backend
 	Endpoint string `yaml:"endpoint,omitempty" json:"endpoint"`
 	// Weight defines Weight for weighted algorithm, it optional

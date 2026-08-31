@@ -118,7 +118,7 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *njia.Group) {
 	case redirect:
 		applyRedirectMiddleware(mid, router)
 	case redirectScheme:
-		applyRedirectSchemeMiddleware(mid, router)
+		applyRedirectSchemeMiddleware(mid, *r, router)
 	case rewriteRegex:
 		applyRewriteRegexMiddleware(mid, router)
 	case stripQuery:
@@ -232,7 +232,7 @@ func applyBodyLimitMiddleware(mid Middleware, r *njia.Group) {
 
 }
 
-func applyRedirectSchemeMiddleware(mid Middleware, r *njia.Group) {
+func applyRedirectSchemeMiddleware(mid Middleware, route Route, r *njia.Group) {
 	var rule RedirectSchemeRuleMiddleware
 	if err := goutils.DeepCopy(&rule, mid.Rule); err != nil {
 		logger.Error("Failed to apply redirect scheme middleware: deep copy error", "error", err)
@@ -246,6 +246,7 @@ func applyRedirectSchemeMiddleware(mid Middleware, r *njia.Group) {
 		Scheme:    rule.Scheme,
 		Port:      rule.Port,
 		Permanent: rule.Permanent,
+		Hosts:     route.Hosts,
 	}
 	r.Use(redirectSchemeM.Middleware)
 }
@@ -292,12 +293,17 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *njia.Group) {
 	if rule.MaxTtl == 0 {
 		rule.MaxTtl = 300
 	}
-	mLimit := int64(0)
-	m, err := goutils.ConvertToBytes(rule.MemoryLimit)
+	// An unset or unparseable memoryLimit used to leave mLimit at 0, which the
+	// in-memory cache reads as "no room" — so the cache silently stored
+	// nothing at all.
+	mLimit, err := goutils.ConvertToBytes(rule.MemoryLimit)
 	if err != nil {
-		logger.Error("Error httpCaching memoryLimit", "error", err)
+		logger.Error("Error httpCaching memoryLimit, using the default", "error", err, "default", defaultCacheMemoryLimit)
+		mLimit = 0
 	}
-	mLimit = m
+	if mLimit <= 0 {
+		mLimit = defaultCacheMemoryLimit
+	}
 	ttl := rule.MaxTtl * int64(time.Second)
 	maxStale := rule.MaxStale * int64(time.Second)
 
@@ -656,6 +662,7 @@ func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *njia
 		Path:                        route.Path,
 		Paths:                       routeMiddleware.Paths,
 		Origins:                     route.Cors.Origins,
+		Hosts:                       route.Hosts,
 	}
 
 	r.Use(auth.AuthMiddleware)

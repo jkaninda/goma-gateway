@@ -308,10 +308,11 @@ middlewares:
       realm: Restricted
       forwardUsername: true
       users:
+        # Generate your own hash — never copy one out of documentation:
+        #   htpasswd -nbBC 12 admin 'your-password' | cut -d: -f2
+        # or keep it out of the file entirely with ${VAR} expansion.
         - username: admin
-          password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO # bcrypt hash for 'admin'
-        - username: user
-          password: password
+          password: ${GOMA_ADMIN_PASSWORD_HASH}
   defaultProvider: letsencrypt
   providers:
     letsencrypt:

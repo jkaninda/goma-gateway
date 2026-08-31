@@ -233,13 +233,27 @@ func compilePattern(pattern string) *compiledPattern {
 		return cached.(*compiledPattern)
 	}
 
-	regex, err := regexp.Compile("(?i)" + pattern)
+	regex, err := regexp.Compile("(?i)" + anchorPattern(pattern))
 	entry := &compiledPattern{regex: regex, err: err}
 	if _, alreadyStored := compiledPatterns.LoadOrStore(pattern, entry); !alreadyStored && err != nil {
 		logger.Warn("Path pattern is not a valid regular expression, matching it as a wildcard instead",
 			"pattern", pattern, "regexForm", regexHint(pattern))
 	}
 	return entry
+}
+
+// anchorPattern ties a path pattern to the start of the path.
+//
+// Unanchored, "/admin" also matched "/x/admin" and "/x/y/administrator": a
+// pattern meant to name a resource matched anywhere it appeared in the path,
+// which is neither what an operator writes nor something they can predict. The
+// anchor is start-only, so "/admin" still covers "/admin/settings" — a pattern
+// that already carries its own "^" is left alone.
+func anchorPattern(pattern string) string {
+	if strings.HasPrefix(pattern, "^") {
+		return pattern
+	}
+	return "^" + pattern
 }
 
 // regexHint rewrites a wildcard pattern as the regular expression that means
@@ -273,33 +287,40 @@ func checkRegexMatch(input string, patterns []string) (bool, string) {
 	return false, ""
 }
 
-// isPathMatching checks if the urlPath matches any regex pattern or static path from the list.
-func isPathMatching(urlPath, prefix string, paths []string) bool {
-	// Check if the string matches any regex pattern
-	if matched, _ := checkRegexMatch(urlPath, paths); matched {
+// isGuardedPathMatching is isPathMatching for the middlewares that decide
+// whether a request is allowed through — the auth middlewares and the access
+// blocklist.
+//
+// An empty paths list means "every path in the route". Falling through to
+// isPathMatching would return false for an empty list, so an auth middleware
+// written without paths: attached cleanly, logged nothing and authenticated no
+// request at all. The safe reading of "no paths named" is all of them, which is
+// also what RequestHeaders.appliesTo already assumes.
+func isGuardedPathMatching(urlPath, prefix string, paths []string) bool {
+	if len(paths) == 0 {
 		return true
 	}
+	return isPathMatching(urlPath, prefix, paths)
+}
 
-	// Check without and with the route prefix
-	for _, path := range paths {
-		if isMatchingPath(urlPath, path) || isMatchingPath(urlPath, util.ParseURLPath(prefix+path)) {
-			return true
-		}
-	}
-
-	return false
+// isPathMatching checks if the urlPath matches any regex pattern or static path from the list.
+func isPathMatching(urlPath, prefix string, paths []string) bool {
+	matched, _ := IsPathMatching(urlPath, prefix, paths)
+	return matched
 }
 
 // IsPathMatching checks if the urlPath matches any regex pattern or static path from the list.
 func IsPathMatching(urlPath, prefix string, paths []string) (bool, string) {
-	// Check if the string matches any regex pattern
-	if matched, path := checkRegexMatch(urlPath, paths); matched {
-		return true, path
-	}
-
-	// Check without and with the route prefix
 	for _, path := range paths {
-		if isMatchingPath(urlPath, path) || isMatchingPath(urlPath, util.ParseURLPath(prefix+path)) {
+		// Patterns are anchored to the start of the path, so a pattern written
+		// relative to the route also has to be tried joined to the route
+		// prefix — otherwise "/admin" on a route rooted at "/api" would stop
+		// covering "/api/admin/settings".
+		prefixed := util.ParseURLPath(prefix + path)
+		if matched, _ := checkRegexMatch(urlPath, []string{path, prefixed}); matched {
+			return true, path
+		}
+		if isMatchingPath(urlPath, path) || isMatchingPath(urlPath, prefixed) {
 			return true, path
 		}
 	}

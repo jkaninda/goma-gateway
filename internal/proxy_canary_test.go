@@ -32,9 +32,7 @@ func reqWithHeader(name, value string) *http.Request {
 }
 
 func resetUnavailable() {
-	for k := range unavailableBackends {
-		delete(unavailableBackends, k)
-	}
+	unavailableBackends = newBackendHealth()
 }
 
 // Exclusive canary with a matching rule wins outright.
@@ -134,7 +132,7 @@ func TestSelectCanaryBackend_IgnoresNonExclusive(t *testing.T) {
 // A matching exclusive canary marked unavailable must be skipped.
 func TestSelectCanaryBackend_SkipsUnavailable(t *testing.T) {
 	resetUnavailable()
-	unavailableBackends["http://canary-down"] = true
+	unavailableBackends.markUnavailable("http://canary-down")
 	t.Cleanup(resetUnavailable)
 
 	down := &Backend{

@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -32,7 +33,15 @@ import (
 func (f *ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := getContentType(r)
-		if isPathMatching(r.URL.Path, f.Path, f.Paths) {
+		// Strip the identity headers and query parameters this middleware owns
+		// before anything else. They are only Set on a guarded path, so on any
+		// other path in the route the client's own X-Forwarded-User or
+		// X-Auth-Request-Email used to reach the upstream untouched. The JWT
+		// and OIDC middlewares strip before their path check for the same
+		// reason.
+		f.stripInjectedIdentity(r)
+
+		if isGuardedPathMatching(r.URL.Path, f.Path, f.Paths) {
 			// Authenticate the request
 			authenticated, authResponse := f.authRequest(r)
 			if !authenticated {
@@ -51,8 +60,12 @@ func (f *ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 					redirectURL := f.AuthSignIn
 					// Check if the redirect URL already has query parameters
 					if strings.Contains(redirectURL, "?") {
-						// Get the current URL
-						currentURL := fmt.Sprintf("%s://%s%s", scheme(r), r.Host, r.URL.RequestURI())
+						// Get the current URL. r.Host is client-supplied, so it
+						// is checked against the route's configured hosts
+						// before being embedded in the return URL — otherwise
+						// the sign-in page is handed an attacker-chosen
+						// destination to send the user back to.
+						currentURL := fmt.Sprintf("%s://%s%s", scheme(r), f.resolveHost(r), r.URL.RequestURI())
 
 						// Encode the current URL as a query parameter
 						encodedRef := url.QueryEscape(currentURL)
@@ -202,4 +215,53 @@ func (f *ForwardAuth) authInjectHeadersAndParams(r *http.Request, authResp *http
 		}
 	}
 	r.URL.RawQuery = query.Encode()
+}
+
+// stripInjectedIdentity removes every header and query parameter that
+// authInjectHeadersAndParams would write, so an upstream can trust that
+// whatever it receives under those names came from the auth service.
+func (f *ForwardAuth) stripInjectedIdentity(r *http.Request) {
+	for _, v := range f.AuthResponseHeaders {
+		r.Header.Del(injectedName(v))
+	}
+
+	if len(f.AuthResponseHeadersAsParams) == 0 {
+		return
+	}
+	query := r.URL.Query()
+	for _, v := range f.AuthResponseHeadersAsParams {
+		query.Del(injectedName(v))
+	}
+	r.URL.RawQuery = query.Encode()
+}
+
+// injectedName resolves a configured "source" or "source:destination" entry to
+// the name the gateway writes on the outbound request.
+func injectedName(entry string) string {
+	entry = strings.ReplaceAll(entry, " ", "")
+	if _, destination, found := strings.Cut(entry, ":"); found {
+		return destination
+	}
+	return entry
+}
+
+// resolveHost returns the host to embed in the sign-in return URL: the
+// request's own when the route allows it, and the first configured host
+// otherwise. A route with no configured hosts accepts any Host by definition.
+func (f *ForwardAuth) resolveHost(r *http.Request) string {
+	if len(f.Hosts) == 0 {
+		return r.Host
+	}
+	hostname := r.Host
+	if h, _, err := net.SplitHostPort(hostname); err == nil {
+		hostname = h
+	}
+	for _, allowed := range f.Hosts {
+		if strings.EqualFold(allowed, hostname) {
+			return r.Host
+		}
+	}
+	logger.Warn("Sign-in return host is not one of the route's configured hosts, using the first configured host",
+		"host", r.Host, "using", f.Hosts[0])
+	return f.Hosts[0]
 }

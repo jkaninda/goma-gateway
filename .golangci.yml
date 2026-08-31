@@ -10,6 +10,7 @@ linters:
     - ginkgolinter
     - goconst
     - gocyclo
+    - gosec
     - govet
     - ineffassign
     - lll
@@ -22,6 +23,48 @@ linters:
     - unparam
     - unused
   settings:
+    gosec:
+      # Every rule below was reviewed against this codebase and is structurally
+      # inapplicable or deliberate. Everything else gosec reports is a real
+      # finding and should fail the build.
+      #
+      # `config verify` validates these against a fixed enum, so every ID here
+      # has to exist in the gosec bundled with the golangci-lint version pinned
+      # in .github/workflows/lint.yml. An ID from a newer gosec fails the whole
+      # run before a file is analysed.
+      excludes:
+        # G101/G117: constant *names* like GomaAccessToken, and the sealed
+        # session struct's token fields; no credential is hardcoded.
+        - G101
+        - G117
+        # G124: cookie attributes are built from configuration at runtime, so
+        # the literal the rule looks for is never present.
+        - G124
+        # G304: a gateway reads the config, certificate and JWKS paths it is
+        # told to read. The paths come from configuration, not from requests.
+        - G304
+        # G306: file modes are set deliberately and reviewed (0600 for anything
+        # holding secrets); the rule flags every literal mode.
+        - G306
+        # G401/G501/G505: md5 and sha1 implement the htpasswd $apr1$/$1$ and
+        # {SHA} formats. They are password *verification* of existing hashes,
+        # not a choice of digest for new material.
+        - G401
+        - G501
+        - G505
+        # G402: InsecureSkipVerify is a documented per-route/per-provider
+        # option. Every site is driven by an explicit configuration field.
+        - G402
+        # G404: math/rand is used only for weighted load balancing and
+        # analytics sampling; crypto/rand is used everywhere security-relevant.
+        - G404
+        # G115: conversions of bounded counts (backend counts, port numbers).
+        - G115
+        # G705/G710: the redirect middlewares exist to redirect, and the error
+        # interceptor exists to relay upstream bodies. The Host used to build a
+        # redirect is validated against the route's configured hosts.
+        - G705
+        - G710
     revive:
       rules:
         - name: comment-spacings
@@ -36,6 +79,14 @@ linters:
           - dupl
           - lll
         path: internal/*
+      # Test fixtures use predictable credentials and hosts on purpose, and a
+      # table-driven test repeats literals by design — hoisting "GET" or
+      # "https://example.com" into a constant makes the case harder to read,
+      # not easier.
+      - linters:
+          - gosec
+          - goconst
+        path: _test\.go
     paths:
       - third_party$
       - builtin$

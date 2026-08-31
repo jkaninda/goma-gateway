@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -93,6 +94,14 @@ type CacheEntry struct {
 	ContentEncoding string
 	Vary            string
 	TTL             time.Duration
+	// StatusCode is the status the backend returned. A hit used to replay an
+	// implicit 200 regardless.
+	StatusCode int
+	// Headers carries the response headers a hit must reproduce. Without them
+	// a cached response lost X-Content-Type-Options, CSP, X-Frame-Options,
+	// Content-Disposition and Location, so a nosniff-protected or
+	// attachment-served response became sniffable the moment it was cached.
+	Headers http.Header
 }
 
 // HttpCache defines the interface for a cache.
@@ -141,6 +150,8 @@ type CacheItem struct {
 	ContentType     string
 	ContentEncoding string
 	Vary            string
+	StatusCode      int
+	Headers         http.Header
 	Size            int64 // Size of the item in memory
 	ExpiresAt       time.Time
 }
@@ -226,6 +237,8 @@ func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) (*C
 			ContentEncoding: val["contentEncoding"],
 			Vary:            val["vary"],
 			TTL:             ttl,
+			StatusCode:      decodeStatus(val["statusCode"]),
+			Headers:         decodeHeaders(val["headers"]),
 		}
 
 		now := time.Now()
@@ -254,6 +267,8 @@ func (c *Cache) Get(ctx context.Context, key string, maxStale time.Duration) (*C
 			ContentEncoding: item.ContentEncoding,
 			Vary:            item.Vary,
 			TTL:             ttl,
+			StatusCode:      item.StatusCode,
+			Headers:         item.Headers,
 		}, true
 	}
 	return nil, false
@@ -270,6 +285,8 @@ func (c *Cache) Set(ctx context.Context, key string, entry *CacheEntry) error {
 			"contentType":     entry.ContentType,
 			"contentEncoding": entry.ContentEncoding,
 			"vary":            entry.Vary,
+			"statusCode":      strconv.Itoa(entry.StatusCode),
+			"headers":         encodeHeaders(entry.Headers),
 			"expiresAt":       time.Now().Add(c.ttl).Unix(),
 		}
 		err := RedisClient.HSet(ctx, key, data).Err()
@@ -297,6 +314,8 @@ func (c *Cache) Set(ctx context.Context, key string, entry *CacheEntry) error {
 		ContentType:     entry.ContentType,
 		ContentEncoding: entry.ContentEncoding,
 		Vary:            entry.Vary,
+		StatusCode:      entry.StatusCode,
+		Headers:         entry.Headers.Clone(),
 		Size:            itemSize,
 		ExpiresAt:       time.Now().Add(c.ttl),
 	}
@@ -453,6 +472,8 @@ func (h HttpCacheConfig) handleCache(ctx context.Context, baseKey string, r *htt
 		ContentType:     rec.Header().Get("Content-Type"),
 		ContentEncoding: rec.Header().Get("Content-Encoding"),
 		Vary:            strings.Join(rec.varyFields, ", "),
+		StatusCode:      rec.statusCode,
+		Headers:         replayableHeaders(rec.Header()),
 	}
 	if err := h.Cache.Set(ctx, varyKey(baseKey, r, rec.varyFields), entry); err != nil {
 		logger.Error("Error saving response in cache", "error", err.Error())
@@ -461,6 +482,13 @@ func (h HttpCacheConfig) handleCache(ctx context.Context, baseKey string, r *htt
 
 // writeCachedResponse writes a cached response to the client.
 func writeCachedResponse(w http.ResponseWriter, entry *CacheEntry, disableCacheStatusHeader bool, cacheability string) {
+	// Reinstate the backend's own headers first, so the response the client
+	// sees carries the same protections it had on a miss.
+	for name, values := range entry.Headers {
+		for _, value := range values {
+			w.Header().Add(name, value)
+		}
+	}
 	w.Header().Set("Content-Type", entry.ContentType)
 	w.Header().Set(constGomaCacheHeader, "HIT")
 	w.Header().Set(constGomaCacheMaxAgeHeader, fmt.Sprintf("%d", int(entry.TTL.Seconds())))
@@ -476,10 +504,83 @@ func writeCachedResponse(w http.ResponseWriter, entry *CacheEntry, disableCacheS
 		w.Header().Set("X-Cache-Status", "HIT")
 	}
 
+	status := entry.StatusCode
+	if status == 0 {
+		status = http.StatusOK
+	}
+	w.WriteHeader(status)
+
 	_, err := w.Write(entry.Response)
 	if err != nil {
 		logger.Error("Failed to write cached response", "error", err)
 	}
+}
+
+// hopByHopHeaders and the cache-control headers below are re-derived on replay
+// rather than stored, so they are dropped from the recorded set.
+var unreplayableHeaders = map[string]bool{
+	"Connection":          true,
+	"Keep-Alive":          true,
+	"Proxy-Authenticate":  true,
+	"Proxy-Authorization": true,
+	"Te":                  true,
+	"Trailer":             true,
+	"Transfer-Encoding":   true,
+	"Upgrade":             true,
+	"Content-Length":      true,
+	"Content-Type":        true,
+	"Content-Encoding":    true,
+	"Vary":                true,
+	"Cache-Control":       true,
+	"Set-Cookie":          true,
+	constGomaCacheHeader:  true,
+	"X-Cache-Status":      true,
+}
+
+// replayableHeaders copies the response headers worth reproducing on a cache
+// hit: everything except the hop-by-hop headers, the ones stored separately,
+// and Set-Cookie, which the cache refuses to store at all.
+func replayableHeaders(h http.Header) http.Header {
+	kept := make(http.Header, len(h))
+	for name, values := range h {
+		if unreplayableHeaders[http.CanonicalHeaderKey(name)] {
+			continue
+		}
+		kept[name] = append([]string(nil), values...)
+	}
+	return kept
+}
+
+func encodeHeaders(h http.Header) string {
+	if len(h) == 0 {
+		return ""
+	}
+	encoded, err := json.Marshal(h)
+	if err != nil {
+		logger.Error("Failed to encode cached headers", "error", err)
+		return ""
+	}
+	return string(encoded)
+}
+
+func decodeHeaders(raw string) http.Header {
+	if raw == "" {
+		return nil
+	}
+	h := http.Header{}
+	if err := json.Unmarshal([]byte(raw), &h); err != nil {
+		logger.Error("Failed to decode cached headers", "error", err)
+		return nil
+	}
+	return h
+}
+
+func decodeStatus(raw string) int {
+	status, err := strconv.Atoi(raw)
+	if err != nil {
+		return http.StatusOK
+	}
+	return status
 }
 
 // parseMaxStale extracts the max-stale value from the Cache-Control header

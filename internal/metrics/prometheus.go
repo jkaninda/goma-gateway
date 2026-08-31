@@ -25,6 +25,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+// Prometheus label names, shared by every metric declared here so a label is
+// spelled one way and renaming one is a single edit.
+const (
+	labelName    = "name"
+	labelMethod  = "method"
+	labelStatus  = "status"
+	labelCountry = "country"
+)
+
 // PrometheusMetrics defines all Prometheus metrics tracked by the gateway.
 type PrometheusMetrics struct {
 	// Deprecated, use GatewayTotalRequests instead.
@@ -104,14 +113,14 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Name: "gateway_requests_total",
 				Help: "Total number of requests processed by the gateway",
 			},
-			[]string{"name", "method"},
+			[]string{labelName, labelMethod},
 		),
 		GatewayResponseStatus: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gateway_response_status_total",
 				Help: "Total number of HTTP responses sent, labeled by status code, route name, and method",
 			},
-			[]string{"status", "name", "method"},
+			[]string{labelStatus, labelName, labelMethod},
 		),
 		GatewayRequestDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -119,28 +128,28 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Help:    "Histogram of request durations in seconds",
 				Buckets: prometheus.DefBuckets,
 			},
-			[]string{"name", "method"},
+			[]string{labelName, labelMethod},
 		),
 		GatewayTotalErrorsIntercepted: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gateway_total_errors_intercepted",
 				Help: "Total number of errors intercepted, labeled by route name and status code",
 			},
-			[]string{"name", "status"},
+			[]string{labelName, labelStatus},
 		),
 		GatewayRequestBytes: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gateway_request_bytes_total",
 				Help: "Total request body bytes received, labeled by route name and method",
 			},
-			[]string{"name", "method"},
+			[]string{labelName, labelMethod},
 		),
 		GatewayResponseBytes: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gateway_response_bytes_total",
 				Help: "Total response body bytes sent, labeled by route name and method",
 			},
-			[]string{"name", "method"},
+			[]string{labelName, labelMethod},
 		),
 		GatewayUpstreamDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -148,21 +157,21 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Help:    "Histogram of upstream/backend response durations in seconds",
 				Buckets: prometheus.DefBuckets,
 			},
-			[]string{"name"},
+			[]string{labelName},
 		),
 		GatewayRequestsByCountry: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gateway_requests_by_country_total",
 				Help: "Total requests labeled by route name and client country (ISO code, from GeoIP)",
 			},
-			[]string{"name", "country"},
+			[]string{labelName, labelCountry},
 		),
 		GatewayGeoBlockDenied: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gateway_geoblock_denied_total",
 				Help: "Total requests denied by a geoBlock middleware, labeled by middleware name and country",
 			},
-			[]string{"name", "country"},
+			[]string{labelName, labelCountry},
 		),
 
 		// Deprecated metrics (backward compatibility)
@@ -171,14 +180,14 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Name: "http_requests_total",
 				Help: "Deprecated: use gateway_requests_total instead",
 			},
-			[]string{"name", "method"},
+			[]string{labelName, labelMethod},
 		),
 		ResponseStatus: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "http_response_status_total",
 				Help: "Deprecated: use gateway_response_status_total instead",
 			},
-			[]string{"status", "name", "method"},
+			[]string{labelStatus, labelName, labelMethod},
 		),
 		HttpDuration: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -186,7 +195,7 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Help:    "Deprecated: use gateway_request_duration_seconds instead",
 				Buckets: prometheus.DefBuckets,
 			},
-			[]string{"name", "method"},
+			[]string{labelName, labelMethod},
 		),
 	}
 

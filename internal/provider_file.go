@@ -254,7 +254,7 @@ func (p *fileProvider) watch(ctx context.Context, out chan<- *ConfigBundle) {
 
 func (p *fileProvider) isRelevantExtension(path string) bool {
 	base := filepath.Base(path)
-	extensions := []string{".json", ".yaml", ".yml"}
+	extensions := []string{constJsonExt, constYamlExt, constYmlExt}
 	for _, ext := range extensions {
 		if filepath.Ext(base) == ext {
 			return true
