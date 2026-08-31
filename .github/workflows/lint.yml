@@ -24,4 +24,7 @@ jobs:
       - name: Run linter
         uses: golangci/golangci-lint-action@v9.3.0
         with:
-          version: v2.9.0
+          # Must be a release built with Go 1.27 or newer: golangci-lint analyses
+          # source with the Go version it was itself built against, and an older
+          # build panics outright on newer language files.
+          version: v2.13.2

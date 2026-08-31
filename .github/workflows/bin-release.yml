@@ -34,9 +34,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          # Must be at least the version go.mod requires; go1.25.1 could not
-          # compile this module at all.
-          goversion: "https://dl.google.com/go/go1.27.0.linux-amd64.tar.gz"
+          # The action reads the go directive out of go.mod, so released
+          # binaries are built with the version the module declares. It used to
+          # be a hardcoded go1.25.1 URL, which could not compile this module.
+          goversion: "go.mod"
           project_path: "./"
           binary_name: "goma"
           build_flags: -v
