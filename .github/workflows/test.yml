@@ -8,6 +8,9 @@ on:
   pull_request:
     branches:
       - main
+permissions:
+  contents: read
+
 env:
   IMAGE_NAME: goma-gateway
 
@@ -15,15 +18,40 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@v7.0.1
 
     - name: Set up Go
-      uses: actions/setup-go@v7
+      uses: actions/setup-go@v7.0.0
       with:
-        go-version: '1.26'
+        go-version-file: go.mod
 
+    # -race, because this is a gateway with a hot-reload path, a shared health
+    # registry and a mutable middleware registry. The audit found three data
+    # races by reading; the detector is what keeps them fixed.
     - name: Test
-      run: go test -v ./...
+      run: go test -race -v ./internal/... ./pkg/... ./util/...
 
     - name: Build
-      run: go build -v ./...
+      run: go build -v ./internal/... ./pkg/... ./util/... .
+
+    - name: Vet
+      run: go vet ./internal/... ./pkg/... ./util/...
+
+  # Supply-chain and static analysis. The audit could not run these — the
+  # sandbox had no toolchain download — so there is no CVE data behind it.
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v7.0.1
+
+    - name: Set up Go
+      uses: actions/setup-go@v7.0.0
+      with:
+        go-version-file: go.mod
+
+    - name: govulncheck
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        govulncheck ./internal/... ./pkg/... ./util/... .

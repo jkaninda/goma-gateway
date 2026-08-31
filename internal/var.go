@@ -35,7 +35,7 @@ var (
 	// counter is used for the round-robin load balancer.
 	counter uint32
 	// unavailableBackends keeps track of backend endpoints marked as unavailable.
-	unavailableBackends = make(map[string]bool)
+	unavailableBackends = newBackendHealth()
 
 	redisBased         = false
 	stopChan           = make(chan struct{})

@@ -275,6 +275,10 @@ func (g *Goma) NewRouter() Router {
 		dynamicRoutes:      g.dynamicRoutes,
 		dynamicMiddlewares: g.dynamicMiddlewares,
 		visitors:           newVisitorTracker(g.gateway.Monitoring),
+		// The first generation of health checks was started against the
+		// package-level stopChan before the router existed; adopting it here is
+		// what lets the first reload stop them.
+		healthStop: stopChan,
 	}
 
 	g.addGlobalHandler(rt.njia, rt)
@@ -331,6 +335,16 @@ func (g *Goma) registerObservabilityHandler(rt *njia.Router, name, path string, 
 	var opts []njia.RouteOption
 	if g.gateway.Monitoring.Host != "" {
 		opts = append(opts, njia.WithHost(g.gateway.Monitoring.Host))
+	}
+
+	// Both restrictions are optional, so an endpoint can end up reachable by
+	// anyone who can reach the gateway. /metrics in particular exposes route
+	// names, backend health, traffic volumes and per-country breakdowns, which
+	// is a map of the deployment. Say so rather than leaving it to be noticed.
+	if len(middlewareNames) == 0 && g.gateway.Monitoring.Host == "" {
+		logger.Warn("Monitoring endpoint is exposed without authentication or a host restriction",
+			"endpoint", name, "path", path,
+			"hint", "set monitoring.host, or monitoring.middleware."+name)
 	}
 	if err := registerPrefix(group, http.MethodGet, name, h, opts...); err != nil {
 		logger.Error("Failed to register endpoint", "endpoint", name, "path", path, "error", err)
@@ -463,6 +477,7 @@ func (g *Goma) configureProviderManager() error {
 	// Initialize Provider ProviderManager
 	logger.Debug("Initializing provider providerManager...")
 	g.providerManager = newManager()
+	g.providerManager.signing = g.gateway.Providers.Signing
 	// Check File Provider, if nil, check environment variables for file provider configuration
 	if g.gateway.Providers.File == nil {
 		if goutils.EnvBool("GOMA_FILE_PROVIDER_ENABLED", false) {

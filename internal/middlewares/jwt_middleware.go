@@ -30,7 +30,7 @@ func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 		// cannot supply them on a path this middleware does not guard.
 		jwtAuth.Forward.Strip(r)
 
-		if !isPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
+		if !isGuardedPathMatching(r.URL.Path, jwtAuth.Path, jwtAuth.Paths) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -57,11 +57,23 @@ func (jwtAuth *JwtAuth) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		token, err := jwt.Parse(tokenStr, keyFunc,
+		// WithExpirationRequired is not the default in golang-jwt v5: without
+		// it a token minted with no "exp" is a permanent, non-revocable
+		// credential. The OIDC path already requires it.
+		parserOptions := []jwt.ParserOption{
 			jwt.WithValidMethods(jwtAuth.allowedAlgorithms()),
-			jwt.WithAudience(jwtAuth.Audience),
-			jwt.WithIssuer(jwtAuth.Issuer),
-		)
+			jwt.WithExpirationRequired(),
+		}
+		// An empty expectation disables the check outright in golang-jwt, so
+		// only assert the ones that were actually configured.
+		if jwtAuth.Audience != "" {
+			parserOptions = append(parserOptions, jwt.WithAudience(jwtAuth.Audience))
+		}
+		if jwtAuth.Issuer != "" {
+			parserOptions = append(parserOptions, jwt.WithIssuer(jwtAuth.Issuer))
+		}
+
+		token, err := jwt.Parse(tokenStr, keyFunc, parserOptions...)
 
 		if err != nil || !token.Valid {
 			logger.Warn("Invalid or expired JWT token", "error", err)

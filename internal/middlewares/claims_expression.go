@@ -19,9 +19,10 @@ package middlewares
 
 import (
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"regexp"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // Expression types for claims validation
@@ -94,6 +95,27 @@ func (p *PrefixExpr) Evaluate(claims jwt.MapClaims) (bool, error) {
 	}
 }
 
+// containsToken reports whether value names want.
+//
+// This used to be strings.Contains, a plain substring test — so a policy of
+// Contains('roles', 'admin') also admitted a user whose role was "superadmin"
+// or "not-admin". A claim is a list of names, whether it arrives as a JSON
+// array or as the space- or comma-separated string that scope and roles claims
+// conventionally use, so membership is compared name by name.
+func containsToken(value, want string) bool {
+	if value == want {
+		return true
+	}
+	for _, token := range strings.FieldsFunc(value, func(r rune) bool {
+		return r == ' ' || r == ',' || r == '\t' || r == '\n' || r == '\r'
+	}) {
+		if token == want {
+			return true
+		}
+	}
+	return false
+}
+
 // ContainsExpr checks if claim contains substring or array contains value
 type ContainsExpr struct {
 	ClaimKey string
@@ -125,10 +147,8 @@ func (c *ContainsExpr) Evaluate(claims jwt.MapClaims) (bool, error) {
 				}
 			}
 			return false, nil
-		} else {
-			// Original substring behavior for single value
-			return strings.Contains(v, c.Values[0]), nil
 		}
+		return containsToken(v, c.Values[0]), nil
 	case []interface{}:
 		if c.IsArray {
 			// Check if array contains any of the expected values
@@ -142,15 +162,13 @@ func (c *ContainsExpr) Evaluate(claims jwt.MapClaims) (bool, error) {
 				}
 			}
 			return false, nil
-		} else {
-			// Check if any value in array contains the substring
-			for _, item := range v {
-				if str, ok := item.(string); ok && strings.Contains(str, c.Values[0]) {
-					return true, nil
-				}
-			}
-			return false, nil
 		}
+		for _, item := range v {
+			if str, ok := item.(string); ok && str == c.Values[0] {
+				return true, nil
+			}
+		}
+		return false, nil
 	default:
 		str := fmt.Sprintf("%v", v)
 		if c.IsArray {
@@ -160,9 +178,8 @@ func (c *ContainsExpr) Evaluate(claims jwt.MapClaims) (bool, error) {
 				}
 			}
 			return false, nil
-		} else {
-			return strings.Contains(str, c.Values[0]), nil
 		}
+		return containsToken(str, c.Values[0]), nil
 	}
 }
 
@@ -275,12 +292,25 @@ type ExpressionParser struct {
 }
 
 func ParseExpression(input string) (Expression, error) {
+	trimmed := strings.TrimSpace(input)
 	parser := &ExpressionParser{
-		input:  strings.TrimSpace(input),
+		input:  trimmed,
 		pos:    0,
-		length: len(strings.TrimSpace(input)),
+		length: len(trimmed),
 	}
-	return parser.parseOrExpression()
+	expr, err := parser.parseOrExpression()
+	if err != nil {
+		return nil, err
+	}
+
+	// The parser used to return as soon as it had a valid expression, leaving
+	// any trailing input unread — so a typo such as a missing "&&" silently
+	// reduced the policy to its first term, quietly widening access.
+	parser.skipWhitespace()
+	if parser.pos < parser.length {
+		return nil, fmt.Errorf("unexpected input at position %d: %q", parser.pos, trimmed[parser.pos:])
+	}
+	return expr, nil
 }
 
 func (p *ExpressionParser) parseOrExpression() (Expression, error) {

@@ -117,7 +117,7 @@ Use `claimsExpression` to implement complex validation logic with boolean expres
 |------------|------------------------------|---------------------------------|--------------------------------------|
 | `Equals`   | Exact match comparison       | `Equals(claim, value)`          | `Equals('email_verified', true)`     |
 | `Prefix`   | String starts with           | `Prefix(claim, prefix)`         | `Prefix('email', 'admin@')`          |
-| `Contains` | Value exists in string/array | `Contains(claim, value)`        | `Contains('roles', 'admin')`         |
+| `Contains` | Claim names the value — an exact array element, or a token of a space/comma-separated string. Not a substring test: `Contains('roles', 'admin')` does not match `superadmin`. | `Contains(claim, value)`        | `Contains('roles', 'admin')`         |
 | `OneOf`    | Value matches any option     | `OneOf(claim, val1, val2, ...)` | `OneOf('plan', 'pro', 'enterprise')` |
 
 Claim keys and string values may be quoted with single quotes, double quotes or

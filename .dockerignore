@@ -1,0 +1,38 @@
+# Keep the build context to the source the image is built from. COPY . . used to
+# pull in .git and any local .env, which then lived in an image layer.
+.git
+.github
+.gitignore
+.env
+*.env
+!env.example
+.idea
+.vscode
+*.log
+
+# Build output
+goma
+goma-gateway
+dist/
+bin/
+
+# Docs and assets that never reach the binary
+docs/
+examples/
+k8s/
+ui/
+*.md
+*.png
+LICENSE
+NOTICE
+
+# Local runtime state
+config/
+data/
+certs/
+tests/
+
+# Never ship key material into a build layer
+*.pem
+*.key
+*.mmdb

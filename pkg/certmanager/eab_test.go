@@ -112,10 +112,6 @@ func TestUserStorageRoundTripsEabKid(t *testing.T) {
 // A directory that advertises externalAccountRequired should fail setup with a
 // message naming the fields to set, not with the CA's error at registration.
 func TestSetupLegoClient_ExternalAccountRequired(t *testing.T) {
-	// lego talks to a directory over HTTPS only; GOMA_ENV=development is what
-	// makes the provider skip verification of the test server's certificate.
-	t.Setenv(gomaEnv, development)
-
 	var srv *httptest.Server
 	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -136,7 +132,7 @@ func TestSetupLegoClient_ExternalAccountRequired(t *testing.T) {
 	}
 	newProviderFor := func(eab Eab) *provider {
 		return &provider{
-			cfg:  ProviderConfig{Type: CertAcmeProvider, Acme: Acme{Email: "ops@example.com", DirectoryURL: srv.URL, Eab: eab}},
+			cfg:  ProviderConfig{Type: CertAcmeProvider, Acme: Acme{Email: "ops@example.com", DirectoryURL: srv.URL, Eab: eab, InsecureSkipVerify: true}},
 			user: &LegoUser{Email: "ops@example.com", key: key},
 		}
 	}

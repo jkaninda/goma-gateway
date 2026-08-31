@@ -66,12 +66,19 @@ func (cors *Cors) CORSHandler() njia.Middleware {
 
 			// Always set the allowed origin (either the specific origin or *)
 			h.Set(AccessControlAllowOrigin, origin)
+			// The response now depends on the request's Origin, so it must not
+			// be reused for a different one. Without this a shared cache in
+			// front of the gateway serves origin A's grant to origin B.
+			h.Add("Vary", "Origin")
 
-			// Set custom headers from the configuration
+			// Set custom headers from the configuration.
+			//
+			// These used to be guarded on the absence of
+			// Access-Control-Allow-Origin, which the line above has just set —
+			// so the condition was always false and the configured headers
+			// were never applied.
 			for k, v := range cors.Headers {
-				if _, ok := h[AccessControlAllowOrigin]; !ok {
-					w.Header().Set(k, v)
-				}
+				h.Set(k, v)
 			}
 
 			// Set allow credentials header if configured

@@ -41,4 +41,6 @@ var Cmd = &cobra.Command{
 func init() {
 	Cmd.AddCommand(InitConfigCmd)
 	Cmd.AddCommand(CheckConfigCmd)
+	Cmd.AddCommand(SigningKeygenCmd)
+	Cmd.AddCommand(SignConfigCmd)
 }

@@ -199,6 +199,20 @@ The **Git Provider** retrieves configuration from a Git repository, enabling **G
 | `cloneDir` | string   | No       | temp    | Local clone directory        |
 | `auth`     | object   | No       | —       | Authentication configuration |
 
+#### SSH host verification
+
+For `type: ssh`, the Git host is verified before anything is cloned. Configure
+one of:
+
+| Field                 | Description                                                                        |
+|-----------------------|------------------------------------------------------------------------------------|
+| `auth.hostKey`        | A pinned host key in `authorized_keys` format (`ssh-ed25519 AAAA…`). Takes precedence. |
+| `auth.knownHostsPath` | An OpenSSH `known_hosts` file. Defaults to `~/.ssh/known_hosts`.                     |
+
+A host that verifies against neither is refused. Without this, anyone able to
+MITM or DNS-hijack the route to the Git host could serve an arbitrary
+configuration repository — and its routes are merged into the running gateway.
+
 ### Example
 
 ```yaml
@@ -215,6 +229,64 @@ gateway:
         token: ${GIT_TOKEN}
       cloneDir: ""
 ```
+
+---
+
+# Signing configuration bundles
+
+Bundles from the **HTTP** and **Git** providers arrive over the network and are
+merged straight into the live gateway. Their routes are sorted longest-path-first,
+so a bundle carrying a longer path shadows a real route and receives its traffic
+under the gateway's own TLS.
+
+The bundle `checksum` does not protect against this: it is recomputed locally
+from the bytes just received, so it detects corruption, not forgery. Sign the
+bundles instead.
+
+**1. Generate a keypair** — once, wherever bundles are published from:
+
+```sh
+goma config keygen -o signing.key
+# Public key  (providers.signing.publicKey): D0lLjT2/f12T4hoi3Zyn9Q1SAW0tTtOzPjTDPwPGHaw=
+```
+
+**2. Sign each bundle** before publishing it:
+
+```sh
+goma config sign --key-file signing.key gateway/routes.yml
+```
+
+`sign` writes a detached Ed25519 signature into the bundle's `signature` field,
+over a canonical checksum that excludes the `signature`, `checksum` and
+`timestamp` fields — so the value survives re-serialization.
+
+**3. Configure the trust anchor** on the gateway:
+
+```yaml
+gateway:
+  providers:
+    signing:
+      publicKey: "D0lLjT2/f12T4hoi3Zyn9Q1SAW0tTtOzPjTDPwPGHaw="
+      # Or, to allow more than one signer while rotating a key:
+      # publicKeyFile: /etc/goma/signers.pub
+    git:
+      enabled: true
+      # ...
+```
+
+Once `publicKey` or `publicKeyFile` is set, an HTTP or Git bundle that is
+unsigned, altered after signing, or signed by an unlisted key is **refused**, and
+the gateway keeps serving its previous configuration. With neither set the
+gateway warns at load and applies bundles unverified, so enabling signing is a
+deliberate step rather than a breaking upgrade.
+
+The **file** provider is not covered: it reads a local directory at the same
+trust level as the main configuration file.
+
+| Field           | Type   | Required | Description                                                        |
+|-----------------|--------|----------|--------------------------------------------------------------------|
+| `publicKey`     | string | No       | Base64 Ed25519 public key. Takes precedence over `publicKeyFile`.  |
+| `publicKeyFile` | string | No       | File of base64 public keys, one per line; `#` comments allowed.    |
 
 ---
 

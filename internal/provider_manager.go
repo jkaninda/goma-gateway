@@ -32,6 +32,9 @@ type ProviderManager struct {
 	configCh        chan *ConfigBundle
 	configBundle    *ConfigBundle
 	providerBundles map[ProviderType]*ConfigBundle
+	// signing authenticates bundles from the network-backed providers before
+	// they are merged into the live gateway.
+	signing *BundleSigning
 }
 
 func newManager() *ProviderManager {
@@ -68,9 +71,9 @@ func (m *ProviderManager) Load(ctx context.Context) (*ConfigBundle, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to load from %s provider: %w", p.Name(), err)
 		}
-		m.mu.Lock()
-		m.providerBundles[p.Name()] = bundle
-		m.mu.Unlock()
+		if err := m.accept(p.Name(), bundle); err != nil {
+			return nil, err
+		}
 	}
 
 	m.mu.RLock()
@@ -78,6 +81,26 @@ func (m *ProviderManager) Load(ctx context.Context) (*ConfigBundle, error) {
 	m.mu.RUnlock()
 
 	return merged, nil
+}
+
+// accept authenticates a bundle and records it as the provider's current one.
+//
+// The Git and HTTP providers fetch over the network, and their routes are
+// merged into the live routing table and sorted longest-path-first — a bundle
+// carrying a longer path shadows a real route and intercepts its traffic. They
+// are the reason signing exists, so they are what it is enforced on; the file
+// provider reads a local directory at the same trust level as the main config.
+func (m *ProviderManager) accept(name ProviderType, bundle *ConfigBundle) error {
+	if bundle != nil && (name == HttpProviderType || name == GitProviderType) {
+		if err := m.signing.verifyBundle(bundle); err != nil {
+			return fmt.Errorf("%s provider: %w", name, err)
+		}
+	}
+
+	m.mu.Lock()
+	m.providerBundles[name] = bundle
+	m.mu.Unlock()
+	return nil
 }
 
 // mergeBundles combines all provider bundles into a single ConfigBundle.
@@ -145,8 +168,12 @@ func (m *ProviderManager) Watch(ctx context.Context) (<-chan *ConfigBundle, erro
 					if !ok {
 						return
 					}
+					if err := m.accept(provider.Name(), bundle); err != nil {
+						logger.Error("Rejected a configuration update from provider, keeping the previous configuration",
+							"provider", provider.Name(), "error", err)
+						continue
+					}
 					m.mu.Lock()
-					m.providerBundles[provider.Name()] = bundle
 					merged := m.mergeBundles()
 					m.mu.Unlock()
 

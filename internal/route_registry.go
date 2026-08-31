@@ -45,6 +45,9 @@ const (
 func newProxyRouter(strictSlash bool) *njia.Router {
 	rt := njia.New()
 	rt.RedirectTrailingSlash = strictSlash
+	// Defence in depth behind canonicalizePath: if a request ever reaches the
+	// router un-normalised, redirect it rather than routing the raw form.
+	rt.CleanPath = true
 	return rt
 }
 

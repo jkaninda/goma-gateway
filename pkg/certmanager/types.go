@@ -56,13 +56,16 @@ type ProviderConfig struct {
 }
 
 type Acme struct {
-	Email         string        `yaml:"email"`
-	DirectoryURL  string        `yaml:"directoryUrl,omitempty"`
-	StorageFile   string        `yaml:"storageFile,omitempty"`
-	TermsAccepted *bool         `yaml:"termsAccepted,omitempty"`
-	ChallengeType ChallengeType `yaml:"challengeType,omitempty"`
-	DnsProvider   DnsProvider   `yaml:"dnsProvider,omitempty"`
-	Credentials   Credentials   `yaml:"credentials,omitempty"`
+	Email string `yaml:"email"`
+	// InsecureSkipVerify disables TLS verification of the ACME directory.
+	// Intended for a local test CA (Pebble, step-ca); never for production.
+	InsecureSkipVerify bool          `yaml:"insecureSkipVerify,omitempty"`
+	DirectoryURL       string        `yaml:"directoryUrl,omitempty"`
+	StorageFile        string        `yaml:"storageFile,omitempty"`
+	TermsAccepted      *bool         `yaml:"termsAccepted,omitempty"`
+	ChallengeType      ChallengeType `yaml:"challengeType,omitempty"`
+	DnsProvider        DnsProvider   `yaml:"dnsProvider,omitempty"`
+	Credentials        Credentials   `yaml:"credentials,omitempty"`
 	// Eab holds external account binding credentials for CAs that require them
 	// (ZeroSSL, Google Public CA, Sectigo, private CAs). Empty for CAs that do
 	// not, such as Let's Encrypt.
@@ -116,6 +119,13 @@ type Vault struct {
 	Ttl string `yaml:"ttl,omitempty"`
 	// StorageFile persists issued certificates (default: <cacheDir>/vault-<name>.json).
 	StorageFile string `yaml:"storageFile,omitempty"`
+	// InsecureSkipVerify disables TLS verification of the Vault server.
+	//
+	// This channel carries the Vault token and receives issued private keys, so
+	// turning it off makes both interceptable. It must be asked for by name:
+	// it used to be switched on by GOMA_ENV=development, an environment label
+	// that says nothing about Vault and is easily left set in a shared image.
+	InsecureSkipVerify bool `yaml:"insecureSkipVerify,omitempty"`
 }
 type StorageConfig struct {
 	CacheDir    string

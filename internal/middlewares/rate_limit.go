@@ -19,11 +19,14 @@ package middlewares
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"net"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -98,12 +101,12 @@ func (rl *RateLimiter) RateLimitMiddleware() njia.Middleware {
 				RespondWithError(w, r, http.StatusInternalServerError, "500 Bad Request: Unable to identify client", nil, contentType)
 				return
 			}
-			logger.Debug("RateLimit:: Request path matched", "url", r.URL, "identifier", clientIdentifier)
+			logger.Debug("RateLimit:: Request path matched", "url", r.URL, "identifier", redactIdentifier(clientIdentifier))
 
 			// Check if the client is banned
 			if rl.banAfter > 0 && rl.banDuration > 0 {
 				if ok, banUntil := rl.isBanned(clientIdentifier); ok {
-					logger.Warn("Client is banned", "identifier", clientIdentifier, "until", banUntil)
+					logger.Warn("Client is banned", "identifier", redactIdentifier(clientIdentifier), "until", banUntil)
 					RespondWithError(w, r, http.StatusForbidden, "403 Forbidden: Client temporarily banned due to repeated abuse", nil, contentType)
 					return
 				}
@@ -112,8 +115,16 @@ func (rl *RateLimiter) RateLimitMiddleware() njia.Middleware {
 			// Redis-based rate limiting with burst
 			if rl.redisBased && rl.redis != nil {
 				if err := rl.redisRateLimiterWithBurst(clientIdentifier); err != nil {
+					if errors.Is(err, errRateLimitUnavailable) {
+						// Let the request through rather than 429 the whole
+						// gateway on a Redis blip, and do not hold it against
+						// the client.
+						logger.Error("RateLimit:: backend unavailable, allowing the request", "error", err)
+						next.ServeHTTP(w, r)
+						return
+					}
 					rl.registerStrike(clientIdentifier)
-					logger.Debug("RateLimit:: Too many requests", "identifier", clientIdentifier, "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
+					logger.Debug("RateLimit:: Too many requests", "identifier", redactIdentifier(clientIdentifier), "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
 					logger.Warn("Too many requests", "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
 					RespondWithError(w, r, http.StatusTooManyRequests, "429 Too many requests. Try again later.", nil, contentType)
 					return
@@ -152,11 +163,11 @@ func (rl *RateLimiter) RateLimitMiddleware() njia.Middleware {
 					client.RequestCount++
 					rl.mu.Unlock()
 
-					logger.Debug("RateLimit:: Request allowed", "identifier", clientIdentifier, "tokens_remaining", client.Tokens)
+					logger.Debug("RateLimit:: Request allowed", "identifier", redactIdentifier(clientIdentifier), "tokens_remaining", client.Tokens)
 				} else {
 					rl.mu.Unlock()
 					rl.registerStrike(clientIdentifier)
-					logger.Debug("RateLimit:: Too many requests", "identifier", clientIdentifier, "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent(), "tokens", client.Tokens)
+					logger.Debug("RateLimit:: Too many requests", "identifier", redactIdentifier(clientIdentifier), "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent(), "tokens", client.Tokens)
 					logger.Warn("Too many requests", "client_ip", rl.getIPAddress(r), "url", r.URL, "user_agent", r.UserAgent())
 
 					if allowedOrigin(rl.origins, r.Header.Get("Origin")) {
@@ -194,17 +205,52 @@ func (rl *RateLimiter) evictStaleLocked() {
 	for identifier, client := range rl.clientMap {
 		if now.Sub(client.LastRefill) > clientIdleTTL {
 			delete(rl.clientMap, identifier)
+			// Strikes outlive the bucket they belong to unless they are dropped
+			// here; a standing ban keeps its own count.
+			if _, banned := rl.banList[identifier]; !banned {
+				delete(rl.strikeMap, identifier)
+			}
 		}
 	}
 
 	// Still over the cap after dropping idle buckets: the traffic is not idle,
-	// it is adversarial. Start again rather than grow without bound.
+	// it is adversarial. Evict the least recently active buckets down to the
+	// watermark.
+	//
+	// This used to clear clientMap and strikeMap outright, which handed every
+	// legitimate client a full bucket and wiped every strike — so minting
+	// enough distinct keys was a repeatable, global rate-limit reset.
 	if len(rl.clientMap) >= maxTrackedClients {
-		logger.Warn("Rate limiter is tracking too many distinct clients, resetting its state",
+		logger.Warn("Rate limiter is tracking too many distinct clients, evicting the least recently active",
 			"tracked", len(rl.clientMap), "limit", maxTrackedClients,
-			"hint", "a keyStrategy on a client-supplied header or cookie lets one caller mint unlimited keys")
-		rl.clientMap = make(map[string]*Client)
-		rl.strikeMap = make(map[string]int)
+			"hint", "a keyStrategy on a client-supplied header or cookie lets one caller mint many keys")
+		rl.evictLeastRecentLocked(len(rl.clientMap) - maxTrackedClients/2)
+	}
+}
+
+// evictLeastRecentLocked drops the count least recently refilled buckets. The
+// caller must hold rl.mu.
+func (rl *RateLimiter) evictLeastRecentLocked(count int) {
+	if count <= 0 {
+		return
+	}
+
+	identifiers := make([]string, 0, len(rl.clientMap))
+	for identifier := range rl.clientMap {
+		identifiers = append(identifiers, identifier)
+	}
+	sort.Slice(identifiers, func(i, j int) bool {
+		return rl.clientMap[identifiers[i]].LastRefill.Before(rl.clientMap[identifiers[j]].LastRefill)
+	})
+
+	if count > len(identifiers) {
+		count = len(identifiers)
+	}
+	for _, identifier := range identifiers[:count] {
+		delete(rl.clientMap, identifier)
+		if _, banned := rl.banList[identifier]; !banned {
+			delete(rl.strikeMap, identifier)
+		}
 	}
 }
 
@@ -230,7 +276,8 @@ func (rl *RateLimiter) getClientIdentifier(r *http.Request) string {
 		if value == "" {
 			return fmt.Sprintf("ip:%s", ip)
 		}
-		return fmt.Sprintf("header:%s:value:%s", rl.keyStrategy.Name, value)
+
+		return fmt.Sprintf("ip:%s:header:%s:value:%s", ip, rl.keyStrategy.Name, value)
 
 	case "cookie":
 		if rl.keyStrategy.Name == "" {
@@ -241,7 +288,7 @@ func (rl *RateLimiter) getClientIdentifier(r *http.Request) string {
 		if err != nil || cookie.Value == "" {
 			return fmt.Sprintf("ip:%s", ip)
 		}
-		return fmt.Sprintf("cookie:%s:value:%s", rl.keyStrategy.Name, strings.TrimSpace(cookie.Value))
+		return fmt.Sprintf("ip:%s:cookie:%s:value:%s", ip, rl.keyStrategy.Name, strings.TrimSpace(cookie.Value))
 
 	case "ip":
 		fallthrough
@@ -289,7 +336,7 @@ func (rl *RateLimiter) registerStrike(identifier string) {
 		// Increment strike count
 		count, err := rl.redis.Incr(rl.ctx, strikeKey).Result()
 		if err != nil {
-			logger.Error("RateLimit:: Failed to increment strike", "identifier", identifier, "error", err)
+			logger.Error("RateLimit:: Failed to increment strike", "identifier", redactIdentifier(identifier), "error", err)
 			return
 		}
 
@@ -300,7 +347,7 @@ func (rl *RateLimiter) registerStrike(identifier string) {
 		if int(count) >= rl.banAfter {
 			_ = rl.redis.Set(rl.ctx, banKey, "banned", rl.banDuration).Err()
 			_ = rl.redis.Del(rl.ctx, strikeKey).Err()
-			logger.Debug("RateLimit:: Client banned (redis)", "identifier", identifier, "duration", rl.banDuration)
+			logger.Debug("RateLimit:: Client banned (redis)", "identifier", redactIdentifier(identifier), "duration", rl.banDuration)
 		}
 	} else {
 		rl.mu.Lock()
@@ -309,7 +356,7 @@ func (rl *RateLimiter) registerStrike(identifier string) {
 		if rl.strikeMap[identifier] >= rl.banAfter {
 			rl.banList[identifier] = time.Now().Add(rl.banDuration)
 			delete(rl.strikeMap, identifier)
-			logger.Debug("RateLimit:: Client banned (memory)", "identifier", identifier, "duration", rl.banDuration)
+			logger.Debug("RateLimit:: Client banned (memory)", "identifier", redactIdentifier(identifier), "duration", rl.banDuration)
 		}
 	}
 }
@@ -333,10 +380,36 @@ func (rl *RateLimiter) redisRateLimiterWithBurst(key string) error {
 	// AllowN with n=1 (consume 1 token)
 	res, err := limiter.AllowN(rl.ctx, key, limit, 1)
 	if err != nil {
-		return err
+		// A Redis outage is not a rate-limit decision. Returning it as one
+		// 429'd every request and registered a strike against every client
+		// until all of them were banned, while isBanned failed open on the
+		// same error — so the two halves disagreed about which way to fail.
+		return fmt.Errorf("%w: %v", errRateLimitUnavailable, err)
 	}
 	if res.Allowed == 0 {
-		return errors.New("requests limit exceeded")
+		return errRateLimitExceeded
 	}
 	return nil
+}
+
+var (
+	// errRateLimitExceeded means the limiter decided: this client is over.
+	errRateLimitExceeded = errors.New("requests limit exceeded")
+	// errRateLimitUnavailable means the limiter could not decide at all.
+	errRateLimitUnavailable = errors.New("rate limit backend unavailable")
+)
+
+// redactIdentifier makes a rate-limit key safe to log.
+//
+// Under keyStrategy {source: cookie} the key embeds the cookie value, which for
+// a session cookie is the session itself — logging it at debug level put live
+// credentials in the log file. The prefix stays readable so an operator can
+// still tell buckets apart, and the value is replaced by a short digest.
+func redactIdentifier(identifier string) string {
+	index := strings.Index(identifier, ":value:")
+	if index < 0 {
+		return identifier
+	}
+	sum := sha256.Sum256([]byte(identifier[index+len(":value:"):]))
+	return identifier[:index] + ":value:" + hex.EncodeToString(sum[:])[:12]
 }

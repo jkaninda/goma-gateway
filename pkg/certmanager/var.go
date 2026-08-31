@@ -42,13 +42,18 @@ var (
 const (
 	httpChallengePort = "5002"
 	configVersion     = "1.0"
-	gomaEnv           = "GOMA_ENV"
-	local             = "local"
-	development       = "development"
 	renewalBufferTime = 30 * 24 * time.Hour // 30 days
 	requestDelay      = 15 * time.Second
 	errorDelay        = 20 * time.Second
 	rsaKeySize        = 2048
 	cronExpression    = "@every 6h"
 	// cronExpression = "@every 30s" // for testing purposes only
+)
+
+// PEM block types for the private key encodings the certificate manager reads
+// and writes.
+const (
+	pemTypeRSAPrivateKey   = "RSA PRIVATE KEY" // PKCS#1
+	pemTypeECPrivateKey    = "EC PRIVATE KEY"  // SEC 1
+	pemTypePKCS8PrivateKey = "PRIVATE KEY"     // PKCS#8
 )

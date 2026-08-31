@@ -24,8 +24,10 @@ middlewares:
       realm: your-realm # Optional
       forwardUsername: true          # Forward authenticated username to backend
       users:
+        # Generate your own hash; the ones in this page are examples of the
+        # supported formats, not credentials to copy into a deployment.
         - username: admin
-          password: "$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO" # bcrypt hash
+          password: "$2y$12$REPLACE.WITH.YOUR.OWN.BCRYPT.HASH" # bcrypt hash
         - username: user1
           password: "{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc=" # SHA-1 hash       
         - username: user2

@@ -214,6 +214,8 @@ func (o *OIDC) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r = o.store.Renew(w, r)
+
 	if err := o.store.Save(w, r, session); err != nil {
 		logger.Error("Failed to open the session", "error", err)
 		RespondWithError(w, r, http.StatusInternalServerError,

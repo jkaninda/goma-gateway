@@ -37,10 +37,11 @@ data:
           realm: Restricted
           forwardUsername: true
           users:
+            # Resolved from the environment at load time. Never commit a
+            # working credential to a manifest: a hash published in an example
+            # is a known password on every cluster that copies it.
             - username: admin
-              password: $2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO
-            - username: user
-              password: password
+              password: ${GOMA_ADMIN_PASSWORD_HASH}
 ---
 ## ************ Goma Gateway Deployment *********
 apiVersion: apps/v1
@@ -60,6 +61,24 @@ spec:
         - name: goma-gateway
           image: jkaninda/goma-gateway
           command: ["/usr/local/bin/goma","-c","/etc/goma/config.yaml"]
+          env:
+            - name: GOMA_ADMIN_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: goma-basic-auth
+                  key: adminPasswordHash
+          # The image runs as root by default so a configuration using ports 80
+          # and 443 works out of the box. This example listens on the binary's
+          # unprivileged default (8080), so it can run as uid 10001 — which
+          # owns the config and certificate directories in the image. Drop this
+          # block if you change the entrypoints to a port below 1024.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           resources:
             requests:
               memory: "50Mi"
@@ -139,5 +158,17 @@ spec:
   ports:
     - port: 8080
       targetPort: 8080
-
-
+---
+## ************ Basic Auth Secret *********
+## Create with a hash you generated yourself, e.g.
+##   htpasswd -nbBC 12 admin 'your-password' | cut -d: -f2
+## then:
+##   kubectl create secret generic goma-basic-auth \
+##     --from-literal=adminPasswordHash='$2y$12$...'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: goma-basic-auth
+type: Opaque
+stringData:
+  adminPasswordHash: "REPLACE_ME_WITH_A_BCRYPT_HASH"
