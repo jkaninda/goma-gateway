@@ -20,11 +20,18 @@ package middlewares
 import (
 	"crypto/md5"
 	"fmt"
+
 	logger2 "github.com/jkaninda/logger"
 )
 
-// generateMD5Crypt implements the MD5 crypt algorithm
+// generateMD5Crypt implements the MD5 crypt algorithm with the classic "$1$"
+// magic. Apache's htpasswd variant is the same algorithm under a different
+// magic string; see generateMD5CryptWithMagic.
 func generateMD5Crypt(password, salt string) string {
+	return generateMD5CryptWithMagic(password, salt, "$1$")
+}
+
+func generateMD5CryptWithMagic(password, salt, magic string) string {
 	// Limit salt to 8 characters max
 	if len(salt) > 8 {
 		salt = salt[:8]
@@ -33,7 +40,7 @@ func generateMD5Crypt(password, salt string) string {
 	// Step 1: Create initial digest
 	h1 := md5.New()
 	h1.Write([]byte(password))
-	h1.Write([]byte("$1$"))
+	h1.Write([]byte(magic))
 	h1.Write([]byte(salt))
 
 	// Step 2: Create alternate digest
@@ -93,43 +100,42 @@ func generateMD5Crypt(password, salt string) string {
 	// Step 6: Create the final hash string using custom base64-like encoding
 	encoded := encodeMD5Hash(digest)
 
-	return fmt.Sprintf("$1$%s$%s", salt, encoded)
+	return fmt.Sprintf("%s%s$%s", magic, salt, encoded)
 }
 
-// encodeMD5Hash encodes the MD5 digest using the custom MD5 crypt alphabet
+// md5CryptAlphabet is the base64-like alphabet MD5 crypt encodes with. Note the
+// leading "./" — it is not standard base64.
+const md5CryptAlphabet = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+// md5CryptGroups is the byte reordering MD5 crypt applies to the digest: five
+// groups of three, each emitted as four characters, little-endian.
+var md5CryptGroups = [5][3]int{
+	{0, 6, 12},
+	{1, 7, 13},
+	{2, 8, 14},
+	{3, 9, 15},
+	{4, 10, 5},
+}
+
+// encodeMD5Hash encodes the MD5 digest using the custom MD5 crypt alphabet.
 func encodeMD5Hash(digest []byte) string {
-	alphabet := "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	if len(digest) < md5.Size {
+		return ""
+	}
 
 	result := make([]byte, 0, 22)
-
-	// MD5 crypt uses a specific byte reordering and grouping
-	// Process in groups of 3 bytes with specific ordering
-	groups := [][3]int{
-		{0, 6, 12},
-		{1, 7, 13},
-		{2, 8, 14},
-		{3, 9, 15},
-		{4, 10, 5},
-		{11, -1, -1}, // Last group has only 1 byte
-	}
-
-	for i, group := range groups {
-		var val int
-		var chars int
-
-		if i == 5 { // Last group (only 1 byte)
-			val = int(digest[group[0]])
-			chars = 2
-		} else {
-			val = int(digest[group[0]]) | (int(digest[group[1]]) << 8) | (int(digest[group[2]]) << 16)
-			chars = 4
-		}
-
-		for j := 0; j < chars; j++ {
-			result = append(result, alphabet[val&0x3f])
-			val >>= 6
+	emit := func(value, chars int) {
+		for range chars {
+			result = append(result, md5CryptAlphabet[value&0x3f])
+			value >>= 6
 		}
 	}
+
+	for _, group := range md5CryptGroups {
+		emit(int(digest[group[0]])<<16|int(digest[group[1]])<<8|int(digest[group[2]]), 4)
+	}
+	// The sixteenth byte is left over and encodes to two characters.
+	emit(int(digest[11]), 2)
 
 	return string(result)
 }

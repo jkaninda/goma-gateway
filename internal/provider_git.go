@@ -22,12 +22,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	goutils "github.com/jkaninda/go-utils"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	goutils "github.com/jkaninda/go-utils"
+	"gopkg.in/yaml.v3"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -35,6 +37,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	cryptoSSH "golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type GitProvider struct {
@@ -54,6 +57,12 @@ type GitAuth struct {
 	Password   string `yaml:"password,omitempty" json:"password,omitempty"`
 	SSHKeyPath string `yaml:"sshKeyPath,omitempty" json:"sshKeyPath,omitempty"`
 	SSHKeyData string `yaml:"sshKeyData,omitempty" json:"sshKeyData,omitempty"` // Base64 encoded key
+	// KnownHostsPath points at an OpenSSH known_hosts file used to verify the
+	// Git host. Defaults to the user's ~/.ssh/known_hosts.
+	KnownHostsPath string `yaml:"knownHostsPath,omitempty" json:"knownHostsPath,omitempty"`
+	// HostKey pins a single host key in authorized_keys format
+	// ("ssh-ed25519 AAAA..."). Takes precedence over KnownHostsPath.
+	HostKey string `yaml:"hostKey,omitempty" json:"hostKey,omitempty"`
 }
 
 type gitProvider struct {
@@ -174,16 +183,54 @@ func (p *gitProvider) setupSSHAuth() (transport.AuthMethod, error) {
 		return nil, fmt.Errorf("failed to parse SSH key: %w", err)
 	}
 
+	hostKeyCallback, err := p.hostKeyCallback()
+	if err != nil {
+		return nil, err
+	}
+
 	// Create SSH auth
 	auth := &ssh.PublicKeys{
 		User:   "git",
 		Signer: signer,
 		HostKeyCallbackHelper: ssh.HostKeyCallbackHelper{
-			HostKeyCallback: cryptoSSH.InsecureIgnoreHostKey(),
+			HostKeyCallback: hostKeyCallback,
 		},
 	}
 
 	return auth, nil
+}
+
+// hostKeyCallback resolves how the Git host is authenticated.
+//
+// This used to be InsecureIgnoreHostKey, which meant anyone able to MITM or
+// DNS-hijack the route to the Git host could serve an arbitrary configuration
+// repository — and the routes in it are merged into the live gateway. A pinned
+// key wins over a known_hosts file; with neither configured the default
+// known_hosts is used, and a missing one is an error rather than a silent
+// downgrade.
+func (p *gitProvider) hostKeyCallback() (cryptoSSH.HostKeyCallback, error) {
+	if pinned := strings.TrimSpace(goutils.ReplaceEnvVars(p.config.Auth.HostKey)); pinned != "" {
+		key, _, _, _, err := cryptoSSH.ParseAuthorizedKey([]byte(pinned))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse auth.hostKey: %w", err)
+		}
+		return cryptoSSH.FixedHostKey(key), nil
+	}
+
+	knownHosts := strings.TrimSpace(goutils.ReplaceEnvVars(p.config.Auth.KnownHostsPath))
+	if knownHosts == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("no auth.hostKey or auth.knownHostsPath configured and the default known_hosts could not be located: %w", err)
+		}
+		knownHosts = filepath.Join(home, ".ssh", "known_hosts")
+	}
+
+	callback, err := knownhosts.New(knownHosts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load known hosts from %s: %w", knownHosts, err)
+	}
+	return callback, nil
 }
 
 func (p *gitProvider) Load(ctx context.Context) (*ConfigBundle, error) {
@@ -222,7 +269,7 @@ func (p *gitProvider) Load(ctx context.Context) (*ConfigBundle, error) {
 	}
 
 	// Set version from commit hash
-	bundle.Version = fmt.Sprintf("git-%s", commitHash[:8])
+	bundle.Version = fmt.Sprintf("git-%s", shortCommit(commitHash))
 	bundle.Timestamp = time.Now()
 	bundle.Checksum = bundle.CalculateChecksum()
 
@@ -238,7 +285,7 @@ func (p *gitProvider) Load(ctx context.Context) (*ConfigBundle, error) {
 	logger.Debug("successfully loaded configuration from git",
 		"repository", p.config.URL,
 		"branch", p.getBranchOrTag(),
-		"commit", commitHash[:8],
+		"commit", shortCommit(commitHash),
 		"routes", len(bundle.Routes),
 		"middlewares", len(bundle.Middlewares))
 
@@ -474,13 +521,13 @@ func (p *gitProvider) checkForUpdates(ctx context.Context, out chan<- *ConfigBun
 
 	// Check if commit changed
 	if currentCommit == lastCommit {
-		logger.Debug("no changes detected", "commit", currentCommit[:8])
+		logger.Debug("no changes detected", "commit", shortCommit(currentCommit))
 		return nil
 	}
 
 	logger.Debug("changes detected",
-		"old_commit", lastCommit[:8],
-		"new_commit", currentCommit[:8])
+		"old_commit", shortCommit(lastCommit),
+		"new_commit", shortCommit(currentCommit))
 
 	// Load new configuration
 	bundle, err := p.Load(ctx)
@@ -523,4 +570,14 @@ func (p *gitProvider) Stop() error {
 
 	logger.Debug("git provider stopped")
 	return nil
+}
+
+// shortCommit abbreviates a commit hash for logging. lastCommit is empty when a
+// clone succeeded but the first pull failed, and polling starts regardless — so
+// a fixed slice panicked in a goroutine that has no recover.
+func shortCommit(hash string) string {
+	if len(hash) <= 8 {
+		return hash
+	}
+	return hash[:8]
 }

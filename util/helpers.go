@@ -31,10 +31,14 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-// FileExists checks if the file does exist
+// FileExists checks if the file does exist.
+//
+// Any Stat error means there is no usable file. Testing only for
+// os.IsNotExist left info nil on every other error — a permission denial, a
+// symlink loop, a name too long — and the next line dereferenced it.
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
+	if err != nil {
 		return false
 	}
 	return !info.IsDir()
@@ -43,7 +47,7 @@ func FileExists(filename string) bool {
 // FolderExists checks if the folder does exist
 func FolderExists(name string) bool {
 	info, err := os.Stat(name)
-	if os.IsNotExist(err) {
+	if err != nil {
 		return false
 	}
 	return info.IsDir()

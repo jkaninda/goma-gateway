@@ -19,6 +19,7 @@ package middlewares
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -35,6 +36,9 @@ type RedirectScheme struct {
 	Scheme    string
 	Port      int64 // Optional custom port
 	Permanent bool  // Use 301 instead of 302
+	// Hosts are the route's configured hosts. The redirect target is checked
+	// against them so a client-supplied Host header cannot steer the Location.
+	Hosts []string
 }
 
 // Redirect middleware configuration for URL-based redirects
@@ -84,6 +88,24 @@ func (rs *RedirectScheme) shouldRedirect(r *http.Request) bool {
 	return true
 }
 
+func (rs *RedirectScheme) resolveHost(r *http.Request) string {
+	if len(rs.Hosts) == 0 {
+		return r.Host
+	}
+	hostname := r.Host
+	if h, _, err := net.SplitHostPort(hostname); err == nil {
+		hostname = h
+	}
+	for _, allowed := range rs.Hosts {
+		if strings.EqualFold(allowed, hostname) {
+			return r.Host
+		}
+	}
+	logger.Warn("Redirect host is not one of the route's configured hosts, using the first configured host",
+		"host", r.Host, "using", rs.Hosts[0])
+	return rs.Hosts[0]
+}
+
 // isACMEChallenge checks if the request is for an ACME challenge
 func (rs *RedirectScheme) isACMEChallenge(r *http.Request) bool {
 	return strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/")
@@ -97,9 +119,9 @@ func (rs *RedirectScheme) redirectStatusCode() int {
 	return http.StatusFound // 302
 }
 
-// buildRedirectURL constructs the target URL with the new scheme
+// buildRedirectURL constructs the target URL with the new scheme.
 func (rs *RedirectScheme) buildRedirectURL(r *http.Request) string {
-	host := r.Host
+	host := rs.resolveHost(r)
 
 	// Handle custom port
 	if rs.Port != 0 {
@@ -310,10 +332,10 @@ func scheme(r *http.Request) string {
 		return schemeHTTPS
 	}
 
-	// Default to the URL scheme
-	if r.URL.Scheme != "" {
-		return strings.ToLower(r.URL.Scheme)
-	}
-
+	// The request line is client-controlled: a client may send an absolute-form
+	// request URI ("GET https://host/path HTTP/1.1") on a plaintext listener,
+	// and trusting it here made the gateway report X-Forwarded-Proto: https for
+	// a connection that had no TLS at all. r.TLS above is the only trustworthy
+	// signal once the trusted-proxy headers have been ruled out.
 	return schemeHTTP
 }

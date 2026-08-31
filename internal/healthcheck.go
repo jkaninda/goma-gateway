@@ -151,14 +151,13 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 		err := health.Check()
 		if err != nil {
 			if endpoint, err := getBaseURL(health.URL); err == nil {
-				unavailableBackends[endpoint] = true
+				unavailableBackends.markUnavailable(endpoint)
 			}
 			logger.Error("Route is unhealthy,", "route", health.Name, "error", err)
 			return
 		}
 		logger.Debug("Route is healthy", "route", health.Name)
-		if endpoint, err := getBaseURL(health.URL); err == nil && unavailableBackends[endpoint] {
-			delete(unavailableBackends, endpoint)
+		if endpoint, err := getBaseURL(health.URL); err == nil && unavailableBackends.markAvailable(endpoint) {
 			logger.Info("Route Backend recovered", "route", health.Name, "backend", endpoint)
 		}
 	})

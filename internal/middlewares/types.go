@@ -178,6 +178,7 @@ type ForwardAuth struct {
 	AuthSignIn                  string
 	ForwardHostHeaders          bool
 	Origins                     []string
+	Hosts                       []string
 }
 type ClaimExpression interface {
 	Evaluate(claims map[string]interface{}) (bool, error)

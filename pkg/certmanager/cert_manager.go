@@ -363,16 +363,20 @@ func (p *provider) setupLegoClient() error {
 	return nil
 }
 
+// configureInsecureClientIfNeeded disables TLS verification against the ACME
+// directory when the operator has explicitly asked for it.
 func (p *provider) configureInsecureClientIfNeeded(config *lego.Config) {
-	env := os.Getenv(gomaEnv)
-	if env == development || env == local {
-		config.HTTPClient = &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
+	if !p.cfg.Acme.InsecureSkipVerify {
+		return
+	}
+	logger.Warn("ACME TLS verification is disabled by acme.insecureSkipVerify",
+		"directoryUrl", p.cfg.Acme.DirectoryURL)
+	config.HTTPClient = &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, //nolint:gosec // explicitly requested by configuration
 			},
-		}
+		},
 	}
 }
 
@@ -385,7 +389,10 @@ func (p *provider) setupChallenges() error {
 		return p.legoClient.Challenge.SetDNS01Provider(dns)
 	}
 	return p.legoClient.Challenge.SetHTTP01Provider(
-		http01.NewProviderServer("", httpChallengePort),
+		// Bound to loopback, not 0.0.0.0: the gateway proxies
+		// /.well-known/acme-challenge/ to it locally, so there is no reason for
+		// the challenge server to be reachable from the network.
+		http01.NewProviderServer("127.0.0.1", httpChallengePort),
 	)
 }
 
@@ -1033,7 +1040,7 @@ func (cm *CertManager) GenerateCertificate(domain string) (*tls.Certificate, err
 	}
 
 	keyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
+		Type:  pemTypeRSAPrivateKey,
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
 	certPEM := pem.EncodeToMemory(&pem.Block{
@@ -1058,6 +1065,27 @@ func (cm *CertManager) GenerateDefaultCertificate() (*tls.Certificate, error) {
 func (cm *CertManager) AcmeInitialized() bool {
 	for _, p := range cm.providers {
 		if p.acmeInitialized {
+			return true
+		}
+	}
+	return false
+}
+
+// UsesHTTP01Challenge reports whether any configured ACME provider solves the
+// HTTP-01 challenge, and therefore whether the gateway needs to proxy
+// /.well-known/acme-challenge/ to the local challenge server at all.
+func (cm *CertManager) UsesHTTP01Challenge() bool {
+	if cm == nil {
+		return false
+	}
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	for _, p := range cm.providers {
+		if p.cfg.Type != CertAcmeProvider {
+			continue
+		}
+		// HTTP-01 is the default when no challenge type is configured.
+		if p.cfg.Acme.ChallengeType != DNS01 {
 			return true
 		}
 	}
@@ -1247,13 +1275,13 @@ func marshalPrivateKey(key crypto.PrivateKey) ([]byte, string, error) {
 	switch k := key.(type) {
 	case *ecdsa.PrivateKey:
 		keyBytes, err = x509.MarshalECPrivateKey(k)
-		keyType = "EC PRIVATE KEY"
+		keyType = pemTypeECPrivateKey
 	case *rsa.PrivateKey:
 		keyBytes = x509.MarshalPKCS1PrivateKey(k)
-		keyType = "RSA PRIVATE KEY"
+		keyType = pemTypeRSAPrivateKey
 	default:
 		keyBytes, err = x509.MarshalPKCS8PrivateKey(k)
-		keyType = "PRIVATE KEY"
+		keyType = pemTypePKCS8PrivateKey
 	}
 
 	return keyBytes, keyType, err
@@ -1301,7 +1329,7 @@ func marshalCertificatePrivateKey(privateKey crypto.PrivateKey) ([]byte, error) 
 	switch key := privateKey.(type) {
 	case *rsa.PrivateKey:
 		return pem.EncodeToMemory(&pem.Block{
-			Type:  "RSA PRIVATE KEY",
+			Type:  pemTypeRSAPrivateKey,
 			Bytes: x509.MarshalPKCS1PrivateKey(key),
 		}), nil
 	case *ecdsa.PrivateKey:
@@ -1310,7 +1338,7 @@ func marshalCertificatePrivateKey(privateKey crypto.PrivateKey) ([]byte, error) 
 			return nil, fmt.Errorf("failed to marshal EC private key: %w", err)
 		}
 		return pem.EncodeToMemory(&pem.Block{
-			Type:  "EC PRIVATE KEY",
+			Type:  pemTypeECPrivateKey,
 			Bytes: keyBytes,
 		}), nil
 	default:
@@ -1319,7 +1347,7 @@ func marshalCertificatePrivateKey(privateKey crypto.PrivateKey) ([]byte, error) 
 			return nil, fmt.Errorf("failed to marshal private key: %w", err)
 		}
 		return pem.EncodeToMemory(&pem.Block{
-			Type:  "PRIVATE KEY",
+			Type:  pemTypePKCS8PrivateKey,
 			Bytes: keyBytes,
 		}), nil
 	}
@@ -1358,11 +1386,11 @@ func loadUserFromStorage(stored *StoredUserAccount) (*LegoUser, error) {
 
 func parsePrivateKey(block *pem.Block) (crypto.PrivateKey, error) {
 	switch block.Type {
-	case "EC PRIVATE KEY":
+	case pemTypeECPrivateKey:
 		return x509.ParseECPrivateKey(block.Bytes)
-	case "RSA PRIVATE KEY":
+	case pemTypeRSAPrivateKey:
 		return x509.ParsePKCS1PrivateKey(block.Bytes)
-	case "PRIVATE KEY":
+	case pemTypePKCS8PrivateKey:
 		return x509.ParsePKCS8PrivateKey(block.Bytes)
 	default:
 		return nil, fmt.Errorf("unsupported private key type: %s", block.Type)

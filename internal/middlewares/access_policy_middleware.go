@@ -18,6 +18,7 @@
 package middlewares
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"net/http"
@@ -96,7 +97,14 @@ func parseIPRange(rangeStr string) (string, string, error) {
 	return startIP, endIP, nil
 }
 
-// Check if an IP is in range
+// ipInRange reports whether ipStr falls between startIP and endIP inclusive.
+//
+// This used to compare octet by octet and reject the address as soon as any one
+// octet fell outside its counterpart's. For a range crossing an octet boundary
+// — 10.0.0.50-10.0.3.20 — the client 10.0.1.30 failed on the last octet and was
+// let through a DENY rule. Comparing the addresses as whole numbers is the only
+// correct reading of a range, and using the 16-byte form makes IPv6 ranges work
+// too, where To4 previously returned nil and nothing ever matched.
 func ipInRange(ipStr, startIP, endIP string) bool {
 	ip := net.ParseIP(ipStr)
 	start := net.ParseIP(startIP)
@@ -106,20 +114,18 @@ func ipInRange(ipStr, startIP, endIP string) bool {
 		return false
 	}
 
-	ipBytes := ip.To4()
-	startBytes := start.To4()
-	endBytes := end.To4()
+	// An IPv4 address and an IPv6 range are not comparable even once both are
+	// 16 bytes wide, so require the families to agree.
+	if (ip.To4() == nil) != (start.To4() == nil) || (start.To4() == nil) != (end.To4() == nil) {
+		return false
+	}
 
+	ipBytes, startBytes, endBytes := ip.To16(), start.To16(), end.To16()
 	if ipBytes == nil || startBytes == nil || endBytes == nil {
 		return false
 	}
 
-	for i := 0; i < 4; i++ {
-		if ipBytes[i] < startBytes[i] || ipBytes[i] > endBytes[i] {
-			return false
-		}
-	}
-	return true
+	return bytes.Compare(ipBytes, startBytes) >= 0 && bytes.Compare(ipBytes, endBytes) <= 0
 }
 
 // Check if an IP is within a CIDR block

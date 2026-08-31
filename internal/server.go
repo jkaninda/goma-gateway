@@ -103,8 +103,15 @@ func (g *Goma) createServer(addr string, handler http.Handler, tlsConfig *tls.Co
 		WriteTimeout: time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_WRITE", g.gateway.Timeouts.Write)),
 		ReadTimeout:  time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_READ", g.gateway.Timeouts.Read)),
 		IdleTimeout:  time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_IDLE", g.gateway.Timeouts.Idle)),
-		Handler:      handler,
-		TLSConfig:    tlsConfig,
+		// A separate, always-set header timeout: without it a client can hold a
+		// connection open indefinitely by dribbling request headers, and
+		// ReadTimeout alone is routinely configured away.
+		ReadHeaderTimeout: time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_READ_HEADER", defaultReadHeaderTimeout)),
+		MaxHeaderBytes:    goutils.EnvInt("GOMA_MAX_HEADER_BYTES", defaultMaxHeaderBytes),
+		// Normalise the path once, before routing: every matcher downstream
+		// then sees the same string the upstream will resolve.
+		Handler:   canonicalizePath(handler),
+		TLSConfig: tlsConfig,
 		BaseContext: func(_ net.Listener) context.Context {
 			return g.ctx
 		},
@@ -117,6 +124,7 @@ func (g *Goma) createHTTPHandler(handler http.Handler) http.Handler {
 		Scheme: "http",
 		Host:   acmeServerURL,
 	}
+
 	// Create the ACME reverse proxy
 	acmeProxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
@@ -128,6 +136,14 @@ func (g *Goma) createHTTPHandler(handler http.Handler) http.Handler {
 
 			pr.Out.Host = pr.In.Host
 		},
+	}
+
+	// Registered only when an HTTP-01 ACME provider is actually configured.
+	// Every /.well-known/acme-challenge/ request used to be forwarded to
+	// localhost:5002 whether ACME was in use or not.
+	if !certManager.UsesHTTP01Challenge() {
+		logger.Debug("No HTTP-01 ACME provider configured, not proxying ACME challenges")
+		return handler
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

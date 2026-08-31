@@ -102,6 +102,48 @@ spec:
             name: goma-config
 ```
 
+### Step 4: Running as a Non-Root User (optional)
+
+The image **runs as root by default**, so a gateway configured to listen on
+ports 80 and 443 works without extra setup.
+
+A Kubernetes deployment usually does not need that: the Service handles the
+port mapping, and the example above already listens on the binary's default
+`8080`. That means it can run unprivileged as **uid/gid 10001**, the `goma`
+user that owns `/etc/goma`, `/etc/goma/extra` and `/etc/letsencrypt` in the
+image:
+
+```yaml
+        - name: goma-gateway
+          image: jkaninda/goma-gateway
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+```
+
+Notes:
+
+* **Keep the entrypoints above 1024.** A container without
+  `CAP_NET_BIND_SERVICE` cannot bind 80 or 443. Expose them through the Service
+  instead (`port: 80` → `targetPort: 8080`). If the gateway itself must listen
+  on 80/443, add that one capability back:
+
+  ```yaml
+            capabilities:
+              drop: ["ALL"]
+              add: ["NET_BIND_SERVICE"]
+  ```
+
+* **PersistentVolumes must be writable by 10001.** For ACME, set
+  `fsGroup: 10001` in the pod `securityContext` so the mounted volume is
+  group-owned by the gateway.
+
+* **Avoid `readOnlyRootFilesystem: true`** unless every writable path — the
+  certificate directory in particular — is a mounted volume.
 
 ## 2. Advanced Deployment
 

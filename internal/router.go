@@ -54,12 +54,25 @@ type router struct {
 	// visitors feeds the real-time visitors gauge. Gateway-wide and shared by
 	// every route; nil when metrics are disabled.
 	visitors *VisitorTracker
+	// healthStop stops the health-check goroutines belonging to the current
+	// generation of routes. Guarded by the router's mutex, and always replaced
+	// in the same step it is closed: a reload that failed part-way used to
+	// leave a closed channel behind, and the next reload panicked on
+	// "close of closed channel" and took the process with it.
+	healthStop chan struct{}
 }
 
 // Stop releases router-owned background work. The visitor tracker records what
 // is still queued before returning, so the last few seconds of activity aren't
 // lost from a store shared with other replicas.
 func (r *router) Stop() error {
+	r.Lock()
+	stop := r.healthStop
+	r.healthStop = nil
+	r.Unlock()
+	if stop != nil {
+		close(stop)
+	}
 	return r.visitors.Stop() // nil-safe when metrics are disabled
 }
 
@@ -102,20 +115,27 @@ func visitorTTL(raw string) time.Duration {
 	return d
 }
 
-// AddRoutes adds multiple routes from another router.
+// AddRoutes adds the router's configured routes to its live routing table.
 func (r *router) AddRoutes() error {
-	logger.Debug("Adding routes to router", "count", len(r.dynamicRoutes))
+	return r.addRoutesTo(r.njia, r.dynamicRoutes, r.dynamicMiddlewares, r.plugins)
+}
+
+// addRoutesTo compiles a set of routes onto the given table. It takes the table
+// and the configuration explicitly so a reload can build a complete table
+// off to the side and publish it in one assignment.
+func (r *router) addRoutesTo(rt *njia.Router, routes []Route, mids []Middleware, plugs map[string]plugins.Middleware) error {
+	logger.Debug("Adding routes to router", "count", len(routes))
 
 	var addedCount int
 	var errors []error
 
-	for _, route := range r.dynamicRoutes {
+	for _, route := range routes {
 		if !route.Enabled {
 			logger.Debug("Skipping disabled route", "route", route.Name, "path", route.Path)
 			continue
 		}
 
-		if err := r.AddRoute(&route); err != nil {
+		if err := r.addRouteTo(rt, &route, mids, plugs); err != nil {
 			logger.Error("Failed to add route", "route", route.Name, "error", err)
 			errors = append(errors, fmt.Errorf("route %s: %w", route.Name, err))
 			continue
@@ -147,38 +167,52 @@ func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // UpdateHandler updates the router's handler based on the gateway configuration.
+//
+// The new table is compiled off to the side and published in a single
+// assignment under the write lock. Mutating the live table in place meant
+// in-flight requests could hit an empty table, or reach a route whose
+// middleware had not been attached yet — unauthenticated, for the length of the
+// rebuild.
 func (r *router) UpdateHandler(g *Goma) {
+	logger.Debug("Updating handler", "routes", len(g.dynamicRoutes))
 
+	next := newProxyRouter(r.strictSlash)
+	g.addGlobalHandler(next, r)
+
+	if err := r.addRoutesTo(next, g.dynamicRoutes, g.dynamicMiddlewares, g.plugins); err != nil {
+		logger.Error("Failed to add routes, keeping the previous configuration", "error", err)
+		return
+	}
+
+	// Only now that the new table is known-good is anything swapped, so a
+	// rejected reload leaves the gateway serving exactly what it served before.
+	stop := make(chan struct{})
+
+	r.Lock()
+	previousStop := r.healthStop
+	r.healthStop = stop
 	r.dynamicRoutes = g.dynamicRoutes
 	r.dynamicMiddlewares = g.dynamicMiddlewares
 	r.plugins = g.plugins
-	logger.Debug("Updating handler", "routes", len(r.dynamicRoutes))
-	close(stopChan)
-	reloaded = true
-	logger.Debug("Updating router with new routes")
-	r.njia = newProxyRouter(r.strictSlash)
-	g.addGlobalHandler(r.njia, r)
+	r.njia = next
+	routes := r.dynamicRoutes
+	r.Unlock()
 
-	err := r.AddRoutes()
-	if err != nil {
-		logger.Error("Failed to add routes", "error", err)
-		return
+	if previousStop != nil {
+		close(previousStop)
 	}
-	r.startHealthCheck()
+	reloaded = true
+
+	logger.Debug("Starting health check...")
+	routesHealthCheck(routes, stop)
+
 	// Flush the local DNS cache after a successful reload when enabled, so that
 	// updated routes resolve their backends afresh.
 	if g.gateway.Networking.DNSCache.ClearOnReload {
 		cachedDialer.ClearCache()
 		logger.Debug("DNS cache cleared after reload")
 	}
-	logger.Info("Configuration successfully reloaded", "routes", len(r.dynamicRoutes))
-}
-
-// startHealthCheck starts the health check routine
-func (r *router) startHealthCheck() {
-	stopChan = make(chan struct{})
-	logger.Debug("Starting health check...")
-	routesHealthCheck(r.dynamicRoutes, stopChan)
+	logger.Info("Configuration successfully reloaded", "routes", len(routes))
 }
 
 // validateRoute performs comprehensive route validation
@@ -198,8 +232,12 @@ func (r *router) validateRoute(route *Route) error {
 	return nil
 }
 
-// AddRoute adds a single route to the router.
+// AddRoute adds a single route to the router's live routing table.
 func (r *router) AddRoute(route *Route) error {
+	return r.addRouteTo(r.njia, route, r.dynamicMiddlewares, r.plugins)
+}
+
+func (r *router) addRouteTo(rt *njia.Router, route *Route, mids []Middleware, plugs map[string]plugins.Middleware) error {
 	if err := r.validateRoute(route); err != nil {
 		return fmt.Errorf("route validation failed: %w", err)
 	}
@@ -237,7 +275,7 @@ func (r *router) AddRoute(route *Route) error {
 	// carries the middleware. njia resolves a group's middleware when the table
 	// is compiled, so Use and the registrations below may happen in any order:
 	// every route in the group is wrapped either way.
-	group := r.njia.Group(groupPrefix(route.Path))
+	group := rt.Group(groupPrefix(route.Path))
 	// Check maintenance mode
 	if route.Maintenance.Enabled {
 		logger.Warn("Route maintenance mode enabled", "route", route.Name)
@@ -245,7 +283,7 @@ func (r *router) AddRoute(route *Route) error {
 	}
 	// Add middlewares. Order of the Use calls is what nests them, outermost
 	// first, so maintenance mode stays outside everything it short-circuits.
-	r.attachMiddlewares(route, group, r.dynamicMiddlewares)
+	r.attachMiddlewares(route, group, mids, plugs)
 	proxyRoute.responseHeaders = route.responseHeaders
 	// Configure handlers
 	return r.configureHandlers(route, group, proxyRoute)
@@ -275,7 +313,7 @@ func (r *router) configureCORS(route *Route) {
 }
 
 // attachMiddlewares configures all middlewares for a route
-func (r *router) attachMiddlewares(route *Route, rRouter *njia.Group, globalMiddlewares []Middleware) {
+func (r *router) attachMiddlewares(route *Route, rRouter *njia.Group, globalMiddlewares []Middleware, plugs map[string]plugins.Middleware) {
 	enableMetrics := r.enableMetrics && !route.DisableMetrics
 
 	if r.enableMetrics && route.DisableMetrics {
@@ -308,7 +346,7 @@ func (r *router) attachMiddlewares(route *Route, rRouter *njia.Group, globalMidd
 		rRouter.Use(cors.CORSHandler())
 	}
 	// Custom middlewares
-	route.attachMiddlewares(rRouter, globalMiddlewares, r.plugins)
+	route.attachMiddlewares(rRouter, globalMiddlewares, plugs)
 
 	// Update proxyMiddleware
 	proxyMiddleware.headers = route.responseHeaders

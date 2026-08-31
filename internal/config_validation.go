@@ -139,6 +139,8 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 		}
 	}
 
+	warnUnscopedGuards(middlewares)
+
 	// find duplicated middleware name
 	duplicates, err := findDuplicateMiddlewareNames(middlewares)
 	if err != nil {
@@ -168,4 +170,27 @@ func middlewareNames(middlewares []Middleware) []string {
 
 	}
 	return names
+}
+
+// guardMiddlewareTypes are the middleware types whose whole purpose is to
+// decide whether a request may continue.
+var guardMiddlewareTypes = []MiddlewareType{
+	AccessMiddleware, BasicAuthMiddleware, BasicAuth,
+	JWTAuthMiddleware, JWTAuth, LDAPAuthMiddleware, LDAPAuth,
+	OIDC, OAuth, OAuth2, forwardAuth,
+}
+
+// warnUnscopedGuards reports auth and access middlewares configured without
+// paths. They now guard the whole route rather than nothing (see
+// isGuardedPathMatching), which is the safe reading but rarely the intended
+// one, so say so at load time instead of leaving it to be discovered in
+// production.
+func warnUnscopedGuards(middlewares []Middleware) {
+	for _, mid := range middlewares {
+		if len(mid.Paths) != 0 || !slices.Contains(guardMiddlewareTypes, mid.Type) {
+			continue
+		}
+		logger.Warn("Middleware declares no paths and will guard every path of the routes it is attached to",
+			"middleware", mid.Name, "type", mid.Type)
+	}
 }

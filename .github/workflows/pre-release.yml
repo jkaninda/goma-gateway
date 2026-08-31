@@ -9,16 +9,18 @@ jobs:
     permissions:
       packages: write
       contents: read
+      # Required for cosign keyless signing.
+      id-token: write
     steps:
       -
         name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@v4.2.0
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v4.3.0
       -
         name: Login to DockerHub
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -33,9 +35,13 @@ jobs:
           echo BUILD_TIME=$(date) >> ${GITHUB_ENV}
       -
         name: Build and push
-        uses: docker/build-push-action@v7
+        id: build
+        uses: docker/build-push-action@v7.3.0
         with:
           push: true
+          # SLSA provenance and an SBOM, attached to the image as attestations.
+          provenance: mode=max
+          sbom: true
           file: "./Dockerfile"
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           build-args: |
@@ -44,4 +50,18 @@ jobs:
             gitCommit=${{ github.sha }}
           tags: |
             "${{vars.BUILDKIT_IMAGE}}:${{ env.VERSION }}"
-
+      # Keyless signing: the signature is bound to this workflow's OIDC
+      # identity, so a released image can be traced to the run that built it.
+      # Verify with:
+      #   cosign verify <image> \
+      #     --certificate-identity-regexp '^https://github.com/jkaninda/goma-gateway/' \
+      #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      -
+        name: Install cosign
+        uses: sigstore/cosign-installer@v3.9.2
+      -
+        name: Sign the published image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{vars.BUILDKIT_IMAGE}}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"

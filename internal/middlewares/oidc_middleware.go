@@ -171,7 +171,7 @@ func (o *OIDC) AuthMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if !isPathMatching(r.URL.Path, o.Path, o.Paths) {
+		if !isGuardedPathMatching(r.URL.Path, o.Path, o.Paths) {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -13,6 +13,18 @@ services:
       - "80:80"     # HTTP
       - "443:443"   # HTTPS
 
+    # Runs as root by default, which is what lets it bind 80 and 443 directly.
+    #
+    # To run unprivileged instead: uncomment the block below, change the ports
+    # above to "80:8080" and "443:8443", and point the healthcheck at
+    # http://localhost:8080/healthz. uid 10001 cannot bind ports under 1024,
+    # and it owns the config and certificate directories in the image.
+    # Any volume left behind by an earlier root run needs chown -R 10001:10001.
+    #user: "10001:10001"
+    #environment:
+    #  GOMA_ENTRYPOINT_WEB_ADDRESS: "[::]:8080"
+    #  GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS: "[::]:8443"
+
     volumes:
       # Core configuration
       - ./:/etc/goma

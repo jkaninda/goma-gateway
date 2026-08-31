@@ -59,6 +59,11 @@ func (g GeoBlock) message() string {
 // Middleware enforces the country policy.
 func (g GeoBlock) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		if g.CountryHeader != "" {
+			r.Header.Del(g.CountryHeader)
+		}
+
 		if g.Resolve == nil || len(g.Countries) == 0 {
 			logger.Warn(">> GeoBlock: no GeoIP resolver or countries configured; passing through")
 			next.ServeHTTP(w, r)

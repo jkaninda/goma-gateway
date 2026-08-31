@@ -3,9 +3,10 @@ on:
   release:
     types: [created]
 
+# contents: write is needed to attach binaries to the release. packages is not
+# used by this workflow.
 permissions:
   contents: write
-  packages: write
 
 jobs:
   releases-matrix:
@@ -19,7 +20,7 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - name: Get the tag name
         id: get_tag_name
         run: |
@@ -28,12 +29,15 @@ jobs:
           VERSION="${TAG_NAME#v}"
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo BUILD_TIME=$(date) >> ${GITHUB_ENV}
-      - uses: wangyoucao577/go-release-action@v1
+      - uses: wangyoucao577/go-release-action@v1.55
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "https://dl.google.com/go/go1.25.1.linux-amd64.tar.gz"
+          # The action reads the go directive out of go.mod, so released
+          # binaries are built with the version the module declares. It used to
+          # be a hardcoded go1.25.1 URL, which could not compile this module.
+          goversion: "go.mod"
           project_path: "./"
           binary_name: "goma"
           build_flags: -v

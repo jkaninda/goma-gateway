@@ -22,10 +22,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -51,6 +52,7 @@ type ConfigBundle struct {
 	Middlewares []Middleware      `json:"middlewares" yaml:"middlewares"`
 	Metadata    map[string]string `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Checksum    string            `json:"checksum,omitempty" yaml:"checksum,omitempty"`
+	Signature   string            `json:"signature,omitempty" yaml:"signature,omitempty"`
 	Timestamp   time.Time         `json:"timestamp" yaml:"timestamp"`
 }
 type ProviderType string
@@ -58,6 +60,10 @@ type Providers struct {
 	File *FileProvider `yaml:"file"`
 	HTTP *HTTPProvider `yaml:"http"`
 	Git  *GitProvider  `yaml:"git"`
+	// Signing authenticates bundles before they are merged into the live
+	// gateway. Optional, but strongly recommended for the HTTP and Git
+	// providers, whose bundles arrive over the network.
+	Signing *BundleSigning `yaml:"signing,omitempty"`
 }
 type FileProvider struct {
 	Enabled   bool   `yaml:"enabled"`
@@ -69,6 +75,7 @@ type FileProvider struct {
 func (cb *ConfigBundle) CalculateChecksum() string {
 	temp := *cb
 	temp.Checksum = ""
+	temp.Signature = ""
 	temp.Timestamp = time.Time{}
 
 	data, err := yaml.Marshal(temp)
@@ -98,6 +105,7 @@ func (cb *ConfigBundle) Clone() *ConfigBundle {
 	clone := &ConfigBundle{
 		Version:   cb.Version,
 		Checksum:  cb.Checksum,
+		Signature: cb.Signature,
 		Timestamp: cb.Timestamp,
 		Metadata:  make(map[string]string),
 	}

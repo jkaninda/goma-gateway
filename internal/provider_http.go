@@ -22,9 +22,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-gateway/internal/version"
-	"gopkg.in/yaml.v3"
 	"io"
 	"net/http"
 	"os"
@@ -32,7 +29,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-gateway/internal/version"
+	"gopkg.in/yaml.v3"
 )
+
+// maxConfigBundleBytes caps how much a remote configuration endpoint may send.
+const maxConfigBundleBytes = 16 << 20
 
 // HTTPProvider configuration
 type HTTPProvider struct {
@@ -219,9 +223,16 @@ func (p *httpProvider) fetch(ctx context.Context) (*ConfigBundle, error) {
 		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// Bounded, unlike the bare io.ReadAll this used to be: the body comes from
+	// a remote endpoint and is handed straight to a YAML/JSON parser, so an
+	// endpoint that never stops sending would OOM the gateway. The error path
+	// above was already limited; the success path was not.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxConfigBundleBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if int64(len(body)) >= maxConfigBundleBytes {
+		return nil, fmt.Errorf("configuration bundle exceeds the %d byte limit", maxConfigBundleBytes)
 	}
 
 	// Detect content type
@@ -444,12 +455,11 @@ func (p *httpProvider) updateCache(bundle *ConfigBundle) {
 	// Extract dir from cache file path
 	cacheDir := filepath.Dir(p.config.CacheDir)
 
-	// Create dir if not exists
-	if err = os.MkdirAll(cacheDir, 0755); err != nil {
+	if err = os.MkdirAll(cacheDir, 0700); err != nil {
 		logger.Error("failed to create cache directory", "dir", cacheDir, "error", err)
 		return
 	}
-	if err := os.WriteFile(p.config.CacheDir, data, 0644); err != nil {
+	if err := os.WriteFile(p.config.CacheDir, data, 0600); err != nil {
 		logger.Error("failed to write cache", "error", err)
 	} else {
 		logger.Debug("cache updated successfully",
