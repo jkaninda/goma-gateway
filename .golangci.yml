@@ -27,14 +27,15 @@ linters:
       # Every rule below was reviewed against this codebase and is structurally
       # inapplicable or deliberate. Everything else gosec reports is a real
       # finding and should fail the build.
+      #
+      # Only rule IDs this golangci-lint release knows about may appear here —
+      # `config verify` validates them against a fixed enum, so an ID from a
+      # newer gosec fails the whole run. Newer rules are suppressed by ID in
+      # exclusions.rules below instead, which is not schema-checked.
       excludes:
-        # G101/G117: constant *names* like GomaAccessToken and the sealed
-        # session struct's token fields; no credential is hardcoded.
+        # G101: constant *names* like GomaAccessToken; no credential is
+        # hardcoded.
         - G101
-        - G117
-        # G124: cookie attributes are built from configuration at runtime, so
-        # the literal the rule looks for is never present.
-        - G124
         # G304: a gateway reads the config, certificate and JWKS paths it is
         # told to read. The paths come from configuration, not from requests.
         - G304
@@ -55,17 +56,23 @@ linters:
         - G404
         # G115: conversions of bounded counts (backend counts, port numbers).
         - G115
-        # G705/G710: the redirect middlewares exist to redirect, and the error
-        # interceptor exists to relay upstream bodies. The Host used to build a
-        # redirect is validated against the route's configured hosts.
-        - G705
-        - G710
     revive:
       rules:
         - name: comment-spacings
   exclusions:
     generated: lax
     rules:
+      # gosec rules newer than the pinned golangci-lint's config schema, matched
+      # by the ID gosec prints rather than declared in settings.gosec.excludes
+      # (see the note there). Reviewed the same way as the list above:
+      #   G117  the sealed session struct's token fields, not a hardcoded secret
+      #   G124  cookie attributes are built from configuration at runtime
+      #   G705  the redirect middlewares exist to redirect, and the Host used to
+      #         build one is validated against the route's configured hosts
+      #   G710  the error interceptor exists to relay upstream bodies
+      - linters:
+          - gosec
+        text: '^G(117|124|705|710):'
       - linters:
           - dupl
           - lll

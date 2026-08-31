@@ -103,40 +103,39 @@ func generateMD5CryptWithMagic(password, salt, magic string) string {
 	return fmt.Sprintf("%s%s$%s", magic, salt, encoded)
 }
 
-// encodeMD5Hash encodes the MD5 digest using the custom MD5 crypt alphabet
+// md5CryptAlphabet is the base64-like alphabet MD5 crypt encodes with. Note the
+// leading "./" — it is not standard base64.
+const md5CryptAlphabet = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+// md5CryptGroups is the byte reordering MD5 crypt applies to the digest: five
+// groups of three, each emitted as four characters, little-endian.
+var md5CryptGroups = [5][3]int{
+	{0, 6, 12},
+	{1, 7, 13},
+	{2, 8, 14},
+	{3, 9, 15},
+	{4, 10, 5},
+}
+
+// encodeMD5Hash encodes the MD5 digest using the custom MD5 crypt alphabet.
 func encodeMD5Hash(digest []byte) string {
-	alphabet := "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	if len(digest) < md5.Size {
+		return ""
+	}
 
 	result := make([]byte, 0, 22)
-
-	// MD5 crypt uses a specific byte reordering and grouping
-	// Process in groups of 3 bytes with specific ordering
-	groups := [][3]int{
-		{0, 6, 12},
-		{1, 7, 13},
-		{2, 8, 14},
-		{3, 9, 15},
-		{4, 10, 5},
-		{11, -1, -1}, // Last group has only 1 byte
-	}
-
-	for i, group := range groups {
-		var val int
-		var chars int
-
-		if i == 5 { // Last group (only 1 byte)
-			val = int(digest[group[0]])
-			chars = 2
-		} else {
-			val = (int(digest[group[0]]) << 16) | (int(digest[group[1]]) << 8) | int(digest[group[2]])
-			chars = 4
-		}
-
-		for j := 0; j < chars; j++ {
-			result = append(result, alphabet[val&0x3f])
-			val >>= 6
+	emit := func(value, chars int) {
+		for range chars {
+			result = append(result, md5CryptAlphabet[value&0x3f])
+			value >>= 6
 		}
 	}
+
+	for _, group := range md5CryptGroups {
+		emit(int(digest[group[0]])<<16|int(digest[group[1]])<<8|int(digest[group[2]]), 4)
+	}
+	// The sixteenth byte is left over and encodes to two characters.
+	emit(int(digest[11]), 2)
 
 	return string(result)
 }
