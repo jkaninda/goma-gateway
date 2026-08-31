@@ -20,7 +20,7 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@v7.0.1
       - name: Get the tag name
         id: get_tag_name
         run: |
@@ -29,7 +29,7 @@ jobs:
           VERSION="${TAG_NAME#v}"
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo BUILD_TIME=$(date) >> ${GITHUB_ENV}
-      - uses: wangyoucao577/go-release-action@279495102627de7960cbc33434ab01a12bae144b # v1
+      - uses: wangyoucao577/go-release-action@v1.55
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}

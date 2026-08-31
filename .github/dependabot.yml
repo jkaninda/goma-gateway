@@ -8,8 +8,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
-  # Actions were mutable tags until they were SHA-pinned; a pin only stays
-  # current if something updates it.
+  # Every action is pinned to an exact release (vX.Y.Z) rather than a floating
+  # major tag, so a run always uses the version recorded here. Dependabot is
+  # what keeps those pins from going stale.
   - package-ecosystem: github-actions
     directory: /
     schedule:
