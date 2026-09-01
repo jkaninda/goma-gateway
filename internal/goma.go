@@ -265,9 +265,9 @@ func (g *Goma) attachDefaultConfigurations() error {
 
 // NewRouter creates a new router instance.
 func (g *Goma) NewRouter() Router {
+	table := newProxyRouter(g.gateway.StrictSlash)
 	rt := &router{
 		plugins:            g.plugins,
-		njia:               newProxyRouter(g.gateway.StrictSlash),
 		enableMetrics:      g.gateway.Monitoring.EnableMetrics,
 		gateway:            g.gateway,
 		networking:         g.gateway.Networking,
@@ -275,13 +275,11 @@ func (g *Goma) NewRouter() Router {
 		dynamicRoutes:      g.dynamicRoutes,
 		dynamicMiddlewares: g.dynamicMiddlewares,
 		visitors:           newVisitorTracker(g.gateway.Monitoring),
-		// The first generation of health checks was started against the
-		// package-level stopChan before the router existed; adopting it here is
-		// what lets the first reload stop them.
-		healthStop: stopChan,
+		healthStop:         stopChan,
 	}
 
-	g.addGlobalHandler(rt.njia, rt)
+	rt.setTable(table)
+	g.addGlobalHandler(table, rt)
 
 	return rt
 }
@@ -337,10 +335,6 @@ func (g *Goma) registerObservabilityHandler(rt *njia.Router, name, path string, 
 		opts = append(opts, njia.WithHost(g.gateway.Monitoring.Host))
 	}
 
-	// Both restrictions are optional, so an endpoint can end up reachable by
-	// anyone who can reach the gateway. /metrics in particular exposes route
-	// names, backend health, traffic volumes and per-country breakdowns, which
-	// is a map of the deployment. Say so rather than leaving it to be noticed.
 	if len(middlewareNames) == 0 && g.gateway.Monitoring.Host == "" {
 		logger.Warn("Monitoring endpoint is exposed without authentication or a host restriction",
 			"endpoint", name, "path", path,
