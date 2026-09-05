@@ -47,6 +47,9 @@ const (
 	errorDelay        = 20 * time.Second
 	rsaKeySize        = 2048
 	cronExpression    = "@every 6h"
+
+	onDemandBaseBackoff = 2 * time.Minute
+	onDemandMaxBackoff  = time.Hour
 	// cronExpression = "@every 30s" // for testing purposes only
 )
 

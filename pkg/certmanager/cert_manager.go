@@ -135,6 +135,17 @@ type CertManager struct {
 	customCerts     map[string]*CertificateInfo
 	defaultCert     *tls.Certificate
 	config          *Config
+
+	onDemandMu       sync.Mutex
+	onDemandAttempts map[string]*onDemandAttempt
+}
+
+// onDemandAttempt throttles the SNI-triggered certificate request for one host,
+// so a name that keeps failing validation is retried on a widening interval
+// rather than on every handshake.
+type onDemandAttempt struct {
+	nextAttempt time.Time
+	failures    int
 }
 
 // provider holds per-provider ACME state. One *provider per entry in
@@ -484,7 +495,8 @@ func (p *provider) processCertificates() error {
 	p.mu.RUnlock()
 
 	for _, domain := range domains {
-		if p.shouldSkipDomain(domain, stats, false) {
+		if p.shouldSkipDomain(domain, false) {
+			stats.Skipped++
 			continue
 		}
 
@@ -516,7 +528,7 @@ func (p *provider) requestNewCertificate(host string, stats *ProcessingStats, re
 		logger.Debug("Skipping certificate request, domain not recognized", "provider", p.name, "host", host)
 		return nil
 	}
-	if p.shouldSkipDomain(domain, stats, renewal) {
+	if p.shouldSkipDomain(domain, renewal) {
 		stats.Skipped++
 		return nil
 	}
@@ -535,17 +547,19 @@ func (p *provider) requestNewCertificate(host string, stats *ProcessingStats, re
 	return nil
 }
 
-func (p *provider) shouldSkipDomain(domain Domain, stats *ProcessingStats, renewal bool) bool {
+// shouldSkipDomain reports whether a route needs no certificate work right now.
+// The caller owns the Skipped counter.
+func (p *provider) shouldSkipDomain(domain Domain, renewal bool) bool {
 	if len(domain.Hosts) == 0 {
-		stats.Skipped++
 		return true
 	}
-	if p.getExistingValidCertificate(domain.Hosts[0], renewal) != nil {
-		stats.Skipped++
+	// Only a certificate naming the host counts. A wildcard that merely covers
+	// it serves traffic in the meantime, but must not stop the route from
+	// getting a certificate of its own.
+	if p.hasExactCertificate(domain.Hosts[0], renewal) {
 		return true
 	}
 	if p.isRequestInProgress(domain.Hosts) {
-		stats.Skipped++
 		return true
 	}
 	return false
@@ -723,36 +737,123 @@ func createCertificateInfoFromVault(cert *tls.Certificate, domains []string) (*C
 	}, nil
 }
 
-// GetCertificate is the TLS GetCertificate callback. It walks shared customCerts,
-// then each provider's certs, and finally falls back to the default cert.
-// If no provider claims the SNI, no ACME request is made.
+// GetCertificate is the TLS GetCertificate callback. It picks the most specific
+// certificate available across the shared customCerts and every provider's
+// certs, and finally falls back to the default cert. A certificate that names
+// the SNI host explicitly always beats a wildcard certificate that merely
+// covers it, whichever pool each one lives in.
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	serverName := hello.ServerName
+	serverName := normalizeServerName(hello.ServerName)
 	if serverName == "" {
 		return cm.getDefaultCertificate()
 	}
 
-	if certInfo := cm.findCustomCert(serverName); certInfo != nil && isCertificateValid(certInfo, false) {
+	certInfo, rank := cm.findBestCertificate(serverName)
+	if rank < matchExact {
+		cm.requestCertificateOnDemand(serverName)
+	}
+	if certInfo != nil {
 		return certInfo.Certificate, nil
+	}
+	return cm.getDefaultCertificate()
+}
+
+// requestCertificateOnDemand starts a background certificate order for
+// serverName with the provider that claims it. It never blocks the handshake,
+// and the throttle keeps repeated handshakes for an unissuable host from
+// hammering the ACME provider.
+func (cm *CertManager) requestCertificateOnDemand(serverName string) {
+	owner := cm.providerForSNI(serverName)
+	if owner == nil {
+		logger.Debug("No provider claims SNI, not requesting a certificate", "server_name", serverName)
+		return
+	}
+	if !cm.beginOnDemandAttempt(serverName) {
+		return
+	}
+
+	logger.Debug("Requesting a dedicated certificate in the background", "provider", owner.name, "server_name", serverName)
+	go func() {
+		if err := owner.requestNewCertificate(serverName, nil, false); err != nil {
+			logger.Error("Background certificate request failed", "provider", owner.name, "server_name", serverName, "error", err)
+		}
+		cm.finishOnDemandAttempt(serverName)
+	}()
+}
+
+// beginOnDemandAttempt reports whether an on-demand order for serverName may
+// start now, reserving the slot so concurrent handshakes do not stampede.
+func (cm *CertManager) beginOnDemandAttempt(serverName string) bool {
+	cm.onDemandMu.Lock()
+	defer cm.onDemandMu.Unlock()
+
+	if cm.onDemandAttempts == nil {
+		cm.onDemandAttempts = make(map[string]*onDemandAttempt)
+	}
+	attempt, ok := cm.onDemandAttempts[serverName]
+	if !ok {
+		attempt = &onDemandAttempt{}
+		cm.onDemandAttempts[serverName] = attempt
+	} else if time.Now().Before(attempt.nextAttempt) {
+		return false
+	}
+	attempt.nextAttempt = time.Now().Add(onDemandBackoff(attempt.failures))
+	return true
+}
+
+// finishOnDemandAttempt clears the throttle once the host has a certificate of
+// its own, and widens the retry window otherwise.
+func (cm *CertManager) finishOnDemandAttempt(serverName string) {
+	_, rank := cm.findBestCertificate(serverName)
+
+	cm.onDemandMu.Lock()
+	defer cm.onDemandMu.Unlock()
+	if rank == matchExact {
+		delete(cm.onDemandAttempts, serverName)
+		return
+	}
+	if attempt, ok := cm.onDemandAttempts[serverName]; ok {
+		attempt.failures++
+		attempt.nextAttempt = time.Now().Add(onDemandBackoff(attempt.failures))
+	}
+}
+
+// onDemandBackoff doubles the wait per consecutive failure, capped so a host
+// whose DNS or routing is fixed later is still retried within the hour.
+func onDemandBackoff(failures int) time.Duration {
+	if failures > 8 {
+		failures = 8
+	}
+	if backoff := onDemandBaseBackoff << failures; backoff < onDemandMaxBackoff {
+		return backoff
+	}
+	return onDemandMaxBackoff
+}
+
+// findBestCertificate returns the most specific valid certificate for domain
+// across the shared custom certs and every provider, together with its match
+// rank. On an equal rank the custom certs win.
+func (cm *CertManager) findBestCertificate(domain string) (*CertificateInfo, matchRank) {
+	cm.mu.RLock()
+	best, bestRank := findBestCertificateIn(cm.customCerts, domain, false)
+	cm.mu.RUnlock()
+
+	if bestRank == matchExact {
+		return best, bestRank
 	}
 
 	for _, p := range cm.providers {
-		if certInfo := p.findCertificateInfo(serverName); certInfo != nil && isCertificateValid(certInfo, false) {
-			return certInfo.Certificate, nil
+		p.mu.RLock()
+		certInfo, rank := findBestCertificateIn(p.certs, domain, false)
+		p.mu.RUnlock()
+		if rank > bestRank {
+			best, bestRank = certInfo, rank
+			if bestRank == matchExact {
+				break
+			}
 		}
 	}
-
-	if owner := cm.providerForSNI(serverName); owner != nil {
-		go func() {
-			if err := owner.requestNewCertificate(serverName, nil, false); err != nil {
-				logger.Error("Background certificate processing failed", "provider", owner.name, "error", err)
-			}
-		}()
-	} else {
-		logger.Debug("No provider claims SNI, returning default certificate", "server_name", serverName)
-	}
-
-	return cm.getDefaultCertificate()
+	return best, bestRank
 }
 
 // providerForSNI returns the provider whose allowedHosts claims serverName, or
@@ -766,14 +867,13 @@ func (cm *CertManager) providerForSNI(serverName string) *provider {
 	return nil
 }
 
-func (p *provider) getExistingValidCertificate(serverName string, renewal bool) *tls.Certificate {
+// hasExactCertificate reports whether the provider holds a usable certificate
+// that names host explicitly, as opposed to one that only covers it.
+func (p *provider) hasExactCertificate(host string, renewal bool) bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	certInfo := p.findCertificateInfo(serverName)
-	if certInfo != nil && isCertificateValid(certInfo, renewal) {
-		return certInfo.Certificate
-	}
-	return nil
+	_, rank := findBestCertificateIn(p.certs, host, renewal)
+	return rank == matchExact
 }
 
 func isCertificateValid(certInfo *CertificateInfo, renewal bool) bool {
@@ -806,70 +906,103 @@ func (p *provider) checkExistingValidCertificate(domain Domain, renewal bool) *t
 	return nil
 }
 
-// findCertificateInfo searches a provider's own cert map for a match (exact,
-// SAN list, then wildcard / parent domain).
+// findCertificateInfo searches a provider's own cert map for the most specific
+// valid match.
 func (p *provider) findCertificateInfo(domain string) *CertificateInfo {
-	if certInfo, exists := p.certs[domain]; exists {
-		return certInfo
-	}
-	for _, certInfo := range p.certs {
-		if domainMatchesCertificate(domain, certInfo) {
-			return certInfo
-		}
-	}
-	for _, d := range []string{getWildcardDomain(domain), getParentDomain(domain)} {
-		if d == "" {
-			continue
-		}
-		if certInfo, exists := p.certs[d]; exists {
-			return certInfo
-		}
-	}
-	return nil
+	certInfo, _ := findBestCertificateIn(p.certs, domain, false)
+	return certInfo
 }
 
-// findCustomCert searches the shared customCerts map (route-level / file-loaded
-// certificates that are not provider-bound).
-func (cm *CertManager) findCustomCert(domain string) *CertificateInfo {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	if certInfo, exists := cm.customCerts[domain]; exists {
-		return certInfo
-	}
-	for _, certInfo := range cm.customCerts {
-		if domainMatchesCertificate(domain, certInfo) {
-			return certInfo
+// matchRank orders how well a certificate covers a requested host. Higher is
+// more specific, and only the highest-ranked certificate is served, so a
+// wildcard is used solely when nothing names the host explicitly.
+type matchRank int
+
+const (
+	matchNone matchRank = iota
+	// matchParentKey: cert filed under the parent domain, e.g. "example.com"
+	// for "a.example.com". Legacy lookup, kept as a last resort.
+	matchParentKey
+	// matchWildcardKey: cert filed under "*.<parent>" without listing the
+	// pattern among its own domains. Legacy lookup.
+	matchWildcardKey
+	// matchWildcard: the cert carries a wildcard SAN covering the host.
+	matchWildcard
+	// matchExact: the cert names the host explicitly.
+	matchExact
+)
+
+// findBestCertificateIn returns the highest-ranked valid certificate for domain
+// in certs. Map iteration order is random, so every entry is scored rather than
+// returning the first one that happens to match.
+func findBestCertificateIn(certs map[string]*CertificateInfo, domain string, renewal bool) (*CertificateInfo, matchRank) {
+	var best *CertificateInfo
+	bestRank := matchNone
+
+	consider := func(certInfo *CertificateInfo, rank matchRank) {
+		if certInfo == nil || rank <= bestRank || !isCertificateValid(certInfo, renewal) {
+			return
 		}
+		best, bestRank = certInfo, rank
 	}
-	for _, d := range []string{getWildcardDomain(domain), getParentDomain(domain)} {
-		if d == "" {
-			continue
-		}
-		if certInfo, exists := cm.customCerts[d]; exists {
-			return certInfo
-		}
+
+	consider(certs[domain], matchExact)
+	if bestRank == matchExact {
+		return best, bestRank
 	}
-	return nil
+
+	for _, certInfo := range certs {
+		consider(certInfo, rankDomainMatch(domain, certInfo))
+	}
+	if bestRank == matchExact {
+		return best, bestRank
+	}
+
+	// Legacy key-based fallbacks, for certs whose stored key is not repeated in
+	// their own domain list.
+	if d := getWildcardDomain(domain); d != "" {
+		consider(certs[d], matchWildcardKey)
+	}
+	if d := getParentDomain(domain); d != "" {
+		consider(certs[d], matchParentKey)
+	}
+	return best, bestRank
 }
 
-func domainMatchesCertificate(requestedDomain string, certInfo *CertificateInfo) bool {
+// rankDomainMatch scores how specifically certInfo covers requestedDomain.
+func rankDomainMatch(requestedDomain string, certInfo *CertificateInfo) matchRank {
+	rank := matchNone
 	for _, certDomain := range certInfo.Domains {
-		if matchesDomain(requestedDomain, certDomain) {
-			return true
+		switch {
+		case strings.EqualFold(requestedDomain, certDomain):
+			return matchExact
+		case matchesWildcardDomain(requestedDomain, certDomain):
+			rank = matchWildcard
 		}
 	}
-	return false
+	return rank
 }
 
-func matchesDomain(requested, cert string) bool {
-	if requested == cert {
-		return true
+// matchesWildcardDomain reports whether the cert pattern is a wildcard covering
+// requested. Per RFC 6125 a wildcard stands for exactly one label, so
+// "*.example.com" covers "a.example.com" but neither "a.b.example.com" nor the
+// bare "example.com".
+func matchesWildcardDomain(requested, cert string) bool {
+	if !strings.HasPrefix(cert, "*.") {
+		return false
 	}
-	if strings.HasPrefix(cert, "*.") {
-		wildcardBase := cert[2:]
-		return strings.HasSuffix(requested, "."+wildcardBase) || requested == wildcardBase
+	suffix := cert[1:] // ".example.com"
+	if len(requested) <= len(suffix) || !strings.EqualFold(requested[len(requested)-len(suffix):], suffix) {
+		return false
 	}
-	return false
+	label := requested[:len(requested)-len(suffix)]
+	return !strings.Contains(label, ".")
+}
+
+// normalizeServerName lowercases the SNI value and drops a trailing root dot so
+// it compares equal to the names stored on certificates.
+func normalizeServerName(serverName string) string {
+	return strings.ToLower(strings.TrimSuffix(serverName, "."))
 }
 
 func (p *provider) isRequestInProgress(domains []string) bool {
@@ -1115,26 +1248,33 @@ func (cm *CertManager) DefaultProvider() string {
 	return cm.defaultProvider
 }
 
+// isHostAllowed reports which configured route claims host. A route naming the
+// host explicitly wins over one that only covers it with a wildcard, so the
+// host gets its own certificate rather than inheriting the wildcard route's.
 func (p *provider) isHostAllowed(host string) (bool, Domain) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	if len(p.allowedHosts) == 0 {
-		return false, Domain{}
-	}
+
+	var best Domain
+	bestRank := matchNone
 	for _, route := range p.allowedHosts {
 		for _, pattern := range route.Hosts {
-			if strings.EqualFold(host, pattern) {
-				return true, route
+			rank := matchNone
+			switch {
+			case strings.EqualFold(host, pattern):
+				rank = matchExact
+			case matchesWildcardDomain(host, pattern):
+				rank = matchWildcard
 			}
-			if strings.HasPrefix(pattern, "*.") {
-				suffix := pattern[1:]
-				if strings.HasSuffix(host, suffix) {
-					return true, route
-				}
+			if rank > bestRank {
+				best, bestRank = route, rank
 			}
 		}
+		if bestRank == matchExact {
+			return true, best
+		}
 	}
-	return false, Domain{}
+	return bestRank > matchNone, best
 }
 
 // Close stops renewal jobs and persists final state for every provider.
