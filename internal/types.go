@@ -109,7 +109,7 @@ type ForwardAuthRuleMiddleware struct {
 	// Deprecated: Use ForwardHostHeaders instead
 	EnableHostForwarding bool `yaml:"enableHostForwarding,omitempty"`
 	ForwardHostHeaders   bool `yaml:"forwardHostHeaders,omitempty" json:"forwardHostHeaders"`
-	// Deprecated: Use SkipInsecureVerify instead
+	// Deprecated: Use InsecureSkipVerify instead
 	SkipInsecureVerify          bool     `yaml:"skipInsecureVerify,omitempty"`
 	InsecureSkipVerify          bool     `yaml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify"`
 	AuthRequestHeaders          []string `yaml:"authRequestHeaders,omitempty" json:"authRequestHeaders"`

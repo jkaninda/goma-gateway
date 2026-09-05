@@ -1,0 +1,127 @@
+{
+  "docsSidebar": [
+    "index",
+    "why-use-goma-gateway",
+    "quickstart/index",
+    {
+      "type": "category",
+      "label": "Installation",
+      "link": {
+        "type": "doc",
+        "id": "install/index"
+      },
+      "collapsed": false,
+      "items": [
+        "install/docker",
+        "install/kubernetes"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "User Manual",
+      "link": {
+        "type": "doc",
+        "id": "usermanual/index"
+      },
+      "items": [
+        "usermanual/gateway",
+        "usermanual/route",
+        "usermanual/extra-config",
+        "usermanual/cors",
+        "usermanual/error-interceptor",
+        "usermanual/healthcheck",
+        "usermanual/tcp-and-upd-proxy",
+        "usermanual/tls",
+        "usermanual/mtls",
+        "usermanual/canary-deployment",
+        "usermanual/maintenance-mode",
+        "usermanual/running-behind-a-proxy",
+        "usermanual/providers",
+        "usermanual/module"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Middlewares",
+      "link": {
+        "type": "doc",
+        "id": "middlewares/index"
+      },
+      "items": [
+        "middlewares/overview",
+        "middlewares/access",
+        "middlewares/access-policy",
+        "middlewares/basic",
+        "middlewares/forward-auth",
+        "middlewares/oidc",
+        "middlewares/oauth",
+        "middlewares/jwt",
+        "middlewares/ldap",
+        "middlewares/rate-limit",
+        "middlewares/add-prefix",
+        "middlewares/rewrite-regex",
+        "middlewares/http-caching",
+        "middlewares/redirect-scheme",
+        "middlewares/redirect",
+        "middlewares/redirect-regex",
+        "middlewares/boy-limit",
+        "middlewares/request-headers",
+        "middlewares/response-headers",
+        "middlewares/user-agent-block",
+        "middlewares/error-interceptor",
+        "middlewares/access-log",
+        "middlewares/geo-block"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Monitoring and Performance",
+      "link": {
+        "type": "doc",
+        "id": "monitoring-and-performance/index"
+      },
+      "items": [
+        "monitoring-and-performance/monitoring",
+        "monitoring-and-performance/logging",
+        "monitoring-and-performance/loadbalanging",
+        "monitoring-and-performance/distrubuted-intance",
+        "monitoring-and-performance/analytics"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Kubernetes Operator",
+      "link": {
+        "type": "doc",
+        "id": "operator-manual/index"
+      },
+      "items": [
+        "operator-manual/installation",
+        "operator-manual/gateway",
+        "operator-manual/middlware",
+        "operator-manual/route",
+        "operator-manual/Uninstallation"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Upgrade Notes",
+      "link": {
+        "type": "doc",
+        "id": "upgrade/index"
+      },
+      "items": [
+        "upgrade/v0.7.0",
+        "upgrade/v0.6.0",
+        "upgrade/v0.3.0",
+        "upgrade/v0.2.8",
+        "upgrade/v0.2.4"
+      ]
+    },
+    {
+      "type": "link",
+      "label": "CRD Reference",
+      "href": "https://doc.crds.dev/github.com/jkaninda/goma-operator"
+    }
+  ]
+}

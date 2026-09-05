@@ -1,0 +1,115 @@
+---
+title: Rate Limiting
+sidebar_label: Rate Limiting
+sidebar_position: 7
+---
+
+
+# RateLimit Middleware
+
+The RateLimit middleware protects your services by controlling the rate of incoming requests, ensuring fair usage and preventing abuse. This middleware applies globally to entire routes, providing comprehensive protection without requiring individual path configuration.
+
+## Basic Rate Limiting
+
+Configure basic rate limiting to control request frequency:
+
+```yaml
+middlewares:
+  - name: rate-limit
+    type: rateLimit
+    rule:
+      unit: minute
+      requestsPerUnit: 60
+      burst: 100
+```
+
+### Parameters
+
+| Parameter         | Type    | Description                                    | Options                         |
+|-------------------|---------|------------------------------------------------|---------------------------------|
+| `unit`            | string  | Time period for rate calculation               | `second`, `minute`, `hour`      |
+| `requestsPerUnit` | integer | Maximum requests allowed per time unit         | Any positive integer            |
+| `banAfter`        | integer | Number of rate limit violations before banning | Any positive integer            |
+| `banDuration`     | string  | Duration of the ban                            | Time units: `ms`, `s`, `m`, `h` |
+| `keyStrategy`     | object  | Strategy to identify clients for rate limiting | See Key Strategy section below  |
+
+### Key Strategy
+The `keyStrategy` defines how clients are identified for rate limiting. You can choose from the following strategies:
+
+| Strategy Type    | Description                                     | Additional Parameters             |
+|------------------|-------------------------------------------------|-----------------------------------|
+| `source: ip`     | Uses the client's IP address for identification | None                              |
+| `source: header` | Uses a specific HTTP header for identification  | `name`: Name of the header to use |
+| `source: cookie` | Uses a specific cookie for identification       | `name`: Name of the cookie to use |
+
+> **`header` and `cookie` keys are chosen by the caller.** A client that changes
+> the value gets a fresh allowance, so these strategies only limit anything when
+> the value has already been verified by a middleware in front of the rate
+> limiter — a JWT-derived header, or a session cookie the gateway issued. On an
+> unauthenticated route, use `source: ip`.
+>
+> Goma caps how many distinct keys it tracks and drops idle ones, so an endless
+> supply of made-up keys cannot exhaust memory; it will log when that cap is
+> reached, which usually means the strategy is being applied to a value the
+> caller controls.
+
+### Example Scenarios
+
+**High-frequency API (1 request per second):**
+
+```yaml
+rule:
+  unit: second
+  requestsPerUnit: 1
+```
+
+**Standard API (100 requests per minute):**
+
+```yaml
+rule:
+  unit: minute
+  requestsPerUnit: 100
+```
+
+**Bulk operations (1000 requests per hour):**
+
+```yaml
+rule:
+  unit: hour
+  requestsPerUnit: 1000
+```
+
+## Advanced Rate Limiting with Automatic Banning
+
+For enhanced protection against persistent abuse, enable automatic banning of clients that repeatedly exceed rate limits:
+
+```yaml
+middlewares:
+  - name: rate-limit-with-ban
+    type: rateLimit
+    rule:
+      unit: minute
+      requestsPerUnit: 100
+      banAfter: 5
+      banDuration: 30m
+      keyStrategy:
+        source: header
+        name: Authorization
+```
+
+### Ban Duration Examples
+
+- `500ms` - 500 milliseconds
+- `30s` - 30 seconds
+- `15m` - 15 minutes
+- `2h` - 2 hours
+- `1h30m` - 1 hour and 30 minutes
+
+## How It Works
+
+1. **Rate Tracking**: The middleware monitors request frequency per client
+2. **Limit Enforcement**: Requests exceeding the configured rate are rejected with HTTP 429 (Too Many Requests)
+3. **Violation Counting**: When banning is enabled, rate limit violations are tracked per client
+4. **Automatic Banning**: After reaching the `banAfter` threshold, the client is temporarily banned
+5. **Ban Expiry**: Banned clients regain access after the `banDuration` expires
+
