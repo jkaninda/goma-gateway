@@ -94,9 +94,10 @@ spec:
     audience: api.example.com
     algorithms:
       - RS256
-    forwardHeaders:
-      X-User-Id: sub
-      X-User-Email: email
+    forward:
+      headers:
+        X-User-Id: sub
+        X-User-Email: email
 ```
 
 Optional `claimsExpression` lets you assert claim values:
@@ -112,9 +113,10 @@ spec:
       - RS256
     claimsExpression: >
       Equals('email_verified', true) && !Equals('account_disabled', true)
-    forwardHeaders:
-      X-User-ID: sub
-      X-User-Email: email
+    forward:
+      headers:
+        X-User-ID: sub
+        X-User-Email: email
 ```
 
 ## Forward auth

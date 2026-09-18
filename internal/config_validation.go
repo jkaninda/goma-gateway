@@ -34,6 +34,9 @@ func CheckConfig(fileName string) error {
 	if err != nil {
 		return err
 	}
+	if err = checkRemovedKeys(fmt.Sprintf("the configuration file %q", fileName), buf); err != nil {
+		return err
+	}
 	c := &GatewayConfig{}
 	err = yaml.Unmarshal(buf, c)
 	if err != nil {
@@ -76,7 +79,7 @@ func checkRoutes(routes []Route, middlewares []Middleware) {
 		if len(route.Name) == 0 {
 			fmt.Printf("Warning: route name is empty, index: [%d]\n", index)
 		}
-		if route.Destination == "" && route.Target == "" && len(route.Backends) == 0 {
+		if route.Target == "" && len(route.Backends) == 0 {
 			fmt.Printf("Error: no target or backends specified for route: %s | index: [%d] \n", route.Name, index)
 		}
 		// checking middleware applied to routes
@@ -112,7 +115,7 @@ func validateConfig(routes []Route, middlewares []Middleware) error {
 		if route.Path == "" {
 			return fmt.Errorf("route [%s] has an empty path", route.Name)
 		}
-		if route.Destination == "" && route.Target == "" && len(route.Backends) == 0 {
+		if route.Target == "" && len(route.Backends) == 0 {
 			return fmt.Errorf("no target or backends specified for route: %s ", route.Name)
 		}
 		if len(route.Target) > 0 {
@@ -177,7 +180,7 @@ func middlewareNames(middlewares []Middleware) []string {
 var guardMiddlewareTypes = []MiddlewareType{
 	AccessMiddleware, BasicAuthMiddleware, BasicAuth,
 	JWTAuthMiddleware, JWTAuth, LDAPAuthMiddleware, LDAPAuth,
-	OIDC, OAuth, OAuth2, forwardAuth,
+	OIDC, forwardAuth,
 }
 
 // warnUnscopedGuards reports auth and access middlewares configured without

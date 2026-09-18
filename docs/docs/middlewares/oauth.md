@@ -6,10 +6,10 @@ sidebar_position: 7
 
 # OAuth middleware
 
-`type: oauth` and `type: oauth2` are deprecated aliases for the
-[OpenID Connect middleware](oidc.md), which is where this middleware is
-documented.
+`type: oauth` and `type: oauth2` were aliases for the
+[OpenID Connect middleware](oidc.md), and were **removed in v1.0**. Use
+`type: oidc`, which is where this middleware is documented.
 
-Existing configurations keep working. The gateway logs which field to move to
-when it loads one, and the replacements are listed under
+A configuration that still uses either will not start. The rule keys that moved
+at the same time are listed under
 [Migrating from `type: oauth`](oidc.md#migrating-from-type-oauth).

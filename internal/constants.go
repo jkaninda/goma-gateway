@@ -52,8 +52,6 @@ const (
 	LDAPAuth            MiddlewareType = "ldap"      // JWT authentication middlewares
 	JWTAuth             MiddlewareType = "jwtAuth"   // JWT authentication middlewares
 	OIDC                MiddlewareType = "oidc"      // OpenID Connect authentication middlewares
-	OAuth               MiddlewareType = "oauth"     // Deprecated: use oidc
-	OAuth2              MiddlewareType = "oauth2"    // Deprecated: use oidc
 	accessPolicy        MiddlewareType = "accessPolicy"
 	addPrefix           MiddlewareType = "addPrefix"
 	rateLimit           MiddlewareType = "rateLimit"

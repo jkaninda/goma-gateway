@@ -19,10 +19,11 @@ package internal
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"github.com/jkaninda/goma-gateway/internal/version"
 	"gopkg.in/yaml.v3"
-	"os"
 )
 
 func initTestConfig(configFile string) error {
@@ -89,33 +90,8 @@ func initTestConfig(configFile string) error {
 						&Backend{Endpoint: "https://example1.com", Weight: 2},
 						&Backend{Endpoint: "https://example2.com", Weight: 1},
 					},
-					Rewrite: "/",
-					ErrorInterceptor: middlewares.RouteErrorInterceptor{
-						Enabled:     true,
-						ContentType: applicationJson,
-						Errors: []middlewares.RouteError{
-							{
-								StatusCode: 403,
-								Body:       "403 Forbidden",
-							},
-							{
-								StatusCode: 404,
-								Body:       "{\"error\": \"404 Not Found\"}",
-							},
-							{
-								StatusCode: 500,
-							},
-						},
-					},
-					Cors: Cors{
-						Origins: []string{"http://localhost:3000", "https://dev.example.com"},
-						Headers: map[string]string{
-							"Access-Control-Allow-headers":     "Origin, Authorization",
-							"Access-Control-Allow-Credentials": "true",
-							"Access-Control-Max-Age":           "1728000",
-						},
-					},
-					Middlewares: []string{"basic-auth", "block-access"},
+					Rewrite:     "/",
+					Middlewares: []string{"basic-auth", "block-access", "cors", "errors"},
 				},
 			},
 		},
@@ -139,6 +115,40 @@ func initTestConfig(configFile string) error {
 				Type: AccessMiddleware,
 				Paths: []string{
 					"/docs/.*",
+				},
+			},
+			{
+				Name: "cors",
+				Type: responseHeaders,
+				Rule: ResponseHeader{
+					Cors: &Cors{
+						Enabled:          true,
+						Origins:          []string{"http://localhost:3000", "https://dev.example.com"},
+						AllowedHeaders:   []string{"Origin", "Authorization"},
+						AllowCredentials: true,
+						MaxAge:           86400,
+					},
+				},
+			},
+			{
+				Name: "errors",
+				Type: errorInterceptor,
+				Rule: middlewares.RouteErrorInterceptor{
+					Enabled:     true,
+					ContentType: applicationJson,
+					Errors: []middlewares.RouteError{
+						{
+							StatusCode: 403,
+							Body:       "403 Forbidden",
+						},
+						{
+							StatusCode: 404,
+							Body:       "{\"error\": \"404 Not Found\"}",
+						},
+						{
+							StatusCode: 500,
+						},
+					},
 				},
 			},
 			{

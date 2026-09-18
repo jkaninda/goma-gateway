@@ -30,13 +30,10 @@ import (
 
 type TlsCertificates struct {
 	// CertsDir loads multiple certificates from a single directory
-	CertsDir     string `yaml:"certsDir" json:"certsDir,omitempty"`
-	Certificates []TLS  `yaml:"certificates,omitempty" json:"certificates,omitempty"`
-	// Keys
-	// Deprecated: use Certificates or CertsDir instead
-	Keys       []TLS         `yaml:"keys,omitempty" json:"keys,omitempty"`
-	ClientAuth TLSClientAuth `yaml:"clientAuth,omitempty" json:"clientAuth,omitempty"`
-	Default    TLS           `yaml:"default,omitempty" json:"default,omitempty"`
+	CertsDir     string        `yaml:"certsDir" json:"certsDir,omitempty"`
+	Certificates []TLS         `yaml:"certificates,omitempty" json:"certificates,omitempty"`
+	ClientAuth   TLSClientAuth `yaml:"clientAuth,omitempty" json:"clientAuth,omitempty"`
+	Default      TLS           `yaml:"default,omitempty" json:"default,omitempty"`
 }
 type TlsCertificate struct {
 	Provider    string `yaml:"provider,omitempty" json:"provider,omitempty"`
@@ -104,13 +101,9 @@ type LdapRuleMiddleware struct {
 	InsecureSkipVerify bool   `yaml:"insecureSkipVerify" json:"insecureSkipVerify"`
 }
 type ForwardAuthRuleMiddleware struct {
-	AuthURL    string `yaml:"authUrl" json:"authUrl"`
-	AuthSignIn string `yaml:"authSignIn,omitempty" json:"authSignIn"`
-	// Deprecated: Use ForwardHostHeaders instead
-	EnableHostForwarding bool `yaml:"enableHostForwarding,omitempty"`
-	ForwardHostHeaders   bool `yaml:"forwardHostHeaders,omitempty" json:"forwardHostHeaders"`
-	// Deprecated: Use InsecureSkipVerify instead
-	SkipInsecureVerify          bool     `yaml:"skipInsecureVerify,omitempty"`
+	AuthURL                     string   `yaml:"authUrl" json:"authUrl"`
+	AuthSignIn                  string   `yaml:"authSignIn,omitempty" json:"authSignIn"`
+	ForwardHostHeaders          bool     `yaml:"forwardHostHeaders,omitempty" json:"forwardHostHeaders"`
 	InsecureSkipVerify          bool     `yaml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify"`
 	AuthRequestHeaders          []string `yaml:"authRequestHeaders,omitempty" json:"authRequestHeaders"`
 	AddAuthCookiesToResponse    []string `yaml:"addAuthCookiesToResponse,omitempty" json:"addAuthCookiesToResponse"`
@@ -142,9 +135,6 @@ type StripQueryRuleMiddleware struct {
 //
 // JWTRuleMiddleware contains the authentication details
 type JWTRuleMiddleware struct {
-	// Alg restricts the accepted JWT signing algorithm.
-	// Deprecated: use Algorithms instead.
-	Alg string `yaml:"alg,omitempty" json:"alg"`
 	// Algorithms is the list of accepted JWT signing algorithms (e.g.
 	// ["RS256", "ES256"]). When empty, a safe set scoped to the configured key
 	// type is used (HMAC for a shared secret, asymmetric for JWKS/RSA keys).
@@ -157,9 +147,6 @@ type JWTRuleMiddleware struct {
 	JwksFile             string   `yaml:"jwksFile,omitempty" json:"jwksFile"`
 	ForwardAuthorization bool     `yaml:"forwardAuthorization,omitempty" json:"forwardAuthorization"`
 	ClaimsExpression     string   `yaml:"claimsExpression,omitempty" json:"claimsExpression"`
-	// ForwardHeaders maps upstream headers to claim paths.
-	// Deprecated: use Forward.Headers instead.
-	ForwardHeaders map[string]string `yaml:"forwardHeaders,omitempty" json:"forwardHeaders"`
 	// Forward projects verified claims onto the upstream request as headers,
 	// query parameters and cookies.
 	Forward *ForwardClaimsRule `yaml:"forward,omitempty" json:"forward,omitempty"`
@@ -254,28 +241,7 @@ type OIDCRuleMiddleware struct {
 
 	// Forward projects the authenticated user's claims onto the upstream request.
 	Forward *ForwardClaimsRule `yaml:"forward,omitempty" json:"forward,omitempty"`
-
-	// RedirectURL is the callback URL registered with the provider.
-	// Deprecated: use CallbackPath; the URL is derived from the request.
-	RedirectURL string `yaml:"redirectUrl,omitempty" json:"redirectUrl,omitempty"`
-
-	// RedirectPath is where users land after authentication.
-	// Deprecated: use PostLoginRedirect.
-	RedirectPath string `yaml:"redirectPath,omitempty" json:"redirectPath,omitempty"`
-
-	// CookiePath scopes the session cookie.
-	// Deprecated: use Session.Cookie.Path.
-	CookiePath string `yaml:"cookiePath,omitempty" json:"cookiePath,omitempty"`
-
-	// State was a fixed CSRF value shared by every login.
-	// Deprecated: the state is now random per login and ignored here.
-	State string `yaml:"state,omitempty" json:"state,omitempty"`
 }
-
-// OauthRulerMiddleware is the former name of OIDCRuleMiddleware.
-//
-// Deprecated: use OIDCRuleMiddleware.
-type OauthRulerMiddleware = OIDCRuleMiddleware
 
 // OIDCSessionRule configures where a signed-in session is kept and how long it
 // lives.
@@ -354,9 +320,6 @@ type GatewayConfig struct {
 	Gateway Gateway `yaml:"gateway"`
 	// Middlewares holds proxy middlewares
 	Middlewares []Middleware `yaml:"middlewares"`
-	// CertificateManager holds acme configuration
-	// Deprecated
-	CertificateManager *certmanager.Config `yaml:"certificateManager,omitempty"`
 	// CertManager hols CertManager config
 	CertManager *certmanager.Config `yaml:"certManager"`
 	// Plugins configuration

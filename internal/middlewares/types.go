@@ -85,9 +85,6 @@ type JwtAuth struct {
 	Path    string
 	Paths   []string
 	Origins []string
-	// Algo restricts the accepted JWT signing algorithm.
-	// Deprecated: use Algorithms instead.
-	Algo string
 	// Algorithms is the list of accepted JWT signing algorithms. When empty, a
 	// safe set scoped to the configured key type is used.
 	Algorithms           []string
@@ -159,8 +156,6 @@ type RouteErrorInterceptor struct {
 	Errors      []RouteError `yaml:"errors"`
 }
 type RouteError struct {
-	Code       int    `yaml:"code,omitempty"`   // Deprecated
-	Status     int    `yaml:"status,omitempty"` // Deprecated
 	StatusCode int    `yaml:"statusCode,omitempty"`
 	Body       string `yaml:"body,omitempty"`
 	File       string `yaml:"file,omitempty"`

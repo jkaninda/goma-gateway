@@ -78,9 +78,6 @@ routes:
       interval: 30s
       timeout: 10s
       healthyStatuses: [200, 404]
-    cors:
-      origins: []
-      headers: {} 
     middlewares:
       - auth-middleware
 ```

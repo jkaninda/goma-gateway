@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -87,9 +88,8 @@ type OIDCConfig struct {
 	// Endpoint overrides anything discovery would supply.
 	Endpoint OauthEndpoint
 
-	// RedirectURL is the callback URL registered with the provider, and
-	// CallbackPath is its path on this gateway.
-	RedirectURL  string
+	// CallbackPath is the path on this gateway the provider sends the user back
+	// to. The full redirect URI is derived from each request (see redirectURI).
 	CallbackPath string
 	// LogoutPath, when set, ends the session.
 	LogoutPath string
@@ -387,7 +387,7 @@ func (o *OIDC) refresh(ctx context.Context, endpoint OauthEndpoint, session *Ses
 	}
 
 	token, err := refreshGroup.do(session.RefreshToken, func() (*oauth2.Token, error) {
-		source := o.oauth2Config(endpoint).TokenSource(ctx, &oauth2.Token{
+		source := o.oauth2Config(endpoint, "").TokenSource(ctx, &oauth2.Token{
 			AccessToken:  session.AccessToken,
 			RefreshToken: session.RefreshToken,
 			Expiry:       time.Now().Add(-1 * time.Minute), // Force the exchange.
@@ -422,12 +422,49 @@ func (o *OIDC) claimsSources() []string {
 	return o.ClaimsSource
 }
 
+// redirectURI builds the callback URL for this request: the scheme and host the
+// client actually reached, plus the configured callback path.
+func (o *OIDC) redirectURI(r *http.Request) string {
+	path := o.CallbackPath
+	if path == "" {
+		path = "/callback"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return (&url.URL{Scheme: scheme(r), Host: requestHost(r), Path: path}).String()
+}
+
+// requestHost reports the host the client addressed, preferring the forwarded
+// host only when the request came through a trusted proxy — an untrusted
+// X-Forwarded-Host would otherwise let a caller point the redirect_uri at a
+// host of their choosing.
+func requestHost(r *http.Request) string {
+	if FromTrustedProxy(r) {
+		if forwarded := r.Header.Get("X-Forwarded-Host"); forwarded != "" {
+			// A chain of proxies appends, so the client-facing host is first.
+			if first, _, found := strings.Cut(forwarded, ","); found {
+				forwarded = first
+			}
+			if host := strings.TrimSpace(forwarded); host != "" {
+				return host
+			}
+		}
+	}
+	return r.Host
+}
+
 // oauth2Config builds the exchange configuration for the resolved endpoints.
-func (o *OIDC) oauth2Config(endpoint OauthEndpoint) *oauth2.Config {
+//
+// redirectURI is empty for grants that take none — the refresh_token grant
+// carries no redirect_uri (RFC 6749 §6). For the authorization-code grant it
+// must be byte-identical in the authorization request and the token exchange,
+// so both call sites derive it from their request the same way.
+func (o *OIDC) oauth2Config(endpoint OauthEndpoint, redirectURI string) *oauth2.Config {
 	config := &oauth2.Config{
 		ClientID:     o.ClientID,
 		ClientSecret: o.ClientSecret,
-		RedirectURL:  o.RedirectURL,
+		RedirectURL:  redirectURI,
 		Scopes:       o.Scopes,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  endpoint.AuthURL,

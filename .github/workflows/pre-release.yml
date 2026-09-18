@@ -2,7 +2,7 @@ name: Pre-release
 on:
   push:
     tags:
-      - 'v0.*-rc.*'
+      - 'v1.*-rc.*'
 jobs:
   docker:
     runs-on: ubuntu-latest

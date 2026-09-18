@@ -100,7 +100,7 @@ func (o *OIDC) startAuth(w http.ResponseWriter, r *http.Request, endpoint OauthE
 		return
 	}
 
-	http.Redirect(w, r, o.oauth2Config(endpoint).AuthCodeURL(state, options...), http.StatusFound)
+	http.Redirect(w, r, o.oauth2Config(endpoint, o.redirectURI(r)).AuthCodeURL(state, options...), http.StatusFound)
 }
 
 // CallbackHandler completes the login: it checks the request really belongs to
@@ -155,7 +155,7 @@ func (o *OIDC) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if flow.Verifier != "" {
 		options = append(options, oauth2.VerifierOption(flow.Verifier))
 	}
-	token, err := o.oauth2Config(endpoint).Exchange(ctx, code, options...)
+	token, err := o.oauth2Config(endpoint, o.redirectURI(r)).Exchange(ctx, code, options...)
 	if err != nil {
 		logger.Error("Failed to exchange the authorization code", "error", err)
 		RespondWithError(w, r, http.StatusBadGateway, "failed to exchange the authorization code",

@@ -97,7 +97,7 @@ rule:
 		t.Fatalf("claimsSource = %v, want two entries", rule.ClaimsSource)
 	}
 
-	mapper := claimMapper(rule.Forward, nil)
+	mapper := claimMapper(rule.Forward)
 	if mapper == nil {
 		t.Fatal("claimMapper() = nil, want a mapper")
 	}
@@ -156,7 +156,7 @@ func TestOIDCRuleProviderDefaults(t *testing.T) {
 			rule := &OIDCRuleMiddleware{
 				ClientID:     testClientID,
 				ClientSecret: testSecret,
-				RedirectURL:  "https://example.com/callback",
+				CallbackPath: "/callback",
 				Provider:     provider,
 			}
 			if err := rule.validate(); err != nil {
@@ -173,7 +173,7 @@ func TestOIDCRuleRejectsUnknownClaimsSource(t *testing.T) {
 	rule := &OIDCRuleMiddleware{
 		ClientID:     testClientID,
 		ClientSecret: testSecret,
-		RedirectURL:  "https://example.com/callback",
+		CallbackPath: "/callback",
 		Provider:     middlewares.ProviderGoogle,
 		ClaimsSource: []string{"refresh_token"},
 	}
@@ -182,32 +182,26 @@ func TestOIDCRuleRejectsUnknownClaimsSource(t *testing.T) {
 	}
 }
 
-// The deprecated flat map keeps working, and the nested block wins per key.
-func TestJwtForwardHeadersBackwardCompatible(t *testing.T) {
-	legacy := map[string]string{"X-User-ID": claimSub, "X-User-Email": claimEmail}
+// forward.headers is the only source of header mappings since v1.0 removed the
+// flat forwardHeaders map.
+func TestClaimMapperHeaders(t *testing.T) {
+	source := map[string]string{"X-User-ID": claimSub, "X-User-Email": claimEmail}
 
-	mapper := claimMapper(nil, legacy)
+	mapper := claimMapper(&ForwardClaimsRule{Headers: source})
 	if mapper == nil || mapper.Headers["X-User-ID"] != claimSub {
-		t.Fatalf("claimMapper(legacy only) = %v, want the legacy headers", mapper)
+		t.Fatalf("claimMapper() = %v, want the configured headers", mapper)
+	}
+	if got := mapper.Headers["X-User-Email"]; got != claimEmail {
+		t.Errorf("X-User-Email = %q, want %q", got, claimEmail)
 	}
 
-	mapper = claimMapper(&ForwardClaimsRule{
-		Headers: map[string]string{"X-User-Email": "mail", "X-User-Name": "name"},
-	}, legacy)
-	if got := mapper.Headers["X-User-ID"]; got != claimSub {
-		t.Errorf("X-User-ID = %q, want the legacy mapping preserved", got)
-	}
-	if got := mapper.Headers["X-User-Email"]; got != "mail" {
-		t.Errorf("X-User-Email = %q, want the nested block to win", got)
-	}
-	if got := mapper.Headers["X-User-Name"]; got != "name" {
-		t.Errorf("X-User-Name = %q, want the nested mapping", got)
-	}
-	if legacy["X-User-Email"] != claimEmail {
-		t.Error("the legacy map was mutated")
+	// The mapper owns its copy: mutating it must not reach the rule.
+	mapper.Headers["X-User-ID"] = "mutated"
+	if source["X-User-ID"] != claimSub {
+		t.Error("the rule's header map was mutated")
 	}
 
-	if claimMapper(nil, nil) != nil {
+	if claimMapper(nil) != nil {
 		t.Error("claimMapper(nothing configured) != nil, want nil so the mapper stays inert")
 	}
 }
@@ -273,37 +267,6 @@ func TestOIDCSessionDefaultsToRouteScope(t *testing.T) {
 	}
 	if options.Store != "" {
 		t.Errorf("store = %q, want the cookie store default", options.Store)
-	}
-}
-
-// A config written for the old middleware keeps working, moved onto the fields
-// that replaced it.
-func TestOIDCRuleMigratesDeprecatedFields(t *testing.T) {
-	rule := decodeOIDCRule(t, `
-name: sso
-type: oauth
-paths: ["/.*"]
-rule:
-  clientId: goma
-  clientSecret: secret
-  provider: google
-  redirectUrl: https://example.com/callback/protected
-  redirectPath: /dashboard
-  cookiePath: /protected
-  state: randomStateString
-`)
-
-	if err := rule.validate(); err != nil {
-		t.Fatalf("validate() = %v, want nil", err)
-	}
-	if rule.CallbackPath != "/callback/protected" {
-		t.Errorf("callbackPath = %q, want it derived from redirectUrl", rule.CallbackPath)
-	}
-	if rule.PostLoginRedirect != "/dashboard" {
-		t.Errorf("postLoginRedirect = %q, want it taken from redirectPath", rule.PostLoginRedirect)
-	}
-	if rule.Session == nil || rule.Session.Cookie.Path != testRoutePath {
-		t.Errorf("session cookie path = %+v, want it taken from cookiePath", rule.Session)
 	}
 }
 

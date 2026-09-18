@@ -116,9 +116,10 @@ middlewares:
 ```yaml
 version: "1.0"
 gateway:
-  writeTimeout: 10
-  readTimeout: 15
-  idleTimeout: 30
+  timeouts:
+    write: 10
+    read: 15
+    idle: 30
   
   routes:
     # Protected application route

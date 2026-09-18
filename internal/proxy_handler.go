@@ -157,9 +157,6 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			logger.Debug("Metrics collection started")
 			prometheusMetrics.GatewayTotalRequests.WithLabelValues(p.Name, method).Inc()
 
-			// Deprecated metrics (backward compatibility)
-			prometheusMetrics.TotalRequests.WithLabelValues(p.Name, method).Inc()
-
 			// Update real-time visitors gauge
 			if p.VisitorTracker != nil {
 				p.VisitorTracker.AddVisitor(ip, r.UserAgent())
@@ -184,10 +181,6 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			statusStr := strconv.Itoa(rec.statusCode)
 			prometheusMetrics.GatewayResponseStatus.WithLabelValues(statusStr, p.Name, method).Inc()
 			prometheusMetrics.GatewayRequestDuration.WithLabelValues(p.Name, method).Observe(duration)
-
-			// Deprecated metrics (backward compatibility)
-			prometheusMetrics.ResponseStatus.WithLabelValues(statusStr, p.Name, method).Inc()
-			prometheusMetrics.HttpDuration.WithLabelValues(p.Name, method).Observe(duration)
 
 			// Bandwidth + upstream split.
 			reqBytes := r.ContentLength
@@ -596,16 +589,6 @@ func (rec *responseRecorder) applyCorsHeaders(policy ResponseHeader) {
 	// Set max age for preflight cache if configured
 	if cors.MaxAge > 0 {
 		headers.Set("Access-Control-Max-Age", strconv.Itoa(cors.MaxAge))
-	}
-
-	for k, v := range cors.Headers {
-		if !strings.EqualFold(k, "Access-Control-Allow-Origin") {
-			if v == "" {
-				headers.Del(k)
-			} else {
-				headers.Set(k, v)
-			}
-		}
 	}
 
 	logger.Debug("CORS headers applied",

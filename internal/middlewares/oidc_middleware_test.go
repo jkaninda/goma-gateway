@@ -40,7 +40,6 @@ const (
 	testIssuer      = "https://idp.example.com"
 	testAuthURL     = "https://idp.example.com/authorize"
 	testTokenURL    = "https://idp.example.com/token"
-	testRedirectURL = "https://example.com/callback"
 	testSubject     = "user-1"
 	testEmail       = "ada@example.com"
 	testGroup       = "admins"
@@ -113,7 +112,6 @@ func testConfig() OIDCConfig {
 		Provider:     ProviderCustom,
 		ClientID:     testClientID,
 		ClientSecret: testSecret,
-		RedirectURL:  testRedirectURL,
 		CallbackPath: "/callback",
 		Endpoint:     OauthEndpoint{AuthURL: testAuthURL, TokenURL: testTokenURL},
 	}

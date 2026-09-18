@@ -26,7 +26,7 @@ import (
 // If a match is found, it returns true along with the corresponding body or file to be used for the response.
 func ShouldIntercept(status int, routeErrors []RouteError) (bool, string, bool) {
 	for _, routeError := range routeErrors {
-		if status == routeError.StatusCode || status == routeError.Status || status == routeError.Code {
+		if status == routeError.StatusCode {
 			if routeError.Body != "" {
 				return true, routeError.Body, false
 			}

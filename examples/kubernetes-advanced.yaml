@@ -94,9 +94,10 @@ spec:
     audience: api.example.com
     algorithms:
       - RS256
-    forwardHeaders:
-      X-User-Id: sub
-      X-User-Email: email
+    forward:
+      headers:
+        X-User-Id: sub
+        X-User-Email: email
 
 ---
 ## Middleware: per-IP rate limiter

@@ -84,44 +84,43 @@ security:
 
 ---
 
-## CORS Configuration
+## CORS
 
-The `cors` section allows you to control Cross-Origin Resource Sharing behavior for each route. This is essential for enabling secure cross-origin requests from web applications.
-
-:::warning[Deprecated]
-
-The CORS configuration method described here is deprecated since Goma Gateway `v0.6.0` and will be removed in future releases. It is recommended to use the `responseHeaders` middleware with CORS settings for new configurations.
-
-:::
-
-
-Configure per-route CORS settings:
-
-### Configuration Fields
+CORS is configured with the
+[`responseHeaders` middleware](../middlewares/response-headers.md) and listed in
+the route's `middlewares`:
 
 ```yaml
-cors:
-  origins:
-    - http://localhost:3000
-    - https://dev.example.com
-  allowedHeaders:
-    - Origin
-    - Authorization
-  headers: {}              # Custom response headers (as key-value pairs)
-  exposeHeaders: []        # Headers exposed to the browser
-  maxAge: 1728000          # Preflight cache duration in seconds
-  allowMethods: []         # Allowed HTTP methods (empty means all methods allowed)
-  allowCredentials: true   # Whether to allow cookies or credentials
+middlewares:
+  - name: api-cors
+    type: responseHeaders
+    rule:
+      cors:
+        enabled: true
+        origins:
+          - http://localhost:3000
+          - https://dev.example.com
+        allowedHeaders:
+          - Origin
+          - Authorization
+        maxAge: 1728000
+        allowCredentials: true
+
+gateway:
+  routes:
+    - name: api
+      path: /api
+      target: http://api:8080
+      middlewares: [api-cors]
 ```
 
-* **`origins`** (`[]string`): List of allowed origins. Requests from these domains are permitted.
-* **`allowedHeaders`** (`[]string`): Headers allowed in CORS preflight requests.
-* **`headers`** (`map[string]string`): Custom headers to be added to the response.
-* **`exposeHeaders`** (`[]string`): Headers that are safe to expose to the browser.
-* **`maxAge`** (`int`): Duration (in seconds) to cache the results of a preflight request.
-* **`allowMethods`** (`[]string`): Allowed HTTP methods (e.g., `GET`, `POST`). If empty, all methods are allowed.
-* **`allowCredentials`** (`boolean`): Allows browsers to send cookies and credentials along with requests.
-* **`middlewares`** (`[]string`): List of middleware names to apply to the route.
+:::warning[Removed in v1.0]
+
+The per-route `cors` block was removed in v1.0. See
+[Cross-Origin Resource Sharing](cors.md) for the replacement, and the
+[v1.0 upgrade note](../upgrade/v1.0.md) for everything else that moved.
+
+:::
 
 ---
 

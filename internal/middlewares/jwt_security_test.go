@@ -58,16 +58,11 @@ func TestAllowedAlgorithms(t *testing.T) {
 		t.Fatalf("JWKS URL must win over Secret and exclude HMAC, got %v", mixed)
 	}
 
-	// Explicit (deprecated) Algo overrides the defaults.
-	exact := (&JwtAuth{Secret: "s", Algo: algRS512}).allowedAlgorithms()
-	if len(exact) != 1 || exact[0] != algRS512 {
-		t.Fatalf("explicit Algo should be the only allowed method, got %v", exact)
-	}
-
-	// Explicit Algorithms list is used verbatim and wins over the deprecated Algo.
-	list := (&JwtAuth{Algo: "HS256", Algorithms: []string{algRS512, algES384}}).allowedAlgorithms()
+	// An explicit Algorithms list is used verbatim, overriding the key-type
+	// defaults.
+	list := (&JwtAuth{Secret: "s", Algorithms: []string{algRS512, algES384}}).allowedAlgorithms()
 	if !slices.Equal(list, []string{algRS512, algES384}) {
-		t.Fatalf("Algorithms should take precedence over Algo, got %v", list)
+		t.Fatalf("Algorithms should override the defaults, got %v", list)
 	}
 }
 

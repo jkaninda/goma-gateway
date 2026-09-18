@@ -48,7 +48,6 @@ Here’s how to attach the basic-auth middleware to a route:
        - endpoint: https://example.com
       methods: [POST, PUT, GET]
       healthCheck: {}
-      cors: {}
       middlewares:
         - basic-auth
 ```

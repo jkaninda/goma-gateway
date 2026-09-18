@@ -127,14 +127,10 @@ var (
 // middleware, derived per-request (never a shared mutable global) and scoped to
 // the configured key type. The key-source precedence mirrors resolveKeyFunc so
 // the accepted algorithms always match the key actually used for verification.
-// An explicit Algorithms list (or the deprecated single Algo) overrides the
-// defaults.
+// An explicit Algorithms list overrides the defaults.
 func (jwtAuth *JwtAuth) allowedAlgorithms() []string {
 	if len(jwtAuth.Algorithms) != 0 {
 		return jwtAuth.Algorithms
-	}
-	if jwtAuth.Algo != "" { // Deprecated: superseded by Algorithms.
-		return []string{jwtAuth.Algo}
 	}
 	switch {
 	case jwtAuth.JwksUrl != "":
