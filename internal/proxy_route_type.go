@@ -23,18 +23,16 @@ import (
 )
 
 type ProxyRoute struct {
-	name          string
-	path          string
-	rewrite       string
-	target        string
-	weightedBased bool
-	canaryBased   bool
-	hasHeathCheck bool
-	backends      Backends
-	methods       []string
-	// cors
-	// Deprecated, use responseHeaders middleware type
-	cors            Cors
+	name            string
+	path            string
+	rewrite         string
+	target          string
+	weightedBased   bool
+	canaryBased     bool
+	hasHeathCheck   bool
+	backends        Backends
+	methods         []string
+	origins         []string
 	security        Security
 	certPool        *x509.CertPool
 	clientCerts     []tls.Certificate

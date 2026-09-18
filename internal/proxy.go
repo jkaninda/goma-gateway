@@ -52,8 +52,6 @@ func (pr *ProxyRoute) ProxyHandler() http.HandlerFunc {
 			return
 		}
 
-		// Check if CORS is enabled for this route
-		pr.applyCORSHeaders(w)
 		// Set headers for forwarding client information
 		pr.forwardedHeaders(r)
 
@@ -88,17 +86,10 @@ func (pr *ProxyRoute) validateMethod(method string, w http.ResponseWriter, r *ht
 	if !slices.Contains(pr.methods, method) {
 		logger.Warn("Method not allowed", "method", method, "allowed_methods", pr.methods)
 		middlewares.RespondWithError(w, r, http.StatusMethodNotAllowed,
-			"405 "+method+" method not allowed", pr.cors.Origins, contentType)
+			"405 "+method+" method not allowed", pr.origins, contentType)
 		return false
 	}
 	return true
-}
-
-// applyCORSHeaders sets the CORS headers from the provided configuration.
-func (pr *ProxyRoute) applyCORSHeaders(w http.ResponseWriter) {
-	for k, v := range pr.cors.Headers {
-		w.Header().Set(k, v)
-	}
 }
 
 // handlePreflight handles preflight requests (OPTIONS) for CORS.
@@ -130,17 +121,6 @@ func (pr *ProxyRoute) shouldHandlePreflight(r *http.Request) bool {
 	if origin == "" {
 		return false
 	}
-	// handle legacy CORS preflight
-	// Deprecated: Handle preflight request
-	if pr.cors.Enabled {
-		if allowedOrigin(pr.cors.Origins, origin) {
-			return true
-		}
-	}
-	// Must have Access-Control-Request-Method header for preflight
-	// if r.Header.Get("Access-Control-Request-Method") == "" {
-	//	return false
-	// }
 	for _, policy := range pr.responseHeaders {
 		if policy.Cors != nil && policy.Cors.Enabled {
 			if allowedOrigin(policy.Cors.Origins, origin) {
@@ -208,7 +188,7 @@ func (pr *ProxyRoute) createWeightedProxy(r *http.Request, contentType string, w
 	if err != nil {
 		logger.Error("Failed to create weighted reverse proxy", "route", pr.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
-			"503 service unavailable", pr.cors.Origins, contentType)
+			"503 service unavailable", pr.origins, contentType)
 	}
 	// Update the headers to allow for SSL redirection if host forwarding is disabled
 	if !pr.security.ForwardHostHeaders {
@@ -229,7 +209,7 @@ func (pr *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string,
 	if err != nil {
 		logger.Error("Failed to create round-robin reverse proxy", "route", pr.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
-			"503 service unavailable", pr.cors.Origins, contentType)
+			"503 service unavailable", pr.origins, contentType)
 	}
 	// Update the headers to allow for SSL redirection if host forwarding is disabled
 	if !pr.security.ForwardHostHeaders {
@@ -251,7 +231,7 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 	if !pr.backends.hasAvailableBackends() {
 		logger.Error("No available backends", "route", pr.name)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
-			"503 service unavailable", pr.cors.Origins, contentType)
+			"503 service unavailable", pr.origins, contentType)
 		return nil, fmt.Errorf("no available backends for route=%s", pr.name)
 	}
 
@@ -264,7 +244,7 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 	if backend == nil {
 		logger.Error("No available stable backends", "route", pr.name)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
-			"503 service unavailable", pr.cors.Origins, contentType)
+			"503 service unavailable", pr.origins, contentType)
 		return nil, fmt.Errorf("no available stable backends for route=%s", pr.name)
 	}
 	// Parse the backend URL and update the request
@@ -272,7 +252,7 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 	if err != nil {
 		logger.Error("Error parsing backend URL", "route", pr.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusInternalServerError,
-			http.StatusText(http.StatusInternalServerError), pr.cors.Origins, contentType)
+			http.StatusText(http.StatusInternalServerError), pr.origins, contentType)
 		return nil, err
 	}
 

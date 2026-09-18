@@ -36,15 +36,6 @@ const (
 
 // PrometheusMetrics defines all Prometheus metrics tracked by the gateway.
 type PrometheusMetrics struct {
-	// Deprecated, use GatewayTotalRequests instead.
-	TotalRequests *prometheus.CounterVec
-
-	// Deprecated, use GatewayResponseStatus instead.
-	ResponseStatus *prometheus.CounterVec
-
-	// Deprecated, use GatewayRequestDuration instead.
-	HttpDuration *prometheus.HistogramVec
-
 	// Total number of requests handled by the gateway, labeled by route name and method.
 	GatewayTotalRequests *prometheus.CounterVec
 
@@ -172,30 +163,6 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 				Help: "Total requests denied by a geoBlock middleware, labeled by middleware name and country",
 			},
 			[]string{labelName, labelCountry},
-		),
-
-		// Deprecated metrics (backward compatibility)
-		TotalRequests: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "http_requests_total",
-				Help: "Deprecated: use gateway_requests_total instead",
-			},
-			[]string{labelName, labelMethod},
-		),
-		ResponseStatus: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "http_response_status_total",
-				Help: "Deprecated: use gateway_response_status_total instead",
-			},
-			[]string{labelStatus, labelName, labelMethod},
-		),
-		HttpDuration: promauto.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name:    "http_request_duration_seconds",
-				Help:    "Deprecated: use gateway_request_duration_seconds instead",
-				Buckets: prometheus.DefBuckets,
-			},
-			[]string{labelName, labelMethod},
 		),
 	}
 

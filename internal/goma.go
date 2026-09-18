@@ -60,9 +60,7 @@ type Goma struct {
 	tlsConfig             *tls.Config
 	defaultCertificate    *tls.Certificate
 	extraRouteConfig      ExtraRouteConfig
-	// reloadMu serializes configuration reloads so the provider watcher and the
-	// on-demand reload endpoint can never run a reload concurrently.
-	reloadMu sync.Mutex
+	reloadMu              sync.Mutex
 }
 
 // Initialize initializes the routes
@@ -83,8 +81,6 @@ func configureDNSCache(cfg DNSCacheConfig) {
 
 func (g *Goma) Initialize() error {
 	gateway := g.gateway
-	// Handle deprecations
-	gateway.handleDeprecations()
 
 	// Configure the shared DNS cache (build once)
 	configureDNSCache(gateway.Networking.DNSCache)
@@ -92,13 +88,6 @@ func (g *Goma) Initialize() error {
 	// Initialize trusted proxies
 	g.initTrustedProxyConfig()
 	// Load core configuration.
-	//
-	// Copied, not aliased: Initialize runs again on every reload, and the steps
-	// below rewrite route fields (default middlewares, deprecation merges). Sharing
-	// the backing array would write those results back into the parsed
-	// configuration, so the "original" a later reload starts from would already
-	// carry the previous reload's output — a value the operator never wrote and
-	// cannot remove without restarting the process.
 	g.dynamicRoutes = append([]Route(nil), gateway.Routes...)
 	g.dynamicMiddlewares = g.middlewares
 

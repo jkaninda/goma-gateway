@@ -37,10 +37,6 @@ type Cors struct {
 	// AllowedHeaders defines which request headers are permitted in actual requests
 	AllowedHeaders []string `yaml:"allowedHeaders" json:"allowedHeaders"`
 
-	// Headers contains custom headers to be set in the response
-	// Deprecated, use responseHeaders middleware type
-	Headers map[string]string `yaml:"headers" json:"headers"`
-
 	// ExposeHeaders indicates which response headers can be exposed to the client
 	ExposeHeaders []string `yaml:"exposeHeaders" json:"exposeHeaders"`
 
@@ -58,7 +54,6 @@ type Cors struct {
 func (cors *Cors) isZero() bool {
 	return len(cors.Origins) == 0 &&
 		len(cors.AllowedHeaders) == 0 &&
-		len(cors.Headers) == 0 &&
 		len(cors.ExposeHeaders) == 0 &&
 		len(cors.AllowMethods) == 0 &&
 		!cors.AllowCredentials &&
@@ -268,10 +263,6 @@ func (cors *Cors) validateHeaders() error {
 				return fmt.Errorf("invalid header name '%s' in exposeHeaders", header)
 			}
 		}
-	}
-
-	if len(cors.Headers) > 0 {
-		logger.Warn("CORS 'headers' field is deprecated, use responseHeaders middleware instead")
 	}
 
 	return nil

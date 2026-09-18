@@ -87,6 +87,9 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 			return nil, err
 		}
 		util.SetEnv("GOMA_CONFIG_FILE", configFile)
+		if err = checkRemovedKeys(fmt.Sprintf("the configuration file %q", configFile), buf); err != nil {
+			return nil, err
+		}
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
 		if err != nil {
@@ -115,6 +118,9 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 		}
 		logger.Info("Using default configuration", "file", ConfigFile)
 		util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
+		if err = checkRemovedKeys(fmt.Sprintf("the configuration file %q", ConfigFile), buf); err != nil {
+			return nil, err
+		}
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
 		if err != nil {
@@ -175,10 +181,6 @@ func (gatewayServer *GatewayConfig) GetCertManagerConfig() *certmanager.Config {
 	if gatewayServer.CertManager != nil {
 		return gatewayServer.CertManager
 	}
-	if gatewayServer.CertificateManager != nil {
-		logger.Warn("`certificateManager` is deprecated, use `certManager` instead.")
-		return gatewayServer.CertificateManager
-	}
 	return &certmanager.Config{}
 }
 
@@ -218,9 +220,7 @@ func validateRoutes(gateway Gateway, routes []Route) []Route {
 	}
 
 	for i := range routes {
-		routes[i].handleDeprecations()
-		mergeGatewayErrorInterceptor(&routes[i], gateway.ErrorInterceptor)
-		mergeGatewayConfig(&routes[i], gateway, &gateway.Cors)
+		mergeGatewayConfig(&routes[i], gateway)
 	}
 
 	return routes
@@ -256,34 +256,18 @@ func (r *Route) validateRoute() {
 	if len(r.Name) == 0 {
 		logger.Fatal("Route name is required")
 	}
-	if len(r.Destination) == 0 && len(r.Target) == 0 && len(r.Backends) == 0 {
+	if len(r.Target) == 0 && len(r.Backends) == 0 {
 		logger.Fatal("Route backend error, target or backends should not be empty", "route", r.Name)
 	}
 
 }
-func mergeGatewayErrorInterceptor(route *Route, gatewayInterceptor middlewares.RouteErrorInterceptor) {
-	if gatewayInterceptor.Enabled {
-		logger.Warn("ErrorInterceptor defined in gateway level is deprecated, please use the ErrorInterceptor middleware instead.")
-		route.ErrorInterceptor.Errors = append(route.ErrorInterceptor.Errors, gatewayInterceptor.Errors...)
-		route.ErrorInterceptor.Enabled = true
-		if route.ErrorInterceptor.ContentType == "" {
-			route.ErrorInterceptor.ContentType = gatewayInterceptor.ContentType
-		}
-	}
-}
-func mergeGatewayConfig(route *Route, gateway Gateway, cors *Cors) {
+func mergeGatewayConfig(route *Route, gateway Gateway) {
 	if route == nil {
 		return
 	}
 	if gateway.Networking.Transport.InsecureSkipVerify {
 		logger.Debug(">>> Gateway:: Insecure Skip Verify is enabled")
 		route.Security.TLS.InsecureSkipVerify = true
-	}
-	if !route.Cors.Enabled || cors == nil {
-		return
-	}
-	if route.Cors.isZero() {
-		route.Cors = *cors
 	}
 }
 func GetConfigPaths() string {
@@ -295,61 +279,6 @@ func InitConfig(configFile string) error {
 	return initConfig(configFile)
 
 }
-
-// *************** DEPRECATIONS ******************************
-func (r *Route) handleDeprecations() {
-	if r.Disabled {
-		logger.Warn("Deprecation: disabled is deprecated, please use enabled")
-		r.Enabled = false
-	}
-	if r.BlockCommonExploits {
-		r.Security.EnableExploitProtection = true
-		logger.Warn("Deprecation: blockCommonExploits is deprecated, please use `security.enableExploitProtection`")
-	}
-	if r.InsecureSkipVerify {
-		logger.Warn("Deprecation:insecureSkipVerify is deprecated, please use `security.tls.insecureSkipVerify`")
-		r.Security.TLS.InsecureSkipVerify = true
-	}
-	if r.Security.TLS.SkipVerification {
-		logger.Warn("Deprecation:skipVerification is deprecated, please use `security.tls.insecureSkipVerify`")
-		r.Security.TLS.InsecureSkipVerify = true
-	}
-	if r.DisableHostForwarding {
-		logger.Warn("Deprecation: disableHostForwarding is deprecated, please use `security.forwardHostHeaders`")
-		r.Security.ForwardHostHeaders = false
-	}
-	if r.Destination != "" && len(r.Backends) == 0 {
-		logger.Warn("Deprecation: destination is deprecated, please use `target`")
-		if r.Target == "" {
-			r.Target = r.Destination
-
-		}
-	}
-}
-
-func (g *Gateway) handleDeprecations() {
-	if g.ReadTimeout > 0 {
-		logger.Warn("Deprecation: readTimeout is deprecated, please use `timeouts.read`")
-		g.Timeouts.Read = g.ReadTimeout
-	}
-	if g.WriteTimeout > 0 {
-		logger.Warn("Deprecation: writeTimeout is deprecated, please use `timeouts.write`")
-		g.Timeouts.Write = g.WriteTimeout
-	}
-	if g.IdleTimeout > 0 {
-		logger.Warn("Deprecation: idleTimeout is deprecated, please use `timeouts.idle`")
-		g.Timeouts.Idle = g.IdleTimeout
-	}
-	if g.EnableMetrics {
-		g.Monitoring.EnableMetrics = true
-	}
-	if len(g.TLS.Keys) > 0 {
-		g.TLS.Certificates = g.TLS.Keys
-		logger.Warn("Deprecation: Gateway: `tls.keys` is deprecated, please use `tls.certificates`")
-	}
-}
-
-// *************** END DEPRECATIONS ******************************
 
 // initConfig initializes configs
 func initConfig(configFile string) error {
@@ -493,6 +422,9 @@ func (g *Gateway) Setup(conf string) *Gateway {
 			return &Gateway{}
 		}
 		util.SetEnv("GOMA_CONFIG_FILE", conf)
+		if err = checkRemovedKeys(fmt.Sprintf("the configuration file %q", conf), buf); err != nil {
+			logger.Fatal(err.Error())
+		}
 		c := &GatewayConfig{}
 		err = yaml.Unmarshal(buf, c)
 		if err != nil {
@@ -538,14 +470,6 @@ func (jwt JWTRuleMiddleware) validate() error {
 
 // validate validates JWTRuleMiddleware
 func (f *ForwardAuthRuleMiddleware) validate() error {
-	if f.SkipInsecureVerify {
-		logger.Warn("Deprecation: skipInsecureVerify is deprecated, please use `insecureSkipVerify`")
-		f.InsecureSkipVerify = true
-	}
-	if f.EnableHostForwarding {
-		logger.Warn("Deprecation: enableHostForwarding is deprecated, please use `forwardHostHeaders`")
-		f.ForwardHostHeaders = true
-	}
 	if f.AuthURL == "" {
 		return fmt.Errorf("error parsing yaml: empty url in forwardAuth middlewares")
 
@@ -842,8 +766,6 @@ func (l LogEnrichRule) validate() error {
 // actually guard a route.
 func (rule *OIDCRuleMiddleware) validate() error {
 	rule.applyProviderDefaults()
-	rule.warnDeprecatedFields()
-
 	if rule.ClientID == "" || rule.ClientSecret == "" {
 		return fmt.Errorf("error parsing yaml: empty clientId/clientSecret in oidc middleware for provider %q", rule.Provider)
 	}
@@ -895,29 +817,6 @@ func (s *OIDCSessionRule) validate() error {
 	return nil
 }
 
-// warnDeprecatedFields tells the operator which replacement to move to, once
-// per load rather than per request.
-func (rule *OIDCRuleMiddleware) warnDeprecatedFields() {
-	if rule.State != "" {
-		logger.Warn("oidc: 'state' is ignored, the login state is now random per request")
-	}
-	if rule.RedirectPath != "" && rule.PostLoginRedirect == "" {
-		logger.Warn("oidc: 'redirectPath' is deprecated, use 'postLoginRedirect'")
-		rule.PostLoginRedirect = rule.RedirectPath
-	}
-	if rule.CookiePath != "" && (rule.Session == nil || rule.Session.Cookie.Path == "") {
-		logger.Warn("oidc: 'cookiePath' is deprecated, use 'session.cookie.path'")
-		if rule.Session == nil {
-			rule.Session = &OIDCSessionRule{}
-		}
-		rule.Session.Cookie.Path = rule.CookiePath
-	}
-	if rule.RedirectURL != "" && rule.CallbackPath == "" {
-		logger.Warn("oidc: 'redirectUrl' is deprecated, use 'callbackPath'")
-		rule.CallbackPath = util.UrlParsePath(rule.RedirectURL)
-	}
-}
-
 // validate checks the claim projection rule.
 func (f *ForwardClaimsRule) validate() error {
 	if f == nil {
@@ -934,20 +833,12 @@ func (f *ForwardClaimsRule) validate() error {
 	return nil
 }
 
-// claimMapper builds the shared claim projector. legacyHeaders carries the
-// deprecated flat forwardHeaders map; keys also present in forward.headers are
-// overridden by it.
-func claimMapper(rule *ForwardClaimsRule, legacyHeaders map[string]string) *middlewares.ClaimMapper {
+// claimMapper builds the shared claim projector.
+func claimMapper(rule *ForwardClaimsRule) *middlewares.ClaimMapper {
 	mapper := &middlewares.ClaimMapper{}
-	if len(legacyHeaders) > 0 {
-		mapper.Headers = maps.Clone(legacyHeaders)
-	}
 	if rule != nil {
 		if len(rule.Headers) > 0 {
-			if mapper.Headers == nil {
-				mapper.Headers = make(map[string]string, len(rule.Headers))
-			}
-			maps.Copy(mapper.Headers, rule.Headers)
+			mapper.Headers = maps.Clone(rule.Headers)
 		}
 		mapper.Query = rule.Query
 		mapper.Cookies = rule.Cookies

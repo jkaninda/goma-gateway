@@ -11,7 +11,7 @@ unauthenticated users to your identity provider, keeps the session at the edge,
 verifies it on every request, and projects the authenticated user's claims onto
 the proxied request — so your backends stay stateless and never handle a token.
 
-`type: oauth` and `type: oauth2` are deprecated aliases for the same middleware.
+`type: oauth` and `type: oauth2` were aliases for this middleware and were removed in v1.0; use `type: oidc`.
 
 ## Minimal configuration
 

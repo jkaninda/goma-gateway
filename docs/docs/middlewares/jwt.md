@@ -79,12 +79,11 @@ rule:
 | `jwksUrl`    | string   | *        | URL to fetch JWKS dynamically                                 |
 | `jwksFile`   | string   | *        | JWKS file path or content                                     |
 | `algorithms` | []string | No       | Accepted JWT signing algorithms, e.g. `["RS256", "ES256"]`    |
-| `algo`       | string   | No       | **Deprecated** — use `algorithms`. Single accepted algorithm. |
 
 **\* One of these four options is required**
 
-> **Algorithm selection.** When `algorithms` (and the deprecated `algo`) are
-> omitted, the gateway accepts a safe set scoped to the configured key type: the
+> **Algorithm selection.** When `algorithms` is omitted, the gateway accepts a
+> safe set scoped to the configured key type: the
 > HMAC family (`HS256/384/512`) for a shared `secret`, and asymmetric algorithms
 > (`RS*`, `ES*`, `PS*`) for `publicKey` / `jwksUrl` / `jwksFile`. An HMAC token is
 > never accepted against an asymmetric key, preventing algorithm-confusion
@@ -103,7 +102,6 @@ rule:
 | Option                 | Type    | Description                                                                     |
 |------------------------|---------|---------------------------------------------------------------------------------|
 | `forward`              | map     | Project claims onto the upstream request as headers, query parameters and cookies |
-| `forwardHeaders`       | map     | Deprecated: use `forward.headers`                                                |
 | `forwardAuthorization` | boolean | Whether to forward the original `Authorization` header (default: `true`)         |
 
 ## Claims Validation
@@ -186,9 +184,9 @@ the gateway can reach the upstream.
 Control characters are always removed from forwarded values, so a claim a user
 can set for themselves cannot inject a second header into the proxied request.
 
-The deprecated flat `forwardHeaders` map still works and is merged into
-`forward.headers`, which takes precedence key by key. The same claim path syntax
-is used by the [OpenID Connect middleware](oidc.md).
+The flat `forwardHeaders` map and the single `algo` key were removed in v1.0 —
+use `forward.headers` and `algorithms`. The same claim path syntax is used by
+the [OpenID Connect middleware](oidc.md).
 
 ## Complete Examples
 

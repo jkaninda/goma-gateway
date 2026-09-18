@@ -253,7 +253,6 @@ func (r *router) addRouteTo(rt *njia.Router, route *Route, mids []Middleware, pl
 		return fmt.Errorf("route validation failed: %w", err)
 	}
 	// Configure CORS
-	r.configureCORS(route)
 	var clientCerts []tls.Certificate
 	// Load certificates
 	clientCert, certPool, err := route.initMTLS()
@@ -276,7 +275,6 @@ func (r *router) addRouteTo(rt *njia.Router, route *Route, mids []Middleware, pl
 		canaryBased:   route.Backends.IsCanaryBased(),
 		methods:       route.Methods,
 		hasHeathCheck: len(route.HealthCheck.Path) > 0,
-		cors:          route.Cors,
 		security:      route.Security,
 		clientCerts:   clientCerts,
 		certPool:      certPool,
@@ -291,31 +289,9 @@ func (r *router) addRouteTo(rt *njia.Router, route *Route, mids []Middleware, pl
 
 	r.attachMiddlewares(route, group, mids, plugs)
 	proxyRoute.responseHeaders = route.responseHeaders
+	proxyRoute.origins = route.corsOrigins()
 	// Configure handlers
 	return r.configureHandlers(route, group, proxyRoute)
-}
-
-// configureCORS handles CORS configuration with deduplication
-func (r *router) configureCORS(route *Route) {
-	// Add route methods to CORS allowed methods
-	methodsSet := make(map[string]bool)
-
-	// Add existing CORS methods
-	for _, method := range route.Cors.AllowMethods {
-		methodsSet[method] = true
-	}
-
-	// Add route methods
-	for _, method := range route.Methods {
-		methodsSet[method] = true
-	}
-
-	// Convert back to slice
-	route.Cors.AllowMethods = make([]string, 0, len(methodsSet))
-	for method := range methodsSet {
-		route.Cors.AllowMethods = append(route.Cors.AllowMethods, method)
-	}
-
 }
 
 // attachMiddlewares configures all middlewares for a route
@@ -336,24 +312,15 @@ func (r *router) attachMiddlewares(route *Route, rRouter *njia.Group, globalMidd
 		Name:           route.Name,
 		Path:           route.Path,
 		enableMetrics:  enableMetrics,
-		Enabled:        route.ErrorInterceptor.Enabled,
-		ContentType:    route.ErrorInterceptor.ContentType,
-		Errors:         route.ErrorInterceptor.Errors,
-		Origins:        route.Cors.Origins,
 		VisitorTracker: visitorTracker,
 	}
 	rRouter.Use(proxyMiddleware.Wrap)
-	// Deprecated CORS middleware
-	if route.Cors.Enabled {
-		cors := &route.Cors
-		// CORS middleware
-		rRouter.Use(cors.CORSHandler())
-	}
 	// Custom middlewares
 	route.attachMiddlewares(rRouter, globalMiddlewares, plugs)
 
 	// Update proxyMiddleware
 	proxyMiddleware.headers = route.responseHeaders
+	proxyMiddleware.Origins = route.corsOrigins()
 	proxyMiddleware.logRule = route.logRule
 	if route.errorInterceptor != nil {
 		proxyMiddleware.Enabled = route.errorInterceptor.Enabled
@@ -368,6 +335,20 @@ func (r *Route) attachMiddlewares(router *njia.Group, globalMiddlewares []Middle
 	if r.Security.EnableExploitProtection {
 		logger.Debug("Block common exploits enabled")
 		router.Use(middlewares.BlockExploitsMiddleware)
+	}
+
+	resolved := r.resolveMiddlewares(globalMiddlewares, plugins)
+
+	// responseHeaders policies are collected first, before any other middleware
+	// is constructed. They register no handler — they only populate
+	// r.responseHeaders — and every other middleware reads corsOrigins() from
+	// there to decide which origins its own error responses may be read by. A
+	// single ordered pass would leave a middleware listed before the
+	// responseHeaders one with no origins at all.
+	for _, mid := range resolved {
+		if mid.Type == responseHeaders {
+			r.applyMiddlewareByType(mid, router)
+		}
 	}
 
 	for _, middleware := range r.Middlewares {
@@ -385,10 +366,35 @@ func (r *Route) attachMiddlewares(router *njia.Group, globalMiddlewares []Middle
 			logger.Error("Error validating middleware", "error", err)
 			continue
 		}
+		if mid.Type == responseHeaders {
+			// Already applied in the pass above.
+			continue
+		}
 
 		// Apply middlewares by type
 		r.applyMiddlewareByType(mid, router)
 	}
+}
+
+// resolveMiddlewares returns the route's named middlewares that resolve to a
+// global definition, in configuration order. Plugin names and unresolvable
+// names are skipped without logging — the main pass reports those.
+func (r *Route) resolveMiddlewares(globalMiddlewares []Middleware, plugins map[string]plugins.Middleware) []Middleware {
+	var resolved []Middleware
+	for _, middleware := range r.Middlewares {
+		if len(middleware) == 0 {
+			continue
+		}
+		if _, exists := plugins[middleware]; exists {
+			continue
+		}
+		mid, err := getMiddleware([]string{middleware}, globalMiddlewares)
+		if err != nil {
+			continue
+		}
+		resolved = append(resolved, mid)
+	}
+	return resolved
 }
 
 // configureHandlers registers the route's proxy handler for its path and every

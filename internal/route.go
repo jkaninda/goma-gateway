@@ -37,47 +37,18 @@ type Route struct {
 	Rewrite string `yaml:"rewrite,omitempty" json:"rewrite,omitempty"`
 	// Priority, Determines route matching order
 	Priority int `yaml:"priority,omitempty" json:"priority,omitempty"`
-	// Disabled specifies whether the route is disabled.
-	// Deprecated, use Enabled
-	Disabled bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 	// Enabled specifies whether the route is enabled.
 	Enabled bool `yaml:"enabled,omitempty" default:"true" json:"enabled,omitempty"`
 	// Hosts lists domains or hosts for request routing.
 	Hosts []string `yaml:"hosts,omitempty" json:"hosts,omitempty"`
-	// Cors defines the route-specific Cross-Origin Resource Sharing (CORS) settings.
-	// Deprecated, use responseHeaders middleware type
-	Cors Cors `yaml:"cors,omitempty" json:"cors,omitempty"`
 	// Methods specifies the HTTP methods allowed for this route (e.g., GET, POST).
 	Methods []string `yaml:"methods,omitempty" json:"methods,omitempty"`
-	// Destination defines the primary backend URL for this route.
-	// Deprecated, use Target
-	Destination string `yaml:"destination,omitempty" json:"destination,omitempty"`
 	// Target defines the primary backend URL for this route.
 	Target string `yaml:"target,omitempty" json:"target,omitempty"`
 	// Backends specifies a list of backend URLs for load balancing.
 	Backends Backends `yaml:"backends,omitempty" json:"backends,omitempty"`
-	// InsecureSkipVerify disables SSL/TLS verification for the backend.
-	// Deprecated, use security
-	InsecureSkipVerify bool `yaml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify,omitempty"`
 	// HealthCheck contains configuration for monitoring the health of backends.
 	HealthCheck RouteHealthCheck `yaml:"healthCheck,omitempty" json:"healthCheck,omitempty"`
-	// DisableHostForwarding disables the forwarding of host-related headers.
-	//
-	// The headers affected are:
-	// - X-Forwarded-Host
-	// - X-Forwarded-For
-	// - Host
-	// - Scheme
-	//
-	// If disabled, the backend may not match routes correctly.
-	// Deprecated, use security.forwardHostHeaders
-	DisableHostForwarding bool `yaml:"disableHostForwarding,omitempty" json:"disableHostForwarding,omitempty"`
-	// ErrorInterceptor provides configuration for handling backend errors.
-	// Deprecated, use errorInterceptor middleware
-	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty" json:"errorInterceptor,omitempty"`
-	// BlockCommonExploits
-	// Deprecated
-	BlockCommonExploits bool `yaml:"blockCommonExploits,omitempty" json:"blockCommonExploits,omitempty"`
 	// Maintenance puts the route in maintenance mode.
 	// When enabled, requests to this route return the configured response
 	// instead of being forwarded to the backend.
@@ -122,8 +93,6 @@ type Security struct {
 	TLS                     SecurityTLS `yaml:"tls" json:"tls"`
 }
 type SecurityTLS struct {
-	// Deprecated
-	SkipVerification   bool   `yaml:"SkipVerification,omitempty"`
 	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify,omitempty"`
 	RootCAs            string `yaml:"rootCAs,omitempty" json:"rootCAs,omitempty"`
 	ClientCert         string `yaml:"clientCert,omitempty" json:"clientCert,omitempty"`
@@ -133,10 +102,35 @@ type SecurityTLS struct {
 // Backends defines List of backend servers to route traffic to
 type Backends []*Backend
 
+// corsOrigins returns every origin the route's responseHeaders policies grant
+// CORS access to.
+func (r *Route) corsOrigins() []string {
+	return corsOrigins(r.responseHeaders)
+}
+
+// corsOrigins unions the origins of every enabled CORS policy, preserving the
+// order they were configured in.
+func corsOrigins(policies []ResponseHeader) []string {
+	var origins []string
+	seen := make(map[string]struct{})
+	for _, policy := range policies {
+		if policy.Cors == nil || !policy.Cors.Enabled {
+			continue
+		}
+		for _, origin := range policy.Cors.Origins {
+			if _, ok := seen[origin]; ok {
+				continue
+			}
+			seen[origin] = struct{}{}
+			origins = append(origins, origin)
+		}
+	}
+	return origins
+}
+
 func (r *Route) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	r.Enabled = true
 	r.Security.ForwardHostHeaders = true
-	r.Cors.Enabled = true
 	type tmp Route
 	return unmarshal((*tmp)(r))
 }
@@ -145,7 +139,6 @@ func (r *Route) UnmarshalJSON(data []byte) error {
 	// Set defaults
 	r.Enabled = true
 	r.Security.ForwardHostHeaders = true
-	r.Cors.Enabled = true
 
 	type tmp Route
 	return json.Unmarshal(data, (*tmp)(r))

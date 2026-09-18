@@ -73,6 +73,9 @@ func loadExtraMiddlewares(path string) ([]Middleware, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error loading extra file: %v", err)
 		}
+		if err = checkRemovedKeys(fmt.Sprintf("the extra middleware file %q", yamlFile), buf); err != nil {
+			return nil, err
+		}
 		ex := &ExtraMiddleware{}
 		err = yaml.Unmarshal(buf, ex)
 		if err != nil {
@@ -318,7 +321,7 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *njia.Group) {
 		Name:                     goutils.Slug(route.Name),
 		Paths:                    mid.Paths,
 		Cache:                    cache,
-		Origins:                  route.Cors.Origins,
+		Origins:                  route.corsOrigins(),
 		TTL:                      time.Duration(ttl),
 		MaxStale:                 time.Duration(maxStale),
 		RedisBased:               redisBased,
@@ -342,7 +345,7 @@ func applyAccessMiddleware(mid Middleware, route Route, router *njia.Group) {
 	blM := middlewares.AccessListMiddleware{
 		Path:       route.Path,
 		Paths:      mid.Paths,
-		Origins:    route.Cors.Origins,
+		Origins:    route.corsOrigins(),
 		StatusCode: rule.StatusCode,
 	}
 	router.Use(blM.AccessMiddleware)
@@ -372,7 +375,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *njia.Group) {
 			Id:         goutils.Slug(route.Name),
 			Requests:   rule.RequestsPerUnit,
 			Burst:      rule.Burst,
-			Origins:    route.Cors.Origins,
+			Origins:    route.corsOrigins(),
 			Hosts:      route.Hosts,
 			RedisBased: redisBased,
 			PathBased:  len(mid.Paths) > 0,
@@ -453,7 +456,7 @@ func applyAccessPolicyMiddleware(mid Middleware, route Route, router *njia.Group
 		access := middlewares.AccessPolicy{
 			SourceRanges: rule.SourceRanges,
 			Action:       rule.Action,
-			Origins:      route.Cors.Origins,
+			Origins:      route.corsOrigins(),
 		}
 		router.Use(access.AccessPolicyMiddleware)
 	}
@@ -520,7 +523,7 @@ func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *njia.Grou
 		applyJWTAuthMiddleware(route, routeMiddleware, r)
 	case forwardAuth:
 		applyForwardAuthMiddleware(route, routeMiddleware, r)
-	case OAuth, OAuth2, OIDC:
+	case OIDC:
 		applyOIDCMiddleware(route, routeMiddleware, r)
 	default:
 		if !doesExist(string(routeMiddleware.Type)) {
@@ -622,17 +625,16 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Gro
 		Path:                 route.Path,
 		Paths:                routeMiddleware.Paths,
 		ClaimsExpression:     rule.ClaimsExpression,
-		Forward:              claimMapper(rule.Forward, rule.ForwardHeaders),
+		Forward:              claimMapper(rule.Forward),
 		ForwardAuthorization: rule.ForwardAuthorization,
 		RsaKey:               key,
-		Algo:                 rule.Alg,
 		Algorithms:           rule.Algorithms,
 		JwksFile:             jwksFile,
 		Secret:               rule.Secret,
 		JwksUrl:              rule.JwksUrl,
 		Issuer:               rule.Issuer,
 		Audience:             rule.Audience,
-		Origins:              route.Cors.Origins,
+		Origins:              route.corsOrigins(),
 	}
 
 	r.Use(jwtAuth.AuthMiddleware)
@@ -661,7 +663,7 @@ func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *njia
 		AddAuthCookiesToResponse:    rule.AddAuthCookiesToResponse,
 		Path:                        route.Path,
 		Paths:                       routeMiddleware.Paths,
-		Origins:                     route.Cors.Origins,
+		Origins:                     route.corsOrigins(),
 		Hosts:                       route.Hosts,
 	}
 
@@ -698,7 +700,7 @@ func applyOIDCMiddleware(route Route, routeMiddleware Middleware, r *njia.Group)
 	config := middlewares.OIDCConfig{
 		Path:         route.Path,
 		Paths:        routeMiddleware.Paths,
-		Origins:      route.Cors.Origins,
+		Origins:      route.corsOrigins(),
 		ClientID:     rule.ClientID,
 		ClientSecret: rule.ClientSecret,
 		Provider:     rule.Provider,
@@ -711,7 +713,6 @@ func applyOIDCMiddleware(route Route, routeMiddleware Middleware, r *njia.Group)
 			UserInfoURL: rule.Endpoint.UserInfoURL,
 			JwksURL:     rule.Endpoint.JwksURL,
 		},
-		RedirectURL:        rule.RedirectURL,
 		CallbackPath:       callbackPath,
 		LogoutPath:         rule.LogoutPath,
 		PostLoginRedirect:  rule.PostLoginRedirect,
@@ -719,7 +720,7 @@ func applyOIDCMiddleware(route Route, routeMiddleware Middleware, r *njia.Group)
 		DisablePKCE:        rule.PKCE != nil && !*rule.PKCE,
 		ClaimsSource:       rule.ClaimsSource,
 		ClaimsExpression:   rule.ClaimsExpression,
-		Forward:            claimMapper(rule.Forward, nil),
+		Forward:            claimMapper(rule.Forward),
 		Session:            sessionOpts,
 	}
 

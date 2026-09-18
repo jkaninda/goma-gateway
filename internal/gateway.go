@@ -33,15 +33,6 @@ type Gateway struct {
 	TLS TlsCertificates `yaml:"tls,omitempty"`
 	// Redis contains the configuration details for the Redis database.
 	Redis middlewares.Redis `yaml:"redis,omitempty"`
-	// WriteTimeout defines the timeout (in seconds) for writing responses to clients.
-	// Deprecated
-	WriteTimeout int `yaml:"writeTimeout,omitempty" env:"GOMA_WRITE_TIMEOUT, overwrite"`
-	// ReadTimeout defines the timeout (in seconds) for reading requests from clients.
-	// Deprecated
-	ReadTimeout int `yaml:"readTimeout,omitempty" env:"GOMA_READ_TIMEOUT, overwrite"`
-	// IdleTimeout defines the timeout (in seconds) for idle connections.
-	// Deprecated
-	IdleTimeout int `yaml:"idleTimeout,omitempty" env:"GOMA_IDLE_TIMEOUT, overwrite"`
 	// Timeouts defines server timeout in second
 	Timeouts Timeouts `yaml:"timeouts,omitempty"`
 	// EntryPoints of the server
@@ -58,17 +49,8 @@ type Gateway struct {
 	Networking Networking `yaml:"networking,omitempty"`
 	// When enabled, the router will match the path with or without a trailing slash.
 	StrictSlash bool `yaml:"strictSlash,omitempty"`
-	// EnableMetrics enables or disables server metrics collection.
-	// Deprecated
-	EnableMetrics bool `yaml:"enableMetrics,omitempty"`
 	// Debug enables or disables debug mode for the gateway.
 	Debug bool `yaml:"debug,omitempty"`
-	// ErrorInterceptor provides advanced error-handling configuration for intercepted backend errors.
-	// Deprecated, use errorInterceptor middleware type
-	ErrorInterceptor middlewares.RouteErrorInterceptor `yaml:"errorInterceptor,omitempty"`
-	// Cors defines the global Cross-Origin Resource Sharing (CORS) configuration for the gateway.
-	// Deprecated, use responseHeaders middleware type
-	Cors Cors `yaml:"cors,omitempty"`
 	// ExtraConfig provides additional configuration, including routes and middleware, from a specified directory.
 	ExtraConfig ExtraRouteConfig `yaml:"extraConfig,omitempty"`
 	// Defaults holds default configurations applied to routes
@@ -361,9 +343,6 @@ func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	g.Monitoring.EnableLiveness = true
 	g.Monitoring.EnableReadiness = true
 	g.StrictSlash = true
-
-	// Cors
-	g.Cors.Enabled = true
 
 	type tmp Gateway
 	return unmarshal((*tmp)(g))

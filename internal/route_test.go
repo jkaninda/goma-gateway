@@ -71,14 +71,6 @@ func initExtraRoute(path string) error {
 				},
 				Rewrite:     "/",
 				HealthCheck: RouteHealthCheck{},
-				Cors: Cors{
-					Origins: []string{"http://localhost:3000", "https://dev.example.com"},
-					Headers: map[string]string{
-						"Access-Control-Allow-headers":     "Origin, Authorization",
-						"Access-Control-Allow-Credentials": "true",
-						"Access-Control-Max-Age":           "1728000",
-					},
-				},
 				Middlewares: []string{"basic-auth", "block-access"},
 			},
 		},

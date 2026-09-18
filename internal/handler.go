@@ -25,106 +25,12 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
-	"github.com/jkaninda/njia"
 )
-
-// CORSHandler creates a middleware function that handles CORS headers for incoming requests
-// It dynamically adds CORS headers to responses based on the provided Cors configuration
-//
-// Parameters:
-//   - cors: Cors configuration containing all CORS settings
-//
-// Returns:
-//   - njia.Middleware: A middleware function that can be used with the njia router
-func (cors *Cors) CORSHandler() njia.Middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			// If CORS is not configured, just pass the request to the next handler
-			if cors == nil {
-				logger.Debug("Cors is not configured, passing request to next handler")
-				next.ServeHTTP(w, r)
-				return
-			}
-			// Get the origin from the request headers
-			origin := r.Header.Get("Origin")
-
-			// Skip CORS handling if the origin is not allowed
-			if !allowedOrigin(cors.Origins, origin) {
-				next.ServeHTTP(w, r)
-				return // Important to return here to prevent further processing
-			}
-
-			h := w.Header()
-
-			// Always set the allowed origin (either the specific origin or *)
-			h.Set(AccessControlAllowOrigin, origin)
-			// The response now depends on the request's Origin, so it must not
-			// be reused for a different one. Without this a shared cache in
-			// front of the gateway serves origin A's grant to origin B.
-			h.Add("Vary", "Origin")
-
-			// Set custom headers from the configuration.
-			//
-			// These used to be guarded on the absence of
-			// Access-Control-Allow-Origin, which the line above has just set —
-			// so the condition was always false and the configured headers
-			// were never applied.
-			for k, v := range cors.Headers {
-				h.Set(k, v)
-			}
-
-			// Set allow credentials header if configured
-			if cors.AllowCredentials {
-				h.Set(AccessControlAllowCredentials, "true")
-			}
-
-			// Handle allowed headers
-			if len(cors.AllowedHeaders) > 0 {
-				// Use configured allowed headers if specified
-				h.Set(AccessControlAllowHeaders, strings.Join(cors.AllowedHeaders, ", "))
-			} else if reqHeaders := r.Header.Get("Access-Control-Request-Headers"); reqHeaders != "" {
-				// Fall back to request headers if no configuration provided
-				h.Set(AccessControlAllowHeaders, reqHeaders)
-			}
-
-			// Handle allowed methods
-			if len(cors.AllowMethods) > 0 {
-				// Use configured allowed methods if specified
-				h.Set(AccessControlAllowMethods, strings.Join(cors.AllowMethods, ", "))
-			} else if reqMethod := r.Header.Get("Access-Control-Request-Method"); reqMethod != "" {
-				// Fall back to request method if no configuration provided
-				h.Set(AccessControlAllowMethods, reqMethod)
-			}
-
-			// Set exposed headers if configured
-			if len(cors.ExposeHeaders) > 0 {
-				h.Set(AccessControlExposeHeaders, strings.Join(cors.ExposeHeaders, ", "))
-			}
-
-			// Set max age for preflight cache if configured
-			if cors.MaxAge > 0 {
-				h.Set(AccessControlMaxAge, strconv.Itoa(cors.MaxAge))
-			}
-
-			// Handle preflight (OPTIONS) requests
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
-				return // End the request for OPTIONS
-			}
-
-			// Continue to the next handler for non-OPTIONS requests
-			next.ServeHTTP(w, r)
-		})
-	}
-}
 
 // ProxyErrorHandler catches backend errors and returns a custom response
 func ProxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {

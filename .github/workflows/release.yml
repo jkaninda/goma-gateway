@@ -2,7 +2,7 @@ name: Release
 on:
   push:
     tags:
-      - v0.**
+      - v1.**
 jobs:
   docker:
     if: "!contains(github.ref, '-rc')"

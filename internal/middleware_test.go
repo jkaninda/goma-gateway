@@ -62,21 +62,20 @@ func TestMiddleware(t *testing.T) {
 			},
 		},
 		{
-			Name: "oauth-google",
-			Type: OAuth,
+			Name: "oidc-google",
+			Type: OIDC,
 			Paths: []string{
 				"/protected",
-				"/example-of-oauth",
+				"/example-of-oidc",
 			},
-			Rule: OauthRulerMiddleware{
+			Rule: OIDCRuleMiddleware{
 				ClientID:     "xxx",
 				ClientSecret: "xxx",
 				Provider:     "google",
-				RedirectURL:  "http://localhost:8080/callback",
+				CallbackPath: "/callback",
 				Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
 					"https://www.googleapis.com/auth/userinfo.profile"},
 				Endpoint: OauthEndpoint{},
-				State:    "randomStateString",
 			},
 		},
 		{
@@ -142,17 +141,17 @@ func TestReadMiddleware(t *testing.T) {
 				logger.Error("Error validating middleware", "error", err)
 			}
 			log.Printf("JWT authentification valited")
-		case OAuth:
-			log.Println("OAuth auth")
-			oauth := &OauthRulerMiddleware{}
-			if err := goutils.DeepCopy(oauth, middleware.Rule); err != nil {
+		case OIDC:
+			log.Println("OIDC auth")
+			oidc := &OIDCRuleMiddleware{}
+			if err := goutils.DeepCopy(oidc, middleware.Rule); err != nil {
 				t.Fatalf("Error: %v, middleware not applied", err.Error())
 			}
-			err := oauth.validate()
+			err := oidc.validate()
 			if err != nil {
 				t.Fatalf("Error: %s", err.Error())
 			}
-			log.Printf("OAuth authentification:  provider %s\n", oauth.Provider)
+			log.Printf("OIDC authentification:  provider %s\n", oidc.Provider)
 		case AccessMiddleware:
 			log.Println("Access middlewares")
 			log.Printf("Access middlewares:  paths: [%s]\n", middleware.Paths)

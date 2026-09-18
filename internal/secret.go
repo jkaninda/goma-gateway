@@ -105,11 +105,6 @@ func decryptTLSCertificates(t *TlsCertificates) error {
 			return err
 		}
 	}
-	for i := range t.Keys {
-		if err := decryptTLS(&t.Keys[i]); err != nil {
-			return err
-		}
-	}
 	clientCA, err := decryptValue(t.ClientAuth.ClientCA)
 	if err != nil {
 		return err
