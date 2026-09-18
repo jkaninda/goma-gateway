@@ -40,10 +40,9 @@ import (
 // replacement, and it cannot reach a middleware `rule`, which is decoded
 // separately per middleware type.
 
-// removedKey describes one key removed in v1.0.
+// removedKey describes what replaced one key removed in v1.0. The key itself is
+// the map key it is stored under, so it is never spelled twice.
 type removedKey struct {
-	// key is the YAML key as it appeared in the configuration.
-	key string
 	// replacement is what to use instead, ready to be read as a sentence
 	// fragment after "use".
 	replacement string
@@ -51,8 +50,9 @@ type removedKey struct {
 	note string
 }
 
-func (r removedKey) String() string {
-	msg := fmt.Sprintf("`%s` was removed in v1.0", r.key)
+// describe renders the advice for one removed key as it appears in the report.
+func (r removedKey) describe(key string) string {
+	msg := fmt.Sprintf("`%s` was removed in v1.0", key)
 	if r.replacement != "" {
 		// A replacement naming a middleware rather than a key reads as prose,
 		// so it is not quoted as one.
@@ -68,65 +68,67 @@ func (r removedKey) String() string {
 	return msg
 }
 
+const keyInsecureSkipVerify = "insecureSkipVerify"
+
 // Removed keys by the block they appear in.
 var (
 	removedTopLevelKeys = map[string]removedKey{
-		"certificateManager": {key: "certificateManager", replacement: "certManager"},
+		"certificateManager": {replacement: "certManager"},
 	}
 
 	removedGatewayKeys = map[string]removedKey{
-		"readTimeout":      {key: "readTimeout", replacement: "timeouts.read"},
-		"writeTimeout":     {key: "writeTimeout", replacement: "timeouts.write"},
-		"idleTimeout":      {key: "idleTimeout", replacement: "timeouts.idle"},
-		"enableMetrics":    {key: "enableMetrics", replacement: "monitoring.enableMetrics"},
-		"errorInterceptor": {key: "errorInterceptor", replacement: "the errorInterceptor middleware"},
-		"cors":             {key: "cors", replacement: "the responseHeaders middleware"},
+		"readTimeout":      {replacement: "timeouts.read"},
+		"writeTimeout":     {replacement: "timeouts.write"},
+		"idleTimeout":      {replacement: "timeouts.idle"},
+		"enableMetrics":    {replacement: "monitoring.enableMetrics"},
+		"errorInterceptor": {replacement: "the errorInterceptor middleware"},
+		"cors":             {replacement: "the responseHeaders middleware"},
 	}
 
 	removedGatewayTLSKeys = map[string]removedKey{
-		"keys": {key: "keys", replacement: "certificates"},
+		"keys": {replacement: "certificates"},
 	}
 
 	removedRouteKeys = map[string]removedKey{
-		"destination":         {key: "destination", replacement: "target"},
-		"disabled":            {key: "disabled", replacement: "enabled", note: "the sense is inverted: disabled: true becomes enabled: false"},
-		"blockCommonExploits": {key: "blockCommonExploits", replacement: "security.enableExploitProtection"},
-		"disableHostForwarding": {key: "disableHostForwarding", replacement: "security.forwardHostHeaders",
+		"destination":         {replacement: "target"},
+		"disabled":            {replacement: "enabled", note: "the sense is inverted: disabled: true becomes enabled: false"},
+		"blockCommonExploits": {replacement: "security.enableExploitProtection"},
+		"disableHostForwarding": {replacement: "security.forwardHostHeaders",
 			note: "the sense is inverted: disableHostForwarding: true becomes forwardHostHeaders: false"},
-		"insecureSkipVerify": {key: "insecureSkipVerify", replacement: "security.tls.insecureSkipVerify"},
-		"cors":               {key: "cors", replacement: "the responseHeaders middleware"},
-		"errorInterceptor":   {key: "errorInterceptor", replacement: "the errorInterceptor middleware"},
+		keyInsecureSkipVerify: {replacement: "security.tls." + keyInsecureSkipVerify},
+		"cors":                {replacement: "the responseHeaders middleware"},
+		"errorInterceptor":    {replacement: "the errorInterceptor middleware"},
 	}
 
 	removedRouteSecurityTLSKeys = map[string]removedKey{
-		"SkipVerification": {key: "SkipVerification", replacement: "insecureSkipVerify"},
+		"SkipVerification": {replacement: keyInsecureSkipVerify},
 	}
 
 	removedRuleKeys = map[MiddlewareType]map[string]removedKey{
 		JWTAuth: {
-			"alg":            {key: "alg", replacement: "algorithms", note: "a list, e.g. algorithms: [\"HS256\"]"},
-			"forwardHeaders": {key: "forwardHeaders", replacement: "forward.headers"},
+			"alg":            {replacement: "algorithms", note: "a list, e.g. algorithms: [\"HS256\"]"},
+			"forwardHeaders": {replacement: "forward.headers"},
 		},
 		forwardAuth: {
-			"enableHostForwarding": {key: "enableHostForwarding", replacement: "forwardHostHeaders"},
-			"skipInsecureVerify":   {key: "skipInsecureVerify", replacement: "insecureSkipVerify"},
+			"enableHostForwarding": {replacement: "forwardHostHeaders"},
+			"skipInsecureVerify":   {replacement: keyInsecureSkipVerify},
 		},
 		OIDC: {
-			"redirectUrl":  {key: "redirectUrl", replacement: "callbackPath", note: "the full URL is now derived from the request"},
-			"redirectPath": {key: "redirectPath", replacement: "postLoginRedirect"},
-			"cookiePath":   {key: "cookiePath", replacement: "session.cookie.path"},
-			"state":        {key: "state", note: "the state is now random per login; delete the key"},
+			"redirectUrl":  {replacement: "callbackPath", note: "the full URL is now derived from the request"},
+			"redirectPath": {replacement: "postLoginRedirect"},
+			"cookiePath":   {replacement: "session.cookie.path"},
+			"state":        {note: "the state is now random per login; delete the key"},
 		},
 		errorInterceptor: {
-			"code":   {key: "code", replacement: "statusCode"},
-			"status": {key: "status", replacement: "statusCode"},
+			"code":   {replacement: "statusCode"},
+			"status": {replacement: "statusCode"},
 		},
 	}
 
 	// removedMiddlewareTypes are `type:` values that no longer resolve.
 	removedMiddlewareTypes = map[string]removedKey{
-		"oauth":  {key: "type: oauth", replacement: "type: oidc"},
-		"oauth2": {key: "type: oauth2", replacement: "type: oidc"},
+		"oauth":  {replacement: "type: oidc"},
+		"oauth2": {replacement: "type: oidc"},
 	}
 
 	// jwtTypes and oidcTypes are the spellings each middleware accepts, mapped
@@ -145,7 +147,9 @@ type configFinding struct {
 	// where locates the key for the operator: "gateway.routes[2] (api)".
 	where string
 	line  int
-	key   removedKey
+	// key is the key as it was written, and removed is what replaced it.
+	key     string
+	removed removedKey
 }
 
 // checkRemovedKeys reports every removed key in a full gateway configuration
@@ -219,12 +223,13 @@ func scanMiddlewares(seq *yaml.Node, path string) []configFinding {
 
 		rawType := scalarValue(middleware, "type")
 		if removed, ok := removedMiddlewareTypes[strings.ToLower(rawType)]; ok {
-			_, valueNode := mappingEntry(middleware, "type")
 			line := middleware.Line
-			if valueNode != nil {
+			if valueNode := mappingValue(middleware, "type"); valueNode != nil {
 				line = valueNode.Line
 			}
-			findings = append(findings, configFinding{where: where, line: line, key: removed})
+			findings = append(findings, configFinding{
+				where: where, line: line, key: "type: " + rawType, removed: removed,
+			})
 		}
 
 		rule := mappingValue(middleware, "rule")
@@ -270,7 +275,7 @@ func scanMapping(node *yaml.Node, where string, removed map[string]removedKey) [
 			continue
 		}
 		if entry, ok := removed[key.Value]; ok {
-			findings = append(findings, configFinding{where: where, line: key.Line, key: entry})
+			findings = append(findings, configFinding{where: where, line: key.Line, key: key.Value, removed: entry})
 		}
 	}
 	return findings
@@ -289,9 +294,9 @@ func findingsError(source string, findings []configFinding) error {
 	for _, f := range findings {
 		b.WriteString("\n  ")
 		if f.where != "" {
-			fmt.Fprintf(&b, "line %d, %s: %s", f.line, f.where, f.key)
+			fmt.Fprintf(&b, "line %d, %s: %s", f.line, f.where, f.removed.describe(f.key))
 		} else {
-			fmt.Fprintf(&b, "line %d: %s", f.line, f.key)
+			fmt.Fprintf(&b, "line %d: %s", f.line, f.removed.describe(f.key))
 		}
 	}
 	b.WriteString("\n\nSee https://jkaninda.github.io/goma-gateway/upgrade/v1.0 for the full migration guide.")
@@ -322,23 +327,17 @@ func documentRoot(node *yaml.Node) *yaml.Node {
 	return node
 }
 
-// mappingEntry returns the key and value nodes for a key in a mapping.
-func mappingEntry(node *yaml.Node, key string) (*yaml.Node, *yaml.Node) {
+// mappingValue returns the value node for a key in a mapping.
+func mappingValue(node *yaml.Node, key string) *yaml.Node {
 	if node == nil || node.Kind != yaml.MappingNode {
-		return nil, nil
+		return nil
 	}
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		if node.Content[i].Kind == yaml.ScalarNode && node.Content[i].Value == key {
-			return node.Content[i], node.Content[i+1]
+			return node.Content[i+1]
 		}
 	}
-	return nil, nil
-}
-
-// mappingValue returns the value node for a key in a mapping.
-func mappingValue(node *yaml.Node, key string) *yaml.Node {
-	_, value := mappingEntry(node, key)
-	return value
+	return nil
 }
 
 // scalarValue returns a mapping's scalar value for a key, or "".
