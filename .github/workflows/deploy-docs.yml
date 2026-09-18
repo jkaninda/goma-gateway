@@ -2,11 +2,11 @@ name: Deploy Documentation site to GitHub Pages
 
 on:
   # Publish whenever the documentation changes on the default branch.
-  push:
-    branches: [main]
-    paths:
-      - 'docs/**'
-      - '.github/workflows/deploy-docs.yml'
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'docs/**'
+  #     - '.github/workflows/deploy-docs.yml'
   # Keep the manual trigger so a site rebuild can be forced from any branch.
   workflow_dispatch:
     inputs:
