@@ -1,0 +1,51 @@
+/**
+ * Goma Gateway documentation theme.
+ *
+ * The palette is derived from the project logo's blue so the docs read as part
+ * of the project rather than as a stock Docusaurus site.
+ */
+
+:root {
+  --ifm-color-primary: #1c6fd0;
+  --ifm-color-primary-dark: #1964bb;
+  --ifm-color-primary-darker: #185eb1;
+  --ifm-color-primary-darkest: #144d92;
+  --ifm-color-primary-light: #2f7cd8;
+  --ifm-color-primary-lighter: #3b83da;
+  --ifm-color-primary-lightest: #5c99e1;
+
+  --ifm-code-font-size: 92%;
+  --ifm-font-size-base: 16px;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #6ea8f0;
+  --ifm-color-primary-dark: #4d94ec;
+  --ifm-color-primary-darker: #3d8aea;
+  --ifm-color-primary-darkest: #1670dc;
+  --ifm-color-primary-light: #8fbcf4;
+  --ifm-color-primary-lighter: #9fc6f6;
+  --ifm-color-primary-lightest: #d0e2fb;
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+}
+
+/* The logo is a square mark; keep it from crowding the wordmark. */
+.navbar__logo {
+  height: 26px;
+  margin-right: 0.35rem;
+}
+
+/* Config samples are the bulk of these docs and often run long. */
+.markdown pre code {
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+/* Wide YAML/CLI tables should scroll rather than squash the page. */
+.markdown table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}

@@ -31,8 +31,12 @@ var SigningKeygenCmd = &cobra.Command{
 	Short: "Generate an Ed25519 keypair for signing provider configuration bundles",
 	Long: "Generate an Ed25519 keypair for signing provider configuration bundles.\n\n" +
 		"Put the public key in the gateway's providers.signing.publicKey, and keep the\n" +
-		"private key wherever bundles are published from. Once a public key is\n" +
-		"configured, the gateway refuses any HTTP or Git bundle that is not signed by it.",
+		"private key wherever bundles are published from.\n\n" +
+		"Verification is opt-in. With no public key configured the gateway applies HTTP\n" +
+		"and Git bundles whether or not they are signed, logging a warning each time.\n" +
+		"Once a key is configured it refuses any HTTP or Git bundle that is not signed\n" +
+		"by it. Bundles from the file provider are never checked: a local directory is\n" +
+		"trusted at the same level as the main config file.",
 	Run: func(cmd *cobra.Command, _ []string) {
 		publicKey, privateKey, err := internal.GenerateBundleSigningKey()
 		if err != nil {

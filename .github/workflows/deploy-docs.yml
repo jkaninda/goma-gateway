@@ -1,6 +1,13 @@
 name: Deploy Documentation site to GitHub Pages
 
 on:
+  # Publish whenever the documentation changes on the default branch.
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/deploy-docs.yml'
+  # Keep the manual trigger so a site rebuild can be forced from any branch.
   workflow_dispatch:
     inputs:
       branch:
@@ -14,42 +21,47 @@ permissions:
   pages: write
   id-token: write
 
+# Serialize deploys; never cancel a publish that is already running.
 concurrency:
   group: 'pages'
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout specified branch
+      - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ github.event.inputs.branch }}
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          # showLastUpdateTime reads git history, so the full log is required.
+          fetch-depth: 0
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1.321.0
+      - name: Setup Node
+        uses: actions/setup-node@v5.0.0
         with:
-          ruby-version: '3.2'
-          bundler-cache: true
-          working-directory: docs
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
 
-      - name: Setup GitHub Pages
-        id: pages
-        uses: actions/configure-pages@v6.0.0
-
-      - name: Build with Jekyll
+      - name: Install dependencies
         working-directory: docs
-        run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
-        env:
-          JEKYLL_ENV: production
+        run: npm ci
 
-      - name: Upload site artifact
+      # `docusaurus build` fails on broken links, so this step also gates the
+      # docs. Output goes to docs/build (baseUrl is "/").
+      - name: Build
+        working-directory: docs
+        run: npm run build
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5.0.0
         with:
-          path: 'docs/_site/'
+          path: 'docs/build'
 
   deploy:
+    name: Deploy
     needs: build
     runs-on: ubuntu-latest
     environment:
