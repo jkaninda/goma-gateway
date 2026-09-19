@@ -360,6 +360,47 @@ services:
 
 ---
 
+## Miabi (PaaS Control Plane)
+
+[**Miabi**](https://github.com/miabi-io/miabi) is a self-hosted, developer-first
+Platform-as-a-Service for containerized apps. It runs **Goma Gateway as its edge
+gateway**, and is a good worked example of the control-plane / data-plane split
+above in production.
+
+On a Miabi node, application and database ports are not published on the host
+unless a host port binding is explicitly approved, so the gateway is the only
+listening surface by default. Every app deployed on the platform is reached
+through it, and Goma handles:
+
+* **Routing** — per-app routes and service discovery, including load balancing
+  and canary traffic splitting
+* **TLS** — certificate issuance over ACME `HTTP-01`, wildcard certificates, and
+  DNS provider integrations
+* **Middleware** — authentication, rate limiting, access control and the rest of
+  the middleware chain
+* **Security** — a single hardened entry point in front of every workload
+
+### How Miabi drives the gateway
+
+Miabi does not call a gateway API. Its control plane **writes route files into a
+directory the gateway watches**, and Goma picks them up and hot-reloads — the
+**File Provider** pattern described above. That keeps the integration free of
+API tokens and avoids polling entirely.
+
+For clusters other than the one the control plane runs on, the model flips:
+each remote cluster runs its **own** Goma instance that **pulls the routes it
+serves over HTTP** from the control plane — the **HTTP Provider** pattern. The
+gateways stay decoupled, and a remote cluster keeps serving the routes it
+already has if the control plane is unreachable.
+
+The same two providers are available to any platform built on Goma; nothing in
+this arrangement is specific to Miabi.
+
+👉 [Miabi](https://github.com/miabi-io/miabi) ·
+[Miabi architecture](https://docs.miabi.io/docs/architecture/overview)
+
+---
+
 ## External Providers
 
 ### Docker / Swarm
@@ -397,5 +438,9 @@ For advanced setups, combine:
 * **Git Provider** → GitOps
 * **HTTP Provider** → centralized control
 * **Goma Admin** → full control plane experience
+
+For a production example of these pieces working together, see how
+[Miabi](#miabi-paas-control-plane) drives the gateway with the File provider
+locally and the HTTP provider across clusters.
 
 ```

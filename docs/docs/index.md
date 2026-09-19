@@ -175,6 +175,43 @@ More than just a reverse proxy, it streamlines service infrastructure management
 Architecture:
 <img src="/img/goma-gateway.png" width="912" alt="Goma Gateway architecture" />
 
+---
+
+## Ecosystem
+
+Goma Gateway is the **data plane**: fast, lightweight, and deliberately free of
+heavy integrations. Management, service discovery and orchestration live in
+separate projects around it.
+
+| Project | Role |
+|---|---|
+| [Goma Admin](https://github.com/jkaninda/goma-admin) | Control plane — UI, multi-instance management, audit logs, Git sync |
+| [Kubernetes Operator](https://github.com/jkaninda/goma-operator) | Manage gateways, routes and middleware as Kubernetes CRDs |
+| [HTTP Provider](https://github.com/jkaninda/goma-http-provider) | Serve configuration to the gateway over a REST API |
+| [Docker Provider](https://github.com/jkaninda/goma-docker-provider) | Generate configuration from container labels |
+| [Kubernetes Provider](https://github.com/jkaninda/goma-k8s-provider) | Generate configuration from Kubernetes resources |
+
+### Built on Goma Gateway
+
+[**Miabi**](https://github.com/miabi-io/miabi) is a self-hosted,
+developer-first Platform-as-a-Service for containerized apps — push from a Git
+repo, a Docker image or a marketplace template, and it handles build, deploy,
+domains, automatic SSL, databases, scaling, backups and monitoring.
+
+Miabi runs **Goma Gateway as its edge gateway**. Every app deployed on the
+platform is exposed through it, and the gateway is the only public listening
+surface on the node: it terminates TLS, issues certificates, applies middleware
+and routes traffic to the application containers. Miabi's control plane drives
+it by writing route files into a watched directory, and remote clusters run
+their own gateway that pulls its routes over HTTP.
+
+It is a useful reference for anyone building a platform on top of Goma — see
+[Providers](./usermanual/providers.md#miabi-paas-control-plane) for how the
+integration works, and the
+[Miabi architecture overview](https://docs.miabi.io/docs/architecture/overview).
+
+---
+
 We are open to receiving stars, PRs, and issues!
 
 
