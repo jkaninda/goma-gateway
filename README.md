@@ -579,7 +579,7 @@ You can import it using dashboard ID: [23799](https://grafana.com/grafana/dashbo
 
 #### Dashboard Preview
 
-![Goma Gateway Grafana Dashboard](https://raw.githubusercontent.com/jkaninda/goma-gateway/main/docs/images/goma_gateway_observability_dashboard-23799.png)
+![Goma Gateway Grafana Dashboard](https://raw.githubusercontent.com/jkaninda/goma-gateway/main/docs/static/img/goma_gateway_observability_dashboard-23799.png)
 
 
 ### 12. Production Deployment Guide
