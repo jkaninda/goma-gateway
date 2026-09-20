@@ -36,7 +36,7 @@ jobs:
       -
         name: Build and push
         id: build
-        uses: docker/build-push-action@v7.3.0
+        uses: docker/build-push-action@v7.4.0
         with:
           push: true
           # SLSA provenance and an SBOM, attached to the image as attestations.
