@@ -62,7 +62,7 @@ middlewares:
         X-API-Surface: "public"
 ```
 
-Path patterns support exact match, `/*` wildcard, and regex such as `/api/.*` (same syntax as other middlewares).
+Path patterns are regular expressions such as `/api/.*`, matched from the start of the path. See [Path patterns](overview.md#path-patterns).
 
 ---
 
@@ -111,13 +111,16 @@ Empty values in `setHeaders` delete a header. Useful when the same rule both rem
 
 ```yaml
 middlewares:
-  - name: rotate-trace
+  - name: rotate-source
     type: requestHeaders
     rule:
       setHeaders:
-        X-Legacy-Trace: ""             # delete client value
-        X-Trace-ID: "${REQUEST_ID}"    # add fresh value
+        X-Legacy-Source: ""            # delete client value
+        X-Request-Source: "gateway"    # add fixed value
 ```
+
+Values are static strings. `${VAR}` references are resolved from the gateway's
+environment once, when the configuration is loaded, not per request.
 
 ### Path-Scoped Rules
 
@@ -151,11 +154,9 @@ Header names are case-insensitive on the wire. Goma uses Go's `http.Header` sema
 
 ### Interaction With Other Middlewares
 
-| Middleware         | Order Relative to `requestHeaders`                                              |
-|--------------------|---------------------------------------------------------------------------------|
-| `bodyLimit`        | Runs first; oversized requests are rejected before headers are mutated.         |
-| `forwardAuth`      | Sees the request **after** `requestHeaders` is applied.                         |
-| `rewriteRegex`     | Path rewrite runs after `requestHeaders`.                                       |
-| `responseHeaders`  | Independent; operates on the response, not the request.                         |
+Request middlewares run in the order they are listed on the route. A middleware
+listed after `requestHeaders` (for example `forwardAuth` or `jwtAuth`) sees the
+modified headers; one listed before it sees the client's original headers.
+`responseHeaders` is independent: it operates on the response, not the request.
 
 When multiple `requestHeaders` rules are attached to the same route, they apply in the order listed.

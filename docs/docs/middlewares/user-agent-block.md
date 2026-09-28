@@ -41,10 +41,11 @@ middlewares:
 
 ### User-Agent Matching
 
-The middleware supports:
-- **Exact matching**: Full User-Agent string comparison
-- **Substring matching**: Partial string matching within the User-Agent
-- **Case-insensitive matching**: Automatically handles case variations
+- A request is blocked when its `User-Agent` header **contains** any listed value
+  (substring match). Patterns are not regular expressions.
+- Matching is **case-sensitive**: `Googlebot` does not match `googlebot`.
+- Blocked requests receive `403 Forbidden`.
+- The middleware applies to every path of the route; `paths` is ignored.
 
 ## Configuration Examples
 

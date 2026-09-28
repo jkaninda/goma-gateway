@@ -19,7 +19,6 @@ refusing it outright would fail an otherwise valid call.
 middlewares:
   - name: strip-debug-params
     type: stripQuery
-    paths: ["/.*"]
     rule:
       params: ["debug", "trace"]
 ```
@@ -34,6 +33,9 @@ A request for `/api/orders?id=42&debug=true` is forwarded as
 | `params`      | `[]string` | **Yes**  | Query parameter names to remove.                                                  |
 | `methods`     | `[]string` | No       | Restrict the rule to these HTTP methods (case-insensitive). Empty applies to all. |
 | `pathPattern` | `string`   | No       | Restrict the rule to request paths matching this regular expression.              |
+
+The middleware-level `paths` field is ignored by `stripQuery`; use `pathPattern`
+to limit it to some paths.
 
 ### `params`
 
@@ -90,17 +92,17 @@ backend, while leaving every other parameter untouched:
 middlewares:
   - name: strip-internal-flags
     type: stripQuery
-    paths: ["/.*"]
     rule:
       params: ["x-internal-trace", "x-debug-user"]
       pathPattern: "^/public/.*"
 
-routes:
-  - name: public-api
-    path: /public
-    target: http://api:8080
-    middlewares:
-      - strip-internal-flags
+gateway:
+  routes:
+    - name: public-api
+      path: /public
+      target: http://api:8080
+      middlewares:
+        - strip-internal-flags
 ```
 
 ## Behavior notes

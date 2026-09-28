@@ -16,7 +16,7 @@ version: 2
 gateway:
   routes: []
   log:
-    level: info             # Log level: debug, trace, info, warn, error, off (default: error)
+    level: info             # Log level: trace, debug, info, warn, error, off (default: error)
     filePath: ''            # Log file path (e.g., /etc/goma/goma.log); leave empty for stdout
     format: text            # Log format: text or json
 ```
@@ -27,16 +27,20 @@ gateway:
 
 The `level` field controls the verbosity of logs.
 
-| Level   | Description                                                           |
-|---------|-----------------------------------------------------------------------|
-| `trace` | Logs all debug information, including header tracing for forwardAuth. |
-| `debug` | Detailed debugging information.                                       |
-| `info`  | Standard operational logs (default).                                  |
-| `warn`  | Indicates potentially harmful situations.                             |
-| `error` | Logs only errors.                                                     |
-| `off`   | Disables all logging.                                                 |
+| Level   | Description                                                                 |
+|---------|-----------------------------------------------------------------------------|
+| `trace` | Same as `debug`.                                                            |
+| `debug` | Detailed debugging information, plus extra fields on request logs (below). |
+| `info`  | Standard operational logs, including every proxied request.                 |
+| `warn`  | Warnings, and requests that ended with a `4xx` or `5xx` status.             |
+| `error` | Errors only, including requests that ended with a `5xx` status (default).   |
+| `off`   | Disables all logging.                                                       |
 
-> 💡 **Note**: Use `trace` level to inspect all headers forwarded in `forwardAuth` requests—this is useful for debugging header propagation from reverse proxies.
+Each proxied request is logged as `Proxied request` at `INFO` for `1xx`–`3xx` responses, `WARN` for `4xx`, and `ERROR` for `5xx`. Because the default level is `error`, set `level: info` to get a full access log.
+
+:::note
+At `debug` or `trace`, request logs also include `request_content_length`, `response_body_size`, the query parameters, and the request and response headers. `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, and `X-Auth-Token` values are redacted.
+:::
 
 ---
 
@@ -44,10 +48,12 @@ The `level` field controls the verbosity of logs.
 
 Specify the log output format with `format`.
 
+The default is `text`. Set `json` for structured logs.
+
 ### Text Format Example
 
 ```shell
-2025/07/15 17:58:04 INFO Proxied request request_id=82ebf0b80a3c46239f4f9e906ad06377 method=GET url=/path/10 http_version=HTTP/2.0 host=example.com client_ip=192.168.97.1 referer="" status=200 duration=34.10ms request_content_length=0 route=goma-example user_agent=insomnia/8.2.0
+2025/07/15 17:58:04 INFO Proxied request request_id=82ebf0b80a3c46239f4f9e906ad06377 method=GET url=/path/10 http_version=HTTP/2.0 host=example.com client_ip=192.168.97.1 referer="" status=200 duration=34.10ms route=goma-example user_agent=insomnia/8.2.0
 ```
 
 ### JSON Format Example
@@ -66,13 +72,12 @@ Specify the log output format with `format`.
   "referer": "",
   "status": 200,
   "duration": "6.99ms",
-  "request_content_length": "0",
   "route": "goma-example",
   "user_agent": "insomnia/8.2.0"
 }
 ```
 
-> If you want to add a custom field to the log output, consider using middleware like `accessLog` to include additional context.
+To add custom fields (headers, query parameters, cookies) to request logs, use the [`accessLog`](../middlewares/access-log.md) middleware.
 
 ---
 
@@ -80,18 +85,18 @@ Specify the log output format with `format`.
 
 ### Using Environment Variables
 
-Add the following to your `.env` file:
-
 ```shell
-GOMA_LOG_LEVEL=trace
+GOMA_LOG_LEVEL=debug
 ```
+
+`GOMA_LOG_LEVEL` takes precedence over `log.level`. `GOMA_LOG_FORMAT` and `GOMA_LOG_FILE` are used only when `log.format` and `log.filePath` are not set in the configuration file.
 
 ### Using Configuration File
 
 ```yaml
 gateway:
   log:
-    level: trace         # Enable full tracing
+    level: debug         # Verbose logging
     format: json         # Use structured logs
 ```
 
@@ -113,7 +118,7 @@ gateway:
 
 ## File Rotation Support
 
-You can enable automatic log file rotation using the following optional fields:
+When `filePath` is set, you can enable automatic log file rotation using the following optional fields:
 
 ```yaml
 gateway:

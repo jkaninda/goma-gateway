@@ -7,22 +7,24 @@ sidebar_position: 6
 
 ## Route Health Checks
 
-Goma Gateway supports built-in health check mechanisms to monitor the availability and responsiveness of backend services. Health checks can be configured per route and are also exposed through dedicated endpoints for monitoring.
+Goma Gateway can probe backend services in the background and stop sending traffic to backends that fail. Health checks are configured per route, and their results can also be queried through dedicated monitoring endpoints.
 
 ---
 
 ### Enabling Route Health Checks
 
-Each route can define its own health check configuration to determine whether a backend is healthy based on HTTP status codes.
+Each route can define its own health check. The gateway sends a `GET` request to the check path on each backend and decides from the HTTP status code whether the backend is healthy.
 
 ```yaml
 version: 2
 gateway:
   routes:
-    - name: example route
+    - name: example-route
       path: /cart
       rewrite: /
-      methods: []
+      backends:
+        - endpoint: http://cart-1:8080
+        - endpoint: http://cart-2:8080
       healthCheck:
         path: "/health/live"
         interval: 30s          # Interval between checks
@@ -30,24 +32,38 @@ gateway:
         healthyStatuses: [200, 404]  # HTTP status codes considered healthy
 ```
 
->  Use this to automatically detect and skip unhealthy backends when routing traffic.
+| Key               | Type     | Default | Description                                                                                          |
+|-------------------|----------|---------|------------------------------------------------------------------------------------------------------|
+| `path`            | `string` | —       | Path appended to each backend endpoint (or to `target`). Health checks run only when it is set.     |
+| `interval`        | `string` | `30s`   | Time between checks, as a Go duration (`10s`, `1m`).                                                 |
+| `timeout`         | `string` | none    | Timeout for each check request. Set it: without one, a hanging backend is never marked unhealthy.   |
+| `healthyStatuses` | `[]int`  | `[]`    | Status codes that count as healthy. When empty, any status below `400` is healthy.                   |
+
+How the result is used:
+
+* On a route with several `backends`, a backend that fails one check is removed from load balancing and put back as soon as a check succeeds. See [Load Balancing](../monitoring-and-performance/load-balancing.md).
+* On a route with a single backend or only a `target`, failures are logged but requests are still forwarded.
+* The first check runs one `interval` after the gateway starts or reloads its configuration.
+* Checks reuse the route's `security.tls` settings (`insecureSkipVerify`, and the [backend mTLS](mtls.md#backend-configuration) certificates).
 
 ---
 
 ## Gateway Health Endpoints
 
-Goma Gateway exposes health check endpoints for overall system status as well as detailed per-route health.
+Goma Gateway exposes health endpoints for the gateway process itself and, optionally, for each route.
 
 ### Available Endpoints
 
-* **Gateway Health:**
+* **Gateway Health** (enabled by default):
 
-  * `GET /readyz` — Reports if the Gateway is ready to serve traffic.
-  * `GET /healthz` — General health status of the Gateway.
+  * `GET /readyz` — Readiness probe. Disable with `monitoring.enableReadiness: false`.
+  * `GET /healthz` — Liveness probe. Disable with `monitoring.enableLiveness: false`.
 
-* **Routes Health:**
+  Both return `200 OK` with the same body as long as the gateway is serving requests.
 
-  * `GET /healthz/routes` — Reports the health of all configured routes and their associated backends.
+* **Routes Health** (disabled by default):
+
+  * `GET /healthz/routes` — Runs every route's health check when called and reports the result. Enable it with `monitoring.enableRouteHealthCheck: true`, and restrict it with `monitoring.host` or `monitoring.middleware.routeHealthCheck`. See [Monitoring](gateway.md#monitoring).
 
 ---
 
@@ -56,12 +72,14 @@ Goma Gateway exposes health check endpoints for overall system status as well as
 ```json
 {
   "name": "Service Gateway",
-  "status": "healthy",
+  "status": "running",
   "error": ""
 }
 ```
 
 ### Example: `/healthz/routes` Response
+
+Routes with several backends report one entry per backend, named `<route> - [<index>]`.
 
 ```json
 {
@@ -73,24 +91,21 @@ Goma Gateway exposes health check endpoints for overall system status as well as
       "error": ""
     },
     {
-      "name": "notification-service",
+      "name": "store-service - [0]",
       "status": "healthy",
       "error": ""
     },
     {
-      "name": "store-service",
-      "status": "healthy",
-      "error": ""
-    },
-    {
-      "name": "account-service",
-      "status": "healthy",
-      "error": ""
+      "name": "store-service - [1]",
+      "status": "unhealthy",
+      "error": "Error: health check failed with status code 500"
     }
   ]
 }
 ```
 
-> 💡 If a route becomes unhealthy, its error field will contain diagnostic information.
+:::note
+`/healthz/routes` always answers `200 OK`, and the top-level `status` is always `healthy`. Alerting should look at each entry's `status` field rather than at the HTTP status code.
+:::
 
 ---

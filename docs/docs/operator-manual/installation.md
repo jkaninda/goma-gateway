@@ -55,8 +55,12 @@ routes.gateway.jkaninda.dev
 Replace `main` with a release tag for reproducible installs:
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-operator/v0.1.0/dist/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/jkaninda/goma-operator/v0.2.0/dist/install.yaml
 ```
+
+:::note
+The `gateway.jkaninda.dev/v1alpha1` API documented here starts with operator `v0.2.0`. Earlier releases ship a different API group and are not covered by this manual.
+:::
 
 ## Install via Kustomize / GitOps
 

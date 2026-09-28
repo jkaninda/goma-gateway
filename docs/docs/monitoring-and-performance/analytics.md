@@ -24,7 +24,9 @@ client.
   in-memory buffer drops the event rather than waiting. An approximate `MAXLEN`
   cap bounds the stream so a lagging consumer can't grow Redis unbounded.
 - Requires Redis to be configured (the transport). It reuses the same Redis the
-  gateway already uses for caching / distributed rate limiting.
+  gateway already uses for caching / distributed rate limiting (see
+  [Distributed Instances](./distributed-instances.md)). If analytics is enabled
+  without Redis, the gateway logs a warning and leaves analytics off.
 
 > ⚠️ **Same Redis, same database.** The consumer must read from the exact Redis
 > **and database index** Goma writes to. If nothing appears downstream, check that
@@ -36,8 +38,12 @@ client.
 The stream is designed to carry **no PII**:
 
 - The client **IP never leaves the gateway**. It is used only to (a) derive a
-  **daily-salted visitor hash** (`vid`) for counting unique visitors and (b) look
-  up a **country** via GeoIP — then it is dropped.
+  **daily-salted visitor hash** (`vid`, from the IP and `User-Agent`) for counting
+  unique visitors and (b) look up a **country** via GeoIP — then it is dropped.
+  The daily salt is stored in Redis, so every instance produces the same `vid`
+  for the same visitor on the same day.
+- Only the **host** of the `Referer` is emitted, since a referer path or query
+  can carry tokens.
 - No cookies are set or required.
 
 ### Enabling it
@@ -69,9 +75,11 @@ analytics is enabled.
 Or entirely from the environment, which is equivalent:
 
 ```bash
+GOMA_REDIS_ADDR=redis:6379           # required — Redis is the transport
+GOMA_REDIS_PASSWORD=secret           # if Redis requires authentication
+GOMA_REDIS_DB=0                      # must match the consumer's Redis DB
 GOMA_ANALYTICS_ENABLED=true          # off by default
 GOMA_ANALYTICS_STREAM=goma:analytics # Redis stream key
-GOMA_REDIS_DB=0                      # must match the consumer's Redis DB
 # Optional country enrichment (see GeoIP below):
 GOMA_GEOIP_DB=/etc/goma/country.mmdb
 ```
@@ -87,7 +95,7 @@ adding the `analytics:` block.
 |---|---|---|---|
 | `enabled` | `GOMA_ANALYTICS_ENABLED` | `false` | Emit the event stream. |
 | `stream` | `GOMA_ANALYTICS_STREAM` | `goma:analytics` | Redis stream key events are appended to. |
-| `sample` | `GOMA_ANALYTICS_SAMPLE` | `1` | Sampling rate `0..1`; e.g. `0.25` records ~25% of requests. `1` = every request. |
+| `sample` | `GOMA_ANALYTICS_SAMPLE` | `1` | Sampling rate `0..1`; e.g. `0.25` records ~25% of requests. Values `<= 0` or `>= 1` record every request. |
 | `maxLen` | `GOMA_ANALYTICS_MAXLEN` | `1000000` | Approximate stream length cap (`XADD MAXLEN ~`). |
 | `gatewayId` | `GOMA_GATEWAY_ID` | `""` | Identifier stamped on each event (`gw`); useful with multiple gateways. |
 
@@ -96,7 +104,8 @@ Alongside it, at `gateway` level:
 | `gateway` | Environment | Default | Description |
 |---|---|---|---|
 | `geoip.database` | `GOMA_GEOIP_DB` | *(well-known paths)* | Path to the GeoIP `.mmdb` for the `country` field. |
-| — | `GOMA_REDIS_DB` | `0` | Redis database index (must match the consumer). |
+| `redis.addr` | `GOMA_REDIS_ADDR` | — | Redis address (required for analytics). |
+| `redis.db` | `GOMA_REDIS_DB` | `0` | Redis database index (must match the consumer). |
 
 A malformed `GOMA_ANALYTICS_SAMPLE` or `GOMA_ANALYTICS_MAXLEN` is logged and
 ignored, falling back to the configured value — a typo must not silently drop
@@ -115,8 +124,8 @@ Each stream entry has a single field `e` whose value is the JSON below.
 | `method` | string | HTTP method. |
 | `status` | int | Response status code. |
 | `path` | string | Request path. |
-| `path_template` | string | Matched route path pattern. |
-| `req_bytes` | int | Request body bytes received. |
+| `path_template` | string | Matched route path pattern. Reserved; not populated by the current version. |
+| `req_bytes` | int | Request body bytes received (from `Content-Length`). |
 | `resp_bytes` | int | Response body bytes sent. |
 | `duration_ms` | int | Total request duration. |
 | `upstream_ms` | int | Upstream/backend duration (overhead = `duration_ms − upstream_ms`). |
@@ -127,9 +136,10 @@ Each stream entry has a single field `e` whose value is the JSON below.
 
 ### GeoIP (country enrichment)
 
-Save a country-level `.mmdb` database at **`/etc/goma/country.mmdb`** and Goma
-loads it at startup with no configuration; `geoip.database` (or `GOMA_GEOIP_DB`)
-overrides the path. MaxMind, DB-IP and IP2Location all publish a suitable
+Save a country-level `.mmdb` database at **`/etc/goma/country.mmdb`** (or
+`/etc/goma/GeoLite2-Country.mmdb`, MaxMind's own file name) and Goma loads it at
+startup with no configuration; `geoip.database` (or `GOMA_GEOIP_DB`, which takes
+precedence) overrides the path. MaxMind, DB-IP and IP2Location all publish a suitable
 database — any of them works, since all three expose a country ISO code.
 
 An explicitly configured path is used **exactly as given**: Goma will not quietly

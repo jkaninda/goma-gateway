@@ -14,12 +14,17 @@ The middleware intercepts incoming requests and forwards them to a designated au
 
 ### Authentication Flow
 
-1. **Request Interception**: The middleware captures incoming requests matching configured paths
-2. **Forward to Auth Service**: Sends the request details to the configured authentication service
+1. **Request Interception**: The middleware captures incoming requests matching configured paths (all paths of the route when `paths` is omitted)
+2. **Forward to Auth Service**: Sends a `GET` request to `authUrl` carrying the original request's details (see [Automatically Forwarded Headers](#automatically-forwarded-headers))
 3. **Decision Based on Response**:
-    - **200 OK**: Request is authenticated and forwarded to the backend
-    - **401/403**: Access denied, optionally redirects to sign-in page
-    - **Other codes**: Treated as authentication errors, access denied
+    - **200 OK**: Request is authenticated and forwarded to the backend. Any cookies set by the auth service are added to the client response
+    - **401**: Redirects to `authSignIn` with `302 Found` when it is set; otherwise responds `401`
+    - **403**: Responds `403`
+    - **Other codes**: Responds `401`
+    - **Auth service unreachable**: Responds `500`
+
+A `WWW-Authenticate` header returned by the auth service is relayed to the client
+on a denied request.
 
 ## Configuration
 
@@ -40,21 +45,22 @@ middlewares:
 | Parameter                     | Type    | Required | Default     | Description                                                                                                                                                     |
 |-------------------------------|---------|----------|-------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `authUrl`                     | string  | Yes      | -           | URL of the authentication service endpoint                                                                                                                      |
-| `authSignIn`                  | string  | No       | -           | Redirect URL for unauthenticated users (401 responses).<br/> If URL ends with a query parameter (e.g., ?rd=), the current request URL is automatically appended |
+| `authSignIn`                  | string  | No       | -           | Redirect URL for unauthenticated users (401 responses).<br/> If the URL contains a `?` (e.g. `?rd=`), the URL-encoded current request URL is appended to it |
 | `insecureSkipVerify`          | boolean | No       | `false`     | Skip SSL certificate verification for auth service                                                                                                              |
-| `forwardHostHeaders`          | boolean | No       | `false`     | Forward the original `Host` header to auth service                                                                                                              |
-| `authRequestHeaders`          | array   | No       | `[]`        | Request headers to include in auth requests                                                                                                                     |
-| `addAuthCookiesToResponse`    | array   | No       | all cookies | Auth cookies to include in response headers                                                                                                                     |
-| `authResponseHeaders`         | array   | No       | `[]`        | Map auth response headers to request headers                                                                                                                    |
-| `authResponseHeadersAsParams` | array   | No       | `[]`        | Map auth response headers to request parameters                                                                                                                 |
+| `forwardHostHeaders`          | boolean | No       | `false`     | Send the auth request with the original request's `Host` instead of the `authUrl` host                                                                          |
+| `authRequestHeaders`          | array   | No       | `[]`        | Additional request headers to copy to the auth request (`Authorization` and all cookies are always copied)                                                     |
+| `addAuthCookiesToResponse`    | array   | No       | -           | Currently has no effect: every cookie set by the auth service on a `200` response is added to the client response                                               |
+| `authResponseHeaders`         | array   | No       | `[]`        | Auth response headers to copy onto the upstream request                                                                                                         |
+| `authResponseHeadersAsParams` | array   | No       | `[]`        | Auth response headers to copy onto the upstream request as query parameters                                                                                     |
+
+`enableHostForwarding` and `skipInsecureVerify` were removed in v1.0; use
+`forwardHostHeaders` and `insecureSkipVerify`.
 
 ### Path Configuration
 
-The `paths` field supports flexible pattern matching:
-
-- **Exact paths**: `/admin`, `/api/users`
-- **Wildcard patterns**: `/admin/.*`, `/api/.*/users`
-- **Regex patterns**: `/api/v[0-9]+/.*`
+`paths` entries are regular expressions matched from the start of the path, for
+example `/admin`, `/admin/.*` or `/api/v[0-9]+/.*`. See
+[Path patterns](overview.md#path-patterns).
 
 ## Automatically Forwarded Headers
 
@@ -67,7 +73,9 @@ The middleware automatically includes these headers in authentication requests:
 - `X-Real-IP` - Real client IP address
 - `User-Agent` - Client user agent string
 - `X-Original-URL` - Complete original request URL
-- `X-Forwarded-URI` - Original request URI
+- `X-Forwarded-URI` - Complete original request URL (same value as `X-Original-URL`)
+- `Authorization` - When present on the original request
+- All cookies of the original request
 
 ## Advanced Configuration Examples
 
@@ -93,11 +101,6 @@ middlewares:
         - X-API-Key
         - X-Client-Version
       
-      # Control which auth cookies are returned
-      addAuthCookiesToResponse:
-        - session_id
-        - auth_token
-      
       # Map auth service headers to request headers
       authResponseHeaders:
         - "x-user-id: X-Auth-User-ID"        # Custom mapping
@@ -114,13 +117,8 @@ middlewares:
 ### Authentik Integration Example
 
 ```yaml
-version: "1.0"
+version: 2
 gateway:
-  timeouts:
-    write: 10
-    read: 15
-    idle: 30
-  
   routes:
     # Protected application route
     - path: /
@@ -136,28 +134,28 @@ gateway:
       backends:
         - endpoint: http://authentik-outpost:9000
       middlewares: []  # No auth middleware for outpost endpoints
-  
-  middlewares:
-    - name: authentik-forward-auth
-      type: forwardAuth
-      paths:
-        - /admin
-      rule:
-        authUrl: http://authentik:9000/outpost.goauthentik.io/auth/nginx
-        # Redirect URL - current URI automatically appended to 'rd=' parameter
-        authSignIn: http://authentik:9000/outpost.goauthentik.io/start?rd=
-        forwardHostHeaders: true
-        insecureSkipVerify: false
-        
-        # Include Authentik user information in requests
-        authResponseHeaders:
-          - X-authentik-username
-          - X-authentik-groups  
-          - X-authentik-email
-          - X-authentik-name
-          - X-authentik-uid
-          - X-authentik-jwt
+
+middlewares:
+  - name: authentik-forward-auth
+    type: forwardAuth
+    rule:
+      authUrl: http://authentik:9000/outpost.goauthentik.io/auth/nginx
+      # Public sign-in URL; the current URL is appended to 'rd='
+      authSignIn: https://app.example.com/outpost.goauthentik.io/start?rd=
+      forwardHostHeaders: true
+      insecureSkipVerify: false
+
+      # Include Authentik user information in requests
+      authResponseHeaders:
+        - X-authentik-username
+        - X-authentik-groups
+        - X-authentik-email
+        - X-authentik-name
+        - X-authentik-uid
+        - X-authentik-jwt
 ```
+
+`middlewares` is a top-level key, not a child of `gateway`.
 
 ### Development Environment Setup
 
@@ -213,10 +211,10 @@ authResponseHeadersAsParams:
 
 ### Response Codes
 Your authentication service should return:
-- **200 OK**: User is authenticated and authorized
+- **200 OK**: User is authenticated and authorized (other 2xx codes are treated as a denial)
 - **401 Unauthorized**: User is not authenticated (triggers redirect if `authSignIn` configured)
 - **403 Forbidden**: User is authenticated but not authorized for this resource
-- **Other codes**: Treated as errors, access denied
+- **Other codes**: Access denied with `401`
 
 ### Expected Headers
 The auth service receives forwarded headers and can use them for decision-making:
@@ -228,7 +226,7 @@ The auth service receives forwarded headers and can use them for decision-making
 The auth service can include headers in responses that will be:
 - Mapped to request headers via `authResponseHeaders`
 - Added as request parameters via `authResponseHeadersAsParams`
-- Set as cookies via `addAuthCookiesToResponse`
+- Set as cookies on the client response (every `Set-Cookie` of a `200` response)
 
 
 ## Security Considerations
@@ -239,6 +237,9 @@ The auth service can include headers in responses that will be:
 - Use proper SSL certificates to prevent man-in-the-middle attacks
 
 ### Header Security
+- Every header named in `authResponseHeaders` and every parameter named in
+  `authResponseHeadersAsParams` is removed from the incoming request on all
+  paths of the route, so a client cannot supply its own identity headers
 - Validate and sanitize headers in your authentication service
 - Be cautious about which headers you forward to backend services
 - Consider header injection risks when mapping auth response headers
@@ -258,7 +259,7 @@ The auth service can include headers in responses that will be:
 - Ensure auth service doesn't redirect authenticated requests
 
 **Headers not being forwarded**
-- Verify header names match exactly (case-sensitive)
+- Header names are case-insensitive; query parameter names are case-sensitive
 - Check that auth service is returning expected headers
 - Confirm header mapping syntax is correct
 

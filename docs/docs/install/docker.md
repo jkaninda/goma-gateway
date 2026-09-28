@@ -6,7 +6,7 @@ sidebar_position: 4
 
 # Docker Installation
 
-Run Goma Gateway easily with Docker. 
+Run Goma Gateway easily with Docker.
 
 For more details, visit the [Docker Hub repository](https://hub.docker.com/r/jkaninda/goma-gateway).
 
@@ -23,7 +23,13 @@ docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  jkaninda/goma-gateway config init --output /etc/goma/config.yml
 ```
-If no file is provided, a default configuration is created at /etc/goma/goma.yml.
+`--output` is required. The command refuses to overwrite an existing file unless
+you add `--force`, and it prints a randomly generated password for the example
+`basic-auth` user once.
+
+If the server starts without a configuration file, it reads `/etc/goma/goma.yml`
+(or the path in `GOMA_CONFIG_FILE`) and generates a default configuration there
+when that file does not exist.
 
 ## 2. Validate Configuration
 
@@ -32,10 +38,11 @@ Check your configuration file for errors:
 ```shell
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
- -p 8080:8080 \
  jkaninda/goma-gateway config check --config /etc/goma/config.yml
-
 ```
+
+The check also reports every configuration key that was removed in v1.0. See the
+[v1.0 upgrade notes](../upgrade/v1.0.md).
 
 ## 3. Start the Server with Custom Config
 
@@ -43,31 +50,42 @@ docker run --rm --name goma-gateway \
 docker run --rm --name goma-gateway \
  -v "${PWD}/config:/etc/goma/" \
  -p 8080:8080 \
+ -p 8443:8443 \
  jkaninda/goma-gateway server --config /etc/goma/config.yml
 ```
+
+The gateway listens on `8080` (HTTP, `web` entry point) and `8443` (HTTPS,
+`webSecure` entry point) unless `gateway.entryPoints` says otherwise.
+
 ## 4. Health Checks
 
 Goma Gateway provides the following health check endpoints:
-- Gateway Health:
+- Gateway Health (enabled by default):
   - `/readyz`
   - `/healthz`
-- Routes Health: `/healthz/routes`
+- Routes Health: `/healthz/routes` (only when `gateway.monitoring.enableRouteHealthCheck: true`)
+
+See [Health check](../usermanual/healthcheck.md) for details.
 
 ## 5. Simple Deployment with Docker Compose
 
 Here’s an example of deploying Goma Gateway using Docker Compose:
 
-```shell
+```yaml
 services:
   goma-gateway:
     image: jkaninda/goma-gateway
-    command: server
+    command: server --config /etc/goma/config.yml
     ports:
       - "8080:8080"
       - "8443:8443"
     volumes:
       - ./config:/etc/goma/
+      - ./letsencrypt:/etc/letsencrypt
 ```
+
+The `/etc/letsencrypt` volume keeps certificates issued by `certManager` across
+restarts; without it, every restart requests new certificates.
 
 ## 6. Running as a Non-Root User
 

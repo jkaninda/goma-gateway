@@ -39,3 +39,5 @@ This keeps the gateway small, fast, and easier to audit, which matters for the c
 * Internal microservices on Kubernetes or Docker that need consistent routing and access control
 * Legacy applications that need modern security (HTTPS, SSO, access policies) placed in front of them without code changes
 * Teams that manage infrastructure through GitOps and want gateway configuration in version control
+
+See [Use Cases](./use-cases.md) for worked configuration examples.

@@ -57,7 +57,6 @@ middlewares:
         allowMethods:
           - GET
           - POST
-          - OPTIONS
         allowCredentials: true
 ```
 
@@ -74,9 +73,17 @@ This configuration:
 | Parameter                    | Type    | Required | Description                                                    |
 |------------------------------|---------|----------|----------------------------------------------------------------|
 | `rule.cors.enabled`          | boolean | No       | Enables or disables CORS support (default: `false`)            |
-| `rule.cors.origins`          | array   | No       | Allowed origins (default: `*` if not specified)                |
-| `rule.cors.allowMethods`     | array   | No       | Allowed HTTP methods (default: `GET`, `POST`, `OPTIONS`)       |
+| `rule.cors.origins`          | array   | Yes, when enabled | Allowed origins, with scheme (`https://example.com`), or a single `*` |
+| `rule.cors.allowMethods`     | array   | No       | Allowed HTTP methods. Do not list `OPTIONS`, which is handled automatically. When empty, the preflight's requested method is echoed |
+| `rule.cors.allowedHeaders`   | array   | No       | Allowed request headers. When empty, the preflight's requested headers are echoed |
+| `rule.cors.exposeHeaders`    | array   | No       | Response headers exposed to the browser                        |
+| `rule.cors.maxAge`           | integer | No       | Preflight cache duration in seconds, at most `86400`. Not sent when unset |
 | `rule.cors.allowCredentials` | boolean | No       | Allows credentials in cross-origin requests (default: `false`) |
+
+CORS headers are only added when the request's `Origin` is allowed, and they
+override any CORS headers sent by the backend. An invalid CORS block (for
+example `OPTIONS` in `allowMethods`, an origin without a scheme, or `*` combined
+with other origins) is logged and the middleware is not applied.
 
 ---
 
@@ -108,21 +115,33 @@ middlewares:
         - name: SecureCookie
           value: "${COOKIE_NAME}" # Example of using environment variable
           attributes:
-            Secure: true
-            HttpOnly: true
-            SameSite: Strict
+            secure: true
+            httpOnly: true
+            sameSite: Strict
         - name: AnotherCookie
           value: "SomeValue"
           attributes:
-            Secure: true
-            HttpOnly: true
-            SameSite: Lax
+            path: /
+            maxAge: 3600       # 0 = session cookie, -1 = delete
+            secure: true
+            httpOnly: true
+            sameSite: Lax
 ```
+
+Cookie `attributes`: `path`, `domain`, `maxAge`, `secure`, `httpOnly`,
+`sameSite` (`Strict`, `Lax` or `None`). An empty `value` or `maxAge: -1` deletes
+the cookie.
 
 ### Behavior
 
-* A non-empty value **adds or overrides** the header
-* An empty string (`""`) **removes** the header from the response
+* A non-empty value **adds or overrides** the header. It is only applied to
+  `200 OK` responses; other statuses keep the backend's headers
+  (`Cache-Control` set through `setHeaders` is the exception and applies to every status)
+* An empty string (`""`) **removes** the header from the response, whatever the status
+* `Content-Length`, `Transfer-Encoding`, `Trailer`, `Connection` and `Upgrade` cannot be set
+* With `paths`, a policy applies only to matching request paths; the patterns are
+  matched against the full request path. When several policies match, shorter
+  (more general) paths are applied first, so the most specific one wins
 
 ---
 
@@ -205,7 +224,8 @@ routes:
 
 ### Route-Specific Metadata
 
-
+Header values can reference `{route.name}`, `{route.path}`, `{route.target}` and
+`{gateway.version}`. They are resolved when the configuration is loaded.
 
 ```yaml
 middlewares:

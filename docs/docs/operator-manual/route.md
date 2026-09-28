@@ -82,7 +82,9 @@ When `exclusive: true`, the backend only receives matched traffic. When `false` 
 
 ## Per-route TLS
 
-Serve a custom certificate for the route's hosts. Reference a `kubernetes.io/tls` Secret:
+`spec.tls` controls the certificate served for the route's hosts. It mirrors the gateway's route `tls` block: `secretName` supplies the certificate (rendered as `tls.certificate`), and `provider` selects automatic issuance (rendered as `tls.provider`).
+
+Serve a custom certificate from a `kubernetes.io/tls` Secret in the Route's namespace:
 
 ```yaml
 spec:
@@ -94,7 +96,19 @@ spec:
 
 When the K8s provider sidecar is enabled, the cert/key are written to disk and hot-reloaded — no pod restart.
 
-For ACME-managed certificates, configure `certManager` on the parent [Gateway](./gateway.md#tls) instead.
+For ACME-managed certificates, configure `certManager` on the parent [Gateway](./gateway.md#2-built-in-acme--lets-encrypt). With several named providers, pick one per route, or opt out with `none` (for example when TLS is terminated upstream):
+
+```yaml
+spec:
+  hosts:
+    - internal.example.com
+  tls:
+    provider: none
+```
+
+:::note
+`tls.provider` requires an operator release newer than `v0.2.0`.
+:::
 
 ## Backend TLS / mTLS
 
@@ -111,6 +125,12 @@ spec:
       clientCertSecret: backend-client  # kubernetes.io/tls secret for mTLS
 ```
 
+The gateway reads the CA bundle from the `ca.crt` key of `rootCAsSecret`, and the client pair from `tls.crt` / `tls.key` of `clientCertSecret`.
+
+:::warning[Known limitation]
+The current operator renders these paths under `/etc/goma/certs/<secret>/` but does not yet mount `rootCAsSecret` or `clientCertSecret` into the gateway pod.
+:::
+
 ## Maintenance mode
 
 Return a static response instead of proxying to the backend:
@@ -123,6 +143,10 @@ spec:
     body: |
       {"error":"maintenance","message":"Back at 14:00 UTC."}
 ```
+
+:::warning[Known limitation]
+The operator renders these as `status` and `body`, while Goma Gateway v1.0 reads `statusCode` and `message`. Until this is aligned, the gateway ignores both and answers with its default `503 Service temporarily unavailable`.
+:::
 
 ## Attaching middlewares
 
@@ -144,7 +168,7 @@ See the [Middleware documentation](./middleware.md) for the supported types and 
 | `gateways` | []string | **Required.** Names of `Gateway` CRs (same namespace) this route attaches to. |
 | `path` | string | **Required.** URL path matched by this route. |
 | `rewrite` | string | Path rewrite (e.g. `/api` → `/`). |
-| `target` | string | Single backend URL. Mutually exclusive with `backends`. |
+| `target` | string | Single backend URL (`http` or `https`). Set either `target` or `backends`, not both. |
 | `methods` | []string | Allowed HTTP methods (e.g. `GET`, `POST`). Empty = all. |
 | `enabled` | bool | Whether the route is active. Default: `true`. |
 | `priority` | int | Match order — higher matches first. |
@@ -154,8 +178,9 @@ See the [Middleware documentation](./middleware.md) for the supported types and 
 | `security` | object | Per-route security settings. |
 | `middlewares` | []string | Middleware CR names to apply. |
 | `disableMetrics` | bool | Suppress Prometheus per-route metrics for this route. |
-| `tls` | object | `secretName` of a `kubernetes.io/tls` Secret to serve for the route's hosts. |
-| `maintenance` | object | Maintenance mode (see above). |
+| `tls.secretName` | string | `kubernetes.io/tls` Secret served for the route's hosts. |
+| `tls.provider` | string | Certificate provider from the Gateway's `certManager.providers`, or `none` to opt out of automatic issuance. Empty uses `defaultProvider`. |
+| `maintenance` | object | Maintenance mode: `enabled`, `status` (default `503`), `body` (see above). |
 
 ### `spec.backends[]`
 
@@ -173,7 +198,7 @@ See the [Middleware documentation](./middleware.md) for the supported types and 
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
-| `path` | string | — | Health check path. |
+| `path` | string | — | **Required** when `healthCheck` is set. Health check path. |
 | `interval` | string | `30s` | Check interval. |
 | `timeout` | string | `5s` | Per-check timeout. |
 | `healthyStatuses` | []int | — | HTTP statuses considered healthy. |
@@ -185,7 +210,7 @@ See the [Middleware documentation](./middleware.md) for the supported types and 
 | `forwardHostHeaders` | bool | `true` | Forward `X-Forwarded-Host` and related headers. |
 | `enableExploitProtection` | bool | `false` | Block common SQLi / XSS patterns. |
 | `tls.insecureSkipVerify` | bool | `false` | Skip backend TLS verification (not recommended). |
-| `tls.rootCAsSecret` | string | — | Secret with CA bundle for backend TLS. |
+| `tls.rootCAsSecret` | string | — | Secret with the CA bundle (key `ca.crt`) for backend TLS. |
 | `tls.clientCertSecret` | string | — | `kubernetes.io/tls` Secret for backend mTLS. |
 
 ## Status

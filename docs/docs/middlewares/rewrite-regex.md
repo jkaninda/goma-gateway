@@ -5,16 +5,16 @@ sidebar_position: 9
 ---
 
 
-### RewriteRegex middleware
-The `rewriteRegex` middleware allows dynamic rewriting of URL paths using regular expressions. It is ideal for complex rewrite rules that cannot be handled by simple string-based rewrites.
-## How It Works:
-- **Interception**: The `rewriteRegex` middleware intercepts incoming requests and evaluates the URL path.
-- **Pattern Matching**: The middleware checks the path against a specified regular expression (`pattern`).
-- **Rewrite Action**: If the pattern matches, the middleware rewrites the path using the provided `replacement`.
+# RewriteRegex Middleware
 
-### Example: RegexRewrite Middleware Configuration
+The `rewriteRegex` middleware rewrites the URL path of requests using regular expressions before they are forwarded. Unlike a redirect, the client is not told: the backend simply receives the new path. It is ideal for rewrite rules that the route's `rewrite` property cannot express.
 
-Here’s an example of a `RegexRewrite` middleware configuration in YAML:
+## How It Works
+- **Pattern Matching**: The request path (without the query string) is matched against the Go regular expression `pattern`.
+- **Rewrite Action**: Every match is replaced with `replacement`. A path that does not match is left unchanged.
+- **Scope**: The rule applies to every request on the route; `paths` is ignored. An invalid `pattern` is logged and requests pass through unchanged.
+
+## Example
 
 ```yaml
 middlewares:
@@ -31,7 +31,7 @@ In this example:
 - The matched portion after `/oldpath/` is captured and referenced in the replacement as `$1`.
 - The resulting path is rewritten to `/newpath/{captured_segment}`.
 
-### Dynamic tokens
+## Dynamic tokens
 
 In addition to regex capture groups (`$1`, `$2`, …), the `replacement` may reference
 values from the incoming request using `{{goma.<source>.<name>}}` placeholders:
@@ -64,8 +64,8 @@ middlewares:
 For a request `POST /v2/acme/frontend/blobs?env=prod` with header
 `X-Workspace-Id: ws_1`, the path is rewritten to `/v2/ws_1/prod/frontend/blobs`.
 
-### When to Use RewriteRegex
-- 
+## When to Use RewriteRegex
+
 - When simple rewrites (like those handled by the `rewrite` property) are not enough.
 - When you need to handle dynamic path segments or complex patterns.
 

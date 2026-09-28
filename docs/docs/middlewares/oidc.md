@@ -29,8 +29,11 @@ middlewares:
 
 The issuer alone is enough: the authorization, token, user info and JWKS
 endpoints all come from the provider's discovery document, which is cached for
-an hour. Register `https://<your-host>/oauth2/callback` as the redirect URI with
-your provider, or set `callbackPath` to match what you have already registered.
+an hour. Register `https://<your-host><route path>/oauth2/callback` (for a route
+at `/`, `https://<your-host>/oauth2/callback`) as the redirect URI with your
+provider, or set `callbackPath` to match what you have already registered.
+`callbackPath` and `logoutPath` must be under the route's path, because the
+gateway registers them inside that route.
 
 ## What happens on a request
 
@@ -72,7 +75,7 @@ also how long a revoked opaque token keeps working.
 |-----------------------|---------|--------------------------------------------------------------------------------------------------|
 | `clientId`            | string  | The application's client ID. Required.                                                            |
 | `clientSecret`        | string  | The application's client secret. Required.                                                        |
-| `issuer`              | string  | Enables discovery, and is enforced as the `iss` claim on JWT tokens.                                |
+| `issuer`              | string  | Enables discovery, and is enforced as the `iss` claim on JWT tokens. Required unless `endpoint.authUrl` and `endpoint.tokenUrl` are set (or filled in by `provider`). |
 | `provider`            | string  | `google`, `gitlab`, `github`, `amazon`, `facebook` or `custom`. Fills in known endpoints.          |
 | `endpoint.authUrl`    | string  | Authorization endpoint. Overrides discovery.                                                       |
 | `endpoint.tokenUrl`   | string  | Token endpoint. Overrides discovery.                                                               |
@@ -115,12 +118,24 @@ cookie or a Redis dump does not hand over anyone's tokens. `secret` defaults to
 the client secret, which every replica serving the route already shares —
 changing it ends all existing sessions.
 
+| Option               | Type     | Default          | Description                                                        |
+|----------------------|----------|------------------|--------------------------------------------------------------------|
+| `store`              | string   | `cookie`         | `cookie`, `memory` or `redis`.                                     |
+| `secret`             | string   | `clientSecret`   | Key used to seal session data.                                     |
+| `ttl`                | duration | `12h`            | Maximum session lifetime, regardless of activity.                  |
+| `idleTimeout`        | duration | none             | Ends a session unused for this long.                               |
+| `cookie.name`        | string   | `goma_session`   | Session cookie name.                                               |
+| `cookie.path`        | string   | the route path   | Session cookie path.                                               |
+| `cookie.domain`      | string   | none             | Session cookie domain.                                             |
+| `cookie.sameSite`    | string   | `lax`            | `lax`, `strict` or `none`. `strict` breaks the provider's callback redirect. |
+| `cookie.secure`      | boolean  | request over TLS | Sets the cookie's `Secure` attribute.                              |
+
 Cookie sessions carry the tokens and the claims on every request. A user in many
 groups can outgrow what browsers accept; the gateway refuses to write a session
 it could not read back and tells you to move to `store: redis`.
 
-Without a `session` block the cookie is scoped to the route path, so two routes
-on the same host do not share a session.
+Unless `session.cookie.path` is set, the cookie is scoped to the route path, so
+two routes on the same host do not share a session.
 
 ### Forwarding user info to your backend
 
@@ -238,18 +253,23 @@ user info endpoint, which is also where these claims come from.
 
 ```yaml
   routes:
-    - path: /protected
+    - path: /
       name: sso-route
-      rewrite: /
       backends:
         - endpoint: https://example.com
       middlewares:
         - sso
 ```
 
+The examples above set `callbackPath: /oauth2/callback`, which is only reachable
+on a route at `/`. On a route at `/protected`, leave `callbackPath` unset (it
+defaults to `/protected/oauth2/callback`) or set it under `/protected`.
+
 ## Migrating from `type: oauth`
 
-Existing configurations keep working; the gateway logs which field to move to.
+These keys were removed in v1.0. A configuration that still uses one of them,
+or `type: oauth` / `type: oauth2`, does not start: the gateway reports each
+removed key, where it is, and what to use instead.
 
 | Old field      | Replacement                                                     |
 |----------------|-------------------------------------------------------------------|

@@ -12,34 +12,38 @@ A **Middleware** is a reusable request/response processor — authentication, ra
 - **Version:** `v1alpha1`
 - **Kind:** `Middleware`
 
-The `spec.rule` field is a free-form object whose shape depends on `spec.type`. The sections below document each supported type.
+The `spec.rule` field is a free-form object whose shape depends on `spec.type`. The sections below show common examples.
 
 ## Supported types
 
+`spec.type` is validated against the list below. The `rule` for each type is the same as in the gateway's own configuration, documented on the linked pages.
+
 | Type | Purpose |
 | --- | --- |
-| `basicAuth` | HTTP basic authentication. |
-| `jwtAuth` | JWT validation against a JWKS endpoint. |
-| `oauth` | OAuth 2.0 authentication flow. |
-| `forwardAuth` | Delegate authn/authz to an external HTTP service. |
-| `ldapAuth` | LDAP authentication. |
-| `rateLimit` | Per-IP / per-route rate limiting. |
-| `access` | Allow / deny rules by IP, header, etc. |
-| `accessPolicy` | Fine-grained access policies. |
-| `addPrefix` | Prepend a prefix to the request path. |
-| `redirectRegex` | Regex-based redirect. |
-| `rewriteRegex` | Regex-based path rewrite. |
-| `redirectScheme` | Force HTTP → HTTPS redirects. |
-| `httpCache` | HTTP response cache. |
-| `bodyLimit` | Limit request body size. |
-| `responseHeaders` | Add / remove response headers. |
-| `errorInterceptor` | Map upstream error codes to custom responses. |
-| `userAgentBlock` | Block requests by User-Agent pattern. |
-| `geoBlock` | Allow / deny requests by country (GeoIP). |
+| [`basic`](../middlewares/basic.md) | HTTP basic authentication. |
+| [`jwt`](../middlewares/jwt.md) | JWT validation (shared secret, public key, or JWKS). |
+| [`ldap`](../middlewares/ldap.md) | LDAP authentication. |
+| [`forwardAuth`](../middlewares/forward-auth.md) | Delegate authn/authz to an external HTTP service. |
+| [`rateLimit`](../middlewares/rate-limit.md) | Request rate limiting. |
+| [`access`](../middlewares/access.md) | Block access to specific paths. |
+| [`accessPolicy`](../middlewares/access-policy.md) | Allow / deny requests by client IP or CIDR. |
+| [`addPrefix`](../middlewares/add-prefix.md) | Prepend a prefix to the request path. |
+| [`redirectRegex`](../middlewares/redirect-regex.md) | Regex-based redirect. |
+| [`rewriteRegex`](../middlewares/rewrite-regex.md) | Regex-based path rewrite. |
+| [`redirectScheme`](../middlewares/redirect-scheme.md) | Force HTTP → HTTPS redirects. |
+| [`httpCache`](../middlewares/http-caching.md) | HTTP response cache. |
+| [`bodyLimit`](../middlewares/body-limit.md) | Limit request body size. |
+| [`responseHeaders`](../middlewares/response-headers.md) | Set response headers and CORS. |
+| [`errorInterceptor`](../middlewares/error-interceptor.md) | Map upstream error codes to custom responses. |
+| [`userAgentBlock`](../middlewares/user-agent-block.md) | Block requests by User-Agent pattern. |
+
+:::warning
+The `Middleware` CRD does not yet accept `oidc`, `geoBlock`, `requestHeaders`, `accessLog`, `redirect`, or `stripQuery`, nor the `basicAuth` / `jwtAuth` / `ldapAuth` spellings. It still lists `oauth`, which [was removed in Goma Gateway v1.0](../middlewares/oauth.md): a gateway given an `oauth` middleware refuses to start.
+:::
 
 ## Basic auth
 
-Passwords must be bcrypt-hashed. Generate with:
+Store hashed passwords (bcrypt recommended; see [Basic auth](../middlewares/basic.md) for the other accepted formats). Generate a bcrypt entry with:
 
 ```sh
 htpasswd -nbB admin 's3cret'
@@ -51,7 +55,7 @@ kind: Middleware
 metadata:
   name: admin-basic-auth
 spec:
-  type: basicAuth
+  type: basic
   paths:
     - /admin
   rule:
@@ -62,7 +66,7 @@ spec:
 
 ## Rate limiting
 
-Per-IP rate limiter. When the parent Gateway is configured with a Redis backend, counters are shared across replicas.
+Rate limiter, keyed by client IP by default. When the parent Gateway is configured with a Redis backend, counters are shared across replicas.
 
 ```yaml
 apiVersion: gateway.jkaninda.dev/v1alpha1
@@ -87,7 +91,7 @@ kind: Middleware
 metadata:
   name: api-jwt
 spec:
-  type: jwtAuth
+  type: jwt
   rule:
     jwksUrl: https://auth.example.com/.well-known/jwks.json
     issuer: https://auth.example.com/
@@ -100,11 +104,11 @@ spec:
         X-User-Email: email
 ```
 
-Optional `claimsExpression` lets you assert claim values:
+Optional `claimsExpression` lets you assert claim values (see [Claims validation](../middlewares/jwt.md#claims-validation)):
 
 ```yaml
 spec:
-  type: jwtAuth
+  type: jwt
   rule:
     jwksUrl: https://auth.example.com/.well-known/jwks.json
     issuer: https://auth.example.com/
@@ -121,7 +125,7 @@ spec:
 
 ## Forward auth
 
-Delegate authentication and authorization to an external HTTP endpoint. The gateway sends a subrequest to `authUrl` — a 2xx response allows the request through, anything else is returned to the client.
+Delegate authentication and authorization to an external HTTP endpoint. The gateway sends a subrequest to `authUrl` — a 2xx response allows the request through; otherwise the request is denied. When the auth service answers `401` and `authSignIn` is set, the client is redirected there instead.
 
 ```yaml
 apiVersion: gateway.jkaninda.dev/v1alpha1
@@ -133,7 +137,7 @@ spec:
   rule:
     authUrl: http://auth.default.svc.cluster.local:8080/verify
     authSignIn: https://app.example.com/login
-    trustForwardHeader: true
+    forwardHostHeaders: true
     authResponseHeaders:
       - X-User-Id
       - X-User-Roles
@@ -164,14 +168,13 @@ The order matters — middlewares run in the order they appear in `spec.middlewa
 
 ## Path scoping
 
-`spec.paths` constrains the middleware to a subset of paths within the route it's attached to. Use it for fine-grained protection:
+`spec.paths` constrains the middleware to a subset of paths within the route it's attached to. Entries are case-insensitive regular expressions anchored to the start of the path (but not the end), tried both as written and relative to the route's `path`; see [Path patterns](../middlewares/overview.md#path-patterns). For `basic`, `jwt`, `forwardAuth` and `access`, an empty `paths` list covers the whole route.
 
 ```yaml
 spec:
   type: basic
   paths:
-    - /admin       # exact
-    - /admin/.*     # subpaths
+    - ^/admin(/.*)?$   # /admin and everything under it
   rule:
     realm: admin
     users:
@@ -197,7 +200,7 @@ kubectl get middlewares
 ```
 NAME              TYPE        READY   AGE
 admin-basic-auth  basic       true    3m
-api-jwt           jwtAuth     true    3m
+api-jwt           jwt         true    3m
 api-rate-limit    rateLimit   true    3m
 ```
 

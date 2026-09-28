@@ -5,34 +5,35 @@ sidebar_position: 8
 ---
 
 
-### AddPrefix middleware
+# AddPrefix Middleware
 
-The `AddPrefix` middleware appends a specified prefix to the URL path of incoming requests. This is useful for routing requests to services that require a specific prefix in their paths
-## How It Works:
+The `addPrefix` middleware adds a prefix to the beginning of the URL path of incoming requests. This is useful for routing requests to services that require a specific prefix in their paths.
+
+## How It Works
 - **Request Interception**: The AddPrefix middleware intercepts incoming requests.
 - **Prefix Addition**: It adds the configured prefix to the beginning of the URL path.
 - **Forwarding**: The modified request is forwarded to the appropriate service or backend.
-### Configuration Properties:
-- **`prefix`** (`string`): The prefix to be added to the URL path. Ensure the prefix starts with a / to maintain proper URL formatting.
+## Configuration Properties
+- **`prefix`** (`string`): The prefix to be added to the URL path. Start it with `/` and end it with `/`: the prefix and the request path are joined as-is, so `/prefix` would turn `/api/resource` into `/prefixapi/resource`.
 
-### Example: AddPrefix Middleware Configuration
+The prefix applies to every request on the route; `paths` is ignored.
 
-Here’s an example of an `addPrefix` middleware configuration in YAML:
+## Example
 
 ```yaml
 middlewares:
-  - name: addPrefix
+  - name: add-prefix
     type: addPrefix
     rule:
-      prefix: /prefix
+      prefix: /prefix/
 ```
 In this example:
 
 - The middleware adds `/prefix` to the beginning of every incoming URL path.
 - For instance, a request to `/api/resource` would be transformed into `/prefix/api/resource`
 
-### When to Use AddPrefix
+## When to Use AddPrefix
 - To ensure requests have a consistent prefix before reaching the backend services.
 - To manage routing for services with path-based prefixes.
 
-For scenarios requiring more complex URL modifications, consider using middleware like `RedirectRegex`.
+For more complex path changes, use the [RewriteRegex middleware](rewrite-regex.md).

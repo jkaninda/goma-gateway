@@ -12,15 +12,11 @@ HTTP caching is a mechanism that stores responses associated with specific reque
 
 ## HTTP Cache Middleware
 
-Goma Gateway's **HTTP Cache Middleware** enables you to implement caching for your routes, ensuring faster response times and reduced server load. This middleware adheres to the standards outlined in **RFC 7234** (HTTP/1.1 Caching).
+Goma Gateway's **HTTP Cache Middleware** enables you to implement caching for your routes, ensuring faster response times and reduced server load. It follows the caching rules of **RFC 9111** (HTTP Caching).
 
-#### **HTTP Caching**
-- **Cache Implementation**: Enable HTTP caching for routes to improve response times and reduce server load.
-- **Cache Storage Options**:
-  - **In-Memory Cache**: Suitable for single-instance applications or temporary caching.
-  - **Redis Cache**: Ideal for distributed caching across multiple instances.
-  - **Cache Control Headers**: Support for `Cache-Control`, `and X-Cache-Status` headers for fine-grained cache management.
-  - **Cache Invalidation**: Implement strategies to invalidate stale cache entries (e.g., time-based or event-based invalidation).
+- **Storage**: in memory by default; in Redis, shared by all gateway instances, when Redis is configured on the gateway (`gateway.redis`).
+- **Scope**: only `GET` responses on paths matching the middleware's `paths` are cached. `paths` is required: a cache middleware without `paths` caches nothing.
+- **Invalidation**: entries expire after `maxTtl`; an unsafe method (`POST`, `PUT`, `DELETE`) on the same key invalidates it (see [Cache key](#cache-key)).
 ---
 
 ## Cache Status Header
@@ -48,16 +44,26 @@ The HTTP Cache Middleware provides the following configuration options:
   The maximum time-to-live (in seconds) for cached responses. After this duration, cached responses expire and are invalidated.
 
 - **`maxStale`** (`integer`, default=`0`):  
-  Allows the middleware to serve stale responses if permitted by the request's `Cache-Control` directive (`max-stale`).
+  Currently has no effect. A stale entry is served only when the request itself
+  sends `Cache-Control: max-stale=<seconds>`.
 
-- **`memoryLimit`** (`string`):  
-  Specifies the maximum memory allocation for the cache. Supported units include `Ki`, `Mi`, `Gi`, `Ti`, or `K`, `M`, `G`, `T` (e.g., `1Mi` for 1 megabyte).
+- **`memoryLimit`** (`string`, default=`64Mi`):  
+  Maximum memory used by the in-memory cache. Supported units include `Ki`, `Mi`, `Gi`, `Ti`, or `K`, `M`, `G`, `T` (e.g., `1Mi` for 1 mebibyte). An invalid value falls back to the default.
 
-- **`disableCacheStatusHeader`** (`boolean`):  
-  When set to `true`, prevents the middleware from adding the `X-Cache-Status` header to responses.
+- **`disableCacheStatusHeader`** (`boolean`, default=`false`):  
+  When set to `true`, prevents the middleware from adding the `X-Cache-Status` and `X-Goma-Cache-Reason` headers to responses.
+
+- **`cacheableStatusCodes`** (`array of integers`):  
+  When set, only responses with one of these status codes are cached, and `excludedResponseCodes` is ignored.
 
 - **`excludedResponseCodes`** (`array of strings`):  
-  Configures specific HTTP response status codes or ranges of codes for which caching is disabled. For example, you can exclude error responses like `404` or `500-599`.
+  Status codes or ranges for which caching is disabled, e.g. `["404", "500-599"]`. Used only when `cacheableStatusCodes` is empty. When neither is set, only `2xx` and `3xx` responses are cached, minus a built-in list of error codes.
+
+- **`includeQueryInKey`** (`boolean`, default=`false`):  
+  Include the query string in the cache key. When `false`, requests that differ only by query share one entry.
+
+- **`queryParamsToCache`** (`array of strings`):  
+  With `includeQueryInKey: true`, only these query parameters are part of the key. Empty means all of them.
 
 - **`cachePrivateResponses`** (`boolean`, default=`false`):  
   Allows responses to requests that carried credentials to be cached, keyed per caller. See [What is not cached](#what-is-not-cached) before enabling it.
@@ -137,7 +143,7 @@ middlewares:
       memoryLimit: 500Mi  # Supported units: Ki, Mi, Gi, Ti or K, M, G, T
       disableCacheStatusHeader: true
       cacheableStatusCodes: [200, 203, 204, 300, 301, 302, 404]
-      excludedResponseCodes: [] # e.g., [500, 404]
+      excludedResponseCodes: [] # e.g., ["404", "500-599"]
       includeQueryInKey: false # Whether to include query parameters in the cache key
       queryParamsToCache: [] # List of specific query parameters to include in the cache key
       ignoreVary: [] # Response Vary fields to leave out of the cache key
@@ -146,14 +152,14 @@ middlewares:
 
 ## Notes
 
-- **Paths**: The `paths` field supports regex patterns for flexible route matching. 
+- **Paths**: `paths` entries are regular expressions matched from the start of the path. See [Path patterns](overview.md#path-patterns).
 
 For example:
    - `^/store/items/(.*)$` matches paths starting with `/store/items/`.
    - `/store/categories/.*` matches all paths under `/store/categories/`.
    - `/api/stores/(.*)/items/(.*)` matches dynamic paths under `/api/stores/`.
 
-###  Cache only specific query params
+### Cache only specific query params
 
 - **Query Parameters**: You can choose to include or exclude query parameters in the cache key. Use `includeQueryInKey` to enable or disable this feature, and `queryParamsToCache` to specify which query parameters should be considered for caching.
 
@@ -168,7 +174,7 @@ middlewares:
       memoryLimit: 500Mi  # Supported units: Ki, Mi, Gi, Ti or K, M, G, T
       disableCacheStatusHeader: true
       cacheableStatusCodes: [200]
-      excludedResponseCodes: [] # e.g., [500, 404]
+      excludedResponseCodes: [] # e.g., ["404", "500-599"]
       includeQueryInKey: true # Whether to include query parameters in the cache key
       queryParamsToCache:
         - page

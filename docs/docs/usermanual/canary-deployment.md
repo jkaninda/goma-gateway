@@ -11,17 +11,19 @@ Goma Gateway supports **canary deployments**, allowing you to gradually roll out
 This strategy is useful for:
 
 * Testing new versions in production with a limited audience.
-* Reducing the impact on potential bugs or regressions.
+* Reducing the impact of potential bugs or regressions.
 * Incrementally shifting traffic as confidence grows.
 
 ---
 
 ## Configuration Fields
 
-* **`weight`** (`int`, required)
+* **`weight`** (`int`, required on stable and non-exclusive backends)
   Relative weight used when the backend competes for traffic with others in the
   same pool. Goma uses weighted-random selection — a backend's probability is
-  `weight / sum(weights in the pool)`.
+  `weight / sum(weights in the pool)`. A backend without a weight never receives
+  pooled traffic, and a pool whose weights are all `0` answers `503`. The
+  weight of an exclusive canary is not used.
 
 * **`exclusive`** (`boolean`, optional, default: `false`)
   Controls how a matching canary participates in routing:
@@ -42,12 +44,12 @@ This strategy is useful for:
   non-exclusive canaries, which always pool together.
 
 * **`match`** (`[]object`, optional)
-  A list of conditions used to determine whether traffic should be routed to this backend. Each condition supports the following fields:
+  A list of conditions used to determine whether traffic should be routed to this backend. A backend with at least one condition is a canary; a request matches it only when **all** of its conditions are satisfied. Each condition supports the following fields:
 
     * **`source`** (`string`, required) — Where to extract the value from.
       Valid options: `header`, `query`, `cookie`, `ip`.
 
-    * **`name`** (`string`, required) — The key to match (header name, query parameter, cookie name, or client IP).
+    * **`name`** (`string`, required except for `ip`) — The header name, query parameter, or cookie name to read. Ignored for `ip`.
 
     * **`operator`** (`string`, required) — How the extracted value should be compared. See [Operator Types](#operator-types).
 
@@ -60,7 +62,9 @@ This strategy is useful for:
 * **`header`** — Match based on HTTP request headers.
 * **`query`** — Match based on URL query parameters.
 * **`cookie`** — Match based on cookies.
-* **`ip`** — Match based on the client’s IP address.
+* **`ip`** — Match based on the client’s IP address. Behind a proxy or CDN this is the address resolved by the [`proxy` configuration](running-behind-a-proxy.md); without it, it is the address of the connecting peer.
+
+A header, query parameter, or cookie that is absent is compared as an empty string, so `not_equals` and `not_contains` match requests that do not carry it at all.
 
 ---
 
@@ -73,7 +77,7 @@ This strategy is useful for:
 * **`starts_with`** — Value must start with the given substring.
 * **`ends_with`** — Value must end with the given substring.
 * **`regex`** — Value must match the given regular expression.
-* **`in`** — Value must be one of the specified values (comma-separated).
+* **`in`** — Value must be one of the specified values (comma-separated; spaces around each value are ignored).
 
 ---
 
@@ -107,9 +111,14 @@ routes:
             value: "admin,tester,developer"
 ```
 
-In this configuration the beta backend is **exclusive**, so any request that
-satisfies one of the match rules is routed to the beta backend in full; all
-other traffic goes to the stable backend.
+In this configuration the beta backend is **exclusive**, so a request that
+satisfies **all three** match rules is routed to the beta backend; all other
+traffic goes to the stable backend. To route on any one of several conditions,
+declare a separate canary backend per condition.
+
+If an exclusive canary is marked unhealthy by the route's
+[health check](healthcheck.md), matching requests fall back to the stable
+backends.
 
 ---
 

@@ -212,7 +212,7 @@ The gateway answers `/.well-known/acme-challenge/` requests on the `web` entry p
 | `directoryUrl`       | string | ACME directory URL. Default: Let's Encrypt production                                              |
 | `challengeType`      | string | `http-01` (default) or `dns-01`                                                                    |
 | `dnsProvider`        | string | DNS provider for DNS-01. Supported: `cloudflare`                                                   |
-| `credentials`        | object | DNS provider credentials: `apiToken` (or the `GOMA_CREDENTIALS_API_TOKEN` environment variable)    |
+| `credentials`        | object | DNS provider credentials: `apiToken`. Use `${VAR}` to read it from the environment                 |
 | `eab`                | object | External account binding: `kid` and `hmacKey` (see [below](#external-account-binding-eab))         |
 | `storageFile`        | string | File to store certificates and the account. Default: `/etc/letsencrypt/acme-<provider-name>.json`  |
 | `termsAccepted`      | bool   | Agreement to the CA's terms. Omitted means agreed                                                  |

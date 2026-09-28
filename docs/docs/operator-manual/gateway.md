@@ -114,7 +114,7 @@ spec:
       # directoryUrl: https://acme-staging-v02.api.letsencrypt.org/directory
 ```
 
-**DNS-01** (required for wildcard certs, no public ingress needed):
+**DNS-01** (required for wildcard certs, no public ingress needed). Supported `dnsProvider` value: `cloudflare` (the gateway accepts `route53` but does not implement it yet):
 
 ```yaml
 apiVersion: v1
@@ -139,6 +139,39 @@ spec:
       dnsProvider: cloudflare
       credentialsSecret: cloudflare-credentials
 ```
+
+:::warning[Known limitation]
+The generated config references the DNS token as `${GOMA_CREDENTIALS_API_TOKEN}`, but the current operator does not yet inject `credentialsSecret` into the gateway pod, so DNS-01 issuance does not work out of the box.
+:::
+
+### Multiple certificate providers
+
+:::note
+`certManager.providers`, `certManager.defaultProvider` and the Route's `tls.provider` require an operator release newer than `v0.2.0`.
+:::
+
+Declare named providers when different routes need different ACME accounts or challenge types. Each provider gets its own ACME account and storage file. A [Route](./route.md#per-route-tls) picks one with `spec.tls.provider`; routes that name none use `defaultProvider`.
+
+```yaml
+spec:
+  certManager:
+    defaultProvider: letsencrypt
+    providers:
+      letsencrypt:
+        type: acme
+        acme:
+          email: ops@example.com
+          challengeType: http-01
+      letsencrypt-dns:
+        type: acme
+        acme:
+          email: ops@example.com
+          challengeType: dns-01
+          dnsProvider: cloudflare
+          credentialsSecret: cloudflare-credentials
+```
+
+When `providers` is set, the top-level `provider` / `acme` fields are ignored.
 
 ## Scaling
 
@@ -173,17 +206,9 @@ spec:
 
 ## Shared state with Redis
 
-When running multiple replicas, Redis lets stateful middlewares (rate limiting, ACME store coordination) share state across pods.
+When running multiple replicas, Redis lets stateful middlewares such as rate limiting share state across pods. See [Distributed Instances](../monitoring-and-performance/distributed-instances.md).
 
 ```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: redis-auth
-type: Opaque
-stringData:
-  password: changeme
----
 apiVersion: gateway.jkaninda.dev/v1alpha1
 kind: Gateway
 metadata:
@@ -196,9 +221,11 @@ spec:
       password: changeme
 ```
 
+`redis.password` is a plain string rendered into the gateway `ConfigMap`; the `Gateway` CRD has no Secret reference for it.
+
 ## Observability
 
-Prometheus metrics are off by default. Enable and optionally protect them:
+Prometheus metrics are off by default. Enable and optionally protect them (see [Monitoring](../monitoring-and-performance/monitoring.md) for the exposed metrics):
 
 ```yaml
 spec:
@@ -206,7 +233,6 @@ spec:
     monitoring:
       enableMetrics: true
       metricsPath: /metrics
-      visitorTTL: 5m
       host: metrics.internal.example.com   # restrict by Host header
       middleware:
         metrics:
@@ -240,12 +266,16 @@ spec:
         secretName: git-credentials
 ```
 
+:::warning[Known limitation]
+The current operator does not yet mount the Secrets named by `http.headersSecret` or `git.auth.secretName` into the gateway pod, so authenticated HTTP and Git providers do not work out of the box.
+:::
+
 ## Spec reference
 
 | Field | Type | Description |
 | --- | --- | --- |
 | `image` | string | Gateway container image. Default: `jkaninda/goma-gateway:latest`. |
-| `replicas` | int32 | Number of gateway pods (ignored when `autoScaling.enabled: true`). |
+| `replicas` | int32 | Number of gateway pods. Default: `1`. |
 | `imagePullSecrets` | []LocalObjectReference | Secrets used to pull the gateway image. |
 | `resources` | ResourceRequirements | CPU/memory requests and limits for the gateway container. |
 | `affinity` | corev1.Affinity | Pod scheduling constraints. |
@@ -268,21 +298,14 @@ spec:
 | `redis.password` | string | — | Redis password (consider using a Secret). |
 | `monitoring.enableMetrics` | bool | `false` | Expose Prometheus metrics. |
 | `monitoring.metricsPath` | string | `/metrics` | Path of the metrics endpoint. |
-| `monitoring.visitorTTL` | string | `5m` | How long a visitor counts towards the real-time visitors gauge. |
-| `monitoring.host` | string | — | Restrict metrics endpoints to this Host header. |
+| `monitoring.host` | string | — | Restrict `/metrics` to this Host header (`/healthz` and `/readyz` are never host-restricted). |
 | `monitoring.middleware.metrics` | []string | — | Middleware CR names applied to `/metrics`. |
-| `networking.dnsCache.ttl` | int | `300` | DNS cache TTL in seconds. |
-| `networking.dnsCache.clearOnReload` | bool | `false` | Flush the local DNS cache after the routes are reloaded (auto-reload / config changes). |
-| `networking.dnsCache.resolver` | []string | — | Custom DNS server addresses (e.g. `1.1.1.1`, `8.8.8.8:53`). Empty uses the system resolver. Applied at startup. |
+| `networking.dnsCache.ttl` | int | `300` | DNS cache TTL in seconds (gateway default when unset). |
 | `networking.transport.maxIdleConns` | int | `512` | Max idle connections. |
 | `networking.transport.maxIdleConnsPerHost` | int | `256` | Max idle connections per host. |
 | `networking.transport.maxConnsPerHost` | int | `256` | Max total connections per host. |
-| `reload.enabled` | bool | `false` | Expose the token-protected on-demand config reload endpoint. |
-| `reload.path` | string | `/gateway/reload` | Path of the reload endpoint. |
-| `reload.token` | string | — | Bearer token required (`Authorization: Bearer <token>`). Prefer the `GOMA_RELOAD_TOKEN` env var. |
-| `reload.host` | string | — | Restrict the reload endpoint to this Host header. |
 
-> **On-demand reload.** These fields expose a token-protected endpoint that reloads the gateway configuration immediately. See [On-Demand Reload](../usermanual/gateway.md#on-demand-reload) in the User Manual for the endpoint path, request format, and response codes.
+The `Gateway` CRD exposes only the fields above. Other gateway settings — for example `log.format`, `monitoring.visitorTTL`, `analytics`, `reload`, or `networking.dnsCache.resolver` — are not part of the CRD; the API server rejects or prunes unknown fields.
 
 ### `spec.service`
 
@@ -307,13 +330,16 @@ spec:
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
-| `provider` | enum | `acme` | Currently only `acme` is supported. |
+| `defaultProvider` | string | — | Entry in `providers` used by Routes that set no `tls.provider`. |
+| `providers.<name>.type` | enum | `acme` | Currently only `acme` is supported. |
+| `providers.<name>.acme` | object | — | Same fields as `acme` below. |
+| `provider` | enum | `acme` | Single-provider form. Currently only `acme` is supported. Prefer `providers`. |
 | `acme.email` | string | — | **Required.** Contact email for the ACME account. |
 | `acme.directoryUrl` | string | Let's Encrypt prod | ACME directory endpoint. |
 | `acme.termsAccepted` | bool | `true` | Acceptance of the ACME provider's ToS. |
 | `acme.challengeType` | enum | `http-01` | `http-01` or `dns-01` (use `dns-01` for wildcards). |
-| `acme.dnsProvider` | string | — | DNS-01 provider (e.g. `cloudflare`, `route53`). |
-| `acme.credentialsSecret` | string | — | Secret name containing DNS provider credentials. |
+| `acme.dnsProvider` | string | — | DNS-01 provider: `cloudflare` (the only one implemented by the gateway). |
+| `acme.credentialsSecret` | string | — | Secret with the DNS provider credentials (key `apiToken`). |
 
 ### `spec.autoScaling`
 
@@ -333,13 +359,21 @@ spec:
 | `kubernetes.image` | string | Sidecar image. Default: `jkaninda/goma-k8s-provider:latest`. |
 | `http.enabled` | bool | Enables a remote HTTP provider. |
 | `http.endpoint` | string | URL of the remote config. |
-| `http.interval` | string | Pull interval (e.g. `60s`). |
+| `http.interval` | string | Pull interval. Default: `60s`. |
+| `http.timeout` | string | Per-request timeout. Default: `10s`. |
+| `http.headers` | map | Extra request headers. |
 | `http.headersSecret` | string | Secret with header values referenced via `${VAR}`. |
+| `http.insecureSkipVerify` | bool | Skip TLS verification of the endpoint. |
+| `http.retryAttempts` | int | Retries on failure. Default: `3`. |
+| `http.retryDelay` | string | Delay between retries. Default: `2s`. |
+| `http.cacheDir` | string | Where fetched responses are cached. |
 | `git.enabled` | bool | Enables the Git provider. |
 | `git.url` | string | Repository URL. |
-| `git.branch` | string | Branch to check out. |
+| `git.branch` | string | Branch to check out. Default: `main`. |
 | `git.path` | string | Subdirectory inside the repo. |
-| `git.auth` | object | `type` (`token`/`basic`/`ssh`) and `secretName`. |
+| `git.interval` | string | Pull interval. Default: `60s`. |
+| `git.cloneDir` | string | Local clone directory. |
+| `git.auth` | object | `type` (`token`/`basic`/`ssh`) and `secretName`. The Secret holds `token`, `username`/`password`, or `ssh-privatekey`. |
 
 ## Status
 

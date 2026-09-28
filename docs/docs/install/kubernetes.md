@@ -35,23 +35,33 @@ docker run --rm --name goma-gateway \
  jkaninda/goma-gateway config init --output /etc/goma/config.yml
 ```
 
-If no configuration file is provided, Goma Gateway generates a default file at `/etc/goma/goma.yml`.
+The command prints a randomly generated password for the example `basic-auth`
+user once. Review the generated routes and middlewares before deploying.
 
 ### Step 2: Create a ConfigMap
 
-Define the configuration as a Kubernetes ConfigMap:
-```shell
+Define the configuration as a Kubernetes ConfigMap. The Deployment below starts
+the server without `--config`, so it reads the default path `/etc/goma/goma.yml`;
+store the configuration under the `goma.yml` key:
+
+```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-name: goma-config
+  name: goma-config
 data:
-goma.yml: |
-# Goma Gateway configurations
-version: 1.0
-gateway:
-...
+  goma.yml: |
+    version: 2
+    gateway:
+      routes:
+        - name: api
+          path: /
+          target: http://api-service:8080
 ```
+
+Keep secrets such as password hashes, JWT secrets or the reload token out of the
+ConfigMap: reference them as `${VAR}` in the configuration and inject the
+variables from a Kubernetes Secret.
 ### Step 3: Deploy Goma Gateway
 
 Create a Kubernetes Deployment using the following example:
@@ -148,4 +158,4 @@ Notes:
 
 The advanced deployment uses Goma Gateway’s Kubernetes Operator for more dynamic configuration management.
 
-For detailed instructions, see the [Operator Manual](/operator-manual/installation).
+For detailed instructions, see the [Operator Manual](../operator-manual/installation.md).
