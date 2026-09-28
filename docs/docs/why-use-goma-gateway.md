@@ -1,46 +1,41 @@
 ---
-title: Why Use Goma Gateway ?
-sidebar_label: Why Use Goma Gateway ?
+title: Why Use Goma Gateway?
+sidebar_label: Why Use Goma Gateway?
 sidebar_position: 2
 ---
 
-##  Why Use Goma Gateway?
+# Why Use Goma Gateway?
 
-More than just a reverse proxy, Goma Gateway streamlines your services with declarative configuration and enterprise-grade features.
+Goma Gateway is a **security-focused, cloud-native API Gateway**. This page explains what that means in practice. For the complete list of capabilities, see [Features](./index.md#features).
 
-### **1. Simple, Declarative Configuration**
+## Security at the edge, not bolted on
 
-Write clear YAML for routes, middleware, policies, and TLS.
-Supports single-file or multi-file setups, intuitive and maintainable.
+Every request to your services passes through the gateway, which makes it the natural place to enforce security once instead of re-implementing it in every service.
 
-### **2. Security First**
+* **Encryption without the busywork**: automatic HTTPS with Let's Encrypt, custom certificates, and [mutual TLS](./usermanual/mtls.md) for client authentication.
+* **Identity at the edge**: Basic Auth, JWT, OAuth, OpenID Connect, LDAP, and ForwardAuth are built in, so backends receive only authenticated traffic.
+* **Defense in depth**: access policies, geo-blocking, bot detection, exploit protection, body size limits, and [rate limiting](./middlewares/rate-limit.md) with automatic banning are all middleware you attach per route.
 
-* Auto HTTPS & mTLS
-* Multiple authentication methods
-* Built-in exploit prevention
-* Fine-grained access control
-* Scalable rate limiting with abuse detection
+Security features are configured in the same declarative YAML as your routes, so they are reviewed, versioned, and deployed like the rest of your configuration.
 
-### **3. Multi-Domain & Smart Routing**
+## Cloud-native by design
 
-Handle REST APIs, WebSocket, gRPC, intelligent host & path routing.
+Goma Gateway is built to run where your services run: containers, Kubernetes, and dynamic, horizontally scaled environments.
 
-### **4. Live Reload & GitOps Ready**
+* **Kubernetes-native**: the [Kubernetes Operator](./operator-manual/index.md) manages gateways, routes, and middleware as custom resources.
+* **Dynamic configuration**: [providers](./usermanual/providers.md) feed configuration from files, HTTP, Docker labels, or Kubernetes, and changes apply with zero downtime.
+* **Scales horizontally**: gateway instances are stateless, with Redis available to [share rate-limit and cache state](./monitoring-and-performance/distributed-instances.md) across replicas.
+* **Orchestrator-friendly**: [health and readiness endpoints](./usermanual/healthcheck.md), environment-variable configuration, and Prometheus metrics fit standard deployment and monitoring tooling.
 
-Apply changes instantly without restarts — perfect for CI/CD pipelines.
+## A focused data plane
 
-### **5. Full Observability**
+Goma Gateway deliberately does one job: handling traffic. Management UIs, service discovery, and orchestration live in [separate projects](./index.md#ecosystem) such as Goma Admin and the Kubernetes Operator.
 
-* Structured logging
-* Prometheus metrics
-* Grafana dashboards
+This keeps the gateway small, fast, and easier to audit, which matters for the component that sits in front of everything else. You add a control plane only if you need one.
 
-### **6. Built for Speed**
+## When Goma Gateway is a good fit
 
-* Intelligent HTTP caching
-* Advanced load balancing
-* Health-aware backend routing
-
-
-**Perfect for:** Public APIs, internal microservices, legacy modernization, or any project requiring secure, scalable traffic management.
-
+* Public APIs that need authentication, rate limiting, and TLS without extra infrastructure
+* Internal microservices on Kubernetes or Docker that need consistent routing and access control
+* Legacy applications that need modern security (HTTPS, SSO, access policies) placed in front of them without code changes
+* Teams that manage infrastructure through GitOps and want gateway configuration in version control

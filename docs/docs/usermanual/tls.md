@@ -6,17 +6,36 @@ sidebar_position: 8
 
 # TLS & Let's Encrypt Configuration
 
-Goma Gateway supports TLS encryption for securing traffic between clients and the gateway. You can configure TLS certificates in three ways:
+Goma Gateway terminates TLS for every route served on the `webSecure` entry point. Certificates come from one of three sources:
 
-- **Manual configuration** — Provide your own certificate and key files
-- **Directory-based loading** — Load multiple certificates from a directory
-- **Automatic management** — Use Let's Encrypt (ACME) or HashiCorp Vault (PKI) for automatic issuance and renewal
+- **Manual configuration** — provide your own certificate and key, globally or per route
+- **Directory-based loading** — load many certificates from one directory
+- **Automatic management** — let CertManager issue and renew certificates from an ACME CA (Let's Encrypt, ZeroSSL, [Certio](#private-ca-with-certio), …) or a HashiCorp Vault PKI
+
+For each TLS handshake, the gateway selects a certificate by the requested hostname (SNI):
+
+1. A custom certificate that names the host exactly — route `tls.certificate` first, then `gateway.tls.certificates`, then `certsDir`
+2. Otherwise, the most specific match among custom and CertManager-issued certificates (an exact name beats a wildcard)
+3. Otherwise, `gateway.tls.default`, or a generated self-signed certificate if none is configured
+
+When no certificate names the host exactly and a CertManager provider is responsible for it, the gateway orders one in the background and serves the best available certificate meanwhile.
+
+:::info[Upgrading from v0.x]
+
+v1.0 removed the TLS keys deprecated during v0.x. A configuration that still uses them will not start:
+
+| Removed (v0.x)            | Use in v1.0                   |
+|---------------------------|-------------------------------|
+| `certificateManager`      | `certManager`                 |
+| `gateway.tls.keys`        | `gateway.tls.certificates`    |
+
+Run `goma config check` to list every removed key in your configuration. See the [v1.0 upgrade notes](../upgrade/v1.0.md).
+
+:::
 
 ---
 
 ## Manual TLS Configuration
-
-Define TLS certificates globally or per-route by specifying certificate and private key pairs.
 
 ### Certificate Formats
 
@@ -38,11 +57,11 @@ gateway:
       # File paths
       - cert: /path/to/certificate.crt
         key: /path/to/private.key
-      
+
       # Base64-encoded
       - cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
         key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
-      
+
       # Raw PEM content
       - cert: |
           -----BEGIN CERTIFICATE-----
@@ -52,7 +71,7 @@ gateway:
           -----BEGIN PRIVATE KEY-----
           <private key content>
           -----END PRIVATE KEY-----
-    
+
     # Fallback certificate for unmatched hosts
     default:
       cert: /etc/goma/default-cert.pem
@@ -66,9 +85,11 @@ gateway:
         - endpoint: https://backend.example.com
 ```
 
+`gateway.tls.clientAuth` enables client certificate verification; see [Mutual TLS (mTLS)](./mtls.md).
+
 ### Route-Level Configuration
 
-You can also specify TLS certificates for individual routes:
+A route can carry its own certificate under `tls.certificate` — a single `cert`/`key` pair covering the route's hosts:
 
 ```yaml
 version: 2
@@ -76,22 +97,25 @@ gateway:
   routes:
     - path: /
       name: secure-route
-      hosts: ["example.com"]
+      hosts: ["example.com", "www.example.com"]
       backends:
         - endpoint: https://backend.example.com
       tls:
-        certificates:
-          - cert: /path/to/route-specific-cert.crt
-            key: /path/to/route-specific-key.key
+        provider: none          # don't ask CertManager for a certificate
+        certificate:
+          cert: /etc/goma/certs/example.com-fullchain.pem
+          key: /etc/goma/certs/example.com.key
 ```
 
-> **Note:** Route-level certificates take precedence over global certificates for matching hosts.
+When the same host has more than one custom certificate, a route's `tls.certificate` wins over `gateway.tls.certificates`, which wins over `certsDir`. Within `certsDir`, files are loaded in filename order and the last one for a host wins. Set `provider: none` when a CertManager provider is configured, so it doesn't also request a certificate for these hosts.
+
+> **Note:** v1.0 uses `tls.certificate` (one pair) on routes. A `tls.certificates` list is only valid under `gateway.tls`.
 
 ---
 
 ## Directory-Based Certificate Loading
 
-Load multiple certificates from a single directory. Goma matches certificate and key files by filename.
+Load multiple certificates from a single directory (default: `/etc/goma/certs`). Goma matches certificate and key files by filename.
 
 ### Requirements
 
@@ -122,15 +146,35 @@ gateway:
 
 ---
 
-## Automatic Certificates with Let's Encrypt (ACME)
+## Automatic Certificates (CertManager)
 
-Goma Gateway supports automatic certificate issuance and renewal using ACME providers like Let's Encrypt.
+`certManager` issues and renews certificates for route hosts automatically. You declare one or more **named providers**, each of `type: acme` or `type: vault`, and choose which one serves each route.
+
+```yaml
+certManager:
+  defaultProvider: letsencrypt       # used by routes without tls.provider
+  providers:
+    letsencrypt:
+      type: acme
+      acme:
+        email: "admin@example.com"
+```
+
+When only one provider is defined, it becomes the default automatically.
+
+**Renewal:** CertManager checks certificates every 6 hours and renews any that expire within 30 days.
+
+**Storage:** certificates and ACME account data are stored under `/etc/letsencrypt` (see [Storage layout](#storage-layout)). Mount it as a persistent volume in containerized deployments, or every restart re-issues certificates and burns CA rate limits.
+
+---
+
+## ACME (Let's Encrypt and other CAs)
 
 ### Prerequisites
 
-- Domain must be publicly accessible
-- Port 80 must be available for HTTP-01 challenges (or configure DNS-01)
-- Valid email address for ACME registration
+- A valid email address — `email` is required for every ACME provider
+- For **HTTP-01**: the domain resolves to the gateway and the `web` entry point is reachable by the CA on port 80
+- For **DNS-01**: an API token for a supported DNS provider
 
 ### Basic Configuration (HTTP-01 Challenge)
 
@@ -150,29 +194,33 @@ gateway:
         - endpoint: http://localhost:8080
 
 certManager:
-  provider: acme
-  acme:
-    email: "admin@example.com"
+  defaultProvider: letsencrypt
+  providers:
+    letsencrypt:
+      type: acme
+      acme:
+        email: "admin@example.com"
 ```
 
-> **Storage:** Certificates and ACME account data are stored in `/etc/letsencrypt` by default. Mount this as a persistent volume in containerized deployments.
+The gateway answers `/.well-known/acme-challenge/` requests on the `web` entry point itself; no other port needs to be exposed.
 
 ### Configuration Options
 
-| Key             | Type   | Description                                                       |
-|-----------------|--------|-------------------------------------------------------------------|
-| `email`         | string | **Required.** Email for ACME registration and expiry notices      |
-| `directoryUrl`  | string | ACME directory URL. Default: Let's Encrypt production             |
-| `storageFile`   | string | File to store certificates. Default: `acme.json`                  |
-| `termsAccepted` | bool   | Agreement to the CA's terms. Omitted means agreed                 |
-| `challengeType` | string | `http-01` (default) or `dns-01`                                   |
-| `dnsProvider`   | string | DNS provider for DNS-01 challenge (e.g., `cloudflare`, `route53`) |
-| `credentials`   | object | Provider-specific credentials                                     |
-| `eab`           | object | External account binding: `kid` and `hmacKey` (see below)         |
+| Key                  | Type   | Description                                                                                        |
+|----------------------|--------|----------------------------------------------------------------------------------------------------|
+| `email`              | string | **Required.** Email for ACME registration and expiry notices                                       |
+| `directoryUrl`       | string | ACME directory URL. Default: Let's Encrypt production                                              |
+| `challengeType`      | string | `http-01` (default) or `dns-01`                                                                    |
+| `dnsProvider`        | string | DNS provider for DNS-01. Supported: `cloudflare`                                                   |
+| `credentials`        | object | DNS provider credentials: `apiToken` (or the `GOMA_CREDENTIALS_API_TOKEN` environment variable)    |
+| `eab`                | object | External account binding: `kid` and `hmacKey` (see [below](#external-account-binding-eab))         |
+| `storageFile`        | string | File to store certificates and the account. Default: `/etc/letsencrypt/acme-<provider-name>.json`  |
+| `termsAccepted`      | bool   | Agreement to the CA's terms. Omitted means agreed                                                  |
+| `insecureSkipVerify` | bool   | Skip TLS verification of the ACME directory. Prefer [trusting the CA](#3-trust-certios-root-ca)      |
 
-### DNS-01 Challenge (Cloudflare Example)
+### DNS-01 Challenge
 
-Use DNS-01 when port 80 is unavailable or for wildcard certificates:
+Use DNS-01 when port 80 is unavailable or for wildcard certificates. Cloudflare is currently the only supported DNS provider.
 
 ```yaml
 version: 2
@@ -188,14 +236,19 @@ gateway:
         - endpoint: http://localhost:8080
 
 certManager:
-  provider: acme
-  acme:
-    email: "admin@example.com"
-    challengeType: dns-01
-    dnsProvider: cloudflare
-    credentials:
-      apiToken: your-cloudflare-api-token
+  defaultProvider: cloudflare-dns
+  providers:
+    cloudflare-dns:
+      type: acme
+      acme:
+        email: "admin@example.com"
+        challengeType: dns-01
+        dnsProvider: cloudflare
+        credentials:
+          apiToken: "${CLOUDFLARE_API_TOKEN}"
 ```
+
+The token needs permission to edit DNS records (`Zone.DNS:Edit`) for the zone.
 
 ### Using the Staging Environment
 
@@ -203,27 +256,31 @@ For testing, use Let's Encrypt's staging environment to avoid rate limits:
 
 ```yaml
 certManager:
-  provider: acme
-  acme:
-    email: "admin@example.com"
-    directoryUrl: "https://acme-staging-v02.api.letsencrypt.org/directory"
+  providers:
+    letsencrypt-staging:
+      type: acme
+      acme:
+        email: "admin@example.com"
+        directoryUrl: "https://acme-staging-v02.api.letsencrypt.org/directory"
 ```
 
 > **Warning:** Staging certificates are not trusted by browsers. Switch to production (`https://acme-v02.api.letsencrypt.org/directory`) for live deployments.
 
 ### External Account Binding (EAB)
 
-Let's Encrypt issues to anyone who can answer a challenge, but most other CAs — ZeroSSL, Google Public CA, Sectigo, and private CAs — first want to know *which* of their subscribers is asking. They hand you a key id and an HMAC key out of band; the gateway proves it holds that key when it registers its ACME account, and the CA ties the account to whatever it authorized the credential for.
+Let's Encrypt issues to anyone who can answer a challenge, but most other CAs — ZeroSSL, Google Public CA, Sectigo, Certio, and other private CAs — first want to know *which* of their subscribers is asking. They hand you a key id and an HMAC key out of band; the gateway proves it holds that key when it registers its ACME account, and the CA ties the account to whatever it authorized the credential for.
 
 ```yaml
 certManager:
-  provider: acme
-  acme:
-    email: "admin@example.com"
-    directoryUrl: "https://acme.zerossl.com/v2/DV90"
-    eab:
-      kid: "your-key-id"
-      hmacKey: "${GOMA_ACME_EAB_HMAC}"
+  providers:
+    zerossl:
+      type: acme
+      acme:
+        email: "admin@example.com"
+        directoryUrl: "https://acme.zerossl.com/v2/DV90"
+        eab:
+          kid: "your-key-id"
+          hmacKey: "${GOMA_ACME_EAB_HMAC}"
 ```
 
 Every field in the config file expands `${VAR}` from the environment, so keep the HMAC key out of the file and pass it as `GOMA_ACME_EAB_HMAC` (any name works). `hmacKey` is base64url-encoded, exactly the value other ACME clients take in their `--eab-hmac-key` flag.
@@ -236,7 +293,105 @@ A few things worth knowing:
 
 ---
 
-## Automatic Certificates with HashiCorp Vault (PKI)
+## Private CA with Certio
+
+[Certio](https://github.com/jkaninda/certio) is a self-hosted private CA with a built-in ACME server. Pointing an ACME provider at it gives internal services the same automatic issuance and renewal as Let's Encrypt, with certificates signed by your own CA — no public DNS or internet exposure required.
+
+### 1. Enable Certio's ACME server
+
+Run Certio with ACME enabled and pick the CA that signs ACME orders (a name-constrained intermediate is the recommended choice):
+
+```yaml
+services:
+  certio:
+    image: jkaninda/certio:latest
+    environment:
+      CERTIO_BASE_URL: https://certio.corp.example.com
+      CERTIO_MASTER_KEY: ${CERTIO_MASTER_KEY}
+      CERTIO_JWT_SECRET: ${CERTIO_JWT_SECRET}
+      CERTIO_ACME_ENABLED: "true"
+      CERTIO_ACME_AUTHORITY: internal-issuing-ca
+    volumes:
+      - certio_data:/data
+
+volumes:
+  certio_data: {}
+```
+
+The ACME directory is served at `<CERTIO_BASE_URL>/acme/directory`.
+
+### 2. Create an EAB credential
+
+Certio requires external account binding by default. Create a credential in the dashboard (**Settings → ACME**) or via the API, limited to the domains the gateway should get certificates for:
+
+```bash
+curl -X POST https://certio.corp.example.com/api/v1/acme/external-accounts \
+     -H "Authorization: Bearer certio_…" \
+     -d '{"description":"goma gateway","allowed_domains":["corp.example.com"]}'
+```
+
+The response contains the `kid` and `hmac` to put in the gateway configuration.
+
+### 3. Trust Certio's root CA
+
+If Certio itself is served over HTTPS with a certificate from your private CA, the gateway must trust that CA to reach the ACME directory. Export the root certificate:
+
+```bash
+certio ca export <root-ca-name> -o ./trust
+```
+
+Mount the exported PEM into the gateway and add its directory to `SSL_CERT_DIR`. The system CA bundle is still loaded, so public CAs such as Let's Encrypt keep working:
+
+```yaml
+  goma-gateway:
+    image: jkaninda/goma-gateway:latest
+    environment:
+      SSL_CERT_DIR: /etc/goma/trust
+      GOMA_CERTIO_EAB_HMAC: ${GOMA_CERTIO_EAB_HMAC}
+    volumes:
+      - ./config:/etc/goma
+      - ./trust:/etc/goma/trust:ro
+      - ./letsencrypt:/etc/letsencrypt
+```
+
+`acme.insecureSkipVerify: true` also works, but it disables verification of the CA you are trusting to issue your certificates — use it only for local testing.
+
+### 4. Configure the provider
+
+```yaml
+version: 2
+gateway:
+  routes:
+    - path: /
+      name: internal-api
+      hosts: ["api.corp.example.com"]
+      tls:
+        provider: certio
+      backends:
+        - endpoint: http://api:8080
+
+certManager:
+  providers:
+    certio:
+      type: acme
+      acme:
+        email: "platform@corp.example.com"
+        directoryUrl: https://certio.corp.example.com/acme/directory
+        challengeType: http-01
+        eab:
+          kid: "<kid>"
+          hmacKey: "${GOMA_CERTIO_EAB_HMAC}"
+```
+
+For HTTP-01, Certio must be able to reach `api.corp.example.com` on port 80 through the gateway's `web` entry point. Wildcard hosts need `dns-01`, which Certio requires for wildcards.
+
+Clients calling these routes must trust Certio's root CA as well — distribute it the same way as any other internal root (OS trust store, Kubernetes `ConfigMap`, MDM, …).
+
+> **Static certificates instead of ACME:** Certio can also export issued certificates as Goma config snippets (`--format goma` for `gateway.tls.certificates`, `--format goma-route` for a route's `tls.certificate`). Use those when you prefer to manage renewal outside the gateway.
+
+---
+
+## HashiCorp Vault (PKI)
 
 Goma Gateway can issue and renew certificates directly from a [HashiCorp Vault PKI secrets engine](https://developer.hashicorp.com/vault/docs/secrets/pki) instead of ACME. This is useful for internal services and private PKI where certificates are signed by your own CA rather than a public authority — no ACME challenge, no inbound port 80, and no public DNS required.
 
@@ -276,15 +431,16 @@ certManager:
 
 ### Configuration Options
 
-| Key         | Type   | Description                                                                                     |
-|-------------|--------|-------------------------------------------------------------------------------------------------|
-| `address`   | string | **Required.** Vault base URL (e.g. `https://vault.example.com`). Falls back to `VAULT_ADDR`.    |
-| `token`     | string | **Required.** Vault token. Falls back to `VAULT_TOKEN`. Prefer the env var over the config file. |
-| `role`      | string | **Required.** PKI role used to issue certificates (`pki/issue/<role>`).                          |
-| `mount`     | string | PKI secrets engine mount path. Default: `pki`.                                                   |
-| `namespace` | string | Vault Enterprise namespace. Falls back to `VAULT_NAMESPACE`.                                     |
-| `ttl`       | string | Requested certificate lifetime (e.g. `72h`). Default: the PKI role's TTL.                        |
-| `storageFile` | string | File to persist issued certificates. Default: `vault-<provider-name>.json`.                    |
+| Key                  | Type   | Description                                                                                       |
+|----------------------|--------|---------------------------------------------------------------------------------------------------|
+| `address`            | string | **Required.** Vault base URL (e.g. `https://vault.example.com`). Falls back to `VAULT_ADDR`.      |
+| `token`              | string | **Required.** Vault token. Falls back to `VAULT_TOKEN`. Prefer the env var over the config file.  |
+| `role`               | string | **Required.** PKI role used to issue certificates (`pki/issue/<role>`).                           |
+| `mount`              | string | PKI secrets engine mount path. Default: `pki`.                                                    |
+| `namespace`          | string | Vault Enterprise namespace. Falls back to `VAULT_NAMESPACE`.                                      |
+| `ttl`                | string | Requested certificate lifetime (e.g. `72h`). Default: the PKI role's TTL.                         |
+| `storageFile`        | string | File to persist issued certificates. Default: `/etc/letsencrypt/vault-<provider-name>.json`.      |
+| `insecureSkipVerify` | bool   | Skip TLS verification of the Vault server. Prefer trusting its CA via `SSL_CERT_DIR`.             |
 
 ### How It Works
 
@@ -296,17 +452,17 @@ For each route host, Goma calls `POST <address>/v1/<mount>/issue/<role>` with th
 
 ## Per-Route Provider Selection
 
-The `tls.provider` field on a Route controls which automatic certificate provider issues its certs.
+The `tls.provider` field on a Route controls which provider issues its certificates.
 
 | Value             | Meaning                                                                                              |
 |-------------------|------------------------------------------------------------------------------------------------------|
 | _unset_ / `""`    | Use `certManager.defaultProvider`.                                                                   |
 | `none`            | Opt out — CertManager never requests a cert for this route. Falls back to custom or default cert.    |
-| `<provider-name>` | Use the named provider from `certManager.providers`. Unknown names cause a config-load error.        |
+| `<provider-name>` | Use the named provider from `certManager.providers`.                                                 |
 
 ### Excluding a Route (`tls.provider: none`)
 
-Some routes shouldn't be issued certs by CertManager — TLS is terminated upstream (Cloudflare, a load balancer), the host isn't publicly resolvable, or you've already provided a route-level certificate. Hitting Let's Encrypt for those hosts wastes ACME quota and can get your account temporarily banned for repeated failed challenges.
+Some routes shouldn't be issued certs by CertManager — TLS is terminated upstream (Cloudflare, a load balancer), the host isn't publicly resolvable, or you've already provided a route-level certificate. Requesting certificates for those hosts wastes ACME quota and can get your account temporarily banned for repeated failed challenges.
 
 ```yaml
 version: 2
@@ -321,24 +477,29 @@ gateway:
         - endpoint: http://localhost:8080
 
 certManager:
-  provider: acme
-  acme:
-    email: "admin@example.com"
+  providers:
+    letsencrypt:
+      type: acme
+      acme:
+        email: "admin@example.com"
 ```
 
 When `tls.provider: none` is set, the route's hosts are never registered with CertManager. Incoming TLS connections are served, in order:
 
-1. The route's own `tls.certificates` (if configured)
-2. A matching certificate from `gateway.tls.certificates` or `gateway.tls.certsDir`
-3. The gateway's default (self-signed) certificate
+1. A matching custom certificate (route `tls.certificate`, `gateway.tls.certificates`, or `certsDir`)
+2. The gateway's default certificate
+
+### Unknown Provider Names
+
+If a Route's `tls.provider` doesn't match any name in `certManager.providers` (and isn't `""` or `none`), the gateway logs a warning and uses `defaultProvider` for that route. If there is no default provider, it logs an error and disables certificate provisioning for the route, as if `provider: none` were set. Watch the startup logs for `Unknown tls.provider on route` after renaming a provider.
 
 ---
 
 ## Multiple Providers
 
-You can configure several named providers under `certManager.providers` and let each Route pick one via `tls.provider`. Providers can be any mix of `type: acme` and `type: vault`. Common reasons:
+Providers can be any mix of `type: acme` and `type: vault`. Common reasons to configure several:
 
-- Public routes use ACME (Let's Encrypt) while internal routes use Vault (private PKI).
+- Public routes use Let's Encrypt while internal routes use a private CA (Certio or Vault).
 - Some routes need DNS-01 (wildcards, no inbound port 80) while others use HTTP-01.
 - Different routes belong to different ACME accounts (separate Let's Encrypt rate-limit pools).
 - One environment uses Let's Encrypt staging while another uses production.
@@ -351,7 +512,7 @@ gateway:
       name: api
       hosts: ["api.example.com"]
       tls:
-        provider: cloudflare-dns         # uses DNS-01 with Cloudflare
+        provider: cloudflare-dns         # DNS-01 with Cloudflare
       backends:
         - endpoint: http://localhost:8080
 
@@ -365,17 +526,25 @@ gateway:
       name: staging-app
       hosts: ["staging.example.com"]
       tls:
-        provider: letsencrypt-staging    # uses LE staging directory
+        provider: letsencrypt-staging    # Let's Encrypt staging directory
       backends:
         - endpoint: http://localhost:8082
+
+    - path: /
+      name: internal-api
+      hosts: ["api.corp.example.com"]
+      tls:
+        provider: certio                 # private CA over ACME
+      backends:
+        - endpoint: http://localhost:8083
 
     - path: /
       name: internal-admin
       hosts: ["admin.internal"]
       tls:
-        provider: vault                  # private PKI, signed by your own CA
+        provider: vault                  # private PKI via Vault
       backends:
-        - endpoint: http://localhost:8083
+        - endpoint: http://localhost:8084
 
 certManager:
   defaultProvider: letsencrypt
@@ -392,15 +561,6 @@ certManager:
         email: "ops@example.com"
         directoryUrl: "https://acme-staging-v02.api.letsencrypt.org/directory"
 
-    zerossl:
-      type: acme
-      acme:
-        email: "ops@example.com"
-        directoryUrl: "https://acme.zerossl.com/v2/DV90"
-        eab:                              # CA-issued, see External Account Binding
-          kid: "your-key-id"
-          hmacKey: "${GOMA_ACME_EAB_HMAC}"
-
     cloudflare-dns:
       type: acme
       acme:
@@ -408,7 +568,16 @@ certManager:
         challengeType: dns-01
         dnsProvider: cloudflare
         credentials:
-          apiToken: "your-cloudflare-api-token"
+          apiToken: "${CLOUDFLARE_API_TOKEN}"
+
+    certio:
+      type: acme
+      acme:
+        email: "ops@example.com"
+        directoryUrl: "https://certio.corp.example.com/acme/directory"
+        eab:
+          kid: "<kid>"
+          hmacKey: "${GOMA_CERTIO_EAB_HMAC}"
 
     vault:
       type: vault
@@ -418,24 +587,19 @@ certManager:
         role: goma-gateway
 ```
 
-### Storage layout
+### Storage Layout
 
-Each provider keeps its own certificate cache (and, for ACME, its own account). By default they live under `/etc/letsencrypt/`:
+Each provider keeps its own certificate cache (and, for ACME, its own account) under `/etc/letsencrypt/`:
 
-- The legacy / single-provider config still uses `acme.json`.
-- Named ACME providers default to `acme-<provider-name>.json` (e.g. `acme-letsencrypt.json`, `acme-cloudflare-dns.json`).
-- Named Vault providers default to `vault-<provider-name>.json`.
-- Override per provider via `acme.storageFile` (or `vault.storageFile`) if you need a custom path.
+- ACME providers default to `acme-<provider-name>.json` (e.g. `acme-letsencrypt.json`, `acme-certio.json`).
+- Vault providers default to `vault-<provider-name>.json`.
+- Override per provider via `acme.storageFile` or `vault.storageFile`.
 
 > **Important:** in containerized deployments, mount `/etc/letsencrypt/` (or your custom path) as a persistent volume. Sharing one storage file between providers will corrupt ACME account state.
 
-### Validation
+### Single-Provider Shorthand
 
-If a Route's `tls.provider` doesn't match any name in `certManager.providers` (and isn't `""` or `none`), the gateway refuses to start. This is intentional — silent fallback to the default provider is what causes Let's Encrypt rate-limit bans when a route is misconfigured.
-
-### Backward compatibility
-
-The legacy single-provider shape still works without modification:
+The shorter single-provider form is still accepted:
 
 ```yaml
 certManager:
@@ -444,7 +608,7 @@ certManager:
     email: "admin@example.com"
 ```
 
-At load time this is migrated into `providers.default` (the synthetic `LegacyProviderName`) with `defaultProvider: default`. Existing `acme.json` storage continues to work.
+At load time it becomes a provider named `default` (stored in `acme.json`) and is set as `defaultProvider`. New configurations should use `providers`, which makes adding a second provider later a non-breaking change.
 
 ---
 
@@ -454,11 +618,19 @@ At load time this is migrated into `providers.default` (the synthetic `LegacyPro
 
 Ensure the hostname in your route's `hosts` field matches the certificate's Common Name (CN) or Subject Alternative Names (SANs).
 
+### `no email address provided`
+
+Every ACME provider needs `acme.email`, including private CAs such as Certio.
+
 ### ACME Challenge Failures
 
-- **HTTP-01:** Verify port 80 is accessible and not blocked by firewalls
-- **DNS-01:** Check that API credentials have permission to create TXT records
+- **HTTP-01:** Verify the CA can reach the host on port 80 and that the `web` entry point listens there
+- **DNS-01:** Check that the API token has permission to edit DNS records for the zone
+
+### `x509: certificate signed by unknown authority`
+
+The gateway doesn't trust the TLS certificate of the ACME directory or Vault server — typical with a private CA. Mount the CA certificate and point `SSL_CERT_DIR` at it, as shown in [Trust Certio's root CA](#3-trust-certios-root-ca).
 
 ### Certificate Renewal
 
-ACME certificates are automatically renewed before expiration. Ensure the `/etc/letsencrypt` directory is persistent across container restarts.
+Certificates are renewed automatically within 30 days of expiry. Ensure `/etc/letsencrypt` is persistent across container restarts.

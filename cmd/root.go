@@ -29,8 +29,8 @@ import (
 // rootCmd represents
 var rootCmd = &cobra.Command{
 	Use:     "goma",
-	Short:   "Goma Gateway is a lightweight API Gateway Management",
-	Long:    "Goma Gateway is a lightweight, high-performance, security-focused API Gateway Management",
+	Short:   "Goma Gateway is a security-focused, cloud-native API Gateway",
+	Long:    "Goma Gateway is a lightweight, high-performance, security-focused, cloud-native API Gateway",
 	Example: util.MainExample,
 	Version: version.Version,
 	Run: func(cmd *cobra.Command, args []string) {

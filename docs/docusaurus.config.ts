@@ -5,7 +5,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'Goma Gateway',
   tagline:
-    'A high-performance, security-focused API Gateway for modern developers and cloud-native environments',
+    'A high-performance, security-focused, cloud-native API Gateway',
   favicon: 'img/favicon.ico',
 
   future: {
