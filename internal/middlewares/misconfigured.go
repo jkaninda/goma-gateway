@@ -18,31 +18,21 @@
 package middlewares
 
 import (
-	"github.com/jkaninda/goma-gateway/util"
+	"fmt"
 	"net/http"
-	"strings"
 )
 
-type AddPrefix struct {
-	Prefix string
+// Misconfigured stands in for an access-control middleware whose rule could
+// not be applied, rejecting every request so the route is never served
+// without the protection it was configured with.
+type Misconfigured struct {
+	Origins []string
 }
 
-// AddPrefixMiddleware updates the path of a request before forwarding it.
-func (p *AddPrefix) AddPrefixMiddleware(next http.Handler) http.Handler {
+func (m Misconfigured) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if p.Prefix == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		// Update the request path
-		originalPath := r.URL.Path
-		// Log the prefix addition process
-		logger.Debug("Adding prefix to the route")
-
-		newPath := strings.TrimRight(p.Prefix, "/") + "/" + strings.TrimLeft(r.URL.Path, "/")
-		r.URL.Path = util.ParseURLPath(newPath)
-		logger.Debug("Rewriting path", "from", originalPath, "to", r.URL.Path)
-		// Proceed to the next handler
-		next.ServeHTTP(w, r)
+		RespondWithError(w, r, http.StatusServiceUnavailable,
+			fmt.Sprintf("%d %s", http.StatusServiceUnavailable, http.StatusText(http.StatusServiceUnavailable)),
+			m.Origins, getContentType(r))
 	})
 }

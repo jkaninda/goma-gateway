@@ -445,16 +445,6 @@ func (rec *responseRecorder) applyResponseHeaders() {
 				continue
 			}
 
-			// Skipping non 200
-			if rec.statusCode != http.StatusOK && !strings.EqualFold(key, "Cache-Control") {
-				logger.Debug("Skipping header (non-200 status)",
-					"header", key,
-					"status", rec.statusCode,
-					"name", header.Name,
-				)
-				continue
-			}
-
 			headers.Set(key, value)
 			logger.Debug("Set/overridden header", "header", key, "value", value, "name", header.Name)
 		}

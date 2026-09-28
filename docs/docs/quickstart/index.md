@@ -51,7 +51,9 @@ docker run --rm --name goma-gateway \
   jkaninda/goma-gateway config check --config /etc/goma/config.yml
 ```
 
-Fix any reported issues before proceeding.
+The check lists every problem it finds (unknown or misspelled keys, invalid
+middleware rules, routes without a target or referencing an undefined middleware)
+and exits with a non-zero status if there is any. Fix them before proceeding.
 
 ---
 

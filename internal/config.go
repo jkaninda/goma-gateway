@@ -87,6 +87,7 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 			return nil, err
 		}
 		util.SetEnv("GOMA_CONFIG_FILE", configFile)
+		warnUnknownKeys(configFile, buf, &GatewayConfig{})
 		if err = checkRemovedKeys(fmt.Sprintf("the configuration file %q", configFile), buf); err != nil {
 			return nil, err
 		}
@@ -118,6 +119,7 @@ func (*Goma) Config(configFile string, ctx context.Context) (*Goma, error) {
 		}
 		logger.Info("Using default configuration", "file", ConfigFile)
 		util.SetEnv("GOMA_CONFIG_FILE", ConfigFile)
+		warnUnknownKeys(ConfigFile, buf, &GatewayConfig{})
 		if err = checkRemovedKeys(fmt.Sprintf("the configuration file %q", ConfigFile), buf); err != nil {
 			return nil, err
 		}
@@ -196,8 +198,6 @@ func (g *Goma) InitLogger() {
 
 	// Update logger with config
 	logger = log.InitLogger()
-	middlewares.InitLogger(logger)
-	// Logging
 	if g.gateway.Log.MaxAgeDays > 0 {
 		logger = logger.WithOptions(logger2.WithMaxAge(g.gateway.Log.MaxAgeDays))
 	}
@@ -205,8 +205,9 @@ func (g *Goma) InitLogger() {
 		logger = logger.WithOptions(logger2.WithMaxSize(g.gateway.Log.MaxSizeMB))
 	}
 	if g.gateway.Log.MaxBackups > 0 {
-		logger = logger.WithOptions(logger2.WithMaxAge(g.gateway.Log.MaxBackups))
+		logger = logger.WithOptions(logger2.WithMaxBackups(g.gateway.Log.MaxBackups))
 	}
+	middlewares.InitLogger(logger)
 	if level == "debug" || level == "trace" {
 		g.gateway.Debug = true
 	}
@@ -422,6 +423,7 @@ func (g *Gateway) Setup(conf string) *Gateway {
 			return &Gateway{}
 		}
 		util.SetEnv("GOMA_CONFIG_FILE", conf)
+		warnUnknownKeys(conf, buf, &GatewayConfig{})
 		if err = checkRemovedKeys(fmt.Sprintf("the configuration file %q", conf), buf); err != nil {
 			logger.Fatal(err.Error())
 		}
@@ -554,6 +556,11 @@ func (l *LdapRuleMiddleware) validate() error {
 	return nil
 }
 func (a AccessPolicyRuleMiddleware) validate() error {
+	switch strings.ToUpper(a.Action) {
+	case "", "ALLOW", "DENY":
+	default:
+		return fmt.Errorf("invalid action %q in accessPolicy middleware (want ALLOW or DENY)", a.Action)
+	}
 	if len(a.SourceRanges) == 0 {
 		return fmt.Errorf("empty sourceRanges")
 

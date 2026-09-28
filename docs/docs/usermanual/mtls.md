@@ -82,10 +82,9 @@ Client authentication is configured once for the gateway and applies to every HT
 | `clientCA` | —       | CA certificate(s) used to verify client certificates. Accepts a file path, raw PEM, or base64-encoded PEM.                   |
 | `required` | `false` | `true`: the handshake fails unless the client presents a certificate signed by `clientCA`. `false`: a certificate is optional, but one that is presented must verify. |
 
-:::warning
-If `clientCA` cannot be loaded, the gateway logs `Failed to load client CA` and
-starts **without** client certificate verification. Check the startup logs after
-enabling mTLS.
+:::note
+If `clientCA` cannot be loaded, the gateway refuses to start. A reload with an
+unloadable `clientCA` is rejected and the gateway keeps its previous configuration.
 :::
 
 ### Flow Summary

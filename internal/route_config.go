@@ -34,6 +34,7 @@ func loadExtraRoutes(path string) ([]Route, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error loading extra file: %v", err)
 		}
+		warnUnknownKeys(yamlFile, buf, &ExtraRoute{})
 		if err = checkRemovedKeys(fmt.Sprintf("the extra route file %q", yamlFile), buf); err != nil {
 			return nil, err
 		}

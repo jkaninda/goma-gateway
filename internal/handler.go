@@ -71,26 +71,23 @@ func (heathRoute HealthCheckRoute) HealthCheckHandler(w http.ResponseWriter, r *
 	logger.Debug("Route is healthy", "method", r.Method, "url", r.URL.Path, "client_ip", middlewares.RealIP(r), "status", http.StatusOK, "user_agent", r.UserAgent())
 
 	healthRoutes := healthCheckRoutes(heathRoute.Routes)
-	wg := sync.WaitGroup{}
-	wg.Add(len(healthRoutes))
-	var routes []HealthCheckRouteResponse
-	for _, health := range healthRoutes {
+	routes := make([]HealthCheckRouteResponse, len(healthRoutes))
+	var wg sync.WaitGroup
+	for i, health := range healthRoutes {
+		wg.Add(1)
 		go func() {
-			err := health.Check()
-			if err != nil {
-				if heathRoute.DisableRouteHealthCheckError {
-					routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "unhealthy", Error: "Route healthcheck errors disabled"})
-				} else {
-					routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "unhealthy", Error: "Error: " + err.Error()})
-				}
-			} else {
-				logger.Debug("Route healthy", "route", health.Name)
-				routes = append(routes, HealthCheckRouteResponse{Name: health.Name, Status: "healthy", Error: ""})
-			}
 			defer wg.Done()
-
+			routes[i] = HealthCheckRouteResponse{Name: health.Name, Status: "healthy"}
+			if err := health.Check(); err != nil {
+				routes[i].Status = "unhealthy"
+				routes[i].Error = "Route healthcheck errors disabled"
+				if heathRoute.IncludeErrors {
+					routes[i].Error = "Error: " + err.Error()
+				}
+				return
+			}
+			logger.Debug("Route healthy", "route", health.Name)
 		}()
-
 	}
 	wg.Wait() // Wait for all requests to complete
 	response := HealthCheckResponse{

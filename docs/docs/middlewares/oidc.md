@@ -65,8 +65,8 @@ signing `HS256` with the provider's public key as the HMAC secret.
 
 **The gateway must have some way to verify tokens.** An `issuer` provides one
 through discovery; otherwise set `endpoint.jwksUrl` or `endpoint.userInfoUrl`.
-Without any of them the middleware refuses to load rather than appear to guard
-the route. User info responses are cached for 60 seconds per token, which is
+Without any of them the middleware refuses to load, and the route rejects every
+request with `503` until it is fixed. User info responses are cached for 60 seconds per token, which is
 also how long a revoked opaque token keeps working.
 
 ## Configuration

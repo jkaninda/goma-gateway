@@ -64,7 +64,10 @@ func servedCertificate(t *testing.T, g *Goma, host string) []byte {
 	if err != nil {
 		t.Fatalf("new cert manager: %v", err)
 	}
-	_, certs := g.initTLS()
+	_, certs, err := g.initTLS()
+	if err != nil {
+		t.Fatalf("init tls: %v", err)
+	}
 	cm.AddCertificates(certs)
 	cert, err := cm.GetCertificate(&tls.ClientHelloInfo{ServerName: host})
 	if err != nil || cert == nil {
@@ -126,7 +129,10 @@ func TestInitTLSLoadsClientCAWithCertificates(t *testing.T) {
 		ClientAuth:   TLSClientAuth{ClientCA: caCert, Required: true},
 	}}}
 
-	ok, certs := g.initTLS()
+	ok, certs, err := g.initTLS()
+	if err != nil {
+		t.Fatalf("init tls: %v", err)
+	}
 	if !ok || len(certs) != 1 {
 		t.Fatalf("expected one certificate, got ok=%v len=%d", ok, len(certs))
 	}
@@ -135,5 +141,18 @@ func TestInitTLSLoadsClientCAWithCertificates(t *testing.T) {
 	}
 	if !g.tlsClientAuthRequired {
 		t.Fatal("clientAuth.required was not applied")
+	}
+}
+
+func TestInitTLSFailsOnInvalidClientCA(t *testing.T) {
+	g := &Goma{gateway: &Gateway{TLS: TlsCertificates{
+		CertsDir:   t.TempDir(),
+		ClientAuth: TLSClientAuth{ClientCA: "/nonexistent/ca.pem", Required: true},
+	}}}
+	if _, _, err := g.initTLS(); err == nil {
+		t.Fatal("expected an error: an unloadable client CA must not start the gateway without client authentication")
+	}
+	if g.tlsCertPool != nil {
+		t.Fatal("client CA pool must stay unset when loading fails")
 	}
 }

@@ -34,9 +34,9 @@ gateway:
 
 | Key               | Type     | Default | Description                                                                                          |
 |-------------------|----------|---------|------------------------------------------------------------------------------------------------------|
-| `path`            | `string` | —       | Path appended to each backend endpoint (or to `target`). Health checks run only when it is set.     |
+| `path`            | `string` | —       | Path appended to each backend endpoint (or to `target`), joined with a single `/`. Health checks run only when it is set. |
 | `interval`        | `string` | `30s`   | Time between checks, as a Go duration (`10s`, `1m`).                                                 |
-| `timeout`         | `string` | none    | Timeout for each check request. Set it: without one, a hanging backend is never marked unhealthy.   |
+| `timeout`         | `string` | `10s`   | Timeout for each check request. An invalid value falls back to the default.                         |
 | `healthyStatuses` | `[]int`  | `[]`    | Status codes that count as healthy. When empty, any status below `400` is healthy.                   |
 
 How the result is used:

@@ -27,6 +27,8 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
+	"time"
 )
 
 // Check checks route heath check
@@ -147,20 +149,7 @@ func (health Health) createHealthCheckJob(stopChan chan struct{}) error {
 	c := cron.New()
 
 	// Add the health check function to the cron scheduler
-	_, err := c.AddFunc(expression, func() {
-		err := health.Check()
-		if err != nil {
-			if endpoint, err := getBaseURL(health.URL); err == nil {
-				unavailableBackends.markUnavailable(endpoint)
-			}
-			logger.Error("Route is unhealthy,", "route", health.Name, "error", err)
-			return
-		}
-		logger.Debug("Route is healthy", "route", health.Name)
-		if endpoint, err := getBaseURL(health.URL); err == nil && unavailableBackends.markAvailable(endpoint) {
-			logger.Info("Route Backend recovered", "route", health.Name, "backend", endpoint)
-		}
-	})
+	_, err := c.AddFunc(expression, health.run)
 	if err != nil {
 		return err
 	}
@@ -182,13 +171,15 @@ func healthCheckRoutes(routes []Route) []Health {
 	var healthRoutes []Health
 	for _, route := range routes {
 		if len(route.HealthCheck.Path) != 0 && route.Enabled {
-			timeout, _ := util.ParseDuration("")
+			timeout := defaultHealthCheckTimeout
 			if len(route.HealthCheck.Timeout) > 0 {
-				d1, err1 := util.ParseDuration(route.HealthCheck.Timeout)
-				if err1 != nil {
-					logger.Error("Health check timeout is invalid", "timeout", route.HealthCheck.Timeout)
+				d, err := util.ParseDuration(route.HealthCheck.Timeout)
+				if err != nil || d <= 0 {
+					logger.Error("Health check timeout is invalid, using the default",
+						"route", route.Name, "timeout", route.HealthCheck.Timeout, "default", defaultHealthCheckTimeout)
+				} else {
+					timeout = d
 				}
-				timeout = d1
 			}
 			var clientCerts []tls.Certificate
 			// Load certificates
@@ -202,7 +193,8 @@ func healthCheckRoutes(routes []Route) []Health {
 				for index, backend := range route.Backends {
 					health := Health{
 						Name:               fmt.Sprintf("%s - [%d]", route.Name, index),
-						URL:                backend.Endpoint + route.HealthCheck.Path,
+						Endpoint:           backend.Endpoint,
+						URL:                healthCheckURL(backend.Endpoint, route.HealthCheck.Path),
 						TimeOut:            timeout,
 						Interval:           route.HealthCheck.Interval,
 						HealthyStatuses:    route.HealthCheck.HealthyStatuses,
@@ -216,7 +208,8 @@ func healthCheckRoutes(routes []Route) []Health {
 			} else {
 				health := Health{
 					Name:               route.Name,
-					URL:                route.Target + route.HealthCheck.Path,
+					Endpoint:           route.Target,
+					URL:                healthCheckURL(route.Target, route.HealthCheck.Path),
 					TimeOut:            timeout,
 					Interval:           route.HealthCheck.Interval,
 					HealthyStatuses:    route.HealthCheck.HealthyStatuses,
@@ -229,4 +222,30 @@ func healthCheckRoutes(routes []Route) []Health {
 		}
 	}
 	return healthRoutes
+}
+
+// run performs one health check and records the backend's availability.
+func (health Health) run() {
+	if err := health.Check(); err != nil {
+		unavailableBackends.markUnavailable(health.Endpoint)
+		logger.Error("Route is unhealthy,", "route", health.Name, "error", err)
+		return
+	}
+	logger.Debug("Route is healthy", "route", health.Name)
+	if unavailableBackends.markAvailable(health.Endpoint) {
+		logger.Info("Route Backend recovered", "route", health.Name, "backend", health.Endpoint)
+	}
+}
+
+// defaultHealthCheckTimeout bounds a health check with no timeout set, so a
+// backend that hangs is marked down instead of stalling its check forever.
+const defaultHealthCheckTimeout = 10 * time.Second
+
+// healthCheckURL joins a backend endpoint and a health check path with exactly
+// one slash between them.
+func healthCheckURL(endpoint, path string) string {
+	if path == "" {
+		return endpoint
+	}
+	return strings.TrimRight(endpoint, "/") + "/" + strings.TrimLeft(path, "/")
 }

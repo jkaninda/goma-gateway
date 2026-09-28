@@ -363,7 +363,10 @@ func (r *Route) attachMiddlewares(router *njia.Group, globalMiddlewares []Middle
 		// Attempt to get middleware from global middlewares
 		mid, err := getMiddleware([]string{middleware}, globalMiddlewares)
 		if err != nil {
-			logger.Error("Error validating middleware", "error", err)
+			// The missing middleware may be the one protecting this route.
+			logger.Error("Route references an undefined middleware, the route rejects all requests with 503 until it is fixed",
+				"route", r.Name, "middleware", middleware)
+			router.Use(middlewares.Misconfigured{Origins: r.corsOrigins()}.Middleware)
 			continue
 		}
 		if mid.Type == responseHeaders {

@@ -17,7 +17,7 @@ The middleware intercepts incoming requests and forwards them to a designated au
 1. **Request Interception**: The middleware captures incoming requests matching configured paths (all paths of the route when `paths` is omitted)
 2. **Forward to Auth Service**: Sends a `GET` request to `authUrl` carrying the original request's details (see [Automatically Forwarded Headers](#automatically-forwarded-headers))
 3. **Decision Based on Response**:
-    - **200 OK**: Request is authenticated and forwarded to the backend. Any cookies set by the auth service are added to the client response
+    - **200 OK**: Request is authenticated and forwarded to the backend. Cookies set by the auth service are added to the client response (see `addAuthCookiesToResponse`)
     - **401**: Redirects to `authSignIn` with `302 Found` when it is set; otherwise responds `401`
     - **403**: Responds `403`
     - **Other codes**: Responds `401`
@@ -49,7 +49,7 @@ middlewares:
 | `insecureSkipVerify`          | boolean | No       | `false`     | Skip SSL certificate verification for auth service                                                                                                              |
 | `forwardHostHeaders`          | boolean | No       | `false`     | Send the auth request with the original request's `Host` instead of the `authUrl` host                                                                          |
 | `authRequestHeaders`          | array   | No       | `[]`        | Additional request headers to copy to the auth request (`Authorization` and all cookies are always copied)                                                     |
-| `addAuthCookiesToResponse`    | array   | No       | -           | Currently has no effect: every cookie set by the auth service on a `200` response is added to the client response                                               |
+| `addAuthCookiesToResponse`    | array   | No       | -           | Names of the cookies from the auth service's `200` response to add to the client response. When empty or omitted, every cookie is added                        |
 | `authResponseHeaders`         | array   | No       | `[]`        | Auth response headers to copy onto the upstream request                                                                                                         |
 | `authResponseHeadersAsParams` | array   | No       | `[]`        | Auth response headers to copy onto the upstream request as query parameters                                                                                     |
 
@@ -226,7 +226,7 @@ The auth service receives forwarded headers and can use them for decision-making
 The auth service can include headers in responses that will be:
 - Mapped to request headers via `authResponseHeaders`
 - Added as request parameters via `authResponseHeadersAsParams`
-- Set as cookies on the client response (every `Set-Cookie` of a `200` response)
+- Set as cookies on the client response (the `Set-Cookie`s of a `200` response, filtered by `addAuthCookiesToResponse`)
 
 
 ## Security Considerations

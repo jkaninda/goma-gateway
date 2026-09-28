@@ -30,9 +30,8 @@ set, the first one in this order is used: `jwksUrl`, `secret`, `jwksFile`,
 With `publicKey`, `jwksUrl` or `jwksFile`, both `issuer` and `audience` are
 **required**: without them, a token the same identity provider signed for any
 other client or tenant would be accepted. A rule missing either is rejected with
-an error in the logs and the middleware is **not applied**, so the route is
-served without JWT authentication. `goma config check` does not report this;
-check the startup logs.
+an error in the logs, and the route rejects every request with `503` until it is
+fixed. `goma config check` reports it.
 :::
 
 ### Shared Secret (HMAC)

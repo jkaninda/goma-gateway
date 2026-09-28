@@ -19,10 +19,10 @@ package internal
 
 import (
 	"fmt"
-	"github.com/jkaninda/goma-gateway/pkg/plugins"
 	"github.com/jkaninda/goma-gateway/util"
 	"gopkg.in/yaml.v3"
 	"slices"
+	"strings"
 )
 
 // CheckConfig checks configs
@@ -42,14 +42,9 @@ func CheckConfig(fileName string) error {
 	if err != nil {
 		return fmt.Errorf("parsing the configuration file %q: %w", fileName, err)
 	}
-	g := &Goma{
-		ctx:         nil,
-		version:     c.Version,
-		gateway:     &c.Gateway,
-		middlewares: c.Middlewares,
-		plugins:     map[string]plugins.Middleware{},
-	}
-	// Check middlewares
+	var problems []string
+	problems = append(problems, unknownKeys(buf, &GatewayConfig{})...)
+
 	fmt.Println("Checking middlewares...")
 	for index, mid := range c.Middlewares {
 		if len(mid.Name) == 0 {
@@ -58,34 +53,37 @@ func CheckConfig(fileName string) error {
 		if util.HasWhitespace(mid.Name) {
 			fmt.Printf("Warning: Middleware contains whitespace: %s | index: [%d], please remove whitespace characters\n", mid.Name, index)
 		}
+		if err := ruleError(mid); err != nil {
+			problems = append(problems, fmt.Sprintf("middleware %q (%s): %v", mid.Name, mid.Type, err))
+		}
 	}
 	fmt.Println("Checking middlewares...done")
-	// Check additional routes
 	fmt.Println("Checking routes...")
-	// Check routes
-	checkRoutes(g.gateway.Routes, g.middlewares)
+	problems = append(problems, checkRoutes(c.Gateway.Routes, c.Middlewares)...)
 	fmt.Println("Checking routes...done")
 
-	fmt.Printf("Routes count=%d Middlewares count=%d\n", len(g.gateway.Routes), len(g.middlewares))
-
+	fmt.Printf("Routes count=%d Middlewares count=%d\n", len(c.Gateway.Routes), len(c.Middlewares))
+	if len(problems) > 0 {
+		return fmt.Errorf("the configuration file %q has %d problem(s):\n  %s", fileName, len(problems), strings.Join(problems, "\n  "))
+	}
 	return nil
-
 }
 
-// checkRoutes checks routes
-func checkRoutes(routes []Route, middlewares []Middleware) {
+// checkRoutes prints warnings about routes and returns the errors.
+func checkRoutes(routes []Route, middlewares []Middleware) []string {
+	var problems []string
 	midNames := middlewareNames(middlewares)
 	for index, route := range routes {
 		if len(route.Name) == 0 {
 			fmt.Printf("Warning: route name is empty, index: [%d]\n", index)
 		}
 		if route.Target == "" && len(route.Backends) == 0 {
-			fmt.Printf("Error: no target or backends specified for route: %s | index: [%d] \n", route.Name, index)
+			problems = append(problems, fmt.Sprintf("route %q (index %d): no target or backends", route.Name, index))
 		}
 		// checking middleware applied to routes
 		for _, middleware := range route.Middlewares {
 			if !slices.Contains(midNames, middleware) {
-				fmt.Printf("Couldn't find a middleware with the name: %s | route: %s \n", middleware, route.Name)
+				problems = append(problems, fmt.Sprintf("route %q: middleware %q is not defined", route.Name, middleware))
 			}
 		}
 	}
@@ -96,6 +94,7 @@ func checkRoutes(routes []Route, middlewares []Middleware) {
 			fmt.Printf("Duplicated route name was found: %s \n", duplicate)
 		}
 	}
+	return problems
 }
 
 // validateConfig checks configurations and returns error

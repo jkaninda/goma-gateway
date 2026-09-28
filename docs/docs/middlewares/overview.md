@@ -95,8 +95,16 @@ A route can also reference a middleware provided by a
 - **`paths`** (`array of string`): Paths the middleware applies to. See [Path patterns](#path-patterns).
 - **`rule`** (`dictionary`): Middleware rule; its keys depend on the type.
 
-An unknown key inside `rule` is ignored without an error, so check spelling
-against the middleware's page.
+An unknown key inside `rule` is ignored at startup with a warning
+(`Unknown configuration key is ignored`); `goma config check` reports it as an
+error, along with rules that fail the middleware's own validation.
+
+If the rule of a `basicAuth`, `ldapAuth`, `jwtAuth`, `forwardAuth`, `oidc`,
+`access`, `accessPolicy` or `geoBlock` middleware is invalid, the gateway logs an
+error and every route using it rejects all requests with `503` until the rule is
+fixed. A route that references an undefined middleware, or a middleware whose
+type is neither built in nor a loaded plugin, also answers `503`. Other
+middleware types with an invalid rule are logged and skipped.
 
 ### Which middlewares use `paths`
 

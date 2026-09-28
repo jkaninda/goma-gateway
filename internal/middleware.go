@@ -73,6 +73,7 @@ func loadExtraMiddlewares(path string) ([]Middleware, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error loading extra file: %v", err)
 		}
+		warnUnknownKeys(yamlFile, buf, &ExtraMiddleware{})
 		if err = checkRemovedKeys(fmt.Sprintf("the extra middleware file %q", yamlFile), buf); err != nil {
 			return nil, err
 		}
@@ -109,13 +110,17 @@ func findDuplicateMiddlewareNames(middlewares []Middleware) ([]string, error) {
 	return duplicates, nil
 }
 func (r *Route) applyMiddlewareByType(mid Middleware, router *njia.Group) {
+	var err error
+	if ruleStruct(mid.Type) == nil {
+		err = fmt.Errorf("unknown middleware type %q: not a built-in type or a loaded plugin", mid.Type)
+	}
 	switch mid.Type {
 	case AccessMiddleware:
-		applyAccessMiddleware(mid, *r, router)
+		err = applyAccessMiddleware(mid, *r, router)
 	case rateLimit, MiddlewareType(strings.ToLower(string(rateLimit))):
 		applyRateLimitMiddleware(mid, *r, router)
 	case accessPolicy:
-		applyAccessPolicyMiddleware(mid, *r, router)
+		err = applyAccessPolicyMiddleware(mid, *r, router)
 	case addPrefix:
 		applyAddPrefixMiddleware(mid, router)
 	case redirect:
@@ -135,7 +140,7 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *njia.Group) {
 	case userAgentBlock:
 		applyUserAgentBlockMiddleware(mid, router)
 	case geoBlock:
-		applyGeoBlockMiddleware(mid, router)
+		err = applyGeoBlockMiddleware(mid, router)
 	case accessLog:
 		applyAccessLogMiddleware(mid, r)
 	case responseHeaders:
@@ -145,8 +150,14 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *njia.Group) {
 	case errorInterceptor:
 		applyErrorInterceptorMiddleware(mid, r)
 	}
-	// Attach Auth middlewares
-	attachAuthMiddlewares(*r, mid, router)
+	if err == nil {
+		err = attachAuthMiddlewares(*r, mid, router)
+	}
+	if err != nil {
+		logger.Error("Middleware could not be applied, the route rejects all requests with 503 until it is fixed",
+			"middleware", mid.Name, "type", mid.Type, "route", r.Name, "error", err)
+		router.Use(middlewares.Misconfigured{Origins: r.corsOrigins()}.Middleware)
+	}
 }
 
 func applyErrorInterceptorMiddleware(mid Middleware, r *Route) {
@@ -337,10 +348,10 @@ func applyHttpCacheMiddleware(route Route, mid Middleware, r *njia.Group) {
 
 }
 
-func applyAccessMiddleware(mid Middleware, route Route, router *njia.Group) {
+func applyAccessMiddleware(mid Middleware, route Route, router *njia.Group) error {
 	rule := &AccessRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
-		logger.Error("Error applying middleware", "error", err.Error())
+		return err
 	}
 	blM := middlewares.AccessListMiddleware{
 		Path:       route.Path,
@@ -349,6 +360,7 @@ func applyAccessMiddleware(mid Middleware, route Route, router *njia.Group) {
 		StatusCode: rule.StatusCode,
 	}
 	router.Use(blM.AccessMiddleware)
+	return nil
 }
 
 func applyRateLimitMiddleware(mid Middleware, route Route, router *njia.Group) {
@@ -372,7 +384,7 @@ func applyRateLimitMiddleware(mid Middleware, route Route, router *njia.Group) {
 		rt := middlewares.RateLimit{
 			Unit:       rule.Unit,
 			Path:       route.Path,
-			Id:         goutils.Slug(route.Name),
+			Id:         goutils.Slug(route.Name) + ":" + goutils.Slug(mid.Name),
 			Requests:   rule.RequestsPerUnit,
 			Burst:      rule.Burst,
 			Origins:    route.corsOrigins(),
@@ -407,15 +419,13 @@ func applyUserAgentBlockMiddleware(mid Middleware, router *njia.Group) {
 	router.Use(userAgents.Middleware)
 }
 
-func applyGeoBlockMiddleware(mid Middleware, router *njia.Group) {
+func applyGeoBlockMiddleware(mid Middleware, router *njia.Group) error {
 	rule := &GeoBlockRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
-		logger.Error("Error applying middleware, middleware not applied", "error", err)
-		return
+		return err
 	}
 	if err := rule.validate(); err != nil {
-		logger.Error("Error applying middleware, middleware not applied", "error", err)
-		return
+		return err
 	}
 	countries := make(map[string]struct{}, len(rule.Countries))
 	for _, c := range rule.Countries {
@@ -439,17 +449,16 @@ func applyGeoBlockMiddleware(mid Middleware, router *njia.Group) {
 		},
 	}
 	router.Use(geo.Middleware)
+	return nil
 }
 
-func applyAccessPolicyMiddleware(mid Middleware, route Route, router *njia.Group) {
+func applyAccessPolicyMiddleware(mid Middleware, route Route, router *njia.Group) error {
 	rule := &AccessPolicyRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, mid.Rule); err != nil {
-		logger.Error("Error applying middleware, middleware not applied", "error", err)
-		return
+		return err
 	}
 	if err := rule.validate(); err != nil {
-		logger.Error("Error applying middleware, middleware not applied", "error", err)
-		return
+		return err
 	}
 
 	if len(rule.SourceRanges) > 0 {
@@ -460,6 +469,7 @@ func applyAccessPolicyMiddleware(mid Middleware, route Route, router *njia.Group
 		}
 		router.Use(access.AccessPolicyMiddleware)
 	}
+	return nil
 }
 
 func applyAddPrefixMiddleware(mid Middleware, router *njia.Group) {
@@ -512,36 +522,34 @@ func applyStripQueryMiddleware(mid Middleware, router *njia.Group) {
 	router.Use(add.StripQueryMiddleware)
 }
 
-func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *njia.Group) {
-	// Validate and apply middleware based on type
+func attachAuthMiddlewares(route Route, routeMiddleware Middleware, r *njia.Group) error {
 	switch routeMiddleware.Type {
 	case BasicAuth, BasicAuthMiddleware:
-		applyBasicAuthMiddleware(route, routeMiddleware, r)
+		return applyBasicAuthMiddleware(route, routeMiddleware, r)
 	case LDAPAuthMiddleware, LDAPAuth:
-		applyLdapAuthMiddleware(route, routeMiddleware, r)
+		return applyLdapAuthMiddleware(route, routeMiddleware, r)
 	case JWTAuth, JWTAuthMiddleware:
-		applyJWTAuthMiddleware(route, routeMiddleware, r)
+		return applyJWTAuthMiddleware(route, routeMiddleware, r)
 	case forwardAuth:
-		applyForwardAuthMiddleware(route, routeMiddleware, r)
+		return applyForwardAuthMiddleware(route, routeMiddleware, r)
 	case OIDC:
-		applyOIDCMiddleware(route, routeMiddleware, r)
+		return applyOIDCMiddleware(route, routeMiddleware, r)
 	default:
 		if !doesExist(string(routeMiddleware.Type)) {
 			logger.Debug("Middleware type not found, skipping middleware application", "middleware", routeMiddleware.Name, "type", routeMiddleware.Type)
 		}
 	}
+	return nil
 }
 
 // applyBasicAuthMiddleware applies Basic Authentication middleware
-func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
+func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) error {
 	rule := &BasicRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
-		logger.Error("Error middleware not applied", "error", err)
-		return
+		return err
 	}
 	if err := rule.validate(); err != nil {
-		logger.Error("Error middleware not applied", "error", err)
-		return
+		return err
 	}
 
 	authBasic := &middlewares.AuthBasic{
@@ -553,18 +561,17 @@ func applyBasicAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.G
 	}
 
 	r.Use(authBasic.AuthMiddleware)
+	return nil
 }
 
 // applyLdapAuthMiddleware applies LDAP Authentication middleware
-func applyLdapAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
+func applyLdapAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) error {
 	rule := &LdapRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
-		logger.Error("Error middleware not applied", "error", err)
-		return
+		return err
 	}
 	if err := rule.validate(); err != nil {
-		logger.Error("Error middleware not applied", "error", err)
-		return
+		return err
 	}
 
 	basicAuth := &middlewares.AuthBasic{
@@ -586,39 +593,31 @@ func applyLdapAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Gr
 		ConnPoolTTL:   rule.ConnPool.TTL,
 	}
 	r.Use(basicAuth.AuthMiddleware)
+	return nil
 }
 
 // applyJWTAuthMiddleware applies JWT Authentication middleware
-func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
+func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) error {
 	var err error
 	rule := &JWTRuleMiddleware{}
 	if err = goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
-		logger.Error("Error middleware not applied", "error", err)
-		logger.Warn("JWT middleware not applied to route", "middleware", routeMiddleware.Name, "route", route.Name, "reason", "missing or invalid configuration")
-		return
+		return err
 	}
 	if err = rule.validate(); err != nil {
-		logger.Error("Error validating JWT middleware, ", "error", err.Error())
-		logger.Warn("JWT middleware not applied to route", "middleware", routeMiddleware.Name, "route", route.Name, "reason", "missing or invalid configuration")
-		return
+		return err
 	}
 	key := &rsa.PublicKey{}
 	if rule.PublicKey != "" {
 		key, err = loadRSAPublicKey(rule.PublicKey)
 		if err != nil {
-			logger.Error("Error JWT PublicKey", "error", err)
-			logger.Warn("JWT middleware not applied to route", "middleware", routeMiddleware.Name, "route", route.Name, "reason", "missing or invalid configuration")
-			return
+			return err
 		}
 	}
 	jwksFile := &middlewares.Jwks{}
 	if rule.JwksFile != "" {
 		jwksFile, err = loadJWKSFromFile(rule.JwksFile)
 		if err != nil {
-			logger.Error("Error JWT jwksFile", "error", err)
-			logger.Warn("JWT middleware not applied to route", "middleware", routeMiddleware.Name, "route", route.Name, "reason", "missing or invalid configuration")
-			return
-
+			return err
 		}
 	}
 	jwtAuth := &middlewares.JwtAuth{
@@ -638,18 +637,17 @@ func applyJWTAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Gro
 	}
 
 	r.Use(jwtAuth.AuthMiddleware)
+	return nil
 }
 
 // applyForwardAuthMiddleware applies Forward Authentication middleware
-func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
+func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) error {
 	rule := &ForwardAuthRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
-		logger.Error("Error middleware not applied", "error", err)
-		return
+		return err
 	}
 	if err := rule.validate(); err != nil {
-		logger.Error("Error validating middleware", "error", err)
-		return
+		return err
 	}
 
 	auth := &middlewares.ForwardAuth{
@@ -668,20 +666,19 @@ func applyForwardAuthMiddleware(route Route, routeMiddleware Middleware, r *njia
 	}
 
 	r.Use(auth.AuthMiddleware)
+	return nil
 }
 
 // applyOIDCMiddleware applies OpenID Connect authentication to a route: the
 // middleware guards the configured paths, and the login callback and logout
 // endpoints are registered inside the route's group.
-func applyOIDCMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) {
+func applyOIDCMiddleware(route Route, routeMiddleware Middleware, r *njia.Group) error {
 	rule := &OIDCRuleMiddleware{}
 	if err := goutils.DeepCopy(rule, routeMiddleware.Rule); err != nil {
-		logger.Error("Error applying middleware, middleware not applied", "error", err)
-		return
+		return err
 	}
 	if err := rule.validate(); err != nil {
-		logger.Error("Error validating middleware", "error", err)
-		return
+		return err
 	}
 
 	callbackPath := rule.CallbackPath
@@ -726,9 +723,7 @@ func applyOIDCMiddleware(route Route, routeMiddleware Middleware, r *njia.Group)
 
 	oidc, err := middlewares.NewOIDC(config)
 	if err != nil {
-		logger.Error("Error applying middleware, middleware not applied",
-			"middleware", routeMiddleware.Name, "route", route.Name, "error", err)
-		return
+		return err
 	}
 
 	r.Use(oidc.AuthMiddleware)
@@ -741,6 +736,7 @@ func applyOIDCMiddleware(route Route, routeMiddleware Middleware, r *njia.Group)
 	if rule.LogoutPath != "" {
 		registerOIDCEndpoint(r, route, "logout", rule.LogoutPath, oidc.LogoutHandler)
 	}
+	return nil
 }
 
 // registerOIDCEndpoint registers one of the middleware's own endpoints at an

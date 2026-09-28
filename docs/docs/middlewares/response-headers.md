@@ -134,9 +134,7 @@ the cookie.
 
 ### Behavior
 
-* A non-empty value **adds or overrides** the header. It is only applied to
-  `200 OK` responses; other statuses keep the backend's headers
-  (`Cache-Control` set through `setHeaders` is the exception and applies to every status)
+* A non-empty value **adds or overrides** the header, whatever the status
 * An empty string (`""`) **removes** the header from the response, whatever the status
 * `Content-Length`, `Transfer-Encoding`, `Trailer`, `Connection` and `Upgrade` cannot be set
 * With `paths`, a policy applies only to matching request paths; the patterns are

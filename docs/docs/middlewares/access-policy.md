@@ -33,7 +33,7 @@ middlewares:
 
 | Parameter      | Type   | Required | Description                                                                 |
 |----------------|--------|----------|-----------------------------------------------------------------------------|
-| `action`       | String | No       | `ALLOW` (default) or `DENY`. Uppercase: any value other than `DENY` is treated as `ALLOW` |
+| `action`       | String | No       | `ALLOW` (default) or `DENY`, case-insensitive. Any other value is invalid: the route rejects every request with `503` |
 | `sourceRanges` | Array  | Yes      | List of IP addresses, IP ranges, or CIDR blocks to which the policy applies |
 
 ### Source Range Formats
