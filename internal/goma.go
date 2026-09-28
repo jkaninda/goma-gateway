@@ -194,7 +194,11 @@ func (g *Goma) Initialize() error {
 	}
 	// TLS certificates
 	logger.Debug("Loading TLS certificates...")
-	if ok, certs := g.initTLS(); ok {
+	ok, certs, err := g.initTLS()
+	if err != nil {
+		return err
+	}
+	if ok {
 		certManager.AddCertificates(certs)
 		logger.Debug("TLS certificates loaded", "count", len(certs))
 	}
@@ -278,8 +282,8 @@ func (g *Goma) addGlobalHandler(rt *njia.Router, r Router) {
 	logger.Debug("Adding global handler")
 
 	health := HealthCheckRoute{
-		DisableRouteHealthCheckError: g.gateway.Monitoring.IncludeRouteHealthErrors,
-		Routes:                       g.dynamicRoutes,
+		IncludeErrors: g.gateway.Monitoring.IncludeRouteHealthErrors,
+		Routes:        g.dynamicRoutes,
 	}
 
 	// Register global observability endpoints
@@ -424,9 +428,10 @@ func (g *Goma) initTrustedProxyConfig() {
 }
 
 func (g *Goma) registerPlugins() {
+	// Plugins that did load are registered; routes using one that failed
+	// reject requests instead of running without it.
 	if err := g.loadPlugins(); err != nil {
 		logger.Error("Failed to load plugins", "error", err)
-		return
 	}
 
 	logger.Debug("Registering middlewares...")

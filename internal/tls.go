@@ -33,18 +33,18 @@ import (
 	goutils "github.com/jkaninda/go-utils"
 )
 
-func (g *Goma) initTLS() (bool, []tls.Certificate) {
+func (g *Goma) initTLS() (bool, []tls.Certificate, error) {
 	certs := g.loadTLS()
 	if len(g.gateway.TLS.ClientAuth.ClientCA) > 0 {
 		certPool, err := g.loadCertPool(g.gateway.TLS.ClientAuth.ClientCA)
 		if err != nil {
-			logger.Error("Failed to load client CA", "error", err)
-		} else {
-			g.tlsCertPool = certPool
-			g.tlsClientAuthRequired = g.gateway.TLS.ClientAuth.Required
+			// Starting without it would silently accept clients that have no certificate.
+			return false, nil, fmt.Errorf("loading gateway.tls.clientAuth.clientCA: %w", err)
 		}
+		g.tlsCertPool = certPool
+		g.tlsClientAuthRequired = g.gateway.TLS.ClientAuth.Required
 	}
-	return len(certs) > 0, certs
+	return len(certs) > 0, certs, nil
 }
 
 // loadTLS loads the certificates from the certificate directory, the gateway

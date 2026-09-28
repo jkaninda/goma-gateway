@@ -41,7 +41,7 @@ func (access AccessPolicy) AccessPolicyMiddleware(next http.Handler) http.Handle
 		contentType := getContentType(r)
 
 		// Check IP against source ranges
-		isAllowed := access.Action != "DENY"
+		isAllowed := !strings.EqualFold(access.Action, "DENY")
 		for _, entry := range access.SourceRanges {
 			if isIPAllowed(clientIP, entry) {
 				if isAllowed {

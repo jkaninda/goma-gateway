@@ -319,10 +319,9 @@ defaults.middlewares references an undefined middleware "basic-auht";
 it would be applied to every route and silently do nothing
 ```
 
-This is stricter than a route referencing a missing middleware, which is only a
-warning. The reason is blast radius: a typo in a route costs that one route its
-middleware, while a typo in `defaults` silently leaves **every** route
-unprotected by a policy the configuration appears to enforce.
+This is stricter than a route referencing a missing middleware, which is logged
+as an error while that one route rejects every request with `503`. The reason is
+blast radius: a typo in `defaults` would take **every** route down.
 
 A reload is never affected — if a reloaded configuration is invalid, the gateway
 keeps serving the one it already has.

@@ -41,8 +41,10 @@ docker run --rm --name goma-gateway \
  jkaninda/goma-gateway config check --config /etc/goma/config.yml
 ```
 
-The check also reports every configuration key that was removed in v1.0. See the
-[v1.0 upgrade notes](../upgrade/v1.0.md).
+The check reports unknown or misspelled keys, invalid middleware rules, routes
+without a target or referencing an undefined middleware, and every configuration
+key that was removed in v1.0 (see the [v1.0 upgrade notes](../upgrade/v1.0.md)).
+It exits with a non-zero status if it finds any problem.
 
 ## 3. Start the Server with Custom Config
 

@@ -19,17 +19,17 @@ package internal
 
 // Cookie defines a cookie to set in the response
 type Cookie struct {
-	Name  string           `yaml:"name"`
-	Value string           `yaml:"value"`
-	Attrs CookieAttributes `yaml:"attributes,omitempty"`
+	Name  string           `yaml:"name" json:"name"`
+	Value string           `yaml:"value" json:"value"`
+	Attrs CookieAttributes `yaml:"attributes,omitempty" json:"attributes,omitempty"`
 }
 
 // CookieAttributes defines cookie attributes (flags and metadata)
 type CookieAttributes struct {
-	Path     string `yaml:"path,omitempty"`
-	Domain   string `yaml:"domain,omitempty"`
-	MaxAge   int    `yaml:"maxAge,omitempty"` // 0 = session, -1 = delete, >0 = persistent
-	Secure   bool   `yaml:"secure,omitempty"`
-	HttpOnly bool   `yaml:"httpOnly,omitempty"`
-	SameSite string `yaml:"sameSite,omitempty"` // Strict, Lax, None
+	Path     string `yaml:"path,omitempty" json:"path,omitempty"`
+	Domain   string `yaml:"domain,omitempty" json:"domain,omitempty"`
+	MaxAge   int    `yaml:"maxAge,omitempty" json:"maxAge,omitempty"` // 0 = session, -1 = delete, >0 = persistent
+	Secure   bool   `yaml:"secure,omitempty" json:"secure,omitempty"`
+	HttpOnly bool   `yaml:"httpOnly,omitempty" json:"httpOnly,omitempty"`
+	SameSite string `yaml:"sameSite,omitempty" json:"sameSite,omitempty"` // Strict, Lax, None
 }

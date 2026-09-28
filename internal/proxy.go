@@ -189,6 +189,7 @@ func (pr *ProxyRoute) createWeightedProxy(r *http.Request, contentType string, w
 		logger.Error("Failed to create weighted reverse proxy", "route", pr.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
 			"503 service unavailable", pr.origins, contentType)
+		return nil, err
 	}
 	// Update the headers to allow for SSL redirection if host forwarding is disabled
 	if !pr.security.ForwardHostHeaders {
@@ -210,6 +211,7 @@ func (pr *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string,
 		logger.Error("Failed to create round-robin reverse proxy", "route", pr.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
 			"503 service unavailable", pr.origins, contentType)
+		return nil, err
 	}
 	// Update the headers to allow for SSL redirection if host forwarding is disabled
 	if !pr.security.ForwardHostHeaders {

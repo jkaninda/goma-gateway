@@ -12,7 +12,8 @@ The RateLimit middleware protects your services by controlling the rate of incom
 Limits are kept in memory per gateway instance. When Redis is configured on the
 gateway (`gateway.redis`), limits and bans are stored in Redis and shared by all
 instances. If Redis becomes unreachable, requests are allowed rather than
-rejected.
+rejected. In memory and in Redis, counters and bans are kept separately for each
+route and each `rateLimit` middleware on it, whatever the `keyStrategy`.
 
 ## Basic Rate Limiting
 

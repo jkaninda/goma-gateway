@@ -152,6 +152,10 @@ middlewares:
 
 The `rule` block is passed to `Configure()` as decoded YAML (a `map[string]interface{}` for a mapping), then `Validate()` is called. A middleware whose `Configure()` or `Validate()` returns an error is logged and not registered.
 
+If a `.so` file fails to load, the gateway logs the error and still registers the
+plugins that did load. A route using a middleware that was not registered, or
+whose `type` matches no loaded plugin, rejects every request with `503`.
+
 ### 3.3 Applying Middleware to a Route
 
 Attach your custom middleware to a specific route:

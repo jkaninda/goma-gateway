@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -92,9 +93,12 @@ func (f *ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 			// Inject headers and parameters
 			f.authInjectHeadersAndParams(r, authResponse)
 
-			// Copy cookies from the authentication response to the response
+			// An empty addAuthCookiesToResponse keeps copying every cookie, as
+			// before the option took effect.
 			for _, cookie := range authResponse.Cookies() {
-				http.SetCookie(w, cookie)
+				if len(f.AddAuthCookiesToResponse) == 0 || slices.Contains(f.AddAuthCookiesToResponse, cookie.Name) {
+					http.SetCookie(w, cookie)
+				}
 			}
 
 		}

@@ -270,15 +270,13 @@ middlewares:
         # or keep it out of the file entirely with ${VAR} expansion.
         - username: admin
           password: ${GOMA_ADMIN_PASSWORD_HASH}
-  defaultProvider: letsencrypt
-  providers:
-    letsencrypt:
-      type: acme
-      acme:
-        # Enable by providing your contact email
-        # email: admin@example.com
-        challengeType: http-01
-        storageFile: /etc/letsencrypt/acme.json
+# Uncomment and set your contact email to issue certificates with Let's Encrypt:
+# certManager:
+#   providers:
+#     letsencrypt:
+#       type: acme
+#       acme:
+#         email: admin@example.com
 ```
 
 **`compose.yaml`**
@@ -288,6 +286,9 @@ services:
   goma-gateway:
     image: jkaninda/goma-gateway
     command: -c /etc/goma/config.yaml
+    environment:
+      # bcrypt hash for the basic-auth user, passed through from your shell
+      - GOMA_ADMIN_PASSWORD_HASH
     ports:
       - "80:80"
       - "443:443"
@@ -299,7 +300,7 @@ services:
     image: jkaninda/okapi-example
 ```
 
-Visit http://localhost/docs to see the documentation
+Export `GOMA_ADMIN_PASSWORD_HASH` in your shell before running `docker compose up`, then visit http://localhost/docs to see the example API documentation (protected by the `basic-auth` middleware).
 
 
 ---

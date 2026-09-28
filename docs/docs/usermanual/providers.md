@@ -188,6 +188,9 @@ routes:
 middlewares:
   - name: rate-limit
     type: rateLimit
+    rule:
+      unit: minute
+      requestsPerUnit: 60
 ```
 
 ---

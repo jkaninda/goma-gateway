@@ -178,6 +178,7 @@ middlewares:
     type: ldapAuth
     rule:
       url: ${LDAP_URL}
+      baseDN: ${LDAP_BASE_DN}
       bindDN: ${LDAP_BIND_DN}
       bindPass: ${LDAP_BIND_PASSWORD}
       # ... other configuration

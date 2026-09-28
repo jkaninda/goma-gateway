@@ -102,7 +102,7 @@ gateway:
 
 * When `backends` is set, `target` is ignored; it is not used as a fallback.
 * A route with a single backend (or only a `target`) is always proxied, whatever its health check reports.
-* Write backend endpoints as `scheme://host[:port]`, without a path or trailing slash. Health state is tracked by the endpoint's scheme and host, so an endpoint with a path is never taken out of rotation.
+* Health state is tracked per backend `endpoint` exactly as configured; an endpoint may include a path or trailing slash, and `healthCheck.path` is appended to it with a single `/`.
 * Make sure `healthCheck.path` exists on every backend. List any non-`2xx`/`3xx` status that should count as healthy in `healthyStatuses` (for example `404` if the path intentionally returns it).
 * Load balancing is performed per route, giving you granular control over traffic distribution.
 

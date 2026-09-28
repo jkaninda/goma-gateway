@@ -72,7 +72,7 @@ healthCheck:
 
 * **`path`** (`string`): URL path used for health checks. Health checks run only when it is set.
 * **`interval`** (`duration`): How frequently to check. Default: `30s`.
-* **`timeout`** (`duration`): Timeout for the health check request. No timeout if omitted, so set one.
+* **`timeout`** (`duration`): Timeout for the health check request. Default: `10s`.
 * **`healthyStatuses`** (`[]int`): List of HTTP status codes considered healthy. If omitted, any status below `400` is healthy.
 
 See [Health check](healthcheck.md) for the `/healthz/routes` endpoint.
@@ -139,7 +139,7 @@ middlewares:
         allowedHeaders:
           - Origin
           - Authorization
-        maxAge: 1728000
+        maxAge: 86400
         allowCredentials: true
 
 gateway:

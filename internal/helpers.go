@@ -267,13 +267,6 @@ func extractHostsByProvider(routes []Route, defaultProvider string) map[string][
 	}
 	return out
 }
-func getBaseURL(fullURL string) (string, error) {
-	parsed, err := url.Parse(fullURL)
-	if err != nil {
-		return "", err
-	}
-	return parsed.Scheme + "://" + parsed.Host, nil
-}
 func getPathOrDefault(path string) string {
 	if path != "" {
 		return path

@@ -19,6 +19,7 @@ package middlewares
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 )
 
@@ -89,5 +90,38 @@ func TestForwardAuthNoAuthorizationHeader(t *testing.T) {
 
 	if _, ok := dest.Header["Authorization"]; ok {
 		t.Fatal("Authorization header should be absent when the client sends none")
+	}
+}
+
+func TestForwardAuthAddAuthCookiesToResponse(t *testing.T) {
+	authSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.SetCookie(w, &http.Cookie{Name: "_oauth2_proxy", Value: "session"})
+		http.SetCookie(w, &http.Cookie{Name: "internal", Value: "debug"})
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer authSrv.Close()
+
+	for _, tc := range []struct {
+		name  string
+		allow []string
+		want  []string
+	}{
+		{"empty list copies every cookie", nil, []string{"_oauth2_proxy", "internal"}},
+		{"list copies only the named cookies", []string{"_oauth2_proxy"}, []string{"_oauth2_proxy"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := &ForwardAuth{AuthURL: authSrv.URL, Path: "/", Paths: []string{testAllPaths}, AddAuthCookiesToResponse: tc.allow}
+			rec := httptest.NewRecorder()
+			f.AuthMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})).
+				ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "https://app.example.com/", nil))
+			cookies := rec.Result().Cookies()
+			got := make([]string, 0, len(cookies))
+			for _, c := range cookies {
+				got = append(got, c.Name)
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("cookies = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

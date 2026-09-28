@@ -100,16 +100,10 @@ func LoadPluginsFromDir(dirPath string) error {
 	var errs []error
 	for _, pluginPath := range matches {
 		if err := LoadPlugin(pluginPath); err != nil {
-			errs = append(errs, err)
-			fmt.Printf("Warning: failed to load plugin %s: %v\n", pluginPath, err)
+			errs = append(errs, fmt.Errorf("%s: %w", pluginPath, err))
 		}
 	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to load %d plugin(s)", len(errs))
-	}
-
-	return nil
+	return errors.Join(errs...)
 }
 
 // Create instantiates a middleware from configuration

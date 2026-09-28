@@ -331,8 +331,8 @@ type DefaultConfig struct {
 }
 
 type HealthCheckRoute struct {
-	DisableRouteHealthCheckError bool
-	Routes                       []Route
+	IncludeErrors bool
+	Routes        []Route
 }
 
 // HealthCheckResponse represents the health check response structure
@@ -358,7 +358,10 @@ type JWTSecret struct {
 
 // Health represents the health check content for a route
 type Health struct {
-	Name               string
+	Name string
+	// Endpoint is the backend endpoint exactly as configured, the key its
+	// health state is recorded under and read back by the load balancer.
+	Endpoint           string
 	URL                string
 	TimeOut            time.Duration
 	Interval           string

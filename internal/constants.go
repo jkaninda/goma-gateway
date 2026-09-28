@@ -123,6 +123,12 @@ const (
 	defaultMaxHeaderBytes = 1 << 20
 )
 
+// Actions accepted by the accessPolicy and geoBlock middlewares.
+const (
+	policyAllow = "ALLOW"
+	policyDeny  = "DENY"
+)
+
 // defaultCacheMemoryLimit is the fallback for httpCache.memoryLimit: 64 MiB.
 const defaultCacheMemoryLimit = 64 << 20
 

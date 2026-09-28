@@ -257,15 +257,15 @@ func (rl *RateLimiter) evictLeastRecentLocked(count int) {
 // evictionInterval spreads the sweep over many requests.
 const evictionInterval = 256
 
+// getClientIdentifier scopes the client key to this limiter, so routes and
+// middlewares sharing a Redis instance keep separate counters and bans, as
+// they do in memory.
 func (rl *RateLimiter) getClientIdentifier(r *http.Request) string {
+	return fmt.Sprintf("route:%s:%s", rl.id, rl.clientKey(r))
+}
+
+func (rl *RateLimiter) clientKey(r *http.Request) string {
 	ip := rl.getIPAddress(r)
-	if rl.keyStrategy.Source == "" {
-		if len(rl.paths) > 0 {
-			logger.Debug("RateLimit:: Using route-based identifier", "route", rl.id)
-			return fmt.Sprintf("route:%s:ip:%s", rl.id, ip)
-		}
-		return fmt.Sprintf("global:ip:%s", ip)
-	}
 	switch strings.ToLower(rl.keyStrategy.Source) {
 	case "header":
 		if rl.keyStrategy.Name == "" {
