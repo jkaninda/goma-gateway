@@ -23,8 +23,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -33,31 +35,22 @@ import (
 
 func (g *Goma) initTLS() (bool, []tls.Certificate) {
 	certs := g.loadTLS()
-	if len(certs) > 0 {
-		return true, certs
-	}
-	// load client CA
 	if len(g.gateway.TLS.ClientAuth.ClientCA) > 0 {
-		// Load certificates
 		certPool, err := g.loadCertPool(g.gateway.TLS.ClientAuth.ClientCA)
 		if err != nil {
 			logger.Error("Failed to load client CA", "error", err)
-			return false, certs
+		} else {
+			g.tlsCertPool = certPool
+			g.tlsClientAuthRequired = g.gateway.TLS.ClientAuth.Required
 		}
-		g.tlsCertPool = certPool
-		g.tlsClientAuthRequired = g.gateway.TLS.ClientAuth.Required
 	}
-	return false, certs
+	return len(certs) > 0, certs
 }
 
-// loadTLS initializes a TlsCertificates configuration by loading certificates from dynamic routes.
+// loadTLS loads the certificates from the certificate directory, the gateway
+// and the routes, returned in increasing order of precedence: CertManager keeps
+// the last certificate added for a host, so a route certificate wins.
 func (g *Goma) loadTLS() []tls.Certificate {
-	var mu sync.Mutex
-	certs := []tls.Certificate{}
-
-	var wg sync.WaitGroup
-
-	// load default Certificate
 	if len(g.gateway.TLS.Default.Cert) > 0 && len(g.gateway.TLS.Default.Key) > 0 {
 		certificate, err := loadCertAndKey(g.gateway.TLS.Default.Cert, g.gateway.TLS.Default.Key)
 		if err != nil {
@@ -67,55 +60,58 @@ func (g *Goma) loadTLS() []tls.Certificate {
 		}
 	}
 
-	// loadCertificates
-	loadCertificates := func(t TlsCertificates, context string) {
-		defer wg.Done()
-		localCerts := []tls.Certificate{}
-
-		for _, key := range t.Certificates {
-			if key.Key == "" && key.Cert == "" {
-				logger.Error(fmt.Sprintf("Error TlsCertificates: no certificate or key file provided for %s", context))
-				continue
-			}
-			certificate, err := loadCertAndKey(goutils.ReplaceEnvVars(key.Cert), goutils.ReplaceEnvVars(key.Key))
-			if err != nil {
-				logger.Error(fmt.Sprintf("Error loading certificate for %s", context), "error", err)
-				continue
-			}
-			localCerts = append(localCerts, *certificate)
-		}
-
-		mu.Lock()
-		certs = append(certs, localCerts...)
-		mu.Unlock()
+	type certSource struct {
+		tls     TlsCertificates
+		context string
 	}
-
-	wg.Add(1)
-	// Load gateway
-	go loadCertificates(g.gateway.TLS, "the gateway")
-
-	// Route certs
+	var sources []certSource
+	if dirCerts, err := g.loadCertificatesFromDirectory(); err == nil && len(dirCerts.Certificates) > 0 {
+		sources = append(sources, certSource{dirCerts, "CertificatesFromDirectory"})
+	}
+	sources = append(sources, certSource{g.gateway.TLS, "the gateway"})
 	for _, route := range g.dynamicRoutes {
 		if route.TLS.Certificate.Cert == "" && route.TLS.Certificate.Key == "" {
 			continue
 		}
-		// Create new TlsCertificates from route.TLS
-		routeTLS := TlsCertificates{
-			Certificates: []TLS{route.TLS.Certificate},
-		}
-		wg.Add(1)
-		go loadCertificates(routeTLS, fmt.Sprintf("route: %s", route.Name))
-	}
-	// Directory certs
-	// Load cert
-	certificateTls, err := g.loadCertificatesFromDirectory()
-	if err == nil && len(certificateTls.Certificates) > 0 {
-		wg.Add(1)
-		go loadCertificates(certificateTls, "CertificatesFromDirectory")
+		sources = append(sources, certSource{
+			TlsCertificates{Certificates: []TLS{route.TLS.Certificate}},
+			fmt.Sprintf("route: %s", route.Name),
+		})
 	}
 
+	loaded := make([][]tls.Certificate, len(sources))
+	var wg sync.WaitGroup
+	for i, src := range sources {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			loaded[i] = loadCertificates(src.tls, src.context)
+		}()
+	}
 	wg.Wait()
+
+	var certs []tls.Certificate
+	for _, c := range loaded {
+		certs = append(certs, c...)
+	}
 	logger.Debug("Certificates loaded", "count", len(certs))
+	return certs
+}
+
+func loadCertificates(t TlsCertificates, context string) []tls.Certificate {
+	var certs []tls.Certificate
+	for _, key := range t.Certificates {
+		if key.Key == "" && key.Cert == "" {
+			logger.Error(fmt.Sprintf("Error TlsCertificates: no certificate or key file provided for %s", context))
+			continue
+		}
+		certificate, err := loadCertAndKey(goutils.ReplaceEnvVars(key.Cert), goutils.ReplaceEnvVars(key.Key))
+		if err != nil {
+			logger.Error(fmt.Sprintf("Error loading certificate for %s", context), "error", err)
+			continue
+		}
+		certs = append(certs, *certificate)
+	}
 	return certs
 }
 
@@ -179,7 +175,8 @@ func (g *Goma) loadCertificatesFromDirectory() (TlsCertificates, error) {
 	var certificates []TLS
 	matched := make(map[string]bool)
 
-	for basename, certPath := range certFiles {
+	for _, basename := range slices.Sorted(maps.Keys(certFiles)) {
+		certPath := certFiles[basename]
 		keyPath, hasKey := keyFiles[basename]
 		if !hasKey {
 			// Try common variations

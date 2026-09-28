@@ -6,7 +6,7 @@ slug: /
 ---
 
 # Goma Gateway
-**Goma Gateway** is a high-performance, security-focused API Gateway built for modern developers and cloud-native environments. With a powerful feature set, intuitive configuration, and first-class support for observability, Goma helps you route, secure, and scale traffic effortlessly.
+**Goma Gateway** is a high-performance, security-focused, cloud-native API Gateway. It puts security at the edge — automatic HTTPS, mTLS, built-in authentication, and exploit protection — and built to run where your services run: containers, Kubernetes, and dynamic, horizontally scaled environments. With declarative configuration, zero-downtime reloads, and first-class observability, Goma helps you route, secure, and scale traffic effortlessly.
 
 
 The project is named after Goma, a vibrant city located in the eastern region of the Democratic Republic of the Congo — known for its resilience, beauty, and energy.
@@ -17,159 +17,100 @@ The project is named after Goma, a vibrant city located in the eastern region of
 
 ## Features
 
-**Goma Gateway** is a modern, developer-friendly API Gateway built for simplicity, security, and scale.
-More than just a reverse proxy, it streamlines service infrastructure management with **declarative configuration** and **enterprise-grade features**.
-
-### Core Features
-
-* **RESTful API Gateway Management**
-  Manage your APIs easily with a clean, declarative configuration system designed for clarity and control.
-
-* **Domain & Host-Based Routing**
-  Route incoming requests based on domain or host to direct traffic to the appropriate services or environments.
-
-* **Multi-Domain Support**
-  Handle traffic across multiple domains with a unified, streamlined configuration approach.
-
-* **Reverse Proxy**
-  Seamlessly forward client requests to backend services, abstracting service details from clients.
-
-* **Traffic Control & Rate Limiting**
-  Protect your services from overload by controlling request rates and traffic flow.
-
-* **WebSocket & gRPC Routing**
-  Fully support real-time applications with native WebSocket and gRPC routing capabilities.
-
-* **TCP/UDP Routing**
-  Forward TCP, UDP, and gRPC traffic efficiently through the PassThrough entry point.
-
-* **TLS & Certificate Management (Automatic & Custom)**
-  Secure your communications with flexible TLS support, including automatic certificate provisioning and custom certificates.
-
-* **Backend Error Interception**
-  Intercept and handle backend errors gracefully to improve reliability and user experience.
-
-* **Canary Deployments**
-  Safely roll out new versions of your services with advanced canary deployment strategies:
-
-  * **Weighted Backends** – Gradually shift traffic between service versions using percentage-based routing.
-  * **Conditional Routing** – Route requests based on user groups, headers, query parameters, or cookies for targeted rollouts.
-
-* **Monitoring & Logging**
-  Gain deep visibility into gateway operations with comprehensive monitoring and logging features.
-
----
+More than just a reverse proxy: Goma Gateway secures, routes, and scales your traffic from a single **declarative configuration**, with enterprise-grade features and none of the enterprise complexity.
 
 ### Security & Access Control
 
-* **TLS with Automatic Certificate Management**
-  Secure your services with built-in TLS support, including:
+* **[TLS with Automatic Certificate Management](./usermanual/tls.md)**
+  * **Free, auto-generated certificates** via Let's Encrypt, with automatic renewal and storage.
+  * **Custom TLS certificates**, falling back to auto-generation when none is provided.
 
-  * **Free, Auto-Generated Certificates** via Let's Encrypt.
-  * **Automatic Renewal & Storage** to ensure uninterrupted HTTPS.
-  * **Custom TLS Certificates Support**
-
-  Bring your own TLS certificates when needed:
-  * Fallback to auto-generation when no custom cert is provided.
-
-* **Cross-Origin Resource Sharing (CORS)**
-  Define and enforce CORS policies per route for controlled cross-origin access.
-
-* **Custom Header Injection**
-  Add or override HTTP headers for fine-grained request/response control.
+* **[Mutual TLS (mTLS)](./usermanual/mtls.md)**
+  Authenticate clients with certificates before traffic reaches your services.
 
 * **Authentication Middleware**
+  * Built-in **[Basic Auth](./middlewares/basic.md)**, **[JWT](./middlewares/jwt.md)**, **[OAuth](./middlewares/oauth.md)**, **[OpenID Connect](./middlewares/oidc.md)**, and **[LDAP](./middlewares/ldap.md)**.
+  * **[ForwardAuth](./middlewares/forward-auth.md)** for external authorization services.
 
-  * **ForwardAuth** support for external authorization services.
-  * Built-in support for **Basic Auth**, **JWT**, and **OAuth**.
-
-* **Access Policy Enforcement**
-  Allow or deny traffic based on route-specific rules (IP, headers, methods, etc.).
+* **[Access Policy Enforcement](./middlewares/access-policy.md)**
+  Allow or deny traffic based on route-specific rules (IP, headers, methods, etc.), with **[geo-blocking](./middlewares/geo-block.md)** by country.
 
 * **Exploit Protection Middleware**
-  Block common attack patterns like:
+  Block common attack patterns such as SQL injection and cross-site scripting (XSS).
 
-  * SQL injection attempts.
-  * Cross-site scripting (XSS).
-
-* **Regex URL Rewriting**
-  Modify request paths on the fly using powerful regex rules.
-
-* **Bot Detection**
+* **[Bot Detection](./middlewares/user-agent-block.md)**
   Identify and block traffic from known bots using user-agent analysis.
 
-* **HTTP Method Restrictions**
-  Explicitly restrict which HTTP methods are allowed per route.
+* **[Rate Limiting & Abuse Prevention](./middlewares/rate-limit.md)**
+  * **In-memory** limits for single-instance deployments, or **Redis** for enforcement across many instances.
+  * Automatic client banning for repeated violations.
+  * Configurable thresholds and keys (IP address, API key, header, or cookie).
 
-### Monitoring & Observability
+* **Request Hardening**
+  * **[CORS](./usermanual/cors.md)** policies per route for controlled cross-origin access.
+  * **[Body size limits](./middlewares/body-limit.md)** and explicit per-route HTTP method restrictions.
+  * **[Custom header injection](./middlewares/request-headers.md)** for fine-grained request/response control.
 
-* **Comprehensive Logging**
-  Capture full request/response details with support for log levels (INFO, DEBUG, ERROR).
+### Cloud-Native by Design
 
-* **Metrics Collection**
-  Track key metrics like response times, error rates, and throughput.
-  Integrates with **Prometheus**, **Grafana**, and other observability platforms.
+* **[Kubernetes Operator](./operator-manual/index.md)**
+  Manage gateways, routes, and middleware as Kubernetes-native `Gateway`, `Route`, and `Middleware` resources.
 
-### Rate Limiting & Throttling
+* **[Dynamic Configuration Providers](./usermanual/providers.md)**
+  Load configuration from File, HTTP, Docker, and Kubernetes providers, and add or remove backends without restarting the gateway.
 
-* **In-Memory Rate Limiting**
-  IP-based throttling suitable for single-instance deployments.
+* **[Horizontal Scalability](./monitoring-and-performance/distributed-instances.md)**
+  Run many stateless gateway instances, sharing rate-limit and cache state through Redis.
 
-* **Distributed Rate Limiting with Redis**
-  Scalable enforcement of request limits across multiple gateway instances.
-
-* **Customizable Policies**
-  Configure thresholds (e.g., X requests per Y seconds) to protect APIs.
-
-
-###  Load Balancing
-
-* **Round-Robin & Weighted Algorithms**
-  Distribute traffic evenly or based on weight preferences across backend targets.
-
-* **Integrated Health Checks**
-  Automatically route traffic only to healthy upstream services.
-
-* **Horizontal Scalability**
-  Add or remove backends dynamically, without restarting the gateway.
-
-
-
-### Performance Optimization
-
-* **HTTP Caching**
-  Speed up responses and reduce load with route-based caching strategies.
-
-* **Pluggable Cache Backends**
-
-  * **In-Memory** for low-latency, single-node setups.
-  * **Redis** for distributed, multi-node cache sharing.
-
-* **Fine-Grained Control**
-
-  * Respect standard `Cache-Control` headers.
-  * Custom headers like `X-Cache-Status` for transparency.
-  * Time or event-based cache invalidation strategies.
-
-
-### Configuration & Extensibility
-
-* **Modular Config Files**
-  Split and organize routes and middleware using multiple `.yml` or `.yaml` files for clarity.
+* **[Health & Readiness Endpoints](./usermanual/healthcheck.md)**
+  `/healthz` and `/readyz` plug directly into orchestrator liveness and readiness probes.
 
 * **Live Configuration Reload**
-  * Apply configuration changes on the fly — no server restarts required.
-  * Dynamically enable or disable routes with zero downtime, allowing for flexible, real-time adjustments.
+  Apply changes and enable or disable routes on the fly, with zero downtime.
 
-* **Kubernetes CRD Integration**
+* **GitOps-Ready, Modular Configuration**
+  * Split routes and middleware across multiple `.yml` or `.yaml` files.
+  * Version-control your gateway configuration for traceable, automated deployments.
 
-  * Manage routes, gateways, and middleware via Kubernetes-native CRDs.
-  * GitOps-friendly for declarative and version-controlled configuration.
+### Routing & Traffic Management
 
-* **Declarative API Gateway Management**  
-  Adopt a declarative approach to API Gateway Management, enabling you to:
-  - Define routes and middleware programmatically for consistent, code-driven configuration.
-  - Integrate GitOps workflows to version control your gateway configurations, ensuring traceable and automated deployments.
+* **Declarative Routing**
+  Define routes, middleware, policies, and TLS in clear, maintainable YAML.
+
+* **Domain & Host-Based Routing**
+  Route requests by domain, host, or path, across multiple domains in one configuration.
+
+* **Reverse Proxy**
+  Forward client requests to backend services, abstracting service details from clients.
+
+* **[WebSocket, gRPC, TCP & UDP](./usermanual/tcp-udp-grpc.md)**
+  Native WebSocket and gRPC routing, plus TCP/UDP forwarding through the PassThrough entry point.
+
+* **[Load Balancing](./monitoring-and-performance/load-balancing.md)**
+  Round-robin and weighted algorithms, with integrated health checks that route only to healthy upstreams.
+
+* **[Canary Deployments](./usermanual/canary-deployment.md)**
+  * **Weighted Backends** – Gradually shift traffic between service versions using percentage-based routing.
+  * **Conditional Routing** – Route requests based on user groups, headers, query parameters, or cookies for targeted rollouts.
+
+* **[Regex URL Rewriting](./middlewares/rewrite-regex.md)**
+  Modify request paths on the fly using regex rules.
+
+* **[Backend Error Interception](./usermanual/error-interceptor.md)**
+  Intercept and handle backend errors gracefully to improve reliability and user experience.
+
+### Performance & Observability
+
+* **[HTTP Caching](./middlewares/http-caching.md)**
+  * **In-memory** for low-latency single-node setups, or **Redis** for distributed cache sharing.
+  * Respects standard `Cache-Control` headers and exposes `X-Cache-Status` for transparency.
+  * Time or event-based cache invalidation.
+
+* **[Structured Logging](./monitoring-and-performance/logging.md)**
+  Capture request/response details with configurable log levels (INFO, DEBUG, ERROR).
+
+* **[Metrics](./monitoring-and-performance/monitoring.md)**
+  Track response times, error rates, and throughput in **Prometheus**, with a prebuilt **Grafana** dashboard.
 
 ----
 Architecture:
