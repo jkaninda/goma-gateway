@@ -114,8 +114,9 @@ func TestForwardAuthAddAuthCookiesToResponse(t *testing.T) {
 			rec := httptest.NewRecorder()
 			f.AuthMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})).
 				ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "https://app.example.com/", nil))
-			var got []string
-			for _, c := range rec.Result().Cookies() {
+			cookies := rec.Result().Cookies()
+			got := make([]string, 0, len(cookies))
+			for _, c := range cookies {
 				got = append(got, c.Name)
 			}
 			if !slices.Equal(got, tc.want) {

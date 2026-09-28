@@ -437,7 +437,7 @@ func applyGeoBlockMiddleware(mid Middleware, router *njia.Group) error {
 	}
 	geo := middlewares.GeoBlock{
 		Name:          mid.Name,
-		Deny:          strings.EqualFold(rule.Action, "DENY"),
+		Deny:          strings.EqualFold(rule.Action, policyDeny),
 		Countries:     countries,
 		StatusCode:    rule.StatusCode,
 		Message:       rule.Message,

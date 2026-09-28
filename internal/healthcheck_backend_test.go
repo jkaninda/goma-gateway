@@ -89,8 +89,9 @@ func TestRouteHealthHandlerIncludeErrors(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer down.Close()
-	var routes []Route
-	for _, name := range []string{"a", "b", "c", "d"} {
+	names := []string{"a", "b", "c", "d"}
+	routes := make([]Route, 0, len(names))
+	for _, name := range names {
 		routes = append(routes, Route{Name: name, Enabled: true, Target: down.URL, HealthCheck: RouteHealthCheck{Path: "/health"}})
 	}
 	for _, include := range []bool{true, false} {

@@ -370,7 +370,7 @@ func initConfig(configFile string) error {
 				Name: "access-policy",
 				Type: accessPolicy,
 				Rule: AccessPolicyRuleMiddleware{
-					Action: "DENY",
+					Action: policyDeny,
 					SourceRanges: []string{
 						"10.1.10.0/16",
 						"192.168.1.25-192.168.1.100",
@@ -519,7 +519,7 @@ func (u UserAgentBlockRuleMiddleware) validate() error {
 // validate validates GeoBlockRuleMiddleware
 func (g GeoBlockRuleMiddleware) validate() error {
 	switch strings.ToUpper(g.Action) {
-	case "ALLOW", "DENY":
+	case policyAllow, policyDeny:
 	default:
 		return fmt.Errorf("invalid action %q in geoBlock middleware (want ALLOW or DENY)", g.Action)
 	}
@@ -557,7 +557,7 @@ func (l *LdapRuleMiddleware) validate() error {
 }
 func (a AccessPolicyRuleMiddleware) validate() error {
 	switch strings.ToUpper(a.Action) {
-	case "", "ALLOW", "DENY":
+	case "", policyAllow, policyDeny:
 	default:
 		return fmt.Errorf("invalid action %q in accessPolicy middleware (want ALLOW or DENY)", a.Action)
 	}
