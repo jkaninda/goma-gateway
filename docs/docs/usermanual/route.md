@@ -7,7 +7,7 @@ sidebar_position: 2
 
 # Route
 
-A **Route** defines how incoming HTTP traffic is matched and forwarded to backend services. It supports path and host matching, request rewriting, CORS, method filtering, health checks, load balancing, middleware, and more.
+A **Route** defines how incoming HTTP traffic is matched and forwarded to backend services. It supports path and host matching, request rewriting, method filtering, health checks, load balancing, middleware, and more.
 
 ---
 
@@ -17,20 +17,33 @@ Below are the configuration options for defining routes in Goma Gateway:
 
 ### Basic Route Options
 
-* **`path`** (`string`): Path to match (e.g., `/api/v1/resource`).
-* **`name`** (`string`): Unique name for the route.
-* **`enabled`** (`boolean`): Enables or disables the route. If set to `false`, the route will not be proxied.
-* **`hosts`** (`[]string`): Optional list of allowed hostnames.
+* **`name`** (`string`, required): Unique name for the route.
+* **`path`** (`string`, required): Path prefix to match (e.g., `/api/v1/resource`). The route also serves every path beneath it.
+* **`enabled`** (`boolean`, default: `true`): Set to `false` to disable the route.
+* **`hosts`** (`[]string`): Optional list of hostnames the route matches.
 * **`rewrite`** (`string`): Rewrites the request path before forwarding.
 
-  > For advanced rewriting (regex-based), consider using the `rewriteRegex` middleware.
+  > For advanced rewriting (regex-based), consider using the [`rewriteRegex`](../middlewares/rewrite-regex.md) middleware.
 * **`methods`** (`[]string`): Allowed HTTP methods (e.g., `GET`, `POST`). Defaults to all if omitted.
-* **`target`** (`string`): Single backend target (overridden if `backends` is set).
-* **`backends`** (`[]Backend`): List of backend endpoints for load balancing.
-* **`security`**: Per-route security configuration.
-* **`tls`**: Per-route TLS settings.
-* **`priority`** (`int`): Optional priority for route matching. Lower values take precedence.
+* **`target`** (`string`): Single backend URL. Ignored when `backends` is set.
+* **`backends`** (`[]Backend`): List of backend endpoints for load balancing. A route needs `target` or `backends`.
+* **`healthCheck`**: Periodic backend health checks. See [below](#health-check-configuration).
+* **`middlewares`** (`[]string`): Names of the middlewares applied to the route, in order.
+* **`security`**: Per-route security configuration. See [below](#security-configuration).
+* **`tls`**: Per-route TLS settings. See [below](#tls-configuration).
+* **`maintenance`**: Returns a fixed response instead of forwarding. See [Maintenance Mode](maintenance-mode.md).
+* **`priority`** (`int`, default: `0`): Matching order among routes whose paths both match a request. Lower values take precedence.
 * **`disableMetrics`** (`boolean`): If `true`, disables metrics collection for this route.
+
+### Backend Options
+
+Each entry in `backends` accepts:
+
+* **`endpoint`** (`string`): Backend URL.
+* **`weight`** (`int`): Weight for weighted load balancing. Without weights, backends are used round-robin.
+* **`match`**, **`exclusive`**, **`priority`**: Canary routing rules. See [Canary Deployment](canary-deployment.md).
+
+See also [Load Balancing](../monitoring-and-performance/load-balancing.md).
 
 ## Minimal Route Configuration
 
@@ -53,14 +66,16 @@ Configure periodic health checks for route backends:
 healthCheck:
   path: "/health"
   interval: 30s      # Default: 30s
-  timeout: 10s       # Default: 10s
+  timeout: 10s
   healthyStatuses: [200, 404]
 ```
 
-* **`path`** (`string`): URL path used for health checks.
-* **`interval`** (`duration`): How frequently to check.
-* **`timeout`** (`duration`): Timeout for the health check request.
-* **`healthyStatuses`** (`[]int`): List of HTTP status codes considered healthy.
+* **`path`** (`string`): URL path used for health checks. Health checks run only when it is set.
+* **`interval`** (`duration`): How frequently to check. Default: `30s`.
+* **`timeout`** (`duration`): Timeout for the health check request. No timeout if omitted, so set one.
+* **`healthyStatuses`** (`[]int`): List of HTTP status codes considered healthy. If omitted, any status below `400` is healthy.
+
+See [Health check](healthcheck.md) for the `/healthz/routes` endpoint.
 
 ---
 
@@ -79,8 +94,29 @@ security:
 
 * **`forwardHostHeaders`** (`bool`, default: `true`): Whether to forward the original `Host` header.
 * **`enableExploitProtection`** (`bool`, default: `false`): Enable built-in protections against known exploits.
-* **`tls.insecureSkipVerify`** (`bool`, default: `false`): Disable TLS certificate verification for backend.
+* **`tls.insecureSkipVerify`** (`bool`, default: `false`): Disable TLS certificate verification for the backend. Forced to `true` when `gateway.networking.transport.insecureSkipVerify` is set.
 * **`tls.rootCAs`**: Custom root CA (file path, raw PEM, or base64-encoded string).
+* **`tls.clientCert`**, **`tls.clientKey`**: Client certificate and key presented to the backend (mTLS). They are only used when `tls.rootCAs` is also set. See [Mutual TLS (mTLS)](mtls.md).
+
+---
+
+## TLS Configuration
+
+The route `tls` block selects how the certificate for the route's `hosts` is
+obtained:
+
+```yaml
+tls:
+  provider: letsencrypt        # a certManager provider name, or "none"
+  certificate:                 # optional custom certificate for this route
+    cert: /etc/goma/certs/api.crt
+    key: /etc/goma/certs/api.key
+```
+
+* **`provider`** (`string`): Name of a provider under `certManager.providers`. Empty uses `certManager.defaultProvider`; `none` opts the route out of automatic certificates.
+* **`certificate`** (`object`): A single `cert`/`key` pair (file path, raw PEM, or base64-encoded string) served for this route.
+
+See [TLS & Let's Encrypt](tls.md#per-route-provider-selection).
 
 ---
 
@@ -126,8 +162,10 @@ The per-route `cors` block was removed in v1.0. See
 
 ## Route Priority
 
-* If no route has a `priority` defined, routes are matched by longest path.
-* If `priority` is set, lower numbers take precedence during matching.
+* Without `priority`, the most specific (longest) matching path wins.
+* `priority` overrides that order among routes whose paths match the same
+  request: lower numbers take precedence, and negative values are allowed. The
+  default is `0`.
 
 
 ---
@@ -159,7 +197,6 @@ version: 2
 gateway:
   routes:
     - name: Example
-      enabled: false
       path: /store/cart
       target: http://cart-service:8080
       methods: [POST, GET]

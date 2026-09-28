@@ -11,9 +11,8 @@ The LDAP middleware for Goma Gateway provides secure authentication using LDAP (
 ## Features
 
 - **LDAP Authentication**: Seamless integration with existing LDAP/Active Directory infrastructure
-- **Built-in Rate Limiting**: Protects LDAP servers from excessive authentication requests
-- **Connection Pooling**: Optimizes performance with configurable connection management
-- **Username Forwarding**: Passes authenticated usernames to backend services via headers
+- **Built-in Rate Limiting**: Limits how many authentication attempts reach the LDAP server (`connPool`)
+- **Username Forwarding**: Passes authenticated usernames to backend services via a header
 - **TLS Support**: Secure connections with StartTLS and certificate validation options
 - **Flexible User Filtering**: Customizable LDAP queries for user authentication and authorization
 
@@ -21,11 +20,11 @@ The LDAP middleware for Goma Gateway provides secure authentication using LDAP (
 
 1. Client sends request with HTTP Basic Authentication credentials
 2. Middleware extracts username/password from Authorization header
-3. Establishes connection to LDAP server using configured bind credentials
-4. Searches for user using the provided user filter
-5. Attempts to bind with user's credentials for authentication
-6. On success, optionally forwards username to backend service
-7. Rate limiting prevents abuse and protects LDAP infrastructure
+3. Checks the authentication rate limit; when it is exceeded the client receives `429 Too Many Requests` with a `Retry-After` header
+4. Connects to the LDAP server and binds with the service account (`bindDN` / `bindPass`), or searches anonymously when they are empty
+5. Searches `baseDN` (whole subtree) with `userFilter`, the username escaped for LDAP; exactly one entry must match
+6. Binds as the found entry with the user's password
+7. On success, optionally forwards the username to the backend; on failure, responds `401 Unauthorized`
 
 ## Configuration
 
@@ -74,11 +73,11 @@ middlewares:
       startTLS: false                    # Use StartTLS for plain LDAP connections
       insecureSkipVerify: false          # Skip certificate verification (not recommended for production)
       
-      # Performance Optimization
+      # Authentication rate limit
       connPool:
-        size: 10                         # Connection pool size
-        burst: 20                        # Rate limiting burst capacity
-        ttl: 300s                        # Connection time-to-live
+        size: 10                         # Attempts allowed per ttl window
+        burst: 20                        # Burst capacity
+        ttl: 1m                          # Window length
 ```
 
 ## Configuration Parameters
@@ -89,26 +88,30 @@ middlewares:
 |--------------|-----------------------------------------------|--------------------------------|
 | `url`        | LDAP server URL with protocol and port        | `ldap://ldap.example.com:389`  |
 | `baseDN`     | Base Distinguished Name for searches          | `dc=example,dc=com`            |
-| `bindDN`     | Service account DN for LDAP operations        | `cn=service,dc=example,dc=com` |
-| `bindPass`   | Service account password                      | `password123`                  |
 | `userFilter` | LDAP filter to locate users (`%s` = username) | `(uid=%s)`                     |
 
 ### Optional Parameters
 
 | Parameter            | Type    | Default                 | Description                                              |
 |----------------------|---------|-------------------------|----------------------------------------------------------|
-| `realm`              | string  | `"LDAP Authentication"` | Authentication realm name                                |
-| `forwardUsername`    | boolean | `false`                 | Forward username to backend in `X-Forwarded-User` header |
-| `startTLS`           | boolean | `false`                 | Upgrade plain connection to TLS                          |
+| `bindDN`             | string  | empty                   | Service account DN used for the user search. Anonymous search when `bindDN` or `bindPass` is empty |
+| `bindPass`           | string  | empty                   | Service account password                                 |
+| `realm`              | string  | `"Restricted"`          | Authentication realm name                                |
+| `forwardUsername`    | boolean | `false`                 | Forward the username to the backend in a `username` request header |
+| `startTLS`           | boolean | `false`                 | Upgrade a plain `ldap://` connection to TLS              |
 | `insecureSkipVerify` | boolean | `false`                 | Skip TLS certificate verification                        |
 
-### Connection Pool Configuration
+### Authentication Rate Limit (`connPool`)
 
-| Parameter        | Type     | Default | Description                        |
-|------------------|----------|---------|------------------------------------|
-| `connPool.size`  | integer  | `5`     | Number of connections to maintain  |
-| `connPool.burst` | integer  | `10`    | Maximum burst requests allowed     |
-| `connPool.ttl`   | duration | `60s`   | Connection lifetime before refresh |
+Despite its name, `connPool` does not pool connections: each authentication
+opens its own LDAP connection. It configures a rate limit on authentication
+attempts, shared by all clients of the middleware, that protects the directory.
+
+| Parameter        | Type     | Default | Description                                       |
+|------------------|----------|---------|---------------------------------------------------|
+| `connPool.size`  | integer  | `10`    | Attempts allowed per `ttl` window                 |
+| `connPool.burst` | integer  | `20`    | Attempts allowed in a burst above that rate       |
+| `connPool.ttl`   | duration | `1m`    | Window length; also sent as `Retry-After` on 429  |
 
 ## Common LDAP Filter Examples
 
@@ -161,9 +164,8 @@ routes:
     backends:
       - endpoint: https://admin.company.com
     middlewares:
-      - rate-limit        # Apply rate limiting first
-      - ldap-auth         # Then authenticate
-      - audit-log         # Finally log access
+      - rate-limit
+      - ldap-auth
 ```
 
 ### Environment Variables

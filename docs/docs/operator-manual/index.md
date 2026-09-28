@@ -6,7 +6,7 @@ sidebar_position: 8
 
 # Operator Manual
 
-The **Goma Gateway Operator** brings Kubernetes-native management to Goma Gateway by introducing Custom Resource Definitions (CRDs) that model your API gateway configuration declaratively.
+The **Goma Gateway Operator** brings Kubernetes-native management to Goma Gateway, a security-focused, cloud-native API Gateway, by introducing Custom Resource Definitions (CRDs) that model your API gateway configuration declaratively.
 
 It defines three core resources:
 
@@ -46,6 +46,8 @@ The operator reconciles a `Gateway` resource into a complete runtime stack:
 | [Middleware](./middleware.md) | `gateway.jkaninda.dev/v1alpha1` | Auth, rate-limiting, headers, redirects, etc. |
 
 ## Quick links
+
+- [Installation](./installation.md) and [Uninstall](./uninstall.md)
 
 - Operator GitHub: [https://github.com/jkaninda/goma-operator](https://github.com/jkaninda/goma-operator)
 - Operator examples: [https://github.com/jkaninda/goma-operator/tree/main/examples](https://github.com/jkaninda/goma-operator/tree/main/examples)

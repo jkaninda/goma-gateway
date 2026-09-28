@@ -7,7 +7,12 @@ sidebar_position: 7
 
 # RateLimit Middleware
 
-The RateLimit middleware protects your services by controlling the rate of incoming requests, ensuring fair usage and preventing abuse. This middleware applies globally to entire routes, providing comprehensive protection without requiring individual path configuration.
+The RateLimit middleware protects your services by controlling the rate of incoming requests, ensuring fair usage and preventing abuse. Without `paths` it applies to every path of the route; with `paths`, only matching requests are counted and limited (see [Path patterns](overview.md#path-patterns)).
+
+Limits are kept in memory per gateway instance. When Redis is configured on the
+gateway (`gateway.redis`), limits and bans are stored in Redis and shared by all
+instances. If Redis becomes unreachable, requests are allowed rather than
+rejected.
 
 ## Basic Rate Limiting
 
@@ -25,13 +30,14 @@ middlewares:
 
 ### Parameters
 
-| Parameter         | Type    | Description                                    | Options                         |
-|-------------------|---------|------------------------------------------------|---------------------------------|
-| `unit`            | string  | Time period for rate calculation               | `second`, `minute`, `hour`      |
-| `requestsPerUnit` | integer | Maximum requests allowed per time unit         | Any positive integer            |
-| `banAfter`        | integer | Number of rate limit violations before banning | Any positive integer            |
-| `banDuration`     | string  | Duration of the ban                            | Time units: `ms`, `s`, `m`, `h` |
-| `keyStrategy`     | object  | Strategy to identify clients for rate limiting | See Key Strategy section below  |
+| Parameter         | Type    | Default    | Description                                                                 |
+|-------------------|---------|------------|-----------------------------------------------------------------------------|
+| `requestsPerUnit` | integer | required   | Requests allowed per `unit`. The middleware is not applied without it       |
+| `unit`            | string  | `second`   | `second`, `minute` or `hour`                                                |
+| `burst`           | integer | `0`        | Extra requests allowed in a burst; bucket capacity is `requestsPerUnit + burst` |
+| `banAfter`        | integer | `0` (off)  | Number of rate limit violations (429 responses) before the client is banned |
+| `banDuration`     | string  | `10m`      | Duration of the ban, e.g. `500ms`, `30s`, `15m`, `1h30m`                    |
+| `keyStrategy`     | object  | client IP  | Strategy to identify clients for rate limiting. See below                   |
 
 ### Key Strategy
 The `keyStrategy` defines how clients are identified for rate limiting. You can choose from the following strategies:
@@ -41,6 +47,9 @@ The `keyStrategy` defines how clients are identified for rate limiting. You can 
 | `source: ip`     | Uses the client's IP address for identification | None                              |
 | `source: header` | Uses a specific HTTP header for identification  | `name`: Name of the header to use |
 | `source: cookie` | Uses a specific cookie for identification       | `name`: Name of the cookie to use |
+
+When the header or cookie is missing from a request, or `name` is empty, the
+client IP is used instead.
 
 > **`header` and `cookie` keys are chosen by the caller.** A client that changes
 > the value gets a fresh allowance, so these strategies only limit anything when
@@ -108,8 +117,8 @@ middlewares:
 ## How It Works
 
 1. **Rate Tracking**: The middleware monitors request frequency per client
-2. **Limit Enforcement**: Requests exceeding the configured rate are rejected with HTTP 429 (Too Many Requests)
+2. **Limit Enforcement**: Requests exceeding the configured rate are rejected with HTTP 429 (Too Many Requests). Tokens refill continuously at `requestsPerUnit` per `unit`
 3. **Violation Counting**: When banning is enabled, rate limit violations are tracked per client
-4. **Automatic Banning**: After reaching the `banAfter` threshold, the client is temporarily banned
+4. **Automatic Banning**: After reaching the `banAfter` threshold, the client is temporarily banned and receives HTTP 403 (Forbidden)
 5. **Ban Expiry**: Banned clients regain access after the `banDuration` expires
 

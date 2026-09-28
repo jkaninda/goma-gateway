@@ -30,13 +30,15 @@ docker run --rm --name goma-gateway \
   jkaninda/goma-gateway config init --output /etc/goma/config.yml
 ```
 
-This will generate the configuration under `./config/config.yml`.
+This generates `./config/config.yml`. The generated configuration includes a
+`basic-auth` middleware whose `admin` password is created at random and printed
+**once** in the command output; change or remove it before exposing the gateway.
 
 
 ### 2. Customize the Configuration
 
 Edit `./config/config.yml` to define your **routes**, **middlewares**, **backends**, and other settings.
-
+See [Gateway](../usermanual/gateway.md) and [Route](../usermanual/route.md) for the available options.
 
 
 ### 3. Validate Your Configuration
@@ -55,7 +57,8 @@ Fix any reported issues before proceeding.
 
 ### 4. Start the Gateway
 
-Launch the server with your configuration and Let's Encrypt volumes:
+Launch the server with your configuration and a volume for certificates
+issued through Let's Encrypt:
 
 ```bash
 docker run --rm --name goma-gateway \
@@ -70,6 +73,10 @@ By default, Goma Gateway listens on:
 
 * **8080** → HTTP (`web` entry point)
 * **8443** → HTTPS (`webSecure` entry point)
+
+Without a `--config` flag, the gateway reads `/etc/goma/goma.yml` (or the path in
+the `GOMA_CONFIG_FILE` environment variable), and generates a default
+configuration there if the file does not exist.
 
 ---
 
@@ -100,20 +107,22 @@ docker run --rm --name goma-gateway \
 
 The container runs as root by default, which is what lets it bind 80 and 443
 directly. To run unprivileged instead, see
-[Running as a Non-Root User](/install/docker).
+[Running as a Non-Root User](../install/docker.md#6-running-as-a-non-root-user).
 
 
 ### 6. Health Checks
 
 Goma Gateway exposes the following endpoints:
 
-* Gateway health:
+* Gateway health (enabled by default):
 
     * `/readyz`
     * `/healthz`
-* Routes health:
+* Routes health (only when `gateway.monitoring.enableRouteHealthCheck: true`):
 
     * `/healthz/routes`
+
+See [Health check](../usermanual/healthcheck.md) for details.
 
 
 ### 7. Deploy with Docker Compose
@@ -171,11 +180,13 @@ middlewares:
         # or keep it out of the file entirely with ${VAR} expansion.
         - username: admin
           password: ${GOMA_ADMIN_PASSWORD_HASH}
-certManager:
-  acme:
-    ## Uncomment email to enable Let's Encrypt
-    # email: admin@example.com # Email for ACME registration
-    storageFile: /etc/letsencrypt/acme.json
+## Uncomment to issue Let's Encrypt certificates for route hosts
+# certManager:
+#   providers:
+#     letsencrypt:
+#       type: acme
+#       acme:
+#         email: admin@example.com # Email for ACME registration
 ```
 
 **`compose.yaml`**
@@ -185,6 +196,9 @@ services:
   gateway:
     image: jkaninda/goma-gateway
     command: -c /etc/goma/config.yaml
+    environment:
+      # bcrypt hash for the basic-auth user, passed through from your shell
+      - GOMA_ADMIN_PASSWORD_HASH
     ports:
       - "80:80"
       - "443:443"
@@ -196,7 +210,9 @@ services:
     image: jkaninda/okapi-example
 ```
 
-Visit http://localhost/docs to see the documentation
+Export `GOMA_ADMIN_PASSWORD_HASH` in your shell before running
+`docker compose up`, then visit http://localhost/docs to see the example API
+documentation (protected by the `basic-auth` middleware).
 
 
 ---
@@ -205,8 +221,6 @@ Visit http://localhost/docs to see the documentation
 
 Your Goma Gateway is up and running. From here, you can:
 
-* Define advanced routes and middlewares
-* Configure TLS certificates and security policies
-* Monitor traffic and logs to optimize performance
-
-Explore the [full documentation](#) for advanced features and best practices.
+* Define advanced [routes](../usermanual/route.md) and [middlewares](../middlewares/overview.md)
+* Configure [TLS certificates](../usermanual/tls.md) and security policies
+* [Monitor](../monitoring-and-performance/monitoring.md) traffic and logs to optimize performance

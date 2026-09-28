@@ -27,7 +27,7 @@ When enabled, Goma inspects specific headers (such as `X-Forwarded-For`) **only*
 |------------------|------------|------------------------------------|----------------------------------------------------------------------------------|
 | `enabled`        | `bool`     | `false`                            | Enables proxy mode. Set to `true` if Goma runs behind a reverse proxy or CDN.    |
 | `trustedProxies` | `[]string` | `[]`                               | **Required when `enabled` is `true`.** Proxy IP addresses or CIDR ranges allowed to forward client IPs. An empty list means no proxy is trusted, so every forwarded header is ignored. |
-| `ipHeaders`      | `[]string` | `["X-Forwarded-For", "X-Real-IP"]` | Ordered list of HTTP headers to check for the original client IP.                |
+| `ipHeaders`      | `[]string` | `["X-Forwarded-For", "X-Real-IP"]` | Ordered list of HTTP headers to check for the original client IP. The first header that yields an address outside `trustedProxies` wins. |
 
 ---
 
@@ -62,8 +62,9 @@ gateway:
       - "X-Forwarded-For"
       - "X-Real-IP"
       - "True-Client-IP"
-      - "Forwarded"
 ```
+
+Each header is read as a comma-separated list of IP addresses (optionally with a port). The RFC 7239 `Forwarded` header (`for=...;proto=...`) is not parsed, so do not list it in `ipHeaders`.
 
 ---
 
@@ -120,7 +121,7 @@ back to the connecting address.
 
 * Only requests coming **from trusted proxies** are allowed to override the client IP.
 * If `enabled` is `false`, Goma will **ignore all forwarding headers** and use the request’s direct remote address.
-* **`trustedProxies` must not be empty.** An empty list with `enabled: true` is rejected at startup and all forwarding headers are ignored, because there would be nothing to distinguish a proxy from a client that simply sends the header itself.
+* **`trustedProxies` must not be empty.** With an empty list, or with an entry that is not a valid IP or CIDR, the gateway logs `Failed to initialize proxy configuration` at startup and ignores all forwarding headers, because there would be nothing to distinguish a proxy from a client that simply sends the header itself.
 * The client IP is taken from the **rightmost** entry of the chain that is not one of your own proxies. The leftmost entry is whatever the original caller wrote there, so it is never trusted.
 * `X-Forwarded-Proto` and `X-Forwarded-Scheme` follow the same rule. Read from an untrusted source they would let a caller declare a plaintext request to be TLS, which turns off the HTTPS redirect and the `Secure` flag on session cookies.
 

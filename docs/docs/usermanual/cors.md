@@ -44,7 +44,7 @@ middlewares:
           - Content-Type
           - Accept
         exposeHeaders: []
-        maxAge: 1728000
+        maxAge: 86400
         allowMethods: ["GET", "POST"]
         allowCredentials: true
       setHeaders:
@@ -61,22 +61,28 @@ gateway:
 ### Configuration fields
 
 * **`enabled`** (`boolean`): Whether this policy applies. Defaults to `false`.
-* **`origins`** (`[]string`): Allowed origin URLs.
-* **`allowedHeaders`** (`[]string`): Headers allowed in requests.
+* **`origins`** (`[]string`): Allowed origins, each with a scheme and no path (`https://app.example.com`). Required when `enabled` is `true`. A single `*` allows any origin; it cannot be combined with other origins.
+* **`allowedHeaders`** (`[]string`): Headers allowed in requests. When empty, the headers the browser asks for in a preflight are allowed.
 * **`exposeHeaders`** (`[]string`): Headers the browser may read from the response.
-* **`maxAge`** (`int`): How long, in seconds, a preflight result may be cached. Capped at 86400.
-* **`allowMethods`** (`[]string`): Allowed HTTP methods. Empty allows all.
+* **`maxAge`** (`int`): How long, in seconds, a preflight result may be cached. Must be between `0` and `86400`.
+* **`allowMethods`** (`[]string`): Allowed HTTP methods. When empty, the method the browser asks for in a preflight is allowed. Do not list `OPTIONS`; preflights are handled automatically.
 * **`allowCredentials`** (`boolean`): Whether cookies and authorization headers are allowed. Cannot be combined with a `*` origin.
+
+:::warning
+A policy that fails these checks is not applied. The gateway logs
+`Response headers middleware not applied` and serves the route without the
+middleware, including its `setHeaders`. Check the logs after changing a policy.
+:::
 
 Response headers that are not part of the CORS contract belong in the same
 middleware's `setHeaders`, which is where the removed `cors.headers` map moved.
 
 ---
 
-## Applying one policy to every route
+## Applying one policy to several routes
 
-There is no global CORS setting. To apply the same policy everywhere, list the
-middleware on each route:
+There is no dedicated global CORS block. To apply the same policy to several
+routes, list the middleware on each of them:
 
 ```yaml
 gateway:
@@ -94,6 +100,10 @@ gateway:
 This is more typing than the removed global block, but it makes each route's
 policy visible where the route is defined, and lets a route opt out or use a
 stricter policy without inheriting one it did not ask for.
+
+To apply it to every route instead, name it in
+[`gateway.defaults.middlewares`](gateway.md#default-configuration), which
+prepends the listed middlewares to each route.
 
 ---
 
@@ -114,7 +124,13 @@ needs to distinguish a 503 from a 404 on a route, give that route a CORS policy.
 
 ## Preflight requests
 
-The gateway answers a preflight (`OPTIONS`) request itself when the request's
-`Origin` matches one of the route's CORS policies, and does not forward it to
-the backend. Backends do not need their own `OPTIONS` handling for routes that
-have a CORS policy.
+The gateway answers a preflight (`OPTIONS`) request itself with `204 No Content`
+when the request's `Origin` matches one of the route's CORS policies, and does
+not forward it to the backend. Backends do not need their own `OPTIONS` handling
+for routes that have a CORS policy.
+
+:::note
+If the route restricts `methods`, include `OPTIONS` in the list. The method
+check runs before the preflight is handled, so a route that does not allow
+`OPTIONS` answers preflights with `405 Method Not Allowed`.
+:::

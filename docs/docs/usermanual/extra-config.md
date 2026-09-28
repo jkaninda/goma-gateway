@@ -14,11 +14,17 @@ The **Extra Config** feature enables you to modularize your API Gateway configur
 
 * Define the `extraConfig` block in your main `gateway` configuration.
 * Use the `directory` field to specify the location where your additional configuration files are stored.
-* Files with `.yaml` or `.yml` extensions within that directory will be automatically loaded at startup.
-* Goma supports recursive loading of configuration files from subdirectories, allowing for better organization of complex configurations.
+* Files with `.yaml` or `.yml` extensions within that directory are loaded at startup. Other files, including `.json`, are ignored.
+* Subdirectories are loaded recursively; hidden directories (starting with `.`) are skipped.
+* A file may contain a `routes:` list, a `middlewares:` list, or both.
+* `${VAR}` references are expanded from the environment, as in the main configuration file.
+* Keys removed in v1.0 are reported and stop the gateway from starting, as in the main configuration file.
 * If the `watch` option is enabled:
     * The Gateway will monitor the top level `extraConfig.directory` for file changes and automatically reload modified configurations.
     * **Note:** Recursive live watching is **not** supported, only files directly within the specified directory are monitored for changes.
+
+The `GOMA_EXTRA_CONFIG_DIR` and `GOMA_EXTRA_CONFIG_WATCH` environment variables
+override `directory` and `watch`.
 
 
 ### Benefits
@@ -34,13 +40,13 @@ The **Extra Config** feature enables you to modularize your API Gateway configur
 ```yaml
 version: 2
 gateway:
-  ...
   extraConfig:
     directory: /etc/goma/extra  # Directory with extra YAML files
     watch: false                # Set to true to enable live reloading
   routes:
     - path: /
       name: example
+      target: http://example-service:8080
 ```
 
 ---
@@ -102,9 +108,10 @@ middlewares:
     rule:
       realm: your-realm
       users:
-        - admin:{SHA}0DPiKuNIrrVmD8IUCuw1hQxNqZc=
-        - admin:$2a$12$LaPhf23UoCGepWqDO0IUPOttStnndA5V8w7XPNeP0vn712N5Uyali
-        - admin:admin
+        # Generate your own hash, e.g.
+        #   htpasswd -nbBC 12 admin 'your-password' | cut -d: -f2
+        - username: admin
+          password: ${EXTRA_ADMIN_PASSWORD_HASH}
 
   # Access control middleware to block sensitive paths
   - name: extra-api-forbidden-paths

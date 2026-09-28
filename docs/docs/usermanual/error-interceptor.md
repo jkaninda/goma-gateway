@@ -30,14 +30,13 @@ have the gateway point at them.
 * **`enabled`** (`boolean`): Enables or disables the error interceptor.
   *Default: `false`*
 
-* **`contentType`** (`string`): The `Content-Type` of the response. Common values include:
+* **`contentType`** (`string`): How `body` is returned. When empty, the client's `Accept` header (or `Content-Type`) is used instead.
 
-  * `application/json`
-  * `text/plain`
-  * `text/html`
-  * `application/xml`
+  * `application/json`: a `body` that is valid JSON is returned as is; any other text is wrapped as `{"success": false, "statusCode": <code>, "error": "<body>"}`.
+  * `application/xml` or `text/xml`: the body is wrapped in an XML `<error>` document.
+  * Anything else (for example `text/plain`): the body is returned as plain text.
 
-* **`errors`** (`[]ErrorMapping`): A list of error rules defining how specific HTTP status codes should be handled.
+* **`errors`** (`[]ErrorMapping`): A list of error rules defining how specific HTTP status codes should be handled. At least one entry is required.
 
 ---
 
@@ -46,8 +45,10 @@ have the gateway point at them.
 Each entry in the `errors` array defines how to handle a specific HTTP status code:
 
 * **`statusCode`** (`integer`): The HTTP status code to intercept (e.g., `401`, `404`, `500`).
-* **`body`** (`string`): The custom response body. Can be a simple string or a raw JSON string.
-* **`file`** (`string`): A file to serve as the response body, instead of `body`.
+* **`body`** (`string`): The custom response body. Can be a simple string or a raw JSON string. When neither `body` nor `file` is set, the body is `<code> <reason>`, for example `404 Not Found`.
+* **`file`** (`string`): Path to an HTML file served as the response body (`text/html`). Used only when `body` is empty.
+
+The original status code is kept; only the body and `Content-Type` are replaced.
 
 ---
 
@@ -62,8 +63,7 @@ middlewares:
       enabled: true
       contentType: "application/json"
       errors:
-        - statusCode: 401
-          body: ""  # Empty response body for 401 Unauthorized
+        - statusCode: 401  # No body: the default "401 Unauthorized" message is used
         - statusCode: 404
           body: >
             {"success": false, "status": 404, "message": "Page not found", "data": []}
@@ -89,6 +89,7 @@ gateway:
 
 Because the interceptor is a middleware, one definition can be shared by every
 route that should return the same error bodies, and a route that needs different
-ones simply names a different middleware.
+ones simply names a different middleware. A route uses a single error
+interceptor: if it lists several, only the last one applies.
 
 ---

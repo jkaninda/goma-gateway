@@ -24,10 +24,11 @@ sequenceDiagram
     participant Client as Goma Gateway
     participant Server as Backend Service
 
-    Client->>Server: TLS ClientHello + Client Certificate
-    Server->>Client: TLS Certificate + CertificateVerify
-    Client->>Server: Verify server certificate
-    Server->>Client: Verify client certificate
+    Client->>Server: ClientHello
+    Server->>Client: Server Certificate + CertificateRequest
+    Client->>Client: Verify server certificate (rootCAs)
+    Client->>Server: Client Certificate + CertificateVerify
+    Server->>Server: Verify client certificate
     Client->>Server: Application Request
     Server->>Client: Response
 ```
@@ -52,10 +53,11 @@ sequenceDiagram
     participant Client as External Client
     participant Gateway as Goma Gateway
 
-    Client->>Gateway: TLS ClientHello + Client Certificate
-    Gateway->>Client: TLS Certificate
-    Gateway->>Client: Verify client certificate (using clientCA)
-    Client->>Gateway: Verify server certificate
+    Client->>Gateway: ClientHello
+    Gateway->>Client: Server Certificate + CertificateRequest
+    Client->>Client: Verify server certificate
+    Client->>Gateway: Client Certificate + CertificateVerify
+    Gateway->>Gateway: Verify client certificate (clientCA)
     Client->>Gateway: Application Request
     Gateway->>Client: Response
 ```
@@ -73,7 +75,18 @@ gateway:
       required: true
 ```
 
-When `required: true` is set, the gateway will reject connections unless the client certificate is signed by a trusted CA.
+Client authentication is configured once for the gateway and applies to every HTTPS connection on the `webSecure` entry point.
+
+| Field      | Default | Description                                                                                                                  |
+|------------|---------|------------------------------------------------------------------------------------------------------------------------------|
+| `clientCA` | —       | CA certificate(s) used to verify client certificates. Accepts a file path, raw PEM, or base64-encoded PEM.                   |
+| `required` | `false` | `true`: the handshake fails unless the client presents a certificate signed by `clientCA`. `false`: a certificate is optional, but one that is presented must verify. |
+
+:::warning
+If `clientCA` cannot be loaded, the gateway logs `Failed to load client CA` and
+starts **without** client certificate verification. Check the startup logs after
+enabling mTLS.
+:::
 
 ### Flow Summary
 
@@ -128,7 +141,7 @@ Benefits include:
 
 ## Backend Configuration
 
-mTLS can be enabled per-backend through the `security.tls` section of each route.
+Backend mTLS is configured per route through its `security.tls` section, and applies to every backend of that route and to its health checks.
 
 | Field                | Required | Description                                                                            |
 |----------------------|----------|----------------------------------------------------------------------------------------|
@@ -142,6 +155,13 @@ mTLS can be enabled per-backend through the `security.tls` section of each route
 > * File paths
 > * Raw PEM content
 > * Base64-encoded PEM
+
+:::note
+`rootCAs`, `clientCert`, and `clientKey` are only used together. If one of them is
+missing, none is loaded: the gateway presents no client certificate and verifies
+the backend against the system trust store. When they are set, `rootCAs`
+replaces the system trust store for that route.
+:::
 
 ---
 

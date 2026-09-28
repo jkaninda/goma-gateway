@@ -16,15 +16,23 @@ This section describes how to configure the gateway to manage traffic effectivel
 
 You can configure the gateway using the following options:
 
-* **`redis`**: Redis-related configuration.
-* **`tls`**: Global TLS settings for secure communication.
-* **`timeouts`**: Server read/write/idle timeout settings.
 * **`entryPoints`**: Network addresses and ports for incoming HTTP/HTTPS and TCP/UDP traffic.
-* **`networking`**: Proxy networking options (e.g., connection pooling).
+* **`tls`**: Global TLS certificates and client certificate authentication.
+* **`timeouts`**: Server read/write/idle timeout settings.
+* **`log`**: Log level, format and output file.
 * **`monitoring`**: Metrics and health check configuration.
+* **`proxy`**: Client IP resolution when running behind a reverse proxy or CDN.
+* **`networking`**: Outbound transport options (connection pooling, DNS cache).
+* **`redis`**: Redis connection, used for distributed rate limiting and caching.
 * **`defaults`**: Middlewares applied to every route, ahead of the route's own.
 * **`reload`**: Token-protected on-demand configuration reload endpoint.
-* **`enableStrictSlash`** (`boolean`): Whether the router should normalize paths with/without trailing slashes.
+* **`providers`**: Dynamic configuration sources (file, HTTP, Git). See [Providers](providers.md).
+* **`extraConfig`**: Additional route and middleware files. See [Extra Config](extra-config.md).
+* **`analytics`**: Per-request event stream published to Redis.
+* **`geoip`**: Path to a MaxMind-format database used for country resolution.
+* **`strictSlash`** (`boolean`, default: `true`): When enabled, the router matches a path with or without a trailing slash.
+* **`debug`** (`boolean`, default: `false`): Enables debug mode. Also enabled when `log.level` is `debug` or `trace`.
+* **`routes`**: The list of routes. See [Route](route.md).
 
 ---
 
@@ -32,9 +40,20 @@ You can configure the gateway using the following options:
 
 Goma Gateway supports global TLS settings to secure incoming requests.
 
+| Key                   | Type       | Description                                                                                      |
+|-----------------------|------------|--------------------------------------------------------------------------------------------------|
+| `certificates`        | `[]object` | List of `cert`/`key` pairs served on the `webSecure` entry point.                                 |
+| `certsDir`            | `string`   | Directory to load `<name>.crt`/`<name>.key` pairs from. Default: `/etc/goma/certs`.               |
+| `default`             | `object`   | `cert`/`key` pair served when no other certificate matches. A self-signed one is generated if unset. |
+| `clientAuth.clientCA` | `string`   | CA used to verify client certificates (mTLS).                                                     |
+| `clientAuth.required` | `bool`     | Reject clients that do not present a valid certificate. Default: `false`.                        |
+
+See [TLS & Let's Encrypt](tls.md) and [Mutual TLS (mTLS)](mtls.md) for details
+and for automatic certificates with `certManager`.
+
 ### Certificate Settings
 
-TLS certificates can be configured using the following keys:
+Each certificate entry uses the following keys:
 
 * **`cert`** (`string`):
   The TLS certificate, provided as:
@@ -54,35 +73,50 @@ TLS certificates can be configured using the following keys:
 
 ## Timeouts
 
-Configure timeouts (in seconds) for request handling:
+Configure server timeouts (in seconds) under `gateway.timeouts`:
 
-* **`write`**: Timeout for writing responses.
-* **`read`**: Timeout for reading requests.
-* **`idle`**: Timeout for idle connections.
+* **`write`**: Timeout for writing responses. Default: `60`.
+* **`read`**: Timeout for reading requests. Default: `60`.
+* **`idle`**: Timeout for idle keep-alive connections. Default: `60`.
 
----
+A value of `0` disables the timeout. The `GOMA_TIMEOUT_WRITE`, `GOMA_TIMEOUT_READ`
+and `GOMA_TIMEOUT_IDLE` environment variables override the configured values.
+Request headers must always arrive within 10 seconds (`GOMA_TIMEOUT_READ_HEADER`).
 
-## CORS Configuration
-
-Control Cross-Origin Resource Sharing behavior:
-
-* **`origins`** (`[]string`): Allowed origins.
-* **`headers`** (`map[string]string`): Custom response headers.
-* **`allowedHeaders`** (`[]string`): Headers allowed in requests.
-* **`exposeHeaders`** (`[]string`): Headers exposed to clients.
-* **`maxAge`** (`int`): How long (in seconds) the preflight response is cached.
-* **`allowMethods`** (`[]string`): Allowed HTTP methods.
-* **`allowCredentials`** (`bool`): Whether credentials are allowed.
+```yaml
+gateway:
+  timeouts:
+    write: 30
+    read: 30
+    idle: 60
+```
 
 ---
 
-## Error Interceptor
+## Logging
 
-Configure centralized error handling:
+| Key          | Type     | Default  | Description                                                     |
+|--------------|----------|----------|-----------------------------------------------------------------|
+| `level`      | `string` | `error`  | Log level: `trace`, `debug`, `info`, `warn`, `error` or `off`. `goma config init` writes `info`. |
+| `format`     | `string` | `text`   | Log format: `text` or `json`.                                   |
+| `filePath`   | `string` | `""`     | Write logs to this file instead of stdout.                      |
+| `maxAgeDays` | `int`    | —        | Maximum age of rotated log files, in days.                      |
+| `maxBackups` | `int`    | —        | Maximum number of rotated log files to keep.                    |
+| `maxSizeMB`  | `int`    | —        | Maximum size of a log file before it is rotated.                |
 
-* **`enabled`** (`boolean`): Enable or disable the interceptor. *Default: `false`*
-* **`contentType`** (`string`): Response content type (e.g., `application/json`).
-* **`errors`** (`[]object`): Custom responses for specific HTTP status codes.
+The `GOMA_LOG_LEVEL` environment variable overrides `level`.
+
+---
+
+:::warning[Removed in v1.0]
+
+The gateway-level `cors` and `errorInterceptor` blocks were removed in v1.0.
+Use the [`responseHeaders`](../middlewares/response-headers.md) and
+[`errorInterceptor`](../middlewares/error-interceptor.md) middlewares instead,
+applied through [`defaults`](#default-configuration) or per route. See the
+[v1.0 upgrade notes](../upgrade/v1.0.md).
+
+:::
 
 ---
 
@@ -102,21 +136,28 @@ By default, the gateway listens on:
 * **`web.address`** (`string`): Network address/port for HTTP, e.g., `":80"` or `"0.0.0.0:8080"`.
 * **`webSecure.address`** (`string`): Network address/port for HTTPS.
 
+The `GOMA_ENTRYPOINT_WEB_ADDRESS` and `GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS`
+environment variables override these addresses.
+
 ### PassThrough (TCP/UDP/gRPC Forwarding)
 
 Configure TCP/UDP forwarding:
 
 ```yaml
-passThrough:
-  forwards:
-    - protocol: tcp
-      port: 2222
-      target: srv1.example.com:62557
+gateway:
+  entryPoints:
+    passThrough:
+      forwards:
+        - protocol: tcp
+          port: 2222
+          target: srv1.example.com:62557
 ```
 
 * **`protocol`**: One of `tcp`, `udp`, or `tcp/udp`.
 * **`port`** (`int`): Listening port.
 * **`target`** (`string`): Target address, e.g., `host:port`.
+
+See [TCP/UDP/gRPC Forwarding](tcp-udp-grpc.md) for details.
 
 ---
 
@@ -142,7 +183,17 @@ These features help you monitor system performance, readiness, and route-level h
 | `middleware.routeHealthCheck` | `[]string` | `[]`       | Middleware chain applied to the route health check endpoint.          |
 
 
-> 💡 **Note**: If `host` is not set, observability endpoints are accessible from any route host. To restrict access, set a specific `host` value.
+:::note
+
+If `host` is not set, observability endpoints are accessible from any route
+host. Restrict them with `host`, or protect them with `middleware.metrics` and
+`middleware.routeHealthCheck`; the gateway logs a warning at startup for each
+endpoint that has neither.
+
+:::
+
+The `GOMA_ENABLE_METRICS`, `GOMA_ENABLE_READINESS` and `GOMA_ENABLE_LIVENESS`
+environment variables override the corresponding settings.
 
 ---
 
@@ -177,6 +228,11 @@ Proxy settings help Goma correctly identify client IPs and handle requests when 
 | `enabled`        | `bool`     | `false`                           | Set to `true` if Goma is behind a reverse proxy or CDN.                   |
 | `trustedProxies` | `[]string` | `[]`                              | List of trusted proxy IPs or CIDRs to identify client IPs correctly.      |
 | `ipHeaders`      | `[]string` | `["X-Forwarded-For","X-Real-IP"]` | List of headers to check (in order) for the client’s original IP address. |
+
+`trustedProxies` must not be empty when `enabled` is `true`: forwarded headers
+are only trusted from those sources. See
+[Running behind a Proxy](running-behind-a-proxy.md).
+
 ---
 ### Example Configuration
 
@@ -299,15 +355,26 @@ These options apply to the internal HTTP client used by the gateway for outbound
 
 | Key                     | Type   | Default | Description                                                                              |
 |-------------------------|--------|---------|------------------------------------------------------------------------------------------|
-| `insecureSkipVerify`    | `bool` | `false` | Disables TLS certificate verification. Can be overridden per-route under `security.tls`. |
+| `insecureSkipVerify`    | `bool` | `false` | Disables backend TLS certificate verification for **every** route; when `true`, a route cannot turn verification back on. |
 | `forceAttemptHTTP2`     | `bool` | `true`  | Enables HTTP/2 support when available from the upstream server.                          |
 | `disableCompression`    | `bool` | `false` | Disables automatic gzip compression for proxied requests.                                |
-| `maxIdleConns`          | `int`  | `1024`  | Maximum number of idle (keep-alive) connections allowed across all hosts.                |
+| `maxIdleConns`          | `int`  | `512`   | Maximum number of idle (keep-alive) connections allowed across all hosts.                |
 | `maxIdleConnsPerHost`   | `int`  | `256`   | Maximum number of idle connections maintained per backend host.                          |
-| `maxConnsPerHost`       | `int`  | `512`   | Maximum number of concurrent connections per host.                                       |
+| `maxConnsPerHost`       | `int`  | `256`   | Maximum number of concurrent connections per host.                                       |
 | `idleConnTimeout`       | `int`  | `90`    | Idle timeout (in seconds) before closing unused connections.                             |
-| `tlsHandshakeTimeout`   | `int`  | `0`     | Timeout (in seconds) for completing the TLS handshake with a backend.                    |
-| `responseHeaderTimeout` | `int`  | `0`     | Timeout (in seconds) to wait for the backend’s response headers.                         |
+| `tlsHandshakeTimeout`   | `int`  | `0`     | Timeout (in seconds) for completing the TLS handshake with a backend. `0` means no timeout. |
+| `responseHeaderTimeout` | `int`  | `0`     | Timeout (in seconds) to wait for the backend’s response headers. `0` means no timeout.     |
+
+### DNS Cache
+
+Backend host names are resolved through a shared DNS cache, configured under
+`networking.dnsCache`:
+
+| Key             | Type       | Default | Description                                                          |
+|-----------------|------------|---------|----------------------------------------------------------------------|
+| `ttl`           | `int`      | `300`   | Cache entry lifetime, in seconds.                                    |
+| `clearOnReload` | `bool`     | `false` | Flush the cache when routes are reloaded.                            |
+| `resolver`      | `[]string` | `[]`    | Custom DNS servers (e.g. `1.1.1.1`, `8.8.8.8:53`). Empty uses the system resolver. |
 
 ---
 
@@ -317,7 +384,7 @@ These options apply to the internal HTTP client used by the gateway for outbound
 gateway:
   networking:
     transport:
-      insecureSkipVerify: true       # Optional, disables TLS verification, applies to all routes
+      insecureSkipVerify: false      # true disables backend TLS verification for all routes
       ## Optional, advanced configuration
       forceAttemptHTTP2: true
       disableCompression: false
@@ -333,10 +400,12 @@ gateway:
 
 ## Extra Config
 
-Load additional route and middleware configurations:
+Load additional route and middleware configurations from a directory:
 
-* **`directory`** (`string`): Directory containing config files.
-* **`watch`** (`boolean`): Watch for changes and reload dynamically.
+* **`directory`** (`string`): Directory containing config files. Overridden by `GOMA_EXTRA_CONFIG_DIR`.
+* **`watch`** (`boolean`): Watch for changes and reload dynamically. Overridden by `GOMA_EXTRA_CONFIG_WATCH`.
+
+See [Extra Config](extra-config.md).
 
 ---
 
@@ -363,7 +432,12 @@ Send `POST <path>` with the `Authorization: Bearer <token>` header:
 | `401`  | Missing or invalid token.                                                                   |
 | `500`  | Reload failed — the gateway keeps serving its current configuration.                        |
 
-> 🔒 **Security**: Always set a strong `token` (ideally via `GOMA_RELOAD_TOKEN`). The endpoint is not registered unless both `enabled: true` and a token are present.
+:::warning[Security]
+
+Always set a strong `token`, ideally via `GOMA_RELOAD_TOKEN`. The endpoint is
+not registered unless both `enabled: true` and a token are present.
+
+:::
 
 ### Example Configuration
 
@@ -387,7 +461,7 @@ curl -X POST https://gateway.example.com/gateway/reload \
 
 ## Routes
 
-Define HTTP routing logic using the `routes` section. Each route specifies match criteria (e.g., path, host), backends, CORS, middlewares, and health checks.
+Define HTTP routing logic using the `routes` section. Each route specifies match criteria (e.g., path, host), backends, middlewares, and health checks. See [Route](route.md).
 
 ---
 

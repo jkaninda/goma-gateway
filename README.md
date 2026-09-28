@@ -98,7 +98,17 @@ More than just a reverse proxy: Goma Gateway secures, routes, and scales your tr
 * Prometheus metrics and a prebuilt Grafana dashboard
 * Graceful error handling and backend failure interception
 
-**Perfect for:** Public APIs, internal microservices, legacy modernization, or any project requiring secure, scalable traffic management.
+### Use Cases
+
+* **Secure edge for public APIs** — automatic HTTPS, JWT validation, rate limiting with client banning
+* **Single sign-on for internal tools and legacy apps** — OpenID Connect, ForwardAuth, or LDAP in front of apps with no code changes
+* **Partner and B2B APIs** — mutual TLS and network access policies
+* **API gateway for Kubernetes** — routes and middleware as custom resources through the Operator
+* **Edge for container platforms and self-hosted PaaS** — dynamic routes and certificates for every new app
+* **Canary releases and targeted rollouts** — weighted and header-, cookie-, or IP-based routing
+* **Internal services with a private CA** — certificates from Certio or HashiCorp Vault PKI
+
+See [Use Cases](https://goma.jkaninda.dev/use-cases) for a configuration example of each.
 
 ---
 ## Quickstart Guide

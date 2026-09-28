@@ -33,32 +33,31 @@ gateway:
     password: password       # Optional password for Redis authentication
     db: 0                    # Redis database index (default is 0)
     flushOnStartup: false  # Whether to flush Redis DB on startup (use with caution, default: false)
-    tls:
-      clientCa: /path/to/ca.crt        # Optional: Path to CA certificate for TLS
-      clientCert: /path/to/client.crt  # Optional: Path to client certificate for TLS
-      clientKey: /path/to/client.key    # Optional: Path to client private key for TLS
-
-  timeouts:
-    write: 30                # Response write timeout in seconds
-    read: 30                 # Request read timeout in seconds
-    idle: 30                 # Idle connection timeout in seconds
+    tls:                     # Optional: TLS is used only when all three are set
+      clientCa: /path/to/ca.crt
+      clientCert: /path/to/client.crt
+      clientKey: /path/to/client.key
 ```
+
+`addr` and `password` accept `${VAR}` environment references. The environment variables `GOMA_REDIS_ADDR`, `GOMA_REDIS_PASSWORD`, and `GOMA_REDIS_DB` take precedence over the configuration file.
 
 ---
 
 ### Features Enabled by Redis
 
-* **Distributed Rate Limiting**: Throttle requests globally across instances.
-* **Shared Caching**: Cache backend responses consistently between nodes (if caching middleware is enabled).
-* **High Availability**: Supports clustered and containerized deployments (e.g., Kubernetes, Docker Swarm, ECS).
+* **Distributed Rate Limiting**: The [`rateLimit`](../middlewares/rate-limit.md) middleware throttles requests globally across instances.
+* **Shared Caching**: The [`httpCache`](../middlewares/http-caching.md) middleware stores responses in Redis, shared between nodes.
+* **Shared OIDC sessions**: The [`oidc`](../middlewares/oidc.md) middleware can keep sessions in Redis, so a login works on every instance.
+* **Real-time visitors gauge**: `gateway_realtime_visitors_count` counts distinct visitors across all instances (see [Monitoring](./monitoring.md)).
+* **Analytics**: The per-request [analytics event stream](./analytics.md) uses Redis as its transport.
 
 ---
 
 ### Notes
 
-* If Redis is not configured, rate limiting and caching will be local to each instance.
+* If Redis is not configured, or the gateway cannot connect to it at startup, rate limiting and caching fall back to in-memory state local to each instance, and a warning is logged.
 * Redis must be reachable from all Gateway instances for consistent behavior.
-* TLS or Sentinel support may be added in future versions.
+* Redis Sentinel and Redis Cluster are not supported; `addr` points to a single Redis endpoint.
 
 ---
 

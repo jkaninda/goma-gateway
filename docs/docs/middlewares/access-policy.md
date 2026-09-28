@@ -7,7 +7,7 @@ sidebar_position: 3
 
 # Access Policy Middleware
 
-The Access Policy middleware provides IP-based access control for routes by allowing or denying requests based on predefined rules. This middleware applies globally to the entire route, eliminating the need to configure individual path-level restrictions.
+The Access Policy middleware provides IP-based access control for routes by allowing or denying requests based on predefined rules. It applies to every path of the route; `paths` is ignored.
 
 ## Overview
 
@@ -33,7 +33,7 @@ middlewares:
 
 | Parameter      | Type   | Required | Description                                                                 |
 |----------------|--------|----------|-----------------------------------------------------------------------------|
-| `action`       | String | Yes      | Defines the policy action. Must be either `ALLOW` or `DENY`                 |
+| `action`       | String | No       | `ALLOW` (default) or `DENY`. Uppercase: any value other than `DENY` is treated as `ALLOW` |
 | `sourceRanges` | Array  | Yes      | List of IP addresses, IP ranges, or CIDR blocks to which the policy applies |
 
 ### Source Range Formats
@@ -81,9 +81,13 @@ middlewares:
     - For `DENY` policies: Requests from unlisted IPs are allowed
     - For `ALLOW` policies: Requests from unlisted IPs are blocked
 
+Blocked requests receive `403 Forbidden`.
+
 ## Common Use Cases
 
-- **Geoblocking**: Restrict access based on geographic regions
 - **Internal API Protection**: Allow only internal network access
 - **Security Hardening**: Block known malicious IP ranges
 - **Compliance Requirements**: Implement network-based access controls
+
+To allow or deny by country instead of by IP range, use the
+[Geo Block middleware](geo-block.md).

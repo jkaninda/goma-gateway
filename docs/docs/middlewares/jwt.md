@@ -22,9 +22,20 @@ middlewares:
 
 ## Authentication Methods
 
-The middleware supports four authentication methods. **You must configure exactly one**:
+The middleware supports four key sources. Configure one of them. If several are
+set, the first one in this order is used: `jwksUrl`, `secret`, `jwksFile`,
+`publicKey`.
 
-###  Shared Secret (HMAC)
+:::important
+With `publicKey`, `jwksUrl` or `jwksFile`, both `issuer` and `audience` are
+**required**: without them, a token the same identity provider signed for any
+other client or tenant would be accepted. A rule missing either is rejected with
+an error in the logs and the middleware is **not applied**, so the route is
+served without JWT authentication. `goma config check` does not report this;
+check the startup logs.
+:::
+
+### Shared Secret (HMAC)
 Use a shared secret key for HMAC algorithms like HS256, HS384, or HS512.
 
 ```yaml
@@ -33,8 +44,10 @@ rule:
   algorithms: ["HS256"]
 ```
 
-###  Public Key (RSA/ECDSA)
-Use a PEM-formatted public key for RSA or ECDSA algorithms.
+### Public Key (RSA)
+Use a PEM-formatted RSA public key (`PUBLIC KEY` block) or a certificate
+(`CERTIFICATE` block) containing one. ECDSA keys are only supported through
+`jwksUrl` or `jwksFile`.
 
 ```yaml
 rule:
@@ -43,11 +56,13 @@ rule:
     MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
     -----END PUBLIC KEY-----
   algorithms: ["RS256"]
+  issuer: "https://auth.example.com"
+  audience: "api.example.com"
 ```
 
 You can also provide:
 - **File path**: `/path/to/public-key.pem`
-- **Base64 encoded key**: `LS0tLS1CRUdJTi...`
+- **Base64 encoded PEM**: `LS0tLS1CRUdJTi...`
 
 ### JWKS URL
 Dynamically fetch public keys from a JSON Web Key Set endpoint.
@@ -56,7 +71,12 @@ Dynamically fetch public keys from a JSON Web Key Set endpoint.
 rule:
   jwksUrl: "https://your-auth-provider.com/.well-known/jwks.json"
   algorithms: ["RS256"]
+  issuer: "https://your-auth-provider.com"
+  audience: "api.example.com"
 ```
+
+Tokens verified against a JWKS (URL or file) must carry a `kid` header that
+matches a key in the set.
 
 ### JWKS File
 Use a local JWKS file for key validation.
@@ -64,8 +84,10 @@ Use a local JWKS file for key validation.
 ```yaml
 rule:
   jwksFile: "/path/to/jwks.json"
-  # Or embed the content directly:
-  # jwksFile: '{"keys":[{"kty":"RSA",...}]}'
+  # Or the base64-encoded JWKS document:
+  # jwksFile: "eyJrZXlzIjpbeyJrdHkiOiJSU0EiLC4uLn1dfQ=="
+  issuer: "https://auth.example.com"
+  audience: "api.example.com"
 ```
 
 ## Configuration Reference
@@ -75,9 +97,9 @@ rule:
 | Option       | Type     | Required | Description                                                    |
 |--------------|----------|----------|---------------------------------------------------------------|
 | `secret`     | string   | *        | Shared secret for HMAC algorithms                             |
-| `publicKey`  | string   | *        | PEM public key (content, file path, or base64)                |
+| `publicKey`  | string   | *        | PEM RSA public key or certificate (content, file path, or base64) |
 | `jwksUrl`    | string   | *        | URL to fetch JWKS dynamically                                 |
-| `jwksFile`   | string   | *        | JWKS file path or content                                     |
+| `jwksFile`   | string   | *        | JWKS file path, or base64-encoded JWKS content                |
 | `algorithms` | []string | No       | Accepted JWT signing algorithms, e.g. `["RS256", "ES256"]`    |
 
 **\* One of these four options is required**
@@ -93,16 +115,20 @@ rule:
 
 | Option             | Type   | Description                                    | Example                                     |
 |--------------------|--------|------------------------------------------------|---------------------------------------------|
-| `issuer`           | string | Expected `iss` claim value                     | `"https://auth.example.com"`                |
-| `audience`         | string | Expected `aud` claim value                     | `"api.example.com"`                         |
+| `issuer`           | string | Expected `iss` claim value. Required with `publicKey`, `jwksUrl` or `jwksFile` | `"https://auth.example.com"` |
+| `audience`         | string | Expected `aud` claim value. Required with `publicKey`, `jwksUrl` or `jwksFile` | `"api.example.com"`          |
 | `claimsExpression` | string | Boolean expression for custom claim validation | See [Claims Validation](#claims-validation) |
+
+Tokens must carry an `exp` claim; a token without one is rejected. A request
+with a missing, malformed, expired or otherwise invalid token, or one whose
+claims fail `claimsExpression`, receives `401 Unauthorized`.
 
 ### Claim Forwarding
 
 | Option                 | Type    | Description                                                                     |
 |------------------------|---------|---------------------------------------------------------------------------------|
 | `forward`              | map     | Project claims onto the upstream request as headers, query parameters and cookies |
-| `forwardAuthorization` | boolean | Whether to forward the original `Authorization` header (default: `true`)         |
+| `forwardAuthorization` | boolean | Forward the original `Authorization` header to the upstream. Default `false`: the header is removed after validation |
 
 ## Claims Validation
 
@@ -184,13 +210,13 @@ the gateway can reach the upstream.
 Control characters are always removed from forwarded values, so a claim a user
 can set for themselves cannot inject a second header into the proxied request.
 
-The flat `forwardHeaders` map and the single `algo` key were removed in v1.0 —
+The flat `forwardHeaders` map and the single `alg` key were removed in v1.0 —
 use `forward.headers` and `algorithms`. The same claim path syntax is used by
 the [OpenID Connect middleware](oidc.md).
 
 ## Complete Examples
 
-### Basic Authentication
+### Shared Secret
 
 ```yaml
 middlewares:
@@ -203,7 +229,7 @@ middlewares:
       issuer: "https://your-auth-service.com"
 ```
 
-### Enterprise Setup with OIDC
+### JWKS from an Identity Provider
 
 ```yaml
 middlewares:
@@ -239,6 +265,8 @@ middlewares:
     rule:
       publicKey: "/etc/ssl/jwt-public.pem"
       algorithms: ["RS256"]
+      issuer: "https://auth.example.com"
+      audience: "api.example.com"
       claimsExpression: >
         Equals('email_verified', true) &&
         Contains('scopes', 'api:read') &&

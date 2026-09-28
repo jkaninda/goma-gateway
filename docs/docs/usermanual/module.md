@@ -7,7 +7,11 @@ sidebar_position: 13
 
 # Custom Module Development (Plugin Development)
 
-Goma Gateway allows you to create **custom modules** (plugins) to extend its functionality. This guide will walk you through creating, building, and integrating a custom module into Goma Gateway.
+Goma Gateway allows you to create **custom modules** (plugins) to extend its functionality. A module is a Go plugin (`.so` file) that provides a middleware. This guide will walk you through creating, building, and integrating a custom module into Goma Gateway.
+
+:::warning[Requirements]
+Go plugins are loaded with Go's [`plugin`](https://pkg.go.dev/plugin) package, which works only on Linux, macOS, and FreeBSD, and only in a binary built with `CGO_ENABLED=1`. The Docker image built from the repository's `Dockerfile` uses `CGO_ENABLED=0`, so it cannot load plugins. The plugin and the gateway must also be built with the same Go version and the same versions of every shared dependency, including `goma-gateway` itself.
+:::
 
 ---
 
@@ -21,10 +25,10 @@ go mod init github.com/yourusername/yourmodule
 
 ### 1.1 Importing Goma Gateway Dependencies
 
-Ensure your module imports the necessary Goma Gateway packages:
+Ensure your module imports the necessary Goma Gateway packages, pinned to the version of the gateway you run:
 
 ```bash
-go get github.com/jkaninda/goma-gateway
+go get github.com/jkaninda/goma-gateway@<gateway-version>
 ```
 
 Create a new Go file for your plugin, e.g., `myplugin.go`.
@@ -106,7 +110,7 @@ Build your Go plugin as a shared object file:
 go build -buildmode=plugin -o myplugin.so myplugin.go
 ```
 
-This produces a `.so` file that Goma Gateway can load.
+This produces a `.so` file that Goma Gateway can load. The plugin must export a function `New` with the signature `func() plugins.Middleware`; the gateway looks it up by that name.
 
 ---
 
@@ -114,7 +118,7 @@ This produces a `.so` file that Goma Gateway can load.
 
 ### 3.1 Plugin Configuration
 
-Specify the path to your compiled plugin files in the Goma Gateway configuration:
+Specify the directory containing your compiled plugin files with the top-level `plugins.path` key. The gateway loads every `*.so` file in that directory at startup:
 
 ```yaml
 version: 2
@@ -128,11 +132,6 @@ gateway:
       address: "[::]:443"  # Bind HTTPS server to port 443 (IPv6 compatible)
 middlewares: []
 
-certManager:
-  provider: acme
-  acme:
-    email: admin@example.com
-
 plugins:
   path: /etc/goma/extra/plugins  # Directory containing your .so plugin files
 ```
@@ -145,31 +144,37 @@ Add your custom plugin to the `middlewares` section of your configuration:
 middlewares:
   - name: my-plugin        # Unique name for the middleware
     type: myPlugin         # Must match the Name() method in your plugin
+    paths:                 # Optional, passed to WithPaths()
+      - /api
     rule:
       message: "Hello from plugin"
-      enabled: true
 ```
+
+The `rule` block is passed to `Configure()` as decoded YAML (a `map[string]interface{}` for a mapping), then `Validate()` is called. A middleware whose `Configure()` or `Validate()` returns an error is logged and not registered.
 
 ### 3.3 Applying Middleware to a Route
 
 Attach your custom middleware to a specific route:
 
 ```yaml
-routes:
-  - name: api-example
-    hosts:
-      - api.example.com
-    path: /
-    target: http://api-example:8080
-    middlewares: ["my-plugin"]
+gateway:
+  routes:
+    - name: api-example
+      hosts:
+        - api.example.com
+      path: /
+      target: http://api-example:8080
+      middlewares: ["my-plugin"]
 ```
 
 ---
 
 ### Notes
 
-* Make sure the `type` in the middleware configuration matches the `Name()` method of your plugin.
-* The `WithPaths` method allows you to restrict the middleware to specific routes.
+* Make sure the `type` in the middleware configuration matches the `Name()` method of your plugin. If `Name()` returns an empty string, the file name is used.
+* `WithPaths` is optional. When the plugin implements it, it receives the middleware's `paths` list, so the plugin can limit itself to those request paths.
+* A plugin can also implement `Info() plugins.Info` to report its name, version, and author in the startup logs.
 * Always build the plugin with `-buildmode=plugin` for compatibility with Goma Gateway.
+* Go cannot unload or reload a plugin that is already loaded, so replacing a `.so` file requires a restart.
 
 

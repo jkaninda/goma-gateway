@@ -17,9 +17,8 @@ This ensures high availability, scalability, and optimal resource utilization in
 
 * **Round-Robin**: Evenly distributes incoming requests across available backends.
 * **Weighted**: Allocates traffic proportionally based on assigned weights.
-* **Health Checks**: Ensures only healthy backends receive traffic.
-* **Scalable Architecture**: Supports seamless addition/removal of backend servers.
-* **Smart Fallback**: Automatically removes failing backends from the rotation.
+* **Health Checks**: Backends that fail their health check are taken out of rotation until they pass again.
+* **Canary Routing**: Backends can also be selected by request attributes; see [Canary Deployment](../usermanual/canary-deployment.md).
 
 ---
 
@@ -27,7 +26,7 @@ This ensures high availability, scalability, and optimal resource utilization in
 
 ### Round-Robin Load Balancing
 
-This example defines three backend servers. Traffic is evenly distributed in a round-robin fashion (default behavior when no weights are specified):
+This example defines three backend servers. Traffic is evenly distributed in a round-robin fashion (the default when no backend sets a `weight`):
 
 ```yaml
 version: 2
@@ -86,24 +85,25 @@ gateway:
 ##  How It Works
 
 * **Round-Robin**
-  Goma cycles through available backend endpoints in order, ensuring each receives a similar number of requests.
+  Goma cycles through the available backend endpoints in order, so each receives a similar number of requests.
 
 * **Weighted Distribution**
-  Each backend receives traffic proportionally to its configured `weight`. For example, a backend with weight `5` receives 5× more traffic than one with weight `1`.
+  As soon as one backend sets a `weight`, the route switches to weighted selection. Each request picks a backend at random with probability `weight / sum(weights)`, so over time a backend with weight `5` receives about 5× more traffic than one with weight `1`. A backend without a `weight` receives no traffic in this mode.
 
 * **Health Monitoring**
-  Health checks prevent unhealthy backends from receiving requests. Use the `healthCheck` block to define check paths, intervals, timeouts, and valid status codes.
+  When the route has a `healthCheck` block, each backend is probed at `healthCheck.path` every `interval`. A backend that fails one check is removed from the rotation, and it is added back as soon as a check succeeds. If every backend is down, the gateway answers `503 Service Unavailable`. See [Health check](../usermanual/healthcheck.md) for the check options.
 
-* **Dynamic Scaling**
-  Backends can be added or removed at runtime without requiring a restart, supporting seamless horizontal scaling.
+* **Configuration Changes**
+  Backends can be added or removed by reloading the configuration (file watch, providers, or the reload endpoint) without restarting the gateway.
 
 ---
 
 ##  Notes
 
-* The `target` field is ignored when `backends` are defined; it acts as a fallback.
-* Always ensure the `healthCheck.path` exists on all backend services to avoid false negatives.
-* Common healthy statuses include `200 OK` and optionally `404 Not Found` if used as an intentional empty state.
+* When `backends` is set, `target` is ignored; it is not used as a fallback.
+* A route with a single backend (or only a `target`) is always proxied, whatever its health check reports.
+* Write backend endpoints as `scheme://host[:port]`, without a path or trailing slash. Health state is tracked by the endpoint's scheme and host, so an endpoint with a path is never taken out of rotation.
+* Make sure `healthCheck.path` exists on every backend. List any non-`2xx`/`3xx` status that should count as healthy in `healthyStatuses` (for example `404` if the path intentionally returns it).
 * Load balancing is performed per route, giving you granular control over traffic distribution.
 
 ---

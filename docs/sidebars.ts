@@ -18,6 +18,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'index',
         'why-use-goma-gateway',
+        'use-cases',
         'quickstart/index',
         {
           type: 'category',

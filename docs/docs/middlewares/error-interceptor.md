@@ -12,7 +12,7 @@ The **Error Interceptor Middleware** (`errorInterceptor`) allows you to intercep
 
 ## Overview
 
-When enabled, the `errorInterceptor` middleware inspects backend responses and intercepts HTTP error status codes (typically **4xx** and **5xx**). For matched errors, you can:
+When enabled, the `errorInterceptor` middleware inspects the route's responses and replaces those whose status code is listed in `errors`. This covers backend responses and errors produced by the route's other middlewares (for example a `401` from `jwtAuth`). For matched errors, you can:
 
 * Override response bodies
 * Serve custom error templates (HTML or other formats)
@@ -36,14 +36,36 @@ When enabled, the `errorInterceptor` middleware inspects backend responses and i
 The following example enables the middleware and intercepts specific HTTP status codes:
 
 ```yaml
-- name: error-interceptor
-  type: errorInterceptor
-  rule:
-    enabled: true
-    errors:
-      - statusCode: 400
-      - statusCode: 500
+middlewares:
+  - name: error-interceptor
+    type: errorInterceptor
+    rule:
+      enabled: true
+      errors:
+        - statusCode: 400
+        - statusCode: 500
 ```
+
+An entry without `body` or `file` replaces the backend's body with the status
+text, e.g. `500 Internal Server Error`.
+
+### Configuration Options
+
+| Parameter            | Type    | Default | Description                                                                                 |
+|----------------------|---------|---------|---------------------------------------------------------------------------------------------|
+| `enabled`            | boolean | `false` | Must be `true` for anything to be intercepted.                                              |
+| `contentType`        | string  | request's `Accept` header | Response format: `application/json`, `application/xml`, or anything else for plain text. |
+| `errors`             | list    | required | Status codes to intercept.                                                                  |
+| `errors[].statusCode`| integer | -       | Status code to intercept. The original status code is kept in the response.                |
+| `errors[].body`      | string  | -       | Replacement body.                                                                           |
+| `errors[].file`      | string  | -       | Path to a file served as `text/html` instead of `body`.                                     |
+
+With `contentType: application/json`, a `body` that is valid JSON is returned
+as-is; any other body is wrapped as `{"success": false, "statusCode": <code>, "error": "<body>"}`.
+
+`code` and `status` inside `errors` were removed in v1.0; use `statusCode`. The
+route-level `errorInterceptor` block was also removed: configure this middleware
+and attach it to the route instead.
 
 
 ---
@@ -53,32 +75,34 @@ The following example enables the middleware and intercepts specific HTTP status
 You can define fully customized response bodies for each intercepted status code. This is ideal for APIs that require a consistent error schema.
 
 ```yaml
-- name: error-interceptor
-  type: errorInterceptor
-  rule:
-    enabled: true
-    errors:
-      - statusCode: 405
+middlewares:
+  - name: error-interceptor
+    type: errorInterceptor
+    rule:
+      enabled: true
+      contentType: application/json
+      errors:
+        - statusCode: 405
 
-      - statusCode: 400
-        body: >
-          {"success": false, "code": 400, "message": "Bad Request", "data": null}
+        - statusCode: 400
+          body: >
+            {"success": false, "code": 400, "message": "Bad Request", "data": null}
 
-      - statusCode: 401
-        body: >
-          {"success": false, "code": 401, "message": "Unauthorized", "data": null}
+        - statusCode: 401
+          body: >
+            {"success": false, "code": 401, "message": "Unauthorized", "data": null}
 
-      - statusCode: 403
-        body: >
-          {"success": false, "code": 403, "message": "Forbidden", "data": null}
+        - statusCode: 403
+          body: >
+            {"success": false, "code": 403, "message": "Forbidden", "data": null}
 
-      - statusCode: 404
-        body: >
-          {"success": false, "code": 404, "message": "Not Found", "data": null}
+        - statusCode: 404
+          body: >
+            {"success": false, "code": 404, "message": "Not Found", "data": null}
 
-      - statusCode: 500
-        body: >
-          {"success": false, "code": 500, "message": "Internal Server Error", "data": null}
+        - statusCode: 500
+          body: >
+            {"success": false, "code": 500, "message": "Internal Server Error", "data": null}
 ```
 
 ---
@@ -88,19 +112,20 @@ You can define fully customized response bodies for each intercepted status code
 For UI-oriented routes, you can serve static error pages (HTML, JSON, etc.) from files.
 
 ```yaml
-- name: error-interceptor-ui
-  type: errorInterceptor
-  rule:
-    enabled: true
-    errors:
-      - statusCode: 403
-        file: /etc/goma/errors/403.html
+middlewares:
+  - name: error-interceptor-ui
+    type: errorInterceptor
+    rule:
+      enabled: true
+      errors:
+        - statusCode: 403
+          file: /etc/goma/errors/403.html
 
-      - statusCode: 502
-        file: /etc/goma/errors/502.html
-        
-      - statusCode: 503
-        file: /etc/goma/errors/503.html
+        - statusCode: 502
+          file: /etc/goma/errors/502.html
+
+        - statusCode: 503
+          file: /etc/goma/errors/503.html
 ```
 
 ### Use Cases
@@ -127,5 +152,8 @@ routes:
       - error-interceptor
 ```
 
-The middleware will be applied in the order defined, intercepting backend responses before they are returned to the client.
+Some responses are never intercepted: WebSocket and Server-Sent Events
+requests, file downloads (`Content-Disposition: attachment`), binary
+`application/*` types other than JSON and XML, audio and video, and bodies
+declared larger than 10 MB.
 

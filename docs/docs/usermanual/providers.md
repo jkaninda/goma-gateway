@@ -8,7 +8,7 @@ sidebar_position: 12
 
 Providers in **Goma Gateway** enable **dynamic configuration management** by automatically discovering and loading routes and middleware from external sources.
 
-Instead of manual editing configuration files, providers allow you to adopt modern patterns such as **GitOps**, **service discovery**, and **centralized configuration management**.
+Instead of manually editing configuration files, providers allow you to adopt modern patterns such as **GitOps**, **service discovery**, and **centralized configuration management**.
 
 ---
 
@@ -60,7 +60,7 @@ flowchart LR
     C -->|Invalid| E[Log Error & Keep Previous Config]
     D -->|Live| F[Active Gateway]
     E -->|Fallback| F
-````
+```
 
 ### Key Behaviors
 
@@ -82,6 +82,24 @@ The **File Provider** loads configuration from a local directory and optionally 
 | `enabled`   | bool   | Yes      | Enable the provider                      |
 | `directory` | string | Yes      | Directory containing configuration files |
 | `watch`     | bool   | No       | Enable automatic reload on file changes  |
+
+Every `.yaml`, `.yml` and `.json` file in the directory and its subdirectories is
+loaded (hidden directories are skipped). Each file holds a `routes:` list, a
+`middlewares:` list, or both, in the same format as the
+[response format](#response-format) below. With `watch: true`, only the top-level
+directory is watched for changes.
+
+If `providers.file` is not set in the configuration, the file provider can be
+enabled with the `GOMA_FILE_PROVIDER_ENABLED`, `GOMA_FILE_PROVIDER_DIRECTORY` and
+`GOMA_FILE_PROVIDER_WATCH` (default `true`) environment variables.
+
+:::note
+
+Unlike the main configuration file and [Extra Config](extra-config.md) files,
+provider bundles — from the file, HTTP and Git providers — are **not** expanded:
+a `${VAR}` reference is used literally.
+
+:::
 
 ### Example
 
@@ -121,11 +139,11 @@ It is ideal for **centralized configuration services** or control planes.
 |----------------------|----------|----------|-----------------------------|--------------------------|
 | `enabled`            | bool     | Yes      | —                           | Enable the provider      |
 | `endpoint`           | string   | Yes      | —                           | Remote configuration URL |
-| `interval`           | duration | No       | 60s                         | Polling interval         |
+| `interval`           | duration | No       | 30s                         | Polling interval         |
 | `timeout`            | duration | No       | 10s                         | Request timeout          |
 | `retryAttempts`      | int      | No       | 3                           | Max retry attempts       |
 | `retryDelay`         | duration | No       | 2s                          | Delay between retries    |
-| `cacheDir`           | string   | No       | /tmp/goma/cache/config.json | Cache file path          |
+| `cacheDir`           | string   | No       | `<tmp>/goma/cache/config.json` | Path of the file that caches the last valid configuration (despite the name, a file path) |
 | `insecureSkipVerify` | bool     | No       | false                       | Skip TLS verification    |
 | `headers`            | map      | No       | —                           | Custom HTTP headers      |
 
@@ -193,9 +211,9 @@ The **Git Provider** retrieves configuration from a Git repository, enabling **G
 | `enabled`  | bool     | Yes      | —       | Enable the provider          |
 | `url`      | string   | Yes      | —       | Git repository URL           |
 | `branch`   | string   | No       | main    | Branch to pull               |
-| `path`     | string   | No       | /       | Path to configuration        |
-| `interval` | duration | No       | 60s     | Sync interval                |
-| `cloneDir` | string   | No       | temp    | Local clone directory        |
+| `path`     | string   | No       | repository root | Subdirectory holding the configuration files |
+| `interval` | duration | No       | 120s    | Sync interval                |
+| `cloneDir` | string   | No       | `<tmp>/goma/providers/git` | Local clone directory |
 | `auth`     | object   | No       | —       | Authentication configuration |
 
 #### Authentication fields
@@ -243,6 +261,8 @@ gateway:
         token: ${GIT_TOKEN}
       cloneDir: ""
 ```
+
+`<tmp>` is the system temporary directory (`/tmp` in the container image).
 
 ---
 
@@ -443,4 +463,3 @@ For a production example of these pieces working together, see how
 [Miabi](#miabi-paas-control-plane) drives the gateway with the File provider
 locally and the HTTP provider across clusters.
 
-```

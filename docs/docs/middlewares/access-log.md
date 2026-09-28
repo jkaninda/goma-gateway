@@ -25,19 +25,21 @@ By default, access logs typically contain basic information such as request meth
 ## Basic Configuration
 
 ```yaml
-- name: custom-logger
-  type: accessLog
-  paths:
-    - "/.*"
-  rule:
-    headers:
-      - CF-IPCountry
-    query:
-      - debug
-      - source
-    cookies:
-      - session_id
+middlewares:
+  - name: custom-logger
+    type: accessLog
+    rule:
+      headers:
+        - CF-IPCountry
+      query:
+        - debug
+        - source
+      cookies:
+        - session_id
 ```
+
+At least one of `headers`, `query` or `cookies` must be set; otherwise the
+middleware is not applied.
 
 This configuration logs:
 
@@ -83,51 +85,49 @@ Logs values from the request query string.
 rule:
   cookies:
     - session_id
-    - auth_token
 ```
 
 Logs selected cookies for traceability or session analysis.
 
 ---
 
-## Path-Based Logging
+## Scope
 
-You can limit logging enrichment to specific paths:
+The enrichment applies to every request on the routes the middleware is
+attached to; `paths` is ignored. To enrich only some requests, attach the
+middleware to a dedicated route.
 
-```yaml
-paths:
-  - /api/.*
-  - /admin/.*
-```
-
-This helps reduce log noise and control sensitive data exposure.
+:::caution
+Logged values are written in clear text. Avoid logging credentials or session
+tokens (`Authorization`, session cookies) unless your log pipeline is trusted to
+hold them.
+:::
 
 ---
 
 ## Log Output Behavior
 
-* Missing fields are logged as empty or null values
-* Values are captured **at request time**
-* Fields are appended to existing access log entries
-* The logging format depends on your gateway’s global log configuration
+* Fields that are absent from the request are omitted from the log entry
+* Header fields are logged under their lowercased name (e.g. `cf-ipcountry`); query parameters and cookies under the name as configured
+* Fields are appended to the route's existing access log entry
+* The logging format depends on your gateway's global log configuration
 
 ---
 
 ## Example: Observability-Focused Logging
 
 ```yaml
-- name: observability-logger
-  type: accessLog
-  paths:
-    - /api/.*
-  rule:
-    headers:
-      - X-Request-ID
-      - User-Agent
-      - CF-IPCountry
-    query:
-      - version
-    cookies:
-      - session_id
+middlewares:
+  - name: observability-logger
+    type: accessLog
+    rule:
+      headers:
+        - X-Request-ID
+        - User-Agent
+        - CF-IPCountry
+      query:
+        - version
+      cookies:
+        - session_id
 ```
 
