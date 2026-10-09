@@ -42,13 +42,14 @@ type passiveHealth struct {
 	now func() time.Time // injectable for tests
 }
 
-func newPassiveHealth(maxFails int, ejectFor time.Duration, enabled bool) *passiveHealth {
+// newPassiveHealth returns an enabled registry; configure turns it off.
+func newPassiveHealth(maxFails int, ejectFor time.Duration) *passiveHealth {
 	p := &passiveHealth{
 		failures: make(map[string]int),
 		ejected:  make(map[string]time.Time),
 		now:      time.Now,
 	}
-	p.configure(maxFails, ejectFor, enabled)
+	p.configure(maxFails, ejectFor, true)
 	return p
 }
 

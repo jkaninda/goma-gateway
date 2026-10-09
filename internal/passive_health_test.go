@@ -57,7 +57,7 @@ func deadEndpoint(t *testing.T) string {
 
 func TestPassiveHealthEjectsAfterMaxFails(t *testing.T) {
 	now := time.Unix(1000, 0)
-	p := newPassiveHealth(2, 10*time.Second, true)
+	p := newPassiveHealth(2, 10*time.Second)
 	p.now = func() time.Time { return now }
 	const ep = "http://a:8080"
 
@@ -95,7 +95,7 @@ func TestPassiveHealthEjectsAfterMaxFails(t *testing.T) {
 }
 
 func TestPassiveHealthDisabled(t *testing.T) {
-	p := newPassiveHealth(1, time.Minute, true)
+	p := newPassiveHealth(1, time.Minute)
 	const ep = "http://a:8080"
 	p.recordFailure(ep)
 	if !p.isEjected(ep) {
@@ -111,7 +111,7 @@ func TestPassiveHealthDisabled(t *testing.T) {
 }
 
 func TestPassiveHealthConfigDefaults(t *testing.T) {
-	p := newPassiveHealth(0, 0, true)
+	p := newPassiveHealth(0, 0)
 	if p.maxFails != defaultPassiveMaxFails || p.ejectFor != defaultPassiveEjectFor {
 		t.Fatalf("got maxFails=%d ejectFor=%v, want the defaults", p.maxFails, p.ejectFor)
 	}

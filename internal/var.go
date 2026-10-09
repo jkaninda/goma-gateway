@@ -38,7 +38,7 @@ var (
 	unavailableBackends = newBackendHealth()
 	// passiveBackendHealth ejects endpoints that fail to answer, using live
 	// traffic. The active health checks only run for routes that declare one.
-	passiveBackendHealth = newPassiveHealth(defaultPassiveMaxFails, defaultPassiveEjectFor, true)
+	passiveBackendHealth = newPassiveHealth(defaultPassiveMaxFails, defaultPassiveEjectFor)
 	// responseBufferPool is shared by every reverse proxy the gateway builds.
 	responseBufferPool = newProxyBufferPool()
 
