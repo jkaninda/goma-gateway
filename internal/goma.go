@@ -476,6 +476,7 @@ func (g *Goma) configureProviderManager() error {
 					Enabled:   true,
 					Directory: directory,
 					Watch:     goutils.EnvBool("GOMA_FILE_PROVIDER_WATCH", true),
+					Debounce:  goutils.Env("GOMA_FILE_PROVIDER_DEBOUNCE", ""),
 				}
 				logger.Debug("File provider initialized from environment variables")
 			}

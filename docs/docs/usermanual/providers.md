@@ -82,6 +82,7 @@ The **File Provider** loads configuration from a local directory and optionally 
 | `enabled`   | bool   | Yes      | Enable the provider                      |
 | `directory` | string | Yes      | Directory containing configuration files |
 | `watch`     | bool   | No       | Enable automatic reload on file changes  |
+| `debounce`  | string | No       | How long to wait for writes to stop before reloading (Go duration, default `500ms`; `0s` reloads on every event) |
 
 Every `.yaml`, `.yml` and `.json` file in the directory and its subdirectories is
 loaded (hidden directories are skipped). Each file holds a `routes:` list, a
@@ -91,7 +92,11 @@ directory is watched for changes.
 
 If `providers.file` is not set in the configuration, the file provider can be
 enabled with the `GOMA_FILE_PROVIDER_ENABLED`, `GOMA_FILE_PROVIDER_DIRECTORY` and
-`GOMA_FILE_PROVIDER_WATCH` (default `true`) environment variables.
+`GOMA_FILE_PROVIDER_WATCH` (default `true`) and `GOMA_FILE_PROVIDER_DEBOUNCE` environment variables.
+
+While files keep changing, the watcher keeps resetting its debounce timer, but
+it always reloads within 4× `debounce` of the first change, so a steady stream
+of writes is still applied.
 
 :::note
 
@@ -110,6 +115,7 @@ gateway:
       enabled: true
       directory: /etc/goma/providers
       watch: true
+      debounce: 500ms
 ```
 
 ---

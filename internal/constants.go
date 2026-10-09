@@ -17,6 +17,8 @@
 
 package internal
 
+import "time"
+
 const (
 	ConfigDir                           = "/etc/goma/" // Default configuration file
 	ExtraDir                            = ConfigDir + "extra"
@@ -121,6 +123,16 @@ const (
 	defaultReadHeaderTimeout = 10
 	// defaultMaxHeaderBytes caps the request header size at 1 MiB.
 	defaultMaxHeaderBytes = 1 << 20
+)
+
+// File provider watch debounce. defaultWatchDebounce is how long the watcher
+// waits for writes to stop before reloading, configurable as
+// providers.file.debounce. debounceMaxMultiple caps how far a continuing stream
+// of writes can push a reload out: at most this many windows from the first
+// event.
+const (
+	defaultWatchDebounce = 500 * time.Millisecond
+	debounceMaxMultiple  = 4
 )
 
 // Actions accepted by the accessPolicy and geoBlock middlewares.
