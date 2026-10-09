@@ -93,8 +93,24 @@ gateway:
 * **Health Monitoring**
   When the route has a `healthCheck` block, each backend is probed at `healthCheck.path` every `interval`. A backend that fails one check is removed from the rotation, and it is added back as soon as a check succeeds. If every backend is down, the gateway answers `503 Service Unavailable`. See [Health check](../usermanual/healthcheck.md) for the check options.
 
+* **Passive Health Checks**
+  Whether or not the route has a `healthCheck` block, the gateway watches live traffic. A backend that fails `maxFails` requests in a row (default `2`) at the connection level is ejected for `ejectFor` (default `10s`). See [Passive health checks](#passive-health-checks).
+
 * **Configuration Changes**
   Backends can be added or removed by reloading the configuration (file watch, providers, or the reload endpoint) without restarting the gateway.
+
+---
+
+## Passive Health Checks
+
+Passive health checks apply to every route with several `backends`, on round-robin, weighted and canary routing. Configure them gateway-wide under [`networking.passiveHealthCheck`](../usermanual/gateway.md#passive-health-check).
+
+* Only connection-level failures count: connection refused or reset, a timeout reaching the backend, a connection closed before the response. A backend that answers, even with a `500`, is considered reachable, and the answer resets its failure count. Requests the client cancels are not counted.
+* When the cooldown ends, the backend takes traffic again on probation: one more failure ejects it again, while one successful response clears it.
+* If every backend that the active health checks consider up has been ejected, the ejections are ignored and requests are spread over those backends as usual, rather than answering `503` until a cooldown ends.
+* State is tracked per backend `endpoint` and shared by every route that lists it.
+* Each ejection is logged at `WARN` and counted in the `gateway_backend_ejections_total` metric.
+* Disable with `networking.passiveHealthCheck.enabled: false`.
 
 ---
 

@@ -31,6 +31,7 @@ const (
 	labelMethod  = "method"
 	labelStatus  = "status"
 	labelCountry = "country"
+	labelBackend = "backend"
 )
 
 // PrometheusMetrics defines all Prometheus metrics tracked by the gateway.
@@ -77,6 +78,9 @@ type PrometheusMetrics struct {
 	// GatewayGeoBlockDenied counts requests denied by a geoBlock middleware,
 	// labeled by middleware name and the client country (ISO code).
 	GatewayGeoBlockDenied *prometheus.CounterVec
+	// GatewayBackendEjections counts backends taken out of rotation by the
+	// passive health check, labeled by backend endpoint.
+	GatewayBackendEjections *prometheus.CounterVec
 }
 
 // NewPrometheusMetrics initializes and registers all Prometheus metrics for the
@@ -163,6 +167,13 @@ func NewPrometheusMetrics(startTime time.Time, stop <-chan struct{}) *Prometheus
 				Help: "Total requests denied by a geoBlock middleware, labeled by middleware name and country",
 			},
 			[]string{labelName, labelCountry},
+		),
+		GatewayBackendEjections: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_backend_ejections_total",
+				Help: "Total times a backend was taken out of rotation by the passive health check, labeled by backend endpoint",
+			},
+			[]string{labelBackend},
 		),
 	}
 

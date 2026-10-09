@@ -135,6 +135,15 @@ const (
 	debounceMaxMultiple  = 4
 )
 
+// Passive backend health check defaults: an endpoint is ejected after
+// defaultPassiveMaxFails consecutive connection failures and kept out of
+// rotation for defaultPassiveEjectFor. Close to nginx's max_fails/fail_timeout,
+// with one extra failure of tolerance so a single blip does not eject.
+const (
+	defaultPassiveMaxFails = 2
+	defaultPassiveEjectFor = 10 * time.Second
+)
+
 // Actions accepted by the accessPolicy and geoBlock middlewares.
 const (
 	policyAllow = "ALLOW"

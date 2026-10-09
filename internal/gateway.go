@@ -304,6 +304,23 @@ type Timeouts struct {
 type Networking struct {
 	DNSCache  DNSCacheConfig  `yaml:"dnsCache,omitempty"`
 	Transport TransportConfig `yaml:"transport,omitempty"`
+	// PassiveHealthCheck ejects backends that fail on live traffic.
+	PassiveHealthCheck PassiveHealthCheckConfig `yaml:"passiveHealthCheck,omitempty"`
+}
+
+// PassiveHealthCheckConfig controls passive backend health checking: a backend
+// of a multi-backend route that fails maxFails requests in a row at the
+// connection level (refused, reset, timed out) is taken out of rotation for
+// ejectFor. It works without a route healthCheck block.
+type PassiveHealthCheckConfig struct {
+	// Enabled turns passive checks on (default: true).
+	Enabled bool `yaml:"enabled"`
+	// MaxFails is the number of consecutive failures that ejects a backend
+	// (default: 2).
+	MaxFails int `yaml:"maxFails,omitempty"`
+	// EjectFor is how long an ejected backend stays out, as a Go duration
+	// (default: "10s").
+	EjectFor string `yaml:"ejectFor,omitempty"`
 }
 type DNSCacheConfig struct {
 	// TTL is the DNS cache entry lifetime in seconds (default: 300).
@@ -334,6 +351,7 @@ func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	g.Networking.Transport.MaxIdleConnsPerHost = 256
 	g.Networking.Transport.MaxConnsPerHost = 256
 	g.Networking.Transport.IdleConnTimeout = 90
+	g.Networking.PassiveHealthCheck.Enabled = true
 
 	g.Timeouts.Read = defaultServerTimeout
 	g.Timeouts.Write = defaultServerTimeout

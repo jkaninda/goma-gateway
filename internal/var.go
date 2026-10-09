@@ -36,6 +36,9 @@ var (
 	counter uint32
 	// unavailableBackends keeps track of backend endpoints marked as unavailable.
 	unavailableBackends = newBackendHealth()
+	// passiveBackendHealth ejects endpoints that fail to answer, using live
+	// traffic. The active health checks only run for routes that declare one.
+	passiveBackendHealth = newPassiveHealth(defaultPassiveMaxFails, defaultPassiveEjectFor, true)
 	// responseBufferPool is shared by every reverse proxy the gateway builds.
 	responseBufferPool = newProxyBufferPool()
 
