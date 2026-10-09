@@ -84,6 +84,8 @@ func (g *Goma) Initialize() error {
 
 	// Configure the shared DNS cache (build once)
 	configureDNSCache(gateway.Networking.DNSCache)
+	// Passive backend health checks; safe to re-apply on reload.
+	configurePassiveHealth(gateway.Networking.PassiveHealthCheck)
 
 	// Initialize trusted proxies
 	g.initTrustedProxyConfig()

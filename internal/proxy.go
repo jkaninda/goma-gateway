@@ -56,7 +56,7 @@ func (pr *ProxyRoute) ProxyHandler() http.HandlerFunc {
 		pr.forwardedHeaders(r)
 
 		// Create a reverse proxy based on the configuration
-		proxy, err := pr.createProxy(r, contentType, w)
+		proxy, endpoint, err := pr.createProxy(r, contentType, w)
 		if err != nil {
 			return
 		}
@@ -69,8 +69,22 @@ func (pr *ProxyRoute) ProxyHandler() http.HandlerFunc {
 		// Set a custom header to indicate the request is proxied
 		w.Header().Set("Proxied-By", util.GatewayName)
 
-		// Set a custom error handler for proxy errors
+		// Set a custom error handler for proxy errors. On a multi-backend route
+		// it also credits connection failures to the selected endpoint, so one
+		// that stops answering is taken out of rotation instead of keeping its
+		// share of the traffic for as long as it stays down.
 		proxy.ErrorHandler = ProxyErrorHandler
+		if endpoint != "" {
+			proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+				recordBackendFailure(req.Context(), endpoint, err)
+				ProxyErrorHandler(w, req, err)
+			}
+			// Any response, including a 500, means the endpoint is reachable.
+			proxy.ModifyResponse = func(*http.Response) error {
+				passiveBackendHealth.recordSuccess(endpoint)
+				return nil
+			}
+		}
 
 		// Forward the request to the selected backend
 		proxy.ServeHTTP(w, r)
@@ -142,8 +156,10 @@ func (pr *ProxyRoute) forwardedHeaders(r *http.Request) {
 }
 
 // createProxy creates a reverse proxy based on the configuration.
-// It selects between single-host, weighted, or round-robin load balancing.
-func (pr *ProxyRoute) createProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
+// It selects between single-host, weighted, or round-robin load balancing, and
+// returns the endpoint a load-balanced request was routed to (empty for a
+// single-host route, which has nothing to fail over to).
+func (pr *ProxyRoute) createProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, string, error) {
 	logger.Debug("Creating proxy", "route", pr.name, "method", r.Method, "path", r.URL.Path, "contentType", contentType)
 	if len(pr.backends) == 0 || len(pr.backends) == 1 {
 		if len(pr.backends) == 1 {
@@ -151,7 +167,8 @@ func (pr *ProxyRoute) createProxy(r *http.Request, contentType string, w http.Re
 			logger.Debug("Using single backend proxy", "backends", len(pr.backends))
 		}
 		logger.Debug("Using  single backend proxy ", "path", pr.path, "target", pr.target)
-		return pr.createSingleHostProxy(r, contentType, w)
+		proxy, err := pr.createSingleHostProxy(r, contentType, w)
+		return proxy, "", err
 	}
 	if pr.canaryBased {
 		return pr.createCanaryProxy(r, contentType, w)
@@ -183,13 +200,13 @@ func (pr *ProxyRoute) createSingleHostProxy(r *http.Request, contentType string,
 }
 
 // createWeightedProxy creates a reverse proxy using weighted load balancing.
-func (pr *ProxyRoute) createWeightedProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
-	proxy, backendURL, err := pr.NewWeightedReverseProxy(r)
+func (pr *ProxyRoute) createWeightedProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, string, error) {
+	backend, backendURL, err := pr.selectWeighted()
 	if err != nil {
 		logger.Error("Failed to create weighted reverse proxy", "route", pr.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
 			"503 service unavailable", pr.origins, contentType)
-		return nil, err
+		return nil, "", err
 	}
 	// Update the headers to allow for SSL redirection if host forwarding is disabled
 	if !pr.security.ForwardHostHeaders {
@@ -201,17 +218,17 @@ func (pr *ProxyRoute) createWeightedProxy(r *http.Request, contentType string, w
 		"route", pr.name,
 		"type", "weighted",
 		"backend", backendURL.String())
-	return proxy, err
+	return newReverseProxy(backendURL), backend.Endpoint, nil
 }
 
 // createRoundRobinProxy creates a reverse proxy using round-robin load balancing.
-func (pr *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
-	proxy, backendURL, err := pr.NewRoundRobinReverseProxy(r)
+func (pr *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, string, error) {
+	backend, backendURL, err := pr.selectRoundRobin()
 	if err != nil {
 		logger.Error("Failed to create round-robin reverse proxy", "route", pr.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
 			"503 service unavailable", pr.origins, contentType)
-		return nil, err
+		return nil, "", err
 	}
 	// Update the headers to allow for SSL redirection if host forwarding is disabled
 	if !pr.security.ForwardHostHeaders {
@@ -225,16 +242,16 @@ func (pr *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string,
 		"route", pr.name,
 		"type", "round-robin",
 		"backend", backendURL.String())
-	return proxy, err
+	return newReverseProxy(backendURL), backend.Endpoint, nil
 }
 
 // createCanaryProxy creates a reverse proxy using canary deployment logic.
-func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, error) {
+func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w http.ResponseWriter) (*httputil.ReverseProxy, string, error) {
 	if !pr.backends.hasAvailableBackends() {
 		logger.Error("No available backends", "route", pr.name)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
 			"503 service unavailable", pr.origins, contentType)
-		return nil, fmt.Errorf("no available backends for route=%s", pr.name)
+		return nil, "", fmt.Errorf("no available backends for route=%s", pr.name)
 	}
 
 	backend := pr.backends.SelectCanaryBackend(r)
@@ -247,7 +264,7 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 		logger.Error("No available stable backends", "route", pr.name)
 		middlewares.RespondWithError(w, r, http.StatusServiceUnavailable,
 			"503 service unavailable", pr.origins, contentType)
-		return nil, fmt.Errorf("no available stable backends for route=%s", pr.name)
+		return nil, "", fmt.Errorf("no available stable backends for route=%s", pr.name)
 	}
 	// Parse the backend URL and update the request
 	backendURL, err := url.Parse(backend.Endpoint)
@@ -255,7 +272,7 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 		logger.Error("Error parsing backend URL", "route", pr.name, "error", err)
 		middlewares.RespondWithError(w, r, http.StatusInternalServerError,
 			http.StatusText(http.StatusInternalServerError), pr.origins, contentType)
-		return nil, err
+		return nil, "", err
 	}
 
 	// Update the headers to allow for SSL redirection if host forwarding is disabled
@@ -269,7 +286,7 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 		"route", pr.name,
 		"type", selectionType,
 		"backend", backendURL.String())
-	return newReverseProxy(backendURL), nil
+	return newReverseProxy(backendURL), backend.Endpoint, nil
 }
 
 // createProxyTransport creates custom transport for the reverse proxy.
@@ -326,6 +343,24 @@ func (pr *ProxyRoute) rewritePath(r *http.Request) {
 
 // NewWeightedReverseProxy creates a reverse proxy that uses a weighted load balancing algorithm.
 func (pr *ProxyRoute) NewWeightedReverseProxy(r *http.Request) (*httputil.ReverseProxy, *url.URL, error) {
+	_, backendURL, err := pr.selectWeighted()
+	if err != nil {
+		return nil, nil, err
+	}
+	return newReverseProxy(backendURL), backendURL, nil
+}
+
+// NewRoundRobinReverseProxy creates a reverse proxy that uses a round-robin load balancing algorithm.
+func (pr *ProxyRoute) NewRoundRobinReverseProxy(r *http.Request) (*httputil.ReverseProxy, *url.URL, error) {
+	_, backendURL, err := pr.selectRoundRobin()
+	if err != nil {
+		return nil, nil, err
+	}
+	return newReverseProxy(backendURL), backendURL, nil
+}
+
+// selectWeighted picks a backend by weighted randomization.
+func (pr *ProxyRoute) selectWeighted() (*Backend, *url.URL, error) {
 	if !pr.backends.hasAvailableBackends() {
 		logger.Error("No available backends", "route", pr.name)
 		return nil, nil, fmt.Errorf("no available backends for route=%s", pr.name)
@@ -336,32 +371,31 @@ func (pr *ProxyRoute) NewWeightedReverseProxy(r *http.Request) (*httputil.Revers
 		return nil, nil, fmt.Errorf("no available backends for route=%s", pr.name)
 	}
 
-	// Parse the backend URL and update the request
 	backendURL, err := url.Parse(backend.Endpoint)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error parsing backend URL for route %s: %v", pr.name, err)
 	}
-	return newReverseProxy(backendURL), backendURL, nil
+	return backend, backendURL, nil
 }
 
-// NewRoundRobinReverseProxy creates a reverse proxy that uses a round-robin load balancing algorithm.
-func (pr *ProxyRoute) NewRoundRobinReverseProxy(r *http.Request) (*httputil.ReverseProxy, *url.URL, error) {
+// selectRoundRobin picks the next available backend in round-robin order.
+func (pr *ProxyRoute) selectRoundRobin() (*Backend, *url.URL, error) {
 	availableCount := pr.backends.availableBackendCount()
 	if availableCount == 0 {
 		logger.Error("No available backends", "route", pr.name)
 		return nil, nil, fmt.Errorf("no available backends for route=%s", pr.name)
 	}
 
-	// Find the next available backend using round-robin
 	backend := pr.backends.getNextAvailableBackend(availableCount)
 	if backend == nil {
 		return nil, nil, fmt.Errorf("no available backends for route=%s", pr.name)
 	}
 
-	// Parse the backend URL and update the request
-	backendURL, _ := url.Parse(backend.Endpoint)
-
-	return newReverseProxy(backendURL), backendURL, nil
+	backendURL, err := url.Parse(backend.Endpoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error parsing backend URL for route %s: %v", pr.name, err)
+	}
+	return backend, backendURL, nil
 }
 
 // TotalWeight calculates the total weight of all backends.
@@ -399,8 +433,27 @@ func (b Backends) SelectBackend() *Backend {
 // isUnavailable reports whether the health checks have marked this backend
 // down. Read straight from the shared registry rather than cached on the
 // Backend: the request path must not write to state other requests read.
+//
+// A passive ejection only counts while some other backend of the set is still
+// in rotation. When every backend the active checks consider up has also been
+// passively ejected, the ejections are ignored: trying a backend that may have
+// recovered beats answering 503 for the rest of the cooldown.
 func (b Backends) isUnavailable(backend *Backend) bool {
-	return unavailableBackends.isUnavailable(backend.Endpoint)
+	if unavailableBackends.isUnavailable(backend.Endpoint) {
+		return true
+	}
+	return passiveBackendHealth.isEjected(backend.Endpoint) && b.hasUnejectedBackend()
+}
+
+// hasUnejectedBackend reports whether some backend is neither marked down by
+// the active health checks nor passively ejected.
+func (b Backends) hasUnejectedBackend() bool {
+	for _, backend := range b {
+		if !unavailableBackends.isUnavailable(backend.Endpoint) && !passiveBackendHealth.isEjected(backend.Endpoint) {
+			return true
+		}
+	}
+	return false
 }
 
 // HasPositiveWeight checks if at least one backend has a positive weight.
@@ -454,16 +507,22 @@ func (b Backends) getNextAvailableBackend(availableCount int) *Backend {
 	index := atomic.AddUint32(&counter, 1) % uint32(availableCount)
 	currentIndex := uint32(0)
 
+	var first *Backend
 	for _, backend := range b {
 		if !b.isUnavailable(backend) {
 			if currentIndex == index {
 				return backend
 			}
+			if first == nil {
+				first = backend
+			}
 			currentIndex++
 		}
 	}
 
-	return nil
+	// Availability changed between counting and picking (an ejection landed or
+	// expired); fall back to the first available backend rather than a 503.
+	return first
 }
 
 // SelectCanaryBackend returns a matching exclusive canary backend, if any.

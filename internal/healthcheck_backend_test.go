@@ -70,7 +70,7 @@ func TestUnhealthyBackendsWithPathAreTakenOutOfRotation(t *testing.T) {
 	pr := &ProxyRoute{name: "r", backends: backends, weightedBased: true}
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	if _, err := pr.createProxy(req, "", rec); err == nil {
+	if _, _, err := pr.createProxy(req, "", rec); err == nil {
 		t.Fatal("expected an error when no backend is available")
 	}
 	if rec.Code != http.StatusServiceUnavailable {
@@ -79,7 +79,7 @@ func TestUnhealthyBackendsWithPathAreTakenOutOfRotation(t *testing.T) {
 
 	pr = &ProxyRoute{name: "r", backends: backends}
 	rec = httptest.NewRecorder()
-	if _, err := pr.createProxy(req, "", rec); err == nil || rec.Code != http.StatusServiceUnavailable {
+	if _, _, err := pr.createProxy(req, "", rec); err == nil || rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("round-robin: err = %v, status = %d, want an error and %d", err, rec.Code, http.StatusServiceUnavailable)
 	}
 }

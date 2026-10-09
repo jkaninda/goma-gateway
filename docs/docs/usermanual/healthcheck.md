@@ -46,6 +46,8 @@ How the result is used:
 * The first check runs one `interval` after the gateway starts or reloads its configuration.
 * Checks reuse the route's `security.tls` settings (`insecureSkipVerify`, and the [backend mTLS](mtls.md#backend-configuration) certificates).
 
+Independently of these checks, the gateway also ejects a backend that keeps failing at the connection level on live traffic. See [Passive health checks](../monitoring-and-performance/load-balancing.md#passive-health-checks).
+
 ---
 
 ## Gateway Health Endpoints

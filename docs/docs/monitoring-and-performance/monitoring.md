@@ -139,6 +139,7 @@ Goma Gateway exposes the following Prometheus metrics. The `name` label is the r
 | `gateway_response_bytes_total` | counter | `name`, `method` | Response body bytes sent (bandwidth out). |
 | `gateway_total_errors_intercepted` | counter | `name`, `status` | Responses replaced by the [error interceptor](../middlewares/error-interceptor.md). |
 | `gateway_requests_by_country_total` | counter | `name`, `country` | Requests by client country (ISO code). Only recorded when a GeoIP database is available (`gateway.geoip.database` or `GOMA_GEOIP_DB`). |
+| `gateway_backend_ejections_total` | counter | `backend` | Times a backend was taken out of rotation by the [passive health check](load-balancing.md#passive-health-checks). |
 | `gateway_geoblock_denied_total` | counter | `name`, `country` | Requests denied by a [`geoBlock`](../middlewares/geo-block.md) middleware; here `name` is the middleware name. |
 
 The endpoint also serves the standard Go runtime (`go_*`) and process (`process_*`) metrics of the Prometheus client library.

@@ -375,6 +375,21 @@ Backend host names are resolved through a shared DNS cache, configured under
 | `clearOnReload` | `bool`     | `false` | Flush the cache when routes are reloaded.                            |
 | `resolver`      | `[]string` | `[]`    | Custom DNS servers (e.g. `1.1.1.1`, `8.8.8.8:53`). Empty uses the system resolver. |
 
+### Passive Health Check
+
+On a route with several `backends`, a backend that fails `maxFails` requests in a
+row at the connection level (connection refused or reset, timeout) is taken out
+of rotation for `ejectFor`, with no `healthCheck` block needed. Configured under
+`networking.passiveHealthCheck`:
+
+| Key        | Type     | Default | Description                                                        |
+|------------|----------|---------|--------------------------------------------------------------------|
+| `enabled`  | `bool`   | `true`  | Turn passive health checks on or off.                              |
+| `maxFails` | `int`    | `2`     | Consecutive connection failures that eject a backend.              |
+| `ejectFor` | `string` | `10s`   | How long an ejected backend stays out of rotation, as a Go duration. |
+
+See [Load Balancing](../monitoring-and-performance/load-balancing.md#passive-health-checks) for how ejection works.
+
 ---
 
 ### Example Configuration
@@ -393,6 +408,10 @@ gateway:
       idleConnTimeout: 90
       tlsHandshakeTimeout: 10
       responseHeaderTimeout: 10
+    passiveHealthCheck:
+      enabled: true
+      maxFails: 2
+      ejectFor: 10s
 ```
 
 ---
