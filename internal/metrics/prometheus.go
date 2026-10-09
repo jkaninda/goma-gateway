@@ -18,7 +18,6 @@
 package metrics
 
 import (
-	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -80,8 +79,9 @@ type PrometheusMetrics struct {
 	GatewayGeoBlockDenied *prometheus.CounterVec
 }
 
-// NewPrometheusMetrics initializes and registers all Prometheus metrics for the gateway.
-func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusMetrics {
+// NewPrometheusMetrics initializes and registers all Prometheus metrics for the
+// gateway.
+func NewPrometheusMetrics(startTime time.Time, stop <-chan struct{}) *PrometheusMetrics {
 	pm := &PrometheusMetrics{
 		GatewayUptime: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "gateway_uptime_seconds",
@@ -173,7 +173,7 @@ func NewPrometheusMetrics(startTime time.Time, stop chan os.Signal) *PrometheusM
 }
 
 // Continuously updates the uptime gauge
-func (pm *PrometheusMetrics) trackUptime(startTime time.Time, stop <-chan os.Signal) {
+func (pm *PrometheusMetrics) trackUptime(startTime time.Time, stop <-chan struct{}) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for {
