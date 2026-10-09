@@ -36,6 +36,8 @@ var (
 	counter uint32
 	// unavailableBackends keeps track of backend endpoints marked as unavailable.
 	unavailableBackends = newBackendHealth()
+	// responseBufferPool is shared by every reverse proxy the gateway builds.
+	responseBufferPool = newProxyBufferPool()
 
 	redisBased       = false
 	stopChan         = make(chan struct{})

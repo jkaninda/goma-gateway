@@ -179,7 +179,7 @@ func (pr *ProxyRoute) createSingleHostProxy(r *http.Request, contentType string,
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}
-	return httputil.NewSingleHostReverseProxy(backendURL), nil
+	return newReverseProxy(backendURL), nil
 }
 
 // createWeightedProxy creates a reverse proxy using weighted load balancing.
@@ -269,7 +269,7 @@ func (pr *ProxyRoute) createCanaryProxy(r *http.Request, contentType string, w h
 		"route", pr.name,
 		"type", selectionType,
 		"backend", backendURL.String())
-	return httputil.NewSingleHostReverseProxy(backendURL), nil
+	return newReverseProxy(backendURL), nil
 }
 
 // createProxyTransport creates custom transport for the reverse proxy.
@@ -341,7 +341,7 @@ func (pr *ProxyRoute) NewWeightedReverseProxy(r *http.Request) (*httputil.Revers
 	if err != nil {
 		return nil, nil, fmt.Errorf("error parsing backend URL for route %s: %v", pr.name, err)
 	}
-	return httputil.NewSingleHostReverseProxy(backendURL), backendURL, nil
+	return newReverseProxy(backendURL), backendURL, nil
 }
 
 // NewRoundRobinReverseProxy creates a reverse proxy that uses a round-robin load balancing algorithm.
@@ -361,7 +361,7 @@ func (pr *ProxyRoute) NewRoundRobinReverseProxy(r *http.Request) (*httputil.Reve
 	// Parse the backend URL and update the request
 	backendURL, _ := url.Parse(backend.Endpoint)
 
-	return httputil.NewSingleHostReverseProxy(backendURL), backendURL, nil
+	return newReverseProxy(backendURL), backendURL, nil
 }
 
 // TotalWeight calculates the total weight of all backends.
@@ -580,4 +580,12 @@ func (b Backends) evaluateOperator(op OperatorType, actualValue, expectedValue s
 		logger.Warn("Unknown operator for canary matching", "operator", op)
 		return false
 	}
+}
+
+// newReverseProxy builds a single-host reverse proxy that shares the pooled
+// copy buffers. Every construction site goes through here so none can forget.
+func newReverseProxy(target *url.URL) *httputil.ReverseProxy {
+	rp := httputil.NewSingleHostReverseProxy(target)
+	rp.BufferPool = responseBufferPool
+	return rp
 }
