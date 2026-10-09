@@ -69,6 +69,7 @@ type FileProvider struct {
 	Enabled   bool   `yaml:"enabled"`
 	Directory string `yaml:"directory"`
 	Watch     bool   `yaml:"watch"`
+	Debounce  string `yaml:"debounce,omitempty"`
 }
 
 // CalculateChecksum computes the SHA256 checksum of the config bundle

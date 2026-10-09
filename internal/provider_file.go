@@ -25,6 +25,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -202,12 +203,33 @@ func (p *fileProvider) watch(ctx context.Context, out chan<- *ConfigBundle) {
 		}
 	}(p.watcher)
 
-	// Debounce timer
-	var debounceTimer *time.Timer
-	debounceDuration := 500 * time.Millisecond
+	// Debouncing coalesces the burst of events one logical change produces (an
+	// editor writing then renaming, a controller dropping several route files at
+	// once) so the gateway reloads once instead of once per event.
+	debounceDuration := p.debounceDuration()
+
+	// maxDelay bounds that coalescing. Resetting the timer on every event means a
+	// writer that never pauses for longer than the window pushes the reload out
+	// forever; a stream of changes 200 ms apart produced exactly one applied
+	// change in the benchmark. With a deadline, a steady stream is still applied
+	// every maxDelay.
+	maxDelay := debounceDuration * debounceMaxMultiple
+
+	// The timer is driven from this goroutine rather than time.AfterFunc, so
+	// firstPending is only ever touched here and needs no synchronisation.
+	timer := time.NewTimer(time.Hour)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	defer timer.Stop()
+	var firstPending time.Time
 
 	for {
 		select {
+		case <-timer.C:
+			firstPending = time.Time{}
+			p.reloadAndSend(ctx, out)
+
 		case <-ctx.Done():
 			logger.Debug("file provider watching stopped: context cancelled")
 			return
@@ -234,14 +256,33 @@ func (p *fileProvider) watch(ctx context.Context, out chan<- *ConfigBundle) {
 				"file", event.Name,
 				"op", event.Op.String())
 
-			// Debounce: reset timer on each event
-			if debounceTimer != nil {
-				debounceTimer.Stop()
+			if debounceDuration <= 0 {
+				p.reloadAndSend(ctx, out)
+				continue
 			}
 
-			debounceTimer = time.AfterFunc(debounceDuration, func() {
-				p.reloadAndSend(ctx, out)
-			})
+			now := time.Now()
+			if firstPending.IsZero() {
+				firstPending = now
+			}
+
+			// Reset the window on each event, but never push the reload past
+			// maxDelay from the first event of this burst.
+			wait := debounceDuration
+			if overshoot := now.Sub(firstPending) + wait - maxDelay; overshoot > 0 {
+				wait -= overshoot
+				if wait < 0 {
+					wait = 0
+				}
+			}
+
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(wait)
 
 		case err, ok := <-p.watcher.Errors:
 			if !ok {
@@ -250,6 +291,26 @@ func (p *fileProvider) watch(ctx context.Context, out chan<- *ConfigBundle) {
 			logger.Error("watcher error", "error", err)
 		}
 	}
+}
+
+// debounceDuration returns the configured watch debounce. An unset value keeps
+// the long-standing 500 ms default; "0s" turns debouncing off, which is what a
+// controller that writes each route file atomically wants.
+func (p *fileProvider) debounceDuration() time.Duration {
+	raw := strings.TrimSpace(p.config.Debounce)
+	if raw == "" {
+		return defaultWatchDebounce
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		logger.Warn("Invalid providers.file.debounce, using default",
+			"value", raw, "default", defaultWatchDebounce.String())
+		return defaultWatchDebounce
+	}
+	if d < 0 {
+		return 0
+	}
+	return d
 }
 
 func (p *fileProvider) isRelevantExtension(path string) bool {
