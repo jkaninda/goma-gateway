@@ -37,6 +37,21 @@ jobs:
     - name: Vet
       run: go vet ./internal/... ./pkg/... ./util/...
 
+  # The built binary as a real process: routing, auth, passive failover, file
+  # provider reload, pprof and signal handling. See scripts/e2e/run.sh.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7.0.1
+
+    - name: Set up Go
+      uses: actions/setup-go@v7.0.0
+      with:
+        go-version-file: go.mod
+
+    - name: End-to-end
+      run: scripts/e2e/run.sh
+
   # Supply-chain and static analysis. The audit could not run these — the
   # sandbox had no toolchain download — so there is no CVE data behind it.
   security:

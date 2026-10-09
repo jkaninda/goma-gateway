@@ -26,7 +26,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func initTestConfig(configFile string) error {
+// initTestConfig writes the test gateway configuration, with the api routes
+// proxying to backend.
+func initTestConfig(configFile, backend string) error {
 	if configFile == "" {
 		configFile = GetConfigPaths()
 	}
@@ -43,7 +45,7 @@ func initTestConfig(configFile string) error {
 					Path:    "/api/v1",
 					Rewrite: "/api",
 					Methods: []string{"GET", "POST"},
-					Target:  "http://localhost:9090",
+					Target:  backend,
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
 						Interval:        "30s",
@@ -56,7 +58,7 @@ func initTestConfig(configFile string) error {
 					Name:    "api-v2",
 					Path:    "/api/v2",
 					Methods: []string{"GET"},
-					Target:  "http://localhost:9090",
+					Target:  backend,
 					HealthCheck: RouteHealthCheck{
 						Path:            "/",
 						Interval:        "30s",
