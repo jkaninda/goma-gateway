@@ -37,18 +37,21 @@ var (
 	// unavailableBackends keeps track of backend endpoints marked as unavailable.
 	unavailableBackends = newBackendHealth()
 
-	redisBased         = false
-	stopChan           = make(chan struct{})
-	reloaded           = false
-	webAddress         = "[::]:8080"
-	webSecureAddress   = "[::]:8443"
-	logger             = logger2.Default()
-	certManager        *certmanager.CertManager
-	cachedDialer       = dns.NewCachedDialer(defaultDNSCacheTTL)
-	dnsCacheOnce       sync.Once
-	shutdownChan       = make(chan os.Signal, 1)
-	processStartTime   = time.Now()
-	prometheusMetrics  = metrics.NewPrometheusMetrics(processStartTime, shutdownChan)
+	redisBased       = false
+	stopChan         = make(chan struct{})
+	reloaded         = false
+	webAddress       = "[::]:8080"
+	webSecureAddress = "[::]:8443"
+	logger           = logger2.Default()
+	certManager      *certmanager.CertManager
+	cachedDialer     = dns.NewCachedDialer(defaultDNSCacheTTL)
+	dnsCacheOnce     sync.Once
+	shutdownChan     = make(chan os.Signal, 1)
+	processStartTime = time.Now()
+	// metricsStopChan, not shutdownChan: the uptime tracker must not be a second
+	// receiver on the channel os/signal delivers to.
+	metricsStopChan    = make(chan struct{})
+	prometheusMetrics  = metrics.NewPrometheusMetrics(processStartTime, metricsStopChan)
 	debugMode          = false
 	buildInMiddlewares = []string{
 		string(AccessMiddleware),

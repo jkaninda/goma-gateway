@@ -91,6 +91,12 @@ func (g *Goma) Start() error {
 	// Create pass through proxy instance
 	g.proxyServer = proxy.NewProxyServer(g.gateway.EntryPoints.PassThrough.Forwards, g.ctx, logger)
 
+	// Register the signal handler BEFORE anything starts accepting. Registering
+	// it afterwards leaves a window in which SIGTERM still has its default
+	// disposition, so a process killed immediately after start dies without
+	// draining - or, worse, is delivered to a channel nobody is reading yet.
+	signal.Notify(shutdownChan, syscall.SIGINT, syscall.SIGTERM)
+
 	// Start HTTP/HTTPS and proxy servers
 	g.startServers()
 	// Handle graceful shutdown
@@ -178,9 +184,12 @@ func (g *Goma) startServers() {
 }
 
 func (g *Goma) shutdown() error {
-	signal.Notify(shutdownChan, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdownChan
 	logger.Info("Shutting down Goma Gateway...")
+
+	// Stop the metrics uptime tracker. It used to share shutdownChan, which made
+	// it a competing receiver for the process's signals.
+	close(metricsStopChan)
 
 	// Cancel the base context to signal all active requests to stop.
 	g.ctxCancel()
