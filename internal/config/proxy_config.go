@@ -20,7 +20,18 @@ package config
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
+
+	goutils "github.com/jkaninda/go-utils"
+)
+
+// Environment overrides for the proxy section, so a deployer can set the trusted
+// proxies without editing a config file it does not own.
+const (
+	ProxyEnabledEnv        = "GOMA_PROXY_ENABLED"
+	ProxyTrustedProxiesEnv = "GOMA_PROXY_TRUSTED_PROXIES"
+	ProxyIPHeadersEnv      = "GOMA_PROXY_IP_HEADERS"
 )
 
 type ProxyConfig struct {
@@ -28,6 +39,28 @@ type ProxyConfig struct {
 	TrustedProxies  []string `yaml:"trustedProxies,omitempty"` // CIDR or single IPs
 	IPHeaders       []string `yaml:"ipHeaders,omitempty"`      // header order of trust
 	trustedNetworks []*net.IPNet
+}
+
+// ApplyEnv overlays the GOMA_PROXY_* variables on the file's proxy section. A set,
+// non-empty variable wins; the lists are comma-separated.
+func (p *ProxyConfig) ApplyEnv() {
+	p.Enabled = goutils.EnvBool(ProxyEnabledEnv, p.Enabled)
+	if list := envList(ProxyTrustedProxiesEnv); list != nil {
+		p.TrustedProxies = list
+	}
+	if list := envList(ProxyIPHeadersEnv); list != nil {
+		p.IPHeaders = list
+	}
+}
+
+func envList(name string) []string {
+	var list []string
+	for _, entry := range strings.Split(os.Getenv(name), ",") {
+		if trimmed := strings.TrimSpace(entry); trimmed != "" {
+			list = append(list, trimmed)
+		}
+	}
+	return list
 }
 
 // Init prepares trustedNetworks (parse CIDRs) for runtime use.
