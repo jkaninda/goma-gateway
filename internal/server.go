@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -90,6 +91,9 @@ func (g *Goma) Start() error {
 
 	// Create pass through proxy instance
 	g.proxyServer = proxy.NewProxyServer(g.gateway.EntryPoints.PassThrough.Forwards, g.ctx, logger)
+
+	// Opt-in profiling listener, on its own port and mux.
+	g.pprofServer = startPprof(os.Getenv("GOMA_PPROF_ADDR"))
 
 	// Register the signal handler BEFORE anything starts accepting. Registering
 	// it afterwards leaves a window in which SIGTERM still has its default
@@ -211,6 +215,11 @@ func (g *Goma) shutdown() error {
 
 	if err := g.webSecureServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Error shutting down HTTPS server", "error", err)
+	}
+	if g.pprofServer != nil {
+		if err := g.pprofServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("Error shutting down pprof listener", "error", err)
+		}
 	}
 	// stop TCP/UDP server
 	g.proxyServer.Stop()

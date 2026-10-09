@@ -148,6 +148,30 @@ The endpoint also serves the standard Go runtime (`go_*`) and process (`process_
 
 ---
 
+### Profiling (pprof)
+
+Set `GOMA_PPROF_ADDR` to start the standard Go [pprof](https://pkg.go.dev/net/http/pprof) endpoints on a separate listener. Profiling is off when the variable is unset.
+
+```shell
+GOMA_PPROF_ADDR=127.0.0.1:6060
+```
+
+The endpoints are served under `/debug/pprof/` on that address only, never on the gateway's entry points:
+
+```shell
+go tool pprof http://127.0.0.1:6060/debug/pprof/profile?seconds=30   # CPU
+go tool pprof http://127.0.0.1:6060/debug/pprof/heap                 # memory
+curl http://127.0.0.1:6060/debug/pprof/goroutine?debug=1             # goroutines
+```
+
+:::warning
+
+The pprof endpoints have no authentication and expose memory contents, command-line arguments and goroutine stacks. Bind to a loopback address such as `127.0.0.1:6060`. An address without a host (`:6060`) or with `0.0.0.0` listens on every interface, and the gateway logs a warning when it does. In a container, reach a loopback listener with `kubectl port-forward` or `docker exec` instead of publishing the port.
+
+:::
+
+---
+
 ### Grafana Dashboard
 
 A prebuilt **Grafana dashboard** is available to visualize metrics from Goma Gateway.
