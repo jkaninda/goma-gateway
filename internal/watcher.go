@@ -32,7 +32,7 @@ func (g *Goma) watchExtraConfig(r Router) {
 	defer func(watcher *fsnotify.Watcher) {
 		err = watcher.Close()
 		if err != nil {
-			logger.Fatal("Failed to close watcher", "error", err)
+			logger.Error("Failed to close watcher", "error", err)
 		}
 	}(watcher)
 	// Specify the directory to watch
@@ -45,8 +45,6 @@ func (g *Goma) watchExtraConfig(r Router) {
 		}
 		return
 	}
-	// Create a channel to receive events
-	done := make(chan bool)
 	go func() {
 		for {
 			select {
@@ -76,7 +74,8 @@ func (g *Goma) watchExtraConfig(r Router) {
 			}
 		}
 	}()
-	// Wait for the done channel to receive a value
-	<-done
+	// Watch until the gateway shuts down. Closing the watcher (deferred above)
+	// closes its channels, which ends the event loop.
+	<-g.ctx.Done()
 
 }
