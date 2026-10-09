@@ -43,6 +43,7 @@ type Goma struct {
 	ctxCancel             context.CancelFunc
 	webServer             *http.Server
 	webSecureServer       *http.Server
+	pprofServer           *http.Server
 	proxyServer           *proxy.PassThroughServer
 	router                Router
 	certManager           *certmanager.Config
