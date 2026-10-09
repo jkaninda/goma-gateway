@@ -117,6 +117,28 @@ back to the connecting address.
 
 ---
 
+### From environment variables
+
+The same settings can come from the environment, for deployments where the config
+file is owned by someone else (a platform installer, a Helm chart). A set,
+non-empty variable overrides the file; lists are comma-separated.
+
+| Variable | Overrides |
+|---|---|
+| `GOMA_PROXY_ENABLED` | `proxy.enabled` (`true` / `false`) |
+| `GOMA_PROXY_TRUSTED_PROXIES` | `proxy.trustedProxies` |
+| `GOMA_PROXY_IP_HEADERS` | `proxy.ipHeaders` |
+
+```shell
+GOMA_PROXY_ENABLED=true
+GOMA_PROXY_TRUSTED_PROXIES=173.245.48.0/20,103.21.244.0/22,2400:cb00::/32
+GOMA_PROXY_IP_HEADERS=CF-Connecting-IP,X-Forwarded-For
+```
+
+The rules below apply unchanged: an empty trusted list still disables the feature.
+
+---
+
 ### Notes
 
 * Only requests coming **from trusted proxies** are allowed to override the client IP.

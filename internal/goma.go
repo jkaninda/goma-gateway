@@ -408,6 +408,7 @@ func (g *Goma) initTlsConfig() error {
 }
 func (g *Goma) initTrustedProxyConfig() {
 	cfg := g.gateway.Proxy
+	cfg.ApplyEnv()
 	if !cfg.Enabled {
 		logger.Debug("Proxy configuration disabled")
 		return
