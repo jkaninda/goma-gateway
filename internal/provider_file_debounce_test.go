@@ -108,3 +108,65 @@ func TestFileProviderDebounceHasCeiling(t *testing.T) {
 		}
 	}
 }
+
+// With debouncing off, a burst of writes that arrives while a reload is
+// blocked must collapse into a few reloads, not one per event, and the last
+// one must reflect every write.
+func TestFileProviderNoDebounceCoalescesBurst(t *testing.T) {
+	dir := t.TempDir()
+	prov, err := NewFileProvider(&FileProvider{Enabled: true, Directory: dir, Watch: true, Debounce: "0s"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	// Unbuffered and not read during the burst: the first reload blocks on
+	// the send while the rest of the events queue behind it.
+	out := make(chan *ConfigBundle)
+	go func() { _ = prov.Watch(ctx, out) }()
+	select {
+	case <-out:
+	case <-time.After(2 * time.Second):
+		t.Fatal("no initial load")
+	}
+
+	const files = 200
+	for i := 1; i <= files; i++ {
+		writeRoute(t, dir, i)
+	}
+	time.Sleep(200 * time.Millisecond)
+
+	bundles, routes := 0, 0
+	for {
+		select {
+		case b := <-out:
+			bundles++
+			routes = len(b.Routes)
+			continue
+		case <-time.After(time.Second):
+		}
+		break
+	}
+	if routes != files {
+		t.Fatalf("last bundle has %d routes, want %d", routes, files)
+	}
+	if bundles > 10 {
+		t.Fatalf("%d writes produced %d reloads; queued events were not coalesced", files, bundles)
+	}
+}
+
+func TestLatestBundle(t *testing.T) {
+	ch := make(chan *ConfigBundle, 3)
+	first := &ConfigBundle{Version: "1"}
+	if got := latestBundle(first, ch); got != first {
+		t.Fatal("with nothing queued, the received bundle must be returned")
+	}
+	ch <- &ConfigBundle{Version: "2"}
+	ch <- &ConfigBundle{Version: "3"}
+	if got := latestBundle(first, ch); got.Version != "3" {
+		t.Fatalf("got version %q, want the newest (3)", got.Version)
+	}
+	if len(ch) != 0 {
+		t.Fatal("queued bundles were not drained")
+	}
+}

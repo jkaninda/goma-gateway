@@ -20,14 +20,17 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	"gopkg.in/yaml.v3"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	"gopkg.in/yaml.v3"
 )
 
 type fileProvider struct {
@@ -82,6 +85,11 @@ func (p *fileProvider) Load(ctx context.Context) (*ConfigBundle, error) {
 		// Load config based on file extension
 		configBundle := &ConfigBundle{}
 		if err = p.loadFile(file, configBundle); err != nil {
+			// Deleted between listing and reading: it is no longer part of
+			// the configuration, which is not a reason to reject the reload.
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
 			return nil, fmt.Errorf("failed to load routes from %s: %w", file, err)
 		}
 		// Append routes and middlewares
@@ -203,17 +211,31 @@ func (p *fileProvider) watch(ctx context.Context, out chan<- *ConfigBundle) {
 		}
 	}(p.watcher)
 
-	// Debouncing coalesces the burst of events one logical change produces (an
-	// editor writing then renaming, a controller dropping several route files at
-	// once) so the gateway reloads once instead of once per event.
+	// Debouncing coalesces the burst of events one logical change produces
 	debounceDuration := p.debounceDuration()
 
-	// maxDelay bounds that coalescing. Resetting the timer on every event means a
-	// writer that never pauses for longer than the window pushes the reload out
-	// forever; a stream of changes 200 ms apart produced exactly one applied
-	// change in the benchmark. With a deadline, a steady stream is still applied
-	// every maxDelay.
+	// maxDelay bounds that coalescing.
 	maxDelay := debounceDuration * debounceMaxMultiple
+
+	done := make(chan struct{})
+	defer close(done)
+	reloadRequested := make(chan struct{}, 1)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-reloadRequested:
+				p.reloadAndSend(ctx, out)
+			}
+		}
+	}()
+	requestReload := func() {
+		select {
+		case reloadRequested <- struct{}{}:
+		default: // one is already pending; it will see this change too
+		}
+	}
 
 	// The timer is driven from this goroutine rather than time.AfterFunc, so
 	// firstPending is only ever touched here and needs no synchronisation.
@@ -228,7 +250,7 @@ func (p *fileProvider) watch(ctx context.Context, out chan<- *ConfigBundle) {
 		select {
 		case <-timer.C:
 			firstPending = time.Time{}
-			p.reloadAndSend(ctx, out)
+			requestReload()
 
 		case <-ctx.Done():
 			logger.Debug("file provider watching stopped: context cancelled")
@@ -257,7 +279,7 @@ func (p *fileProvider) watch(ctx context.Context, out chan<- *ConfigBundle) {
 				"op", event.Op.String())
 
 			if debounceDuration <= 0 {
-				p.reloadAndSend(ctx, out)
+				requestReload()
 				continue
 			}
 

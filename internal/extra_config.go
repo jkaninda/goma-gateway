@@ -20,6 +20,7 @@ package internal
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,12 +62,16 @@ func loadExtraFiles(path string) ([]string, error) {
 func loadAllFiles(path string) ([]string, error) {
 	var files []string
 
-	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+	root := path
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
+			if path != root && errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 		// Skip hidden directories
-		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), ".") {
 			return filepath.SkipDir
 		}
 
@@ -75,7 +80,7 @@ func loadAllFiles(path string) ([]string, error) {
 		// The !info.IsDir() guard used to bind to the first two extensions
 		// only, so a *directory* named foo.json was collected as a config file
 		// and failed the whole load.
-		if info.IsDir() {
+		if entry.IsDir() {
 			return nil
 		}
 		switch filepath.Ext(path) {
