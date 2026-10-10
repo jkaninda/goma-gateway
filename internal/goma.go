@@ -554,7 +554,7 @@ func (g *Goma) watchProvider(r Router) {
 					return
 				case bundle := <-configCh:
 					logger.Info("Configuration update received from provider", "provider", g.providerManager.activeProvider())
-					g.providerManager.configBundle = bundle
+					g.providerManager.configBundle = latestBundle(bundle, configCh)
 					// Re-initialize routes and swap the handler.
 					if err = g.applyConfig(r); err != nil {
 						logger.Error("Failed to re-initialize routes after provider update", "error", err)
@@ -567,9 +567,22 @@ func (g *Goma) watchProvider(r Router) {
 	}
 }
 
-// applyConfig re-initializes routes from the current configuration (already
-// merged from all sources) and swaps the router handler. Serialized via reloadMu
-// so it never races the on-demand reload endpoint.
+// latestBundle returns the newest bundle already waiting on ch, or b when none
+// is.
+func latestBundle(b *ConfigBundle, ch <-chan *ConfigBundle) *ConfigBundle {
+	for {
+		select {
+		case next, ok := <-ch:
+			if !ok || next == nil {
+				return b
+			}
+			b = next
+		default:
+			return b
+		}
+	}
+}
+
 func (g *Goma) applyConfig(r Router) error {
 	g.reloadMu.Lock()
 	defer g.reloadMu.Unlock()
@@ -581,8 +594,7 @@ func (g *Goma) applyConfig(r Router) error {
 }
 
 // reload pulls a fresh configuration bundle from the active providers and applies
-// it. It is the entry point for the on-demand reload endpoint; the gateway keeps
-// serving its current configuration if the pull or re-initialization fails.
+// it.
 func (g *Goma) reload(r Router) error {
 	g.reloadMu.Lock()
 	defer g.reloadMu.Unlock()
