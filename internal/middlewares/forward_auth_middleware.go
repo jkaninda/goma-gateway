@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 )
 
 // AuthMiddleware authenticates the client using JWT
@@ -46,14 +47,21 @@ func (f *ForwardAuth) AuthMiddleware(next http.Handler) http.Handler {
 			// Authenticate the request
 			authenticated, authResponse := f.authRequest(r)
 			if !authenticated {
-				if authResponse == nil || authResponse.StatusCode == http.StatusInternalServerError {
-					logger.Error("Proxy error authenticating request", "path", r.URL.Path, "status", authResponse.StatusCode, "client_ip", RealIP(r), "error", "Authentication failed")
-					RespondWithError(w, r, http.StatusInternalServerError, fmt.Sprintf("%d %s", http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)), f.Origins, contentType)
-					return
+				// The deny-path response body is the caller's to close. This
+				// covers the 500 branch below too: a real error response from
+				// the auth service still carries a body that must be drained
+				// and closed, or its connection leaks.
+				if authResponse != nil && authResponse.Body != nil {
+					defer func() {
+						_, _ = io.Copy(io.Discard, authResponse.Body)
+						_ = authResponse.Body.Close()
+					}()
 				}
-				// The deny-path response body is the caller's to close.
-				if authResponse.Body != nil {
-					defer func() { _ = authResponse.Body.Close() }()
+				if authResponse == nil || authResponse.StatusCode == http.StatusInternalServerError {
+					status := http.StatusInternalServerError
+					logger.Error("Proxy error authenticating request", "path", r.URL.Path, "status", status, "client_ip", RealIP(r), "error", "Authentication failed")
+					RespondWithError(w, r, status, fmt.Sprintf("%d %s", status, http.StatusText(status)), f.Origins, contentType)
+					return
 				}
 				// If the authentication failed, check if the status code is Unauthorized
 				if authResponse.StatusCode == http.StatusUnauthorized && f.AuthSignIn != "" {
@@ -120,13 +128,7 @@ func (f *ForwardAuth) authRequest(req *http.Request) (bool, *http.Response) {
 	}
 	// Copy headers and cookies from the original request to the authentication request
 	f.authCopyHeadersAndCookies(req, authReq)
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: f.InsecureSkipVerify,
-		},
-	}
-	client := &http.Client{Transport: transport}
-	authResp, err := client.Do(authReq)
+	authResp, err := f.authClient().Do(authReq)
 	if err != nil || authResp.StatusCode != http.StatusOK {
 		if err != nil {
 			logger.Error("Proxy error authenticating request", "error", err)
@@ -137,12 +139,32 @@ func (f *ForwardAuth) authRequest(req *http.Request) (bool, *http.Response) {
 		return false, authResp
 	}
 	defer func(Body io.ReadCloser) {
+		_, _ = io.Copy(io.Discard, Body)
 		err = Body.Close()
 		if err != nil {
 			logger.Error("Error closing response body", "error", err)
 		}
 	}(authResp.Body)
 	return true, authResp
+}
+
+// authClient returns the HTTP client used to call the auth service, building it
+// once per middleware instance.
+func (f *ForwardAuth) authClient() *http.Client {
+	f.clientOnce.Do(func() {
+		f.client = &http.Client{
+			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: f.InsecureSkipVerify,
+				},
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		}
+	})
+	return f.client
 }
 
 // copyHeadersAndCookies copies headers and cookies from the source request to the destination request
