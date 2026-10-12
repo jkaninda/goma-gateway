@@ -45,8 +45,12 @@ func (health Health) Check() error {
 		return fmt.Errorf("error creating HealthCheck request for route %s: %v", health.Name, err)
 	}
 
-	// Create the HTTP client with custom transport
-	client := health.createHTTPClient()
+	// Reuse the shared client built at construction. Fall back to building
+	// one for Health values created outside healthCheckRoutes (e.g. tests).
+	client := health.client
+	if client == nil {
+		client = health.createHTTPClient()
+	}
 
 	// Perform the HTTP request
 	healthResp, err := client.Do(healthReq)
@@ -75,7 +79,9 @@ func (health Health) createHealthCheckRequest(healthCheckURL *url.URL) (*http.Re
 	return req, nil
 }
 
-// createHTTPClient creates an HTTP client with custom transport and timeout
+// createHTTPClient creates an HTTP client with custom transport and timeout.
+// The transport pools and reclaims idle connections so repeated checks reuse
+// connections to the backend instead of leaking one per check.
 func (health Health) createHTTPClient() *http.Client {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -83,6 +89,9 @@ func (health Health) createHTTPClient() *http.Client {
 			RootCAs:            health.certPool,
 			Certificates:       health.clientCerts,
 		},
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 2,
+		IdleConnTimeout:     90 * time.Second,
 	}
 	return &http.Client{
 		Transport: transport,
@@ -90,8 +99,11 @@ func (health Health) createHTTPClient() *http.Client {
 	}
 }
 
-// closeResponseBody closes the response body and logs any errors
+// closeResponseBody drains and closes the response body and logs any errors.
+// Draining lets the pooled connection be reused instead of discarded, since
+// the check itself only inspects the status code.
 func (health Health) closeResponseBody(body io.ReadCloser) {
+	_, _ = io.Copy(io.Discard, body)
 	if err := body.Close(); err != nil {
 		logger.Debug("Error closing HealthCheck response body", "error", err)
 	}
@@ -202,6 +214,7 @@ func healthCheckRoutes(routes []Route) []Health {
 						certPool:           certPool,
 						clientCerts:        clientCerts,
 					}
+					health.client = health.createHTTPClient()
 					healthRoutes = append(healthRoutes, health)
 				}
 
@@ -217,6 +230,7 @@ func healthCheckRoutes(routes []Route) []Health {
 					certPool:           certPool,
 					clientCerts:        clientCerts,
 				}
+				health.client = health.createHTTPClient()
 				healthRoutes = append(healthRoutes, health)
 			}
 		}
