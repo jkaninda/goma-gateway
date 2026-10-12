@@ -20,9 +20,18 @@ package middlewares
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/go-ldap/ldap/v3"
+	"net"
 	"strings"
+	"time"
+
+	"github.com/go-ldap/ldap/v3"
 )
+
+// ldapDialTimeout bounds how long a connection to the LDAP server may take to
+// establish. basicAuth runs the LDAP bind before credentials are verified, so
+// without this an unauthenticated client could tie up a goroutine per request
+// against a slow or black-holing LDAP server.
+const ldapDialTimeout = 10 * time.Second
 
 type LDAP struct {
 	URL                string
@@ -67,9 +76,11 @@ func (l *LDAP) authenticateLDAP(username, password string) bool {
 }
 
 func (l *LDAP) connect() (*ldap.Conn, error) {
-	conn, err := ldap.DialURL(l.URL, ldap.DialWithTLSConfig(&tls.Config{
-		InsecureSkipVerify: l.InsecureSkipVerify,
-	}))
+	conn, err := ldap.DialURL(l.URL,
+		ldap.DialWithDialer(&net.Dialer{Timeout: ldapDialTimeout}),
+		ldap.DialWithTLSConfig(&tls.Config{
+			InsecureSkipVerify: l.InsecureSkipVerify,
+		}))
 	if err != nil {
 		return nil, err
 	}

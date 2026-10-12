@@ -51,8 +51,13 @@ const (
 	userInfoCacheTTL = 60 * time.Second
 	// userInfoNegativeTTL caches rejections, so a flood of forged tokens cannot
 	// be amplified into a flood of requests against the identity provider.
-	userInfoNegativeTTL     = 10 * time.Second
-	userInfoRequestTimeout  = 10 * time.Second
+	userInfoNegativeTTL    = 10 * time.Second
+	userInfoRequestTimeout = 10 * time.Second
+	// tokenExchangeTimeout bounds the OAuth2 authorization-code exchange and
+	// refresh. The underlying oauth2 client is http.DefaultClient, which has
+	// no timeout of its own, so without this a black-holing provider token
+	// endpoint would hold the request goroutine open until the client gave up.
+	tokenExchangeTimeout    = 10 * time.Second
 	maxUserInfoCacheEntries = 2048
 	// maxUserInfoBytes bounds the user info response we are willing to decode.
 	maxUserInfoBytes = 1 << 20
@@ -387,6 +392,8 @@ func (o *OIDC) refresh(ctx context.Context, endpoint OauthEndpoint, session *Ses
 	}
 
 	token, err := refreshGroup.do(session.RefreshToken, func() (*oauth2.Token, error) {
+		ctx, cancel := context.WithTimeout(ctx, tokenExchangeTimeout)
+		defer cancel()
 		source := o.oauth2Config(endpoint, "").TokenSource(ctx, &oauth2.Token{
 			AccessToken:  session.AccessToken,
 			RefreshToken: session.RefreshToken,

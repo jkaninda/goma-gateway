@@ -18,6 +18,7 @@
 package middlewares
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"net/http"
@@ -155,7 +156,9 @@ func (o *OIDC) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if flow.Verifier != "" {
 		options = append(options, oauth2.VerifierOption(flow.Verifier))
 	}
-	token, err := o.oauth2Config(endpoint, o.redirectURI(r)).Exchange(ctx, code, options...)
+	exchangeCtx, cancel := context.WithTimeout(ctx, tokenExchangeTimeout)
+	defer cancel()
+	token, err := o.oauth2Config(endpoint, o.redirectURI(r)).Exchange(exchangeCtx, code, options...)
 	if err != nil {
 		logger.Error("Failed to exchange the authorization code", "error", err)
 		RespondWithError(w, r, http.StatusBadGateway, "failed to exchange the authorization code",
