@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -104,5 +105,48 @@ func TestRouteHealthHandlerIncludeErrors(t *testing.T) {
 		if n := strings.Count(body, `"unhealthy"`); n != len(routes) {
 			t.Errorf("includeErrors=%v: %d unhealthy routes reported, want %d", include, n, len(routes))
 		}
+	}
+}
+
+// TestHealthCheckReusesConnections ensures a Health reuses its shared,
+// pooled client across checks rather than opening (and leaking) a new
+// connection to the backend on every check.
+func TestHealthCheckReusesConnections(t *testing.T) {
+	var mu sync.Mutex
+	conns := make(map[string]struct{})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		conns[r.RemoteAddr] = struct{}{}
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	routes := []Route{{Name: "a", Enabled: true, Target: srv.URL, HealthCheck: RouteHealthCheck{Path: "/"}}}
+	health := healthCheckRoutes(routes)
+	if len(health) != 1 {
+		t.Fatalf("expected 1 health target, got %d", len(health))
+	}
+	h := health[0]
+	if h.client == nil {
+		t.Fatal("health client was not initialized at construction")
+	}
+
+	const checks = 50
+	for i := 0; i < checks; i++ {
+		if err := h.Check(); err != nil {
+			t.Fatalf("check %d failed: %v", i, err)
+		}
+	}
+
+	mu.Lock()
+	used := len(conns)
+	mu.Unlock()
+	// Serial checks over a reused keep-alive connection should leave the
+	// backend seeing only a handful of distinct peers — never one per check,
+	// which is what the per-check client leak produced.
+	if used >= checks {
+		t.Fatalf("backend saw %d distinct connections for %d checks; connections are not being reused", used, checks)
 	}
 }

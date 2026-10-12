@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -369,6 +370,11 @@ type Health struct {
 	InsecureSkipVerify bool
 	certPool           *x509.CertPool
 	clientCerts        []tls.Certificate
+	// client is the shared HTTP client used for every check this Health runs.
+	// It is built once at construction and carried (by pointer) into the
+	// per-route goroutine and cron copies, so checks reuse one pooled
+	// transport instead of leaking a connection to the backend per check.
+	client *http.Client
 }
 
 // ExtraRouteConfig contains additional routes and middlewares directory
