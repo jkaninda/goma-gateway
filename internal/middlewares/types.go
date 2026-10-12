@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -174,6 +175,8 @@ type ForwardAuth struct {
 	ForwardHostHeaders          bool
 	Origins                     []string
 	Hosts                       []string
+	clientOnce                  sync.Once
+	client                      *http.Client
 }
 type ClaimExpression interface {
 	Evaluate(claims map[string]interface{}) (bool, error)

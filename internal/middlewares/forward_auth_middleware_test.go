@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"sync"
 	"testing"
 )
 
@@ -90,6 +91,46 @@ func TestForwardAuthNoAuthorizationHeader(t *testing.T) {
 
 	if _, ok := dest.Header["Authorization"]; ok {
 		t.Fatal("Authorization header should be absent when the client sends none")
+	}
+}
+
+// TestForwardAuthReusesConnections ensures the middleware authenticates many
+// requests over a bounded number of connections to the auth service, rather
+// than leaking one per request (the connection-exhaustion DoS this guards).
+func TestForwardAuthReusesConnections(t *testing.T) {
+	var mu sync.Mutex
+	conns := make(map[string]struct{})
+
+	authSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		conns[r.RemoteAddr] = struct{}{}
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer authSrv.Close()
+
+	f := &ForwardAuth{AuthURL: authSrv.URL, Path: "/", Paths: []string{testAllPaths}}
+	handler := f.AuthMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+
+	const requests = 50
+	for i := 0; i < requests; i++ {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "https://app.example.com/", nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i, rec.Code, http.StatusOK)
+		}
+	}
+
+	// The single shared client is built once and its connections are pooled.
+	if f.client == nil {
+		t.Fatal("auth client was not initialized")
+	}
+	mu.Lock()
+	used := len(conns)
+	mu.Unlock()
+
+	if used >= requests {
+		t.Fatalf("auth service saw %d distinct connections for %d requests; connections are not being reused", used, requests)
 	}
 }
 
