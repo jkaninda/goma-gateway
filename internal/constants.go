@@ -17,7 +17,10 @@
 
 package internal
 
-import "time"
+import (
+	"math"
+	"time"
+)
 
 const (
 	ConfigDir                           = "/etc/goma/" // Default configuration file
@@ -123,6 +126,9 @@ const (
 	defaultReadHeaderTimeout = 10
 	// defaultMaxHeaderBytes caps the request header size at 1 MiB.
 	defaultMaxHeaderBytes = 1 << 20
+	// probePriority ranks /healthz and /readyz behind every route, so an app's own
+	// /healthz wins on its host while unclaimed hosts (loopback, pod IP) reach the gateway's.
+	probePriority = math.MaxInt
 )
 
 // File provider watch debounce. defaultWatchDebounce is how long the watcher

@@ -36,6 +36,7 @@ The metrics endpoint answers `GET` requests on the gateway's regular entry point
 
 :::note
 `host` does not apply to `/readyz` and `/healthz`, which stay reachable on every host so that load balancers and Kubernetes probes can use them.
+They rank behind every route, though: a route that serves `/healthz` or `/readyz` on its host (including through a `/` catch-all) answers those paths itself, and the gateway's probes stay reachable on hosts no route claims, such as `localhost` or the pod IP.
 :::
 
 `GOMA_ENABLE_METRICS`, `GOMA_ENABLE_READINESS`, and `GOMA_ENABLE_LIVENESS` (`true`/`false`) override `enableMetrics`, `enableReadiness`, and `enableLiveness`.

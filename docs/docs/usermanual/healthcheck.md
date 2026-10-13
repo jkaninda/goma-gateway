@@ -63,6 +63,8 @@ Goma Gateway exposes health endpoints for the gateway process itself and, option
 
   Both return `200 OK` with the same body as long as the gateway is serving requests.
 
+  Routes take precedence: on a host whose route covers `/healthz` or `/readyz`, the request goes to the backend. Probe the gateway through a host no route claims, such as `localhost` or its IP.
+
 * **Routes Health** (disabled by default):
 
   * `GET /healthz/routes` — Runs every route's health check when called and reports the result. Enable it with `monitoring.enableRouteHealthCheck: true`, and restrict it with `monitoring.host` or `monitoring.middleware.routeHealthCheck`. See [Monitoring](gateway.md#monitoring).
