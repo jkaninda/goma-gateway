@@ -295,14 +295,14 @@ func (g *Goma) addGlobalHandler(rt *njia.Router, r Router) {
 	// Register the on-demand reload endpoint
 	g.registerReloadHandler(rt, r)
 
-	// Gateway health endpoints
+	probe := njia.WithPriority(probePriority)
 	if goutils.EnvBool("GOMA_ENABLE_READINESS", g.gateway.Monitoring.EnableReadiness) {
-		if err := rt.HandleFunc(http.MethodGet, "/readyz", health.HealthReadyHandler); err != nil {
+		if err := rt.HandleFunc(http.MethodGet, "/readyz", health.HealthReadyHandler, probe); err != nil {
 			logger.Error("Failed to register readiness endpoint", "error", err)
 		}
 	}
 	if goutils.EnvBool("GOMA_ENABLE_LIVENESS", g.gateway.Monitoring.EnableLiveness) {
-		if err := rt.HandleFunc(http.MethodGet, "/healthz", health.HealthReadyHandler); err != nil {
+		if err := rt.HandleFunc(http.MethodGet, "/healthz", health.HealthReadyHandler, probe); err != nil {
 			logger.Error("Failed to register liveness endpoint", "error", err)
 		}
 	}

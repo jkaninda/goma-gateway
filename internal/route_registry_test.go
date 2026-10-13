@@ -242,3 +242,47 @@ func TestRouteDefaultPrefersLongestPath(t *testing.T) {
 		t.Fatalf("body = %q, want %q", rec.Body.String(), "specific")
 	}
 }
+
+// An app that serves its own /healthz must get it on its host, while hosts no
+// route claims still reach the gateway's probes.
+func TestGatewayProbesYieldToRoutes(t *testing.T) {
+	rt := newProxyRouter(false)
+	g := &Goma{gateway: &Gateway{Monitoring: Monitoring{EnableLiveness: true, EnableReadiness: true}}}
+	g.addGlobalHandler(rt, nil)
+
+	for _, tc := range []struct {
+		path     string
+		priority int
+	}{{"/", 0}, {"/api", 5}} {
+		group := rt.Group(groupPrefix(tc.path))
+		opts := []njia.RouteOption{njia.WithHost("app.example.com")}
+		if tc.priority != 0 {
+			opts = append(opts, njia.WithPriority(tc.priority))
+		}
+		if err := registerPrefix(group, njia.MethodAny, tc.path, hit("app"), opts...); err != nil {
+			t.Fatalf("registerPrefix %s: %v", tc.path, err)
+		}
+	}
+
+	for _, tc := range []struct {
+		host, path string
+		gateway    bool
+	}{
+		{"app.example.com", "/healthz", false},
+		{"app.example.com", "/readyz", false},
+		{"app.example.com", "/api/healthz", false},
+		{"127.0.0.1", "/healthz", true},
+		{"127.0.0.1", "/readyz", true},
+		{"10.0.0.7:8080", "/healthz", true},
+	} {
+		req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+		req.Host = tc.host
+		rec := httptest.NewRecorder()
+		rt.ServeHTTP(rec, req)
+		gotGateway := strings.Contains(rec.Body.String(), "Service Gateway")
+		if rec.Code != http.StatusOK || gotGateway != tc.gateway {
+			t.Errorf("%s%s: got %d %q, want gateway probe = %v",
+				tc.host, tc.path, rec.Code, rec.Body.String(), tc.gateway)
+		}
+	}
+}
