@@ -64,13 +64,14 @@ gateway:
     gatewayId: ""             # stamped on each event, for multi-gateway installs
   geoip:
     database: /etc/goma/country.mmdb   # optional; see GeoIP below
+    countryHeader: true                # optional; send X-Goma-Country to every upstream
 ```
 
-`geoip` sits beside `analytics` rather than inside it because three features read
+`geoip` sits beside `analytics` rather than inside it because four features read
 the same database: the `country` field on events, the
-`gateway_requests_by_country_total` metric, and the
-[`geoBlock`](../middlewares/geo-block.md) middleware. It loads whether or not
-analytics is enabled.
+`gateway_requests_by_country_total` metric, the
+[`geoBlock`](../middlewares/geo-block.md) middleware, and the `countryHeader`
+sent to upstreams. It loads whether or not analytics is enabled.
 
 Or entirely from the environment, which is equivalent:
 
@@ -82,6 +83,7 @@ GOMA_ANALYTICS_ENABLED=true          # off by default
 GOMA_ANALYTICS_STREAM=goma:analytics # Redis stream key
 # Optional country enrichment (see GeoIP below):
 GOMA_GEOIP_DB=/etc/goma/country.mmdb
+GOMA_GEOIP_COUNTRY_HEADER=true
 ```
 
 ### Configuration
@@ -104,6 +106,7 @@ Alongside it, at `gateway` level:
 | `gateway` | Environment | Default | Description |
 |---|---|---|---|
 | `geoip.database` | `GOMA_GEOIP_DB` | *(well-known paths)* | Path to the GeoIP `.mmdb` for the `country` field. |
+| `geoip.countryHeader` | `GOMA_GEOIP_COUNTRY_HEADER` | `false` | Send the client's ISO country code to every upstream in `X-Goma-Country`. A client-sent copy is always stripped; the header is omitted when the country is unknown. |
 | `redis.addr` | `GOMA_REDIS_ADDR` | — | Redis address (required for analytics). |
 | `redis.db` | `GOMA_REDIS_DB` | `0` | Redis database index (must match the consumer). |
 

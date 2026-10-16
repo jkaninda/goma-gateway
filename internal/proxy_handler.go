@@ -134,12 +134,24 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		requestID := getRequestID(r)
+		ip := middlewares.RealIP(r)
+
+		// Set before the WebSocket/SSE pass-through, or those requests would forward a
+		// client-forged country unchanged.
+		var country string
+		countryResolved := false
+		if countryHeaderOn {
+			r.Header.Del(CountryHeader)
+			country, countryResolved = resolveCountry(ip), true
+			if country != "" {
+				r.Header.Set(CountryHeader, country)
+			}
+		}
 
 		if isWebSocketRequest(r) || isSSE(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ip := middlewares.RealIP(r)
 		if val := r.Context().Value(CtxRequestStartTime); val != nil {
 			startTime = val.(time.Time)
 		}
@@ -167,13 +179,12 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 		upstream := time.Since(upstreamStart) // backend round-trip (excludes gateway pre/post work)
 
-		// Resolve the client country once (GeoIP), shared by the metric and the
-		// event; the raw IP is used only here and then dropped. Empty when no
+		// Resolve the client country once (GeoIP), shared by the header, the metric
+		// and the event; the raw IP is used only here and then dropped. Empty when no
 		// GeoIP database is configured or the address doesn't resolve.
 		emitEvent := analytics != nil && analytics.sampled()
-		var country string
-		if p.enableMetrics || emitEvent {
-			country = geoCountry(ip)
+		if !countryResolved && (p.enableMetrics || emitEvent) {
+			country = resolveCountry(ip)
 		}
 
 		if p.enableMetrics {

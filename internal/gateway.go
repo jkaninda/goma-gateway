@@ -128,12 +128,23 @@ type GeoIPConfig struct {
 	// country resolution off if neither opens.
 	// Env: GOMA_GEOIP_DB
 	Database string `yaml:"database,omitempty"`
+	// CountryHeader sends the client's ISO country code to every upstream in the
+	// X-Goma-Country request header (default: false). A client-sent copy is always
+	// stripped, and the header is omitted when the country is unknown.
+	// Env: GOMA_GEOIP_COUNTRY_HEADER
+	CountryHeader bool `yaml:"countryHeader,omitempty"`
 }
 
 // databasePath returns the explicit database path, or "" to search the
 // well-known locations. GOMA_GEOIP_DB overrides the config file.
 func (g GeoIPConfig) databasePath() string {
 	return strings.TrimSpace(goutils.Env("GOMA_GEOIP_DB", g.Database))
+}
+
+// countryHeaderEnabled reports whether X-Goma-Country is sent upstream, with
+// GOMA_GEOIP_COUNTRY_HEADER taking precedence over the config file.
+func (g GeoIPConfig) countryHeaderEnabled() bool {
+	return goutils.EnvBool("GOMA_GEOIP_COUNTRY_HEADER", g.CountryHeader)
 }
 
 // analyticsEnabled reports whether the emitter should start, with

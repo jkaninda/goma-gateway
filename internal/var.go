@@ -42,6 +42,12 @@ var (
 	// responseBufferPool is shared by every reverse proxy the gateway builds.
 	responseBufferPool = newProxyBufferPool()
 
+	// countryHeaderOn turns CountryHeader on. Read from GeoIPConfig at startup, like the database itself.
+	countryHeaderOn bool
+
+	// resolveCountry is geoCountry, swappable so tests need no .mmdb fixture.
+	resolveCountry = geoCountry
+
 	redisBased       = false
 	stopChan         = make(chan struct{})
 	reloaded         = false
