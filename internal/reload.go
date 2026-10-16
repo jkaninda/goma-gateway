@@ -49,6 +49,7 @@ func (g *Goma) registerReloadHandler(router *njia.Router, r Router) {
 			return
 		}
 		start := time.Now()
+		reloadGeoIP()
 		if err := g.reload(r); err != nil {
 			logger.Error("On-demand reload failed", "error", err, "remote", req.RemoteAddr)
 			writeReloadError(w, http.StatusInternalServerError, err.Error())

@@ -23,7 +23,7 @@ Privacy note: the client IP is used only to look up the country at the edge and 
 
 The middleware requires a country-level GeoIP database in MaxMind `.mmdb` format. MaxMind, DB-IP and IP2Location all publish one — any of them works, since all three expose a `country.iso_code`.
 
-Save it as **`/etc/goma/country.mmdb`** and Goma picks it up with no configuration. To keep it elsewhere, name the path in `goma.yml`:
+Save it as **`/etc/goma/geoip/country.mmdb`** and Goma picks it up with no configuration, and reloads it when the file changes — see [Updating the database](../monitoring-and-performance/analytics.md#updating-the-database). To keep it elsewhere, name the path in `goma.yml`:
 
 ```yaml
 gateway:

@@ -20,6 +20,7 @@ package internal
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-gateway/internal/config"
@@ -123,9 +124,9 @@ type AnalyticsConfig struct {
 // dataset carries license terms only the operator can accept — so this is empty
 // by default and country resolution simply stays off.
 type GeoIPConfig struct {
-	// Database is the path to a .mmdb file. When empty, Goma tries
-	// /etc/goma/country.mmdb then /etc/goma/GeoLite2-Country.mmdb, and leaves
-	// country resolution off if neither opens.
+	// Database is the path to a .mmdb file. When empty, Goma tries country.mmdb then
+	// GeoLite2-Country.mmdb in /etc/goma/geoip/, then in /etc/goma/, and leaves
+	// country resolution off until one appears.
 	// Env: GOMA_GEOIP_DB
 	Database string `yaml:"database,omitempty"`
 	// CountryHeader sends the client's ISO country code to every upstream in the
@@ -133,12 +134,34 @@ type GeoIPConfig struct {
 	// stripped, and the header is omitted when the country is unknown.
 	// Env: GOMA_GEOIP_COUNTRY_HEADER
 	CountryHeader bool `yaml:"countryHeader,omitempty"`
+	// ReloadInterval is how often the database file is checked for changes; an
+	// updated file is loaded without a restart (default: 5m, minimum 1m, "off" disables).
+	// Env: GOMA_GEOIP_RELOAD_INTERVAL
+	ReloadInterval string `yaml:"reloadInterval,omitempty"`
 }
 
 // databasePath returns the explicit database path, or "" to search the
 // well-known locations. GOMA_GEOIP_DB overrides the config file.
 func (g GeoIPConfig) databasePath() string {
 	return strings.TrimSpace(goutils.Env("GOMA_GEOIP_DB", g.Database))
+}
+
+// reloadInterval returns how often to check the database file, or 0 when disabled.
+// GOMA_GEOIP_RELOAD_INTERVAL overrides the config file; a malformed value keeps the default.
+func (g GeoIPConfig) reloadInterval() time.Duration {
+	raw := strings.TrimSpace(goutils.Env("GOMA_GEOIP_RELOAD_INTERVAL", g.ReloadInterval))
+	switch strings.ToLower(raw) {
+	case "":
+		return defaultGeoIPReloadInterval
+	case "off", "0", "false":
+		return 0
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		logger.Warn("Invalid GeoIP reload interval; using the default", "value", raw, "default", defaultGeoIPReloadInterval)
+		return defaultGeoIPReloadInterval
+	}
+	return max(d, minGeoIPReloadInterval)
 }
 
 // countryHeaderEnabled reports whether X-Goma-Country is sent upstream, with
