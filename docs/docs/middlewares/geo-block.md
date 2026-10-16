@@ -119,21 +119,18 @@ middlewares:
 
 ### Example 4: Country enrichment for the upstream
 
-`addCountryHeader` is applied to every allowed request, so any rule can double as
-country enrichment. Use a `DENY` blocklist with a country you don't expect to see
-(so nothing is actually blocked) purely to attach the header:
+To send the country to every backend without blocking anything, don't use this
+middleware: set `countryHeader` at gateway level instead.
 
 ```yaml
-middlewares:
-  - name: geo-header
-    type: geoBlock
-    rule:
-      action: DENY
-      countries: [ZZ]        # not a real country ⇒ blocks nothing
-      addCountryHeader: X-Country-Code
+gateway:
+  geoip:
+    countryHeader: true
 ```
 
-> The backend then reads `X-Country-Code` on every request without shipping its own GeoIP database.
+Every route's upstream then receives `X-Goma-Country: DE` (omitted when the
+country is unknown), and a client-sent copy is always stripped. `addCountryHeader`
+remains for routes that already use a country policy.
 
 ## Applying the Middleware
 

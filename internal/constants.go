@@ -45,6 +45,8 @@ const (
 	StatusClientClosedRequest = 499
 	acmeServerURL             = "127.0.0.1:5002"
 	visitorPrefix             = "visitor-"
+	// CountryHeader is the request header carrying the client's country to upstreams.
+	CountryHeader = "X-Goma-Country"
 )
 
 // ************** Built-In Middlewares types ***************

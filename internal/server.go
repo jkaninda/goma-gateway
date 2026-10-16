@@ -43,6 +43,7 @@ func (g *Goma) Start() error {
 	// GeoIP first, and unconditionally: the geoBlock middleware resolves countries
 	// through the same reader, so it must load whether or not analytics is on.
 	initGeoIP(g.gateway.GeoIP.databasePath())
+	countryHeaderOn = g.gateway.GeoIP.countryHeaderEnabled()
 	initAnalytics(g.gateway.Analytics)
 	defer closeGeoIP()
 	// Configure provider Manager
