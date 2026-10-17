@@ -106,6 +106,7 @@ Alongside it, at `gateway` level:
 | `gateway` | Environment | Default | Description |
 |---|---|---|---|
 | `geoip.database` | `GOMA_GEOIP_DB` | *(well-known paths)* | Path to the GeoIP `.mmdb` for the `country` field. |
+| `geoip.reloadInterval` | `GOMA_GEOIP_RELOAD_INTERVAL` | `5m` | How often the database file is checked; a changed file is loaded without a restart. Minimum `1m`; `off` disables. |
 | `geoip.countryHeader` | `GOMA_GEOIP_COUNTRY_HEADER` | `false` | Send the client's ISO country code to every upstream in `X-Goma-Country`. A client-sent copy is always stripped; the header is omitted when the country is unknown. |
 | `redis.addr` | `GOMA_REDIS_ADDR` | — | Redis address (required for analytics). |
 | `redis.db` | `GOMA_REDIS_DB` | `0` | Redis database index (must match the consumer). |
@@ -139,15 +140,35 @@ Each stream entry has a single field `e` whose value is the JSON below.
 
 ### GeoIP (country enrichment)
 
-Save a country-level `.mmdb` database at **`/etc/goma/country.mmdb`** (or
-`/etc/goma/GeoLite2-Country.mmdb`, MaxMind's own file name) and Goma loads it at
-startup with no configuration; `geoip.database` (or `GOMA_GEOIP_DB`, which takes
-precedence) overrides the path. MaxMind, DB-IP and IP2Location all publish a suitable
+Save a country-level `.mmdb` database as **`/etc/goma/geoip/country.mmdb`** (or
+`GeoLite2-Country.mmdb`, MaxMind's own file name) and Goma loads it with no
+configuration. `/etc/goma/country.mmdb` is still recognized. `geoip.database` (or
+`GOMA_GEOIP_DB`, which takes precedence) overrides the path. MaxMind, DB-IP and IP2Location all publish a suitable
 database — any of them works, since all three expose a country ISO code.
 
 An explicitly configured path is used **exactly as given**: Goma will not quietly
 fall back to a well-known location, because enriching events from a database
 nobody chose is worse than no country data at all.
+
+#### Updating the database
+
+Goma checks the file every 5 minutes (`geoip.reloadInterval`, `GOMA_GEOIP_RELOAD_INTERVAL`;
+minimum `1m`, `off` disables) and loads a changed one **without a restart**. A file
+added after startup is picked up the same way. The new database is read whole and
+checked before it replaces the old one: a corrupt or half-copied file is logged and
+ignored, and lookups keep using the previous database. A `POST` to the
+[reload endpoint](../usermanual/gateway.md#on-demand-reload) checks the file immediately.
+
+In a container, **mount the directory, not the file**:
+
+```yaml
+volumes:
+  - ./geoip:/etc/goma/geoip:ro
+```
+
+A single-file bind mount stays attached to the original file, so an update that
+writes a new file and renames it into place (`geoipupdate`, `mv`) never reaches the
+container.
 
 It enriches the `country` field on events, the
 `gateway_requests_by_country_total` metric, and powers the

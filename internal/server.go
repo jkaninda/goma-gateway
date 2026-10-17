@@ -44,6 +44,7 @@ func (g *Goma) Start() error {
 	// through the same reader, so it must load whether or not analytics is on.
 	initGeoIP(g.gateway.GeoIP.databasePath())
 	countryHeaderOn = g.gateway.GeoIP.countryHeaderEnabled()
+	watchGeoIP(g.ctx, g.gateway.GeoIP.reloadInterval())
 	initAnalytics(g.gateway.Analytics)
 	defer closeGeoIP()
 	// Configure provider Manager
