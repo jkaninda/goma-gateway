@@ -90,5 +90,7 @@ var (
 		string(responseHeaders),
 		string(requestHeaders),
 		string(errorInterceptor),
+		string(geoBlock),
+		string(compress),
 	}
 )

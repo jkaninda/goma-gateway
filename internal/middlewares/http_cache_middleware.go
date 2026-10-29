@@ -144,6 +144,18 @@ func (rec *responseRecorder) Write(data []byte) (int, error) {
 	return rec.ResponseWriter.Write(data)
 }
 
+// Flush passes a flush through, so a streamed response is not held back
+// while it is being recorded for the cache.
+func (rec *responseRecorder) Flush() {
+	if !rec.wroteHeader {
+		rec.WriteHeader(http.StatusOK)
+	}
+	_ = http.NewResponseController(rec.ResponseWriter).Flush()
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (rec *responseRecorder) Unwrap() http.ResponseWriter { return rec.ResponseWriter }
+
 // CacheItem represents a cached response.
 type CacheItem struct {
 	Response        []byte
@@ -790,19 +802,12 @@ func (h HttpCacheConfig) generateCacheKey(r *http.Request) string {
 }
 
 // acceptedEncoding reduces Accept-Encoding to the part that changes the stored
-// body, so every header permutation does not become its own cache entry.
+// body, so every header permutation does not become its own cache entry. It
+// is the set of codings the client accepts (see AcceptedCodingsKey): keying on
+// a single preferred coding let a client that accepts only br be replayed a
+// gzip body stored for a client that sent "gzip, br", and read "br;q=0" as br.
 func acceptedEncoding(r *http.Request) string {
-	accepted := strings.ToLower(r.Header.Get("Accept-Encoding"))
-	switch {
-	case strings.Contains(accepted, "br"):
-		return "br"
-	case strings.Contains(accepted, "gzip"):
-		return "gzip"
-	case strings.Contains(accepted, "deflate"):
-		return "deflate"
-	default:
-		return "identity"
-	}
+	return AcceptedCodingsKey(r)
 }
 
 // credentialFingerprint identifies the caller a cached response belongs to,

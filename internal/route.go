@@ -64,6 +64,7 @@ type Route struct {
 	logRule          *LogEnrichRule                     `yaml:"-"`
 	responseHeaders  []ResponseHeader                   `yaml:"-"`
 	errorInterceptor *middlewares.RouteErrorInterceptor `yaml:"-"`
+	compression      *middlewares.Compressor            `yaml:"-"`
 }
 
 type ExtraRoute struct {

@@ -99,15 +99,37 @@ func scheme(r *http.Request) string {
 	return constHTTPProtocol
 }
 
-// isWebSocketRequest checks if the request is a WebSocket request
+// isWebSocketRequest reports a WebSocket upgrade.
 func isWebSocketRequest(r *http.Request) bool {
-	return r.Header.Get("Upgrade") == "websocket" && r.Method == http.MethodGet
-
+	return r.Method == http.MethodGet && headerHasToken(r.Header, "Upgrade", "websocket")
 }
 
 func isSSE(r *http.Request) bool {
-	return r.Header.Get("Accept") == "text/event-stream" && r.Method == http.MethodGet
+	if r.Method != http.MethodGet {
+		return false
+	}
+	for _, v := range r.Header.Values("Accept") {
+		for _, part := range strings.Split(v, ",") {
+			mediaType, _, _ := strings.Cut(part, ";")
+			if strings.EqualFold(strings.TrimSpace(mediaType), "text/event-stream") {
+				return true
+			}
+		}
+	}
+	return false
+}
 
+// headerHasToken reports whether a comma-separated header contains token,
+// ignoring case and surrounding whitespace.
+func headerHasToken(h http.Header, name, token string) bool {
+	for _, v := range h.Values(name) {
+		for _, part := range strings.Split(v, ",") {
+			if strings.EqualFold(strings.TrimSpace(part), token) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func hasPositivePriority(r []Route) bool {
