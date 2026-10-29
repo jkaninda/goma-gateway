@@ -133,6 +133,8 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *njia.Group) {
 		applyStripQueryMiddleware(mid, router)
 	case redirectRegex:
 		applyRedirectRegexMiddleware(mid, router)
+	case redirectHost:
+		applyRedirectHostMiddleware(mid, *r, router)
 	case httpCache:
 		applyHttpCacheMiddleware(*r, mid, router)
 	case bodyLimit:
@@ -263,6 +265,24 @@ func applyRedirectSchemeMiddleware(mid Middleware, route Route, r *njia.Group) {
 		Hosts:     route.Hosts,
 	}
 	r.Use(redirectSchemeM.Middleware)
+}
+func applyRedirectHostMiddleware(mid Middleware, route Route, r *njia.Group) {
+	var rule RedirectHostRuleMiddleware
+	if err := goutils.DeepCopy(&rule, mid.Rule); err != nil {
+		logger.Error("Failed to apply redirectHost middleware: deep copy error", "error", err)
+		return
+	}
+	if err := rule.validate(); err != nil {
+		logger.Error("Invalid redirectHost middleware configuration", "error", err)
+		return
+	}
+	rh := &middlewares.RedirectHost{
+		WWW:       rule.WWW,
+		Host:      rule.Host,
+		Permanent: rule.Permanent,
+		Hosts:     route.Hosts,
+	}
+	r.Use(rh.Middleware)
 }
 func applyRedirectMiddleware(mid Middleware, r *njia.Group) {
 	var rule RedirectRuleMiddleware

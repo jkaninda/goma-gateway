@@ -109,6 +109,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'middlewares/redirect',
             'middlewares/redirect-regex',
+            'middlewares/redirect-host',
             'middlewares/redirect-scheme',
           ],
         },
