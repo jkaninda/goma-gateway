@@ -83,6 +83,7 @@ var (
 		string(httpCache),
 		string(redirect),
 		string(redirectScheme),
+		string(redirectHost),
 		string(bodyLimit),
 		string(userAgentBlock),
 		string(accessLog),

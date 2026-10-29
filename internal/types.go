@@ -439,6 +439,11 @@ type RedirectRegexRuleMiddleware struct {
 	Replacement string `yaml:"replacement" json:"replacement"`
 	Permanent   bool   `yaml:"permanent,omitempty" json:"permanent"`
 }
+type RedirectHostRuleMiddleware struct {
+	WWW       string `yaml:"www,omitempty" json:"www"`
+	Host      string `yaml:"host,omitempty" json:"host"`
+	Permanent bool   `yaml:"permanent,omitempty" json:"permanent"`
+}
 type BodyLimitRuleMiddleware struct {
 	Limit string `yaml:"limit" json:"limit"`
 }

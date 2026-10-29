@@ -76,6 +76,7 @@ Request middlewares run in the order they are listed on the route.
 |-------------------|------------------------------------------------------|---------------------------------------|
 | `redirect`        | Redirects every request to a fixed URL               | [Redirect](redirect.md)               |
 | `redirectRegex`   | Redirects requests matching a regular expression     | [RedirectRegex](redirect-regex.md)    |
+| `redirectHost`    | Redirects to another host, e.g. adds or removes www  | [RedirectHost](redirect-host.md)      |
 | `redirectScheme`  | Redirects to another scheme, e.g. HTTP to HTTPS      | [RedirectScheme](redirect-scheme.md)  |
 
 ### Observability and Errors

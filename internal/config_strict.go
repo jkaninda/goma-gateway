@@ -54,6 +54,8 @@ func ruleStruct(t MiddlewareType) any {
 		return &StripQueryRuleMiddleware{}
 	case redirectRegex:
 		return &RedirectRegexRuleMiddleware{}
+	case redirectHost:
+		return &RedirectHostRuleMiddleware{}
 	case httpCache:
 		return &httpCacheRule{}
 	case bodyLimit:

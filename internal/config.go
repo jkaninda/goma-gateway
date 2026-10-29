@@ -497,6 +497,23 @@ func (r RedirectRuleMiddleware) validate() error {
 	return nil
 }
 
+func (r RedirectHostRuleMiddleware) validate() error {
+	switch {
+	case r.WWW != "" && r.Host != "":
+		return fmt.Errorf("redirectHost middleware: set either www or host, not both")
+	case r.Host != "":
+		if strings.ContainsAny(r.Host, "/?#@ ") {
+			return fmt.Errorf("redirectHost middleware: host %q must be a hostname, optionally with a port, not a URL", r.Host)
+		}
+	case r.WWW == middlewares.WWWAdd, r.WWW == middlewares.WWWRemove:
+	case r.WWW != "":
+		return fmt.Errorf("redirectHost middleware: invalid www %q (want add or remove)", r.WWW)
+	default:
+		return fmt.Errorf("redirectHost middleware: set www (add or remove) or host")
+	}
+	return nil
+}
+
 func (r RedirectRegexRuleMiddleware) validate() error {
 	if r.Pattern == "" {
 		return fmt.Errorf("error parsing yaml: empty Pattern in redirectRegex middlewares")

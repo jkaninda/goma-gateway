@@ -67,6 +67,7 @@ const (
 	httpCache           MiddlewareType = "httpCache"
 	redirectScheme      MiddlewareType = "redirectScheme"
 	redirectRegex       MiddlewareType = "redirectRegex"
+	redirectHost        MiddlewareType = "redirectHost"
 	redirect            MiddlewareType = "redirect"
 	bodyLimit           MiddlewareType = "bodyLimit"
 	userAgentBlock      MiddlewareType = "userAgentBlock"
