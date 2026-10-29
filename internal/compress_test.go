@@ -313,7 +313,7 @@ func TestGatewayStreamsFlushedChunks(t *testing.T) {
 			if err != nil {
 				t.Fatalf("no response while the backend is mid-stream: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			got := make(chan string, 1)
 			go func() {
 				buf := make([]byte, 64)

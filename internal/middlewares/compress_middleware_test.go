@@ -289,7 +289,7 @@ func TestCompressManySmallWrites(t *testing.T) {
 	rec := compressServe(c, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		for i := 0; i < 400; i++ {
-			fmt.Fprintf(w, "line %04d\n", i)
+			_, _ = fmt.Fprintf(w, "line %04d\n", i)
 		}
 	}, compressGet("zstd"))
 	if rec.Header().Get("Content-Encoding") != EncodingZstd {
@@ -401,7 +401,7 @@ func TestCompressStreamingFlush(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			if resp.Header.Get("Content-Encoding") != enc {
 				t.Fatalf("Content-Encoding = %q", resp.Header.Get("Content-Encoding"))
 			}
