@@ -411,7 +411,11 @@ func (r *router) configureHandlers(route *Route, group *njia.Group, proxyRoute *
 		opts = append(opts, njia.WithHost(hosts...))
 	}
 
-	return registerPrefix(group, njia.MethodAny, route.Name, proxyRoute.ProxyHandler(), opts...)
+	var handler http.Handler = proxyRoute.ProxyHandler()
+	if route.compression != nil {
+		handler = route.compression.Middleware(handler)
+	}
+	return registerPrefix(group, njia.MethodAny, route.Name, handler, opts...)
 }
 
 // nonEmpty drops blank entries, which a configuration file can produce for a

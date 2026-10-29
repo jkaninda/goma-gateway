@@ -72,6 +72,8 @@ func ruleStruct(t MiddlewareType) any {
 		return &RequestHeader{}
 	case errorInterceptor:
 		return &middlewares.RouteErrorInterceptor{}
+	case compress:
+		return &CompressRuleMiddleware{}
 	case BasicAuth, BasicAuthMiddleware:
 		return &BasicRuleMiddleware{}
 	case LDAPAuthMiddleware, LDAPAuth:

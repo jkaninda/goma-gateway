@@ -18,7 +18,9 @@
 package internal
 
 import (
+	"bufio"
 	"bytes"
+	"net"
 	"net/http"
 	"sort"
 	"strconv"
@@ -44,6 +46,7 @@ type responseRecorder struct {
 	skipBuffer  bool
 	request     *http.Request
 	policies    []ResponseHeader
+	errors      []middlewares.RouteError // interceptor conditions, consulted on Flush
 }
 
 // newResponseRecorder creates a new responseRecorder
@@ -119,6 +122,40 @@ func (rec *responseRecorder) flushHeaders() {
 	}
 }
 
+func (rec *responseRecorder) Flush() {
+	if !rec.wroteHeader {
+		rec.WriteHeader(rec.statusCode)
+	}
+	if rec.intercept && !rec.skipBuffer {
+		if ok, _, _ := middlewares.ShouldIntercept(rec.statusCode, rec.errors); ok {
+			return
+		}
+		rec.skipBuffer = true
+		rec.flushBufferedResponse()
+	}
+	_ = http.NewResponseController(rec.ResponseWriter).Flush()
+}
+
+// FlushError is the error-returning form used by http.ResponseController.
+func (rec *responseRecorder) FlushError() error {
+	rec.Flush()
+	return nil
+}
+
+func (rec *responseRecorder) Unwrap() http.ResponseWriter {
+	return rec.ResponseWriter
+}
+
+func (rec *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(rec.ResponseWriter).Hijack()
+}
+
+func dropRepresentationHeaders(h http.Header) {
+	for _, k := range []string{"Content-Encoding", "Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified", "Content-MD5", "Digest", "Repr-Digest", "Content-Disposition"} {
+		h.Del(k)
+	}
+}
+
 func (rec *responseRecorder) flushBufferedResponse() {
 	rec.flushHeaders()
 	rec.ResponseWriter.Header().Del("Content-Length")
@@ -161,6 +198,7 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 
 		intercept := p.Enabled && len(p.Errors) > 0
 		rec := newResponseRecorder(w, r, intercept, p.headers)
+		rec.errors = p.Errors
 		rec.Header().Set(RequestIDHeader, requestID)
 		method := r.Method
 
@@ -288,6 +326,11 @@ func (p *ProxyMiddleware) handleResponseInterception(rec *responseRecorder, w ht
 		}
 		// Flush headers before responding with error
 		rec.flushHeaders()
+		// The upstream body is discarded, so the headers that describe it must
+		// go too: a gzip Content-Encoding over the gateway's plain error page is
+		// a corrupt response, and a validator or range would point at a body the
+		// client never receives.
+		dropRepresentationHeaders(w.Header())
 		if serveFile {
 			middlewares.RespondWithErrorHTML(w, r, rec.statusCode, messageOrFile, p.Origins, contentType, messageOrFile)
 			return true

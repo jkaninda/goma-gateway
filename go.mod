@@ -3,6 +3,7 @@ module github.com/jkaninda/goma-gateway
 go 1.27.1
 
 require (
+	github.com/andybalholm/brotli v1.2.6
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-acme/lego/v4 v4.35.2
 	github.com/go-git/go-git/v5 v5.19.3
@@ -15,6 +16,7 @@ require (
 	github.com/jkaninda/go-utils v0.1.4
 	github.com/jkaninda/logger v0.0.5
 	github.com/jkaninda/njia v0.0.3
+	github.com/klauspost/compress v1.20.1
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3

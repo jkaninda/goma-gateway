@@ -151,6 +151,8 @@ func (r *Route) applyMiddlewareByType(mid Middleware, router *njia.Group) {
 		applyRequestHeadersMiddleware(mid, *r, router)
 	case errorInterceptor:
 		applyErrorInterceptorMiddleware(mid, r)
+	case compress:
+		err = applyCompressMiddleware(mid, r)
 	}
 	if err == nil {
 		err = attachAuthMiddlewares(*r, mid, router)

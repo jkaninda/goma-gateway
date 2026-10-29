@@ -356,7 +356,7 @@ These options apply to the internal HTTP client used by the gateway for outbound
 |-------------------------|--------|---------|------------------------------------------------------------------------------------------|
 | `insecureSkipVerify`    | `bool` | `false` | Disables backend TLS certificate verification for **every** route; when `true`, a route cannot turn verification back on. |
 | `forceAttemptHTTP2`     | `bool` | `true`  | Enables HTTP/2 support when available from the upstream server.                          |
-| `disableCompression`    | `bool` | `false` | Disables automatic gzip compression for proxied requests.                                |
+| `disableCompression`    | `bool` | `false` | Stops the upstream transport from asking backends for gzip when the client sent no `Accept-Encoding` (and transparently decoding it). It does not compress client responses: use the [`compress`](../middlewares/compression.md) middleware for that. |
 | `maxIdleConns`          | `int`  | `512`   | Maximum number of idle (keep-alive) connections allowed across all hosts.                |
 | `maxIdleConnsPerHost`   | `int`  | `256`   | Maximum number of idle connections maintained per backend host.                          |
 | `maxConnsPerHost`       | `int`  | `256`   | Maximum number of concurrent connections per host.                                       |

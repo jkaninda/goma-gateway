@@ -101,6 +101,7 @@ const sidebars: SidebarsConfig = {
             'middlewares/request-headers',
             'middlewares/response-headers',
             'middlewares/http-caching',
+            'middlewares/compression',
           ],
         },
         {

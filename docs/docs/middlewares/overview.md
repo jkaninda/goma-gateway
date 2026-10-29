@@ -69,6 +69,7 @@ Request middlewares run in the order they are listed on the route.
 | `requestHeaders`   | Sets or removes request headers                           | [Request Headers](request-headers.md)   |
 | `responseHeaders`  | Sets response headers and cookies, CORS, `Cache-Control`  | [Response Headers](response-headers.md) |
 | `httpCache`        | Caches responses in memory or in Redis                    | [HTTP Caching](http-caching.md)         |
+| `compress`         | Compresses responses with zstd, Brotli or gzip            | [Compression](compression.md)           |
 
 ### Redirects
 

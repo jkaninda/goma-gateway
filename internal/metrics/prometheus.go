@@ -27,11 +27,13 @@ import (
 // Prometheus label names, shared by every metric declared here so a label is
 // spelled one way and renaming one is a single edit.
 const (
-	labelName    = "name"
-	labelMethod  = "method"
-	labelStatus  = "status"
-	labelCountry = "country"
-	labelBackend = "backend"
+	labelName     = "name"
+	labelMethod   = "method"
+	labelStatus   = "status"
+	labelCountry  = "country"
+	labelBackend  = "backend"
+	labelEncoding = "encoding"
+	labelReason   = "reason"
 )
 
 // PrometheusMetrics defines all Prometheus metrics tracked by the gateway.
@@ -81,6 +83,15 @@ type PrometheusMetrics struct {
 	// GatewayBackendEjections counts backends taken out of rotation by the
 	// passive health check, labeled by backend endpoint.
 	GatewayBackendEjections *prometheus.CounterVec
+
+	// Response body bytes before and after gateway compression, by route and
+	// coding. bytes_out / bytes_in is the compression ratio.
+	GatewayCompressionBytesIn  *prometheus.CounterVec
+	GatewayCompressionBytesOut *prometheus.CounterVec
+
+	// Responses the compress middleware sent uncompressed, by route and reason
+	// (client_identity, content_type, too_small, already_encoded, ...).
+	GatewayCompressionSkipped *prometheus.CounterVec
 }
 
 // NewPrometheusMetrics initializes and registers all Prometheus metrics for the
@@ -174,6 +185,27 @@ func NewPrometheusMetrics(startTime time.Time, stop <-chan struct{}) *Prometheus
 				Help: "Total times a backend was taken out of rotation by the passive health check, labeled by backend endpoint",
 			},
 			[]string{labelBackend},
+		),
+		GatewayCompressionBytesIn: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_compression_bytes_in_total",
+				Help: "Response body bytes handed to the compressor, labeled by route name and content coding",
+			},
+			[]string{labelName, labelEncoding},
+		),
+		GatewayCompressionBytesOut: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_compression_bytes_out_total",
+				Help: "Compressed response body bytes sent, labeled by route name and content coding",
+			},
+			[]string{labelName, labelEncoding},
+		),
+		GatewayCompressionSkipped: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gateway_compression_skipped_total",
+				Help: "Responses sent uncompressed by the compress middleware, labeled by route name and reason",
+			},
+			[]string{labelName, labelReason},
 		),
 	}
 

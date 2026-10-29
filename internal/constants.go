@@ -77,6 +77,7 @@ const (
 	errorInterceptor    MiddlewareType = "errorInterceptor"
 	geoBlock            MiddlewareType = "geoBlock"
 	stripQuery          MiddlewareType = "stripQuery"
+	compress            MiddlewareType = "compress"
 )
 
 // ************** CORS ***************
