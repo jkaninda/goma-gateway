@@ -16,7 +16,7 @@ require (
 	github.com/jkaninda/go-utils v0.1.4
 	github.com/jkaninda/logger v0.0.5
 	github.com/jkaninda/njia v0.0.3
-	github.com/klauspost/compress v1.20.1
+	github.com/klauspost/compress v1.20.3
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
