@@ -20,6 +20,7 @@ package internal
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"net"
 	"net/http"
 	"sort"
@@ -213,6 +214,11 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			}
 		}
 
+		// The proxy picks the backend below this handler; a holder in the context
+		// is the only way its choice can come back up to the event and the log.
+		selected := &selectedBackend{}
+		r = r.WithContext(context.WithValue(r.Context(), CtxSelectedBackend, selected))
+
 		upstreamStart := time.Now()
 		next.ServeHTTP(rec, r)
 		upstream := time.Since(upstreamStart) // backend round-trip (excludes gateway pre/post work)
@@ -271,6 +277,7 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 				Country:     country,
 				UA:          r.UserAgent(),
 				RefererHost: refererHost(r.Referer()),
+				Backend:     selected.endpoint,
 			})
 		}
 
@@ -293,8 +300,8 @@ func (p *ProxyMiddleware) Wrap(next http.Handler) http.Handler {
 			p.appendCustomLogFields(&logFields, r)
 		}
 
-		if val := r.Context().Value(CtxSelectedBackend); val != nil {
-			logFields = append(logFields, "backend", val)
+		if selected.endpoint != "" {
+			logFields = append(logFields, "backend", selected.endpoint)
 		}
 
 		if debugMode {

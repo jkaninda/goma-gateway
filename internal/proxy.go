@@ -60,6 +60,9 @@ func (pr *ProxyRoute) ProxyHandler() http.HandlerFunc {
 		if err != nil {
 			return
 		}
+		if sel, ok := r.Context().Value(CtxSelectedBackend).(*selectedBackend); ok {
+			sel.endpoint = endpoint
+		}
 
 		// Rewrite the request path if necessary
 		pr.rewritePath(r)
@@ -236,8 +239,6 @@ func (pr *ProxyRoute) createRoundRobinProxy(r *http.Request, contentType string,
 		r.URL.Scheme = backendURL.Scheme
 		r.Host = backendURL.Host
 	}
-	// Save backend in context
-	// r.WithContext(context.WithValue(r.Context(), CtxSelectedBackend, backendURL.Hostname()))
 	logger.Debug("Backend Selected",
 		"route", pr.name,
 		"type", "round-robin",

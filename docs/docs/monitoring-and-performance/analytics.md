@@ -137,6 +137,7 @@ Each stream entry has a single field `e` whose value is the JSON below.
 | `country` | string | ISO country code from GeoIP (empty when no database). |
 | `ua` | string | Raw `User-Agent` (parsed into browser/OS/device downstream). |
 | `referer_host` | string | Host of the `Referer`, if any. |
+| `backend` | string | Endpoint the request was sent to when the route has several backends (weighted, round-robin or canary), so a canary's traffic and errors can be told from the stable release's. Omitted for a single backend. |
 
 ### GeoIP (country enrichment)
 

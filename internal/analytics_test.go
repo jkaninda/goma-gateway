@@ -69,4 +69,11 @@ func TestAnalyticsEventJSONContract(t *testing.T) {
 	if strings.Contains(strings.ToLower(s), `"ip"`) {
 		t.Errorf("event JSON must not carry an IP field:\n%s", s)
 	}
+	if strings.Contains(s, `"backend"`) {
+		t.Errorf("a single-backend event must omit backend:\n%s", s)
+	}
+	e.Backend = "http://app-canary:8080"
+	if b, _ = json.Marshal(e); !strings.Contains(string(b), `"backend":"http://app-canary:8080"`) {
+		t.Errorf("event JSON missing backend:\n%s", b)
+	}
 }
