@@ -18,14 +18,17 @@
 package internal
 
 import (
-	"github.com/jkaninda/goma-gateway/internal/middlewares"
 	"net/http"
+	"strings"
+
+	"github.com/jkaninda/goma-gateway/internal/middlewares"
 )
 
 type Maintenance struct {
 	Enabled    bool   `yaml:"enabled" json:"enabled"`
 	StatusCode int    `yaml:"statusCode,omitempty" json:"statusCode" default:"503"` // default HTTP 503
 	Message    string `yaml:"message,omitempty" json:"message" default:"Service temporarily unavailable"`
+	HTML       string `yaml:"html,omitempty" json:"html,omitempty"`
 }
 
 func (m *Maintenance) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -49,9 +52,17 @@ func (m *Maintenance) MaintenanceMode(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if m.Enabled {
 			logger.Warn("Route in maintenance mode", "status", m.StatusCode, "client_ip", middlewares.RealIP(r), "method", r.Method, "host", r.Host, "url", r.URL.String())
+			if m.HTML != "" && acceptsHTML(r) {
+				middlewares.RespondWithErrorHTML(w, r, m.StatusCode, m.HTML, nil, "text/html", "")
+				return
+			}
 			middlewares.RespondWithError(w, r, m.StatusCode, m.Message, nil, getContentType(r))
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func acceptsHTML(r *http.Request) bool {
+	return strings.Contains(strings.ToLower(r.Header.Get("Accept")), "text/html")
 }
