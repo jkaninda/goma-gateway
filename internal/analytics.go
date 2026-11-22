@@ -52,6 +52,9 @@ type AnalyticsEvent struct {
 	Country      string `json:"country,omitempty"` // optional GeoIP; "" when no DB wired
 	UA           string `json:"ua,omitempty"`      // raw UA; Miabi parses family/os/device/bot
 	RefererHost  string `json:"referer_host,omitempty"`
+	// Backend is the endpoint a multi-backend route sent the request to, so a canary's
+	// share and errors can be told from the stable release's. Empty for a single backend.
+	Backend string `json:"backend,omitempty"`
 }
 
 // analyticsEmitter is a non-blocking Redis-Stream writer. It never blocks or

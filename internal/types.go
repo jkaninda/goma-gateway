@@ -449,6 +449,11 @@ type BodyLimitRuleMiddleware struct {
 }
 type contextKey string
 
+// selectedBackend is written by the proxy and read by ProxyMiddleware after the request returns.
+type selectedBackend struct {
+	endpoint string
+}
+
 type LogEnrichRule struct {
 	Headers []string `yaml:"headers,omitempty" json:"headers"`
 	Query   []string `yaml:"query,omitempty" json:"query"`
