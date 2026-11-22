@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Setup Go
-        uses: actions/setup-go@v7.0.0
+        uses: actions/setup-go@v7.1.0
         with:
           # One source of truth for the Go version across every workflow.
           go-version-file: go.mod
