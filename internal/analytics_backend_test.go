@@ -23,13 +23,11 @@ import (
 	"testing"
 )
 
-func captureEvents(t *testing.T) chan *AnalyticsEvent {
+func captureEvents(t *testing.T) {
 	t.Helper()
 	prev := analytics
-	ch := make(chan *AnalyticsEvent, 8)
-	analytics = &analyticsEmitter{ch: ch, sample: 1}
+	analytics = &analyticsEmitter{ch: make(chan *AnalyticsEvent, 8), sample: 1}
 	t.Cleanup(func() { analytics = prev })
-	return ch
 }
 
 func okServer(t *testing.T) *httptest.Server {
