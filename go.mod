@@ -11,7 +11,7 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
-	github.com/jedib0t/go-pretty/v6 v6.8.3
+	github.com/jedib0t/go-pretty/v6 v6.9.2
 	github.com/jkaninda/encryptor v0.3.0
 	github.com/jkaninda/go-utils v0.1.4
 	github.com/jkaninda/logger v0.0.5
@@ -61,6 +61,7 @@ require (
 	github.com/pjbgf/sha1cd v0.7.0 // indirect
 	github.com/prometheus/common v0.72.0 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/skeema/knownhosts v1.3.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
