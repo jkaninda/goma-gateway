@@ -111,6 +111,32 @@ More than just a reverse proxy: Goma Gateway secures, routes, and scales your tr
 See [Use Cases](https://goma.jkaninda.dev/use-cases) for a configuration example of each.
 
 ---
+## Performance
+
+Raw throughput is rarely what decides a gateway choice, but here are the numbers.
+Two reproducible benchmarks compare Goma Gateway 1.2.1 with Traefik 3.7, each with
+its method, raw data and scripts so you can rerun them on your own hardware.
+
+**[Goma Gateway vs Traefik](https://github.com/jkaninda/goma-gateway-vs-traefik)**: proxying only.
+
+* Traefik has higher throughput at 100 concurrent connections; Goma at 500.
+* Latency is about the same below saturation.
+* Goma uses 3–4× less memory.
+
+**[Goma Gateway benchmark](https://github.com/jkaninda/goma-gateway-benchmark)**: adds nginx and HAProxy,
+and measures behaviour when routes change and backends fail. Both gateways run with default settings.
+
+| Scenario                                   | Goma                  | Traefik                                  |
+|--------------------------------------------|-----------------------|------------------------------------------|
+| One of four backends down, 22 s at a time  | 0.05% requests failed | 17% failed, for the whole outage         |
+| New route answering                        | ~0.5 s                | ~1.9 s                                   |
+| CPU after 1,000 route changes have stopped | ~0                    | ~1.4 cores, until the routes are deleted |
+| Memory at rest, one route                  | ~22 MB                | ~93 MB                                   |
+
+On raw proxying the two Go gateways are level, and both are 4–5× behind nginx and
+HAProxy per CPU core. Where Goma pulls ahead is under route churn and backend failure.
+
+---
 ## Quickstart Guide
 
 Get started with **Goma Gateway** in just a few steps. This guide covers generating a configuration file, customizing it, validating your setup, and running the gateway with Docker.
