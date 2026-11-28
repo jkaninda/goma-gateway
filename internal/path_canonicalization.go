@@ -35,13 +35,14 @@ import (
 //
 // The normalised value is written back to both URL.Path and URL.RawPath so
 // that matching, rewriting, cache keys and forwarding all use one string.
-func canonicalizePath(next http.Handler) http.Handler {
+//
+// With allowPathParameters (the default), path parameters on empty, "." and
+// ".." segments are resolved away as a Servlet container would, and ordinary
+// parameters are forwarded untouched. Without it, any ";" is refused.
+func canonicalizePath(next http.Handler, allowPathParameters bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		escaped := r.URL.EscapedPath()
 
-		// Encoded separators are ambiguous by construction: the gateway would
-		// match them as opaque bytes and the upstream would decode them into
-		// path structure. There is no safe interpretation, so refuse them.
 		if hasEncodedSeparator(escaped) {
 			logger.Warn("Rejected request with an encoded path separator",
 				"path", escaped, "host", r.Host)
@@ -49,19 +50,48 @@ func canonicalizePath(next http.Handler) http.Handler {
 			return
 		}
 
-		cleaned := cleanURLPath(r.URL.Path)
+		urlPath := r.URL.Path
+		if allowPathParameters {
+			urlPath = resolveParameterDotSegments(urlPath)
+		} else if hasPathParameter(urlPath) {
+			logger.Warn("Rejected request with a path parameter",
+				"path", escaped, "host", r.Host)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		cleaned := cleanURLPath(urlPath)
 		if cleaned == r.URL.Path {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Rewriting Path alone is not enough: RawPath keeps the original
-		// escaping and is what EscapedPath — and therefore ReverseProxy —
-		// forwards. Clearing it makes the cleaned Path authoritative.
 		r.URL.Path = cleaned
 		r.URL.RawPath = ""
 		next.ServeHTTP(w, r)
 	})
+}
+
+func hasPathParameter(p string) bool {
+	return strings.IndexByte(p, ';') >= 0
+}
+
+func resolveParameterDotSegments(p string) string {
+	if strings.IndexByte(p, ';') < 0 {
+		return p
+	}
+	segments := strings.Split(p, "/")
+	for i, segment := range segments {
+		j := strings.IndexByte(segment, ';')
+		if j < 0 {
+			continue
+		}
+		switch segment[:j] {
+		case "", ".", "..":
+			segments[i] = segment[:j]
+		}
+	}
+	return strings.Join(segments, "/")
 }
 
 // hasEncodedSeparator reports whether an escaped path smuggles a separator or a

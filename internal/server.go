@@ -111,19 +111,14 @@ func (g *Goma) Start() error {
 
 func (g *Goma) createServer(addr string, handler http.Handler, tlsConfig *tls.Config) *http.Server {
 	return &http.Server{
-		Addr:         addr,
-		WriteTimeout: time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_WRITE", g.gateway.Timeouts.Write)),
-		ReadTimeout:  time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_READ", g.gateway.Timeouts.Read)),
-		IdleTimeout:  time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_IDLE", g.gateway.Timeouts.Idle)),
-		// A separate, always-set header timeout: without it a client can hold a
-		// connection open indefinitely by dribbling request headers, and
-		// ReadTimeout alone is routinely configured away.
+		Addr:              addr,
+		WriteTimeout:      time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_WRITE", g.gateway.Timeouts.Write)),
+		ReadTimeout:       time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_READ", g.gateway.Timeouts.Read)),
+		IdleTimeout:       time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_IDLE", g.gateway.Timeouts.Idle)),
 		ReadHeaderTimeout: time.Second * time.Duration(goutils.EnvInt("GOMA_TIMEOUT_READ_HEADER", defaultReadHeaderTimeout)),
 		MaxHeaderBytes:    goutils.EnvInt("GOMA_MAX_HEADER_BYTES", defaultMaxHeaderBytes),
-		// Normalise the path once, before routing: every matcher downstream
-		// then sees the same string the upstream will resolve.
-		Handler:   canonicalizePath(handler),
-		TLSConfig: tlsConfig,
+		Handler:           canonicalizePath(handler, g.gateway.AllowPathParameters),
+		TLSConfig:         tlsConfig,
 		BaseContext: func(_ net.Listener) context.Context {
 			return g.ctx
 		},
