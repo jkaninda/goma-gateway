@@ -50,6 +50,9 @@ type Gateway struct {
 	Networking Networking `yaml:"networking,omitempty"`
 	// When enabled, the router will match the path with or without a trailing slash.
 	StrictSlash bool `yaml:"strictSlash,omitempty"`
+	// AllowPathParameters lets request paths carry Servlet-style path
+	// parameters (";jsessionid=...", matrix parameters).
+	AllowPathParameters bool `yaml:"allowPathParameters,omitempty"`
 	// Debug enables or disables debug mode for the gateway.
 	Debug bool `yaml:"debug,omitempty"`
 	// ExtraConfig provides additional configuration, including routes and middleware, from a specified directory.
@@ -395,6 +398,7 @@ func (g *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	g.Monitoring.EnableLiveness = true
 	g.Monitoring.EnableReadiness = true
 	g.StrictSlash = true
+	g.AllowPathParameters = true
 
 	type tmp Gateway
 	return unmarshal((*tmp)(g))

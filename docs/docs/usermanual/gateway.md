@@ -31,6 +31,7 @@ You can configure the gateway using the following options:
 * **`analytics`**: Per-request event stream published to Redis.
 * **`geoip`**: Path to a MaxMind-format database used for country resolution.
 * **`strictSlash`** (`boolean`, default: `true`): When enabled, the router matches a path with or without a trailing slash.
+* **`allowPathParameters`** (`boolean`, default: `true`): Allows Servlet-style path parameters (`;jsessionid=...`, matrix parameters) in request paths. Servlet containers such as Tomcat and Jetty strip these parameters before resolving dot segments, so `/x/..;/admin` means `/admin` to them. To keep middlewares scoped to `/admin` in force, the gateway resolves a parameter on an empty, `.` or `..` segment the same way before routing, and forwards the resolved path: `/foo/..;bar/baz` becomes `/baz`. Parameters on ordinary segments (`/page;jsessionid=1`) are forwarded unchanged. Note that `^/admin(/.*)?$` does not match `/admin;/secret`, which a Servlet upstream serves as `/admin/secret`. Prefer start-anchored patterns such as `/admin`, or set this to `false` to reject any path containing `;` (including `%3B`) with `400 Bad Request`. Applied at startup.
 * **`debug`** (`boolean`, default: `false`): Enables debug mode. Also enabled when `log.level` is `debug` or `trace`.
 * **`routes`**: The list of routes. See [Route](route.md).
 

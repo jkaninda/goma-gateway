@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/jkaninda/goma-gateway/internal/middlewares"
+	"gopkg.in/yaml.v3"
 )
 
 // The audit's proof of concept: an auth rule guarding a multi-segment path was
@@ -58,8 +59,6 @@ func TestCanonicalizePathClosesTheAuthBypass(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			// The guard the operator configured, matching the way every auth
-			// middleware does.
 			guard := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if matched, _ := middlewares.IsPathMatching(r.URL.Path, "", []string{guarded}); matched {
 					w.WriteHeader(http.StatusUnauthorized)
@@ -69,7 +68,7 @@ func TestCanonicalizePathClosesTheAuthBypass(t *testing.T) {
 			})
 
 			rec := httptest.NewRecorder()
-			canonicalizePath(guard).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.request, nil))
+			canonicalizePath(guard, false).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.request, nil))
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d (backend saw %q)", rec.Code, tt.wantStatus, seenPath)
@@ -116,5 +115,136 @@ func TestHasEncodedSeparator(t *testing.T) {
 		if got := hasEncodedSeparator(in); got != want {
 			t.Errorf("hasEncodedSeparator(%q) = %v, want %v", in, got, want)
 		}
+	}
+}
+
+func TestCanonicalizePathRefusesPathParameters(t *testing.T) {
+	guards := [][]string{{"/admin"}, {"/admin/*"}, {"^/admin(/.*)?$"}}
+
+	tests := []struct {
+		request    string
+		wantStatus int
+	}{
+		{"/admin/secret.txt", http.StatusUnauthorized},
+		{"/public/note.txt", http.StatusOK},
+		{"/x/..;/admin/secret.txt", http.StatusBadRequest},
+		{"/x/..;a=b/admin/secret.txt", http.StatusBadRequest},
+		{"/x/..;jsessionid=1/admin/secret.txt", http.StatusBadRequest},
+		{"/public/..;/admin/secret.txt", http.StatusBadRequest},
+		{"/x/.;/../admin/secret.txt", http.StatusBadRequest},
+		{"/;/admin/secret.txt", http.StatusBadRequest},
+		{"/admin;/secret.txt", http.StatusBadRequest},
+		{"/admin;x=1/secret.txt", http.StatusBadRequest},
+		{"/x/..%3b/admin/secret.txt", http.StatusBadRequest},
+		{"/x/..%3B/admin/secret.txt", http.StatusBadRequest},
+		{"/app/page;jsessionid=ABC", http.StatusBadRequest},
+	}
+
+	for _, guard := range guards {
+		for _, tt := range tests {
+			t.Run(guard[0]+" "+tt.request, func(t *testing.T) {
+				rec := serveGuarded(t, guard, tt.request, false)
+				if rec.Code != tt.wantStatus {
+					t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+				}
+			})
+		}
+	}
+}
+
+func TestCanonicalizePathResolvesParameterDotSegments(t *testing.T) {
+	guards := [][]string{{"/admin"}, {"/admin/*"}, {"^/admin(/.*)?$"}}
+
+	tests := []struct {
+		request      string
+		wantStatus   int
+		wantSeenPath string
+	}{
+		{"/app/page;jsessionid=ABC", http.StatusOK, "/app/page;jsessionid=ABC"},
+		{"/app;v=1/page", http.StatusOK, "/app;v=1/page"},
+		{"/admin/secret.txt", http.StatusUnauthorized, ""},
+		{"/x/..;/admin/secret.txt", http.StatusUnauthorized, ""},
+		{"/x/..;a=b/admin/secret.txt", http.StatusUnauthorized, ""},
+		{"/x/..;jsessionid=1/admin/secret.txt", http.StatusUnauthorized, ""},
+		{"/public/..;/admin/secret.txt", http.StatusUnauthorized, ""},
+		{"/x/.;/../admin/secret.txt", http.StatusUnauthorized, ""},
+		{"/;/admin/secret.txt", http.StatusUnauthorized, ""},
+		{"/..;/admin/secret.txt", http.StatusUnauthorized, ""},
+		{"/x/..%3b/admin/secret.txt", http.StatusUnauthorized, ""},
+		// Resolved, but not into the guarded path.
+		{"/x/y/..;/public/note.txt", http.StatusOK, "/x/public/note.txt"},
+	}
+
+	for _, guard := range guards {
+		for _, tt := range tests {
+			t.Run(guard[0]+" "+tt.request, func(t *testing.T) {
+				var seenPath string
+				rec := serveGuardedSeeing(t, guard, tt.request, true, &seenPath)
+				if rec.Code != tt.wantStatus {
+					t.Fatalf("status = %d, want %d (backend saw %q)", rec.Code, tt.wantStatus, seenPath)
+				}
+				if tt.wantSeenPath != "" && seenPath != tt.wantSeenPath {
+					t.Errorf("backend saw %q, want %q", seenPath, tt.wantSeenPath)
+				}
+			})
+		}
+	}
+}
+
+func TestResolveParameterDotSegments(t *testing.T) {
+	cases := map[string]string{
+		"/api/v1/users":          "/api/v1/users",
+		"/app/page;jsessionid=1": "/app/page;jsessionid=1",
+		"/app;v=1/page":          "/app;v=1/page",
+		"/x/..;/admin":           "/x/../admin",
+		"/x/..;a=b/admin":        "/x/../admin",
+		"/x/.;/admin":            "/x/./admin",
+		"/;/admin":               "//admin",
+		"/x/...;/admin":          "/x/...;/admin",
+	}
+	for in, want := range cases {
+		if got := resolveParameterDotSegments(in); got != want {
+			t.Errorf("resolveParameterDotSegments(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func serveGuarded(t *testing.T, guard []string, request string, allowPathParameters bool) *httptest.ResponseRecorder {
+	var seen string
+	return serveGuardedSeeing(t, guard, request, allowPathParameters, &seen)
+}
+
+// serveGuardedSeeing runs request through canonicalizePath and a guard that
+// matches the way the auth and access middlewares do on a route rooted at "/".
+func serveGuardedSeeing(t *testing.T, guard []string, request string, allowPathParameters bool, seenPath *string) *httptest.ResponseRecorder {
+	t.Helper()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if matched, _ := middlewares.IsPathMatching(r.URL.Path, "/", guard); matched {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		*seenPath = r.URL.EscapedPath()
+		w.WriteHeader(http.StatusOK)
+	})
+	rec := httptest.NewRecorder()
+	canonicalizePath(handler, allowPathParameters).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, request, nil))
+	return rec
+}
+
+func TestAllowPathParametersDefaultsToTrue(t *testing.T) {
+	var g Gateway
+	if err := yaml.Unmarshal([]byte("routes: []\n"), &g); err != nil {
+		t.Fatal(err)
+	}
+	if !g.AllowPathParameters {
+		t.Error("allowPathParameters should default to true")
+	}
+
+	g = Gateway{}
+	if err := yaml.Unmarshal([]byte("allowPathParameters: false\n"), &g); err != nil {
+		t.Fatal(err)
+	}
+	if g.AllowPathParameters {
+		t.Error("allowPathParameters: false should be honoured")
 	}
 }
